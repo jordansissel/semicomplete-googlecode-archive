@@ -114,10 +114,10 @@ sub query {
    my ($q, $hide) = @_;
    real_out("$q");
    #stty("-echo") if ($hide);
-	ReadMode 0 unless ($hide);
+	ReadMode(0) unless ($hide);
    chomp($q = <STDIN>);
    #stty("echo") if ($hide);
-   ReadMode 3;
+   ReadMode(3);
    out() if ($hide);
    return $q;
 }
