@@ -6,6 +6,9 @@
  *
  * Revisions:
  *     $Log$
+ *     Revision 1.21  2004/01/19 23:20:06  tristan
+ *     changed grid generation
+ *
  *     Revision 1.20  2004/01/19 21:38:35  tristan
  *     fixed more constants
  *
@@ -74,213 +77,139 @@ public class BSGrid {
      *
      */
     public void generateGrid() {
-        int startRowValue = 0;
-        int startColValue = 0;
-        int endRowValue = 0;
-        int endColValue = 0;
-        boolean overlap = false; //true if there is a ship overlap
-        int p = 0;
-        int shipLength = 0; // the ship length;
-        int dir = 0; // direction from start to end of ship
-                     //
-                     //        1
-                     //    2   +   4
-                     //        3
-                     //
+        byte[] length = new byte[] { 2, 3, 3, 4, 5 };
 
         for( int i = 0; i < SHIP_COUNT; i++ ) {
+            // keep looping until the overlap is gone
+            BSShip ship = new BSShip();
 
-            //generate the random values for the ship's
-            //start position
-            startRowValue = (int)
-            ( Math.ceil( Math.random()*ROW_COUNT ) - 1.0 );
-            startColValue = (int)
-            ( Math.ceil( Math.random()*COL_COUNT ) - 1.0 );
+            do {
+                // generate start
+                ship.setStartX( ( byte ) ( Math.random() * ROW_COUNT ) );
+                ship.setStartY( ( byte ) ( Math.random() * COL_COUNT ) );
 
-            System.out.println( "Random Row Value: " + startRowValue );	
-            System.out.println( "Random Col Value: " + startColValue );
+                // generate direction
+                int xDir = ( ( Math.random() * 2 ) == 0 ) ? -1 : 1;
+                int yDir = ( ( Math.random() * 2 ) == 0 ) ? -1 : 1;
 
-            //gotta set the ship's length
-            switch( i ) {
-                case 0:
-                    shipLength = 2;
-                    break;
-                case 1:
-                    shipLength = 3;
-                    break;
-                case 2:
-                    shipLength = 3;
-                    break;
-                case 3:
-                    shipLength = 4;
-                    break;
-                case 4:
-                    shipLength = 5;
-                    break;
-            }
-
-
-            //check grid bounds, reverse ship if
-            //necessary
-            dir = (int) Math.ceil( Math.random()*4 );
-            if( dir == 1 && ( startColValue - shipLength  ) < 0  ) {
-                dir = 3;
-            } else if( dir == 2 && ( startRowValue - shipLength ) < 0 ) {
-                dir = 4;
-            } else if( dir == 3 &&
-                       ( startColValue + shipLength ) > COL_COUNT - 1 ) {
-                dir = 1;
-            } else if( dir == 4 &&
-                       ( startRowValue + shipLength ) > ROW_COUNT - 1 ) {
-                dir = 2;
-            }
-
-            //initially check for ship overlap
-            overlap = findOverlap( shipLength,
-                                   startRowValue,
-                                   startColValue,
-                                   dir );
-
-            //fill in ships and make sure they
-            //don't overlap or go off the grid
-            while( overlap ) {
-                //generate the new startValues
-                startRowValue = (int)
-                ( Math.ceil( Math.random()*ROW_COUNT ) - 1.0 );
-                startColValue = (int)
-                ( Math.ceil( Math.random()*COL_COUNT ) - 1.0 );
-
-                overlap = false;
-
-                //reverse the ship if necessary
-                if( dir == 1 && ( startColValue - shipLength ) < 0 ) {
-                    dir = 3;
-                } else if( dir == 2 && ( startRowValue - shipLength ) < 0 ) {
-                    dir = 4;
-                } else if( dir == 3 &&
-                           ( startColValue + shipLength ) > COL_COUNT - 1 ) {
-                    dir = 1;
-                } else if( dir == 4 &&
-                           ( startRowValue + shipLength ) > ROW_COUNT - 1 ) {
-                    dir = 2;
+                // check directions
+                int tempY =  ship.getStartY() + ( length[ i ] * yDir );
+                if ( tempY < 0 ) {
+                    yDir = 1;
+                } else if ( yDir > ROW_COUNT ) {
+                    yDir = -1;
                 }
 
-                //check for ship overlap again.
-                overlap = findOverlap( shipLength,
-                                       startRowValue,
-                                       startColValue,
-                                       dir );
-            }
+                int tempX = ship.getStartX() + ( length[ i ] * xDir );
+                if ( tempX < 0 ) {
+                    xDir = 1;
+                } else if ( tempX > COL_COUNT ) {
+                    xDir = -1;
+                }
 
-            //fill in the grid with the ship
-            switch( dir ) {
-                case 1:
-                for( p = 0; p < shipLength; p++ ) {
-                    grid[startRowValue+p][startColValue]=1;
-                }
-                endRowValue=startRowValue+shipLength;
-                endColValue = startColValue;
-                break;
-                case 2:
-                for( p = 0; p < shipLength; p++ ) {
-                    grid[startRowValue][startColValue-p]=1;
-                }
-                endRowValue = startRowValue;
-                endColValue=startColValue-shipLength;
-                break;
-                case 3:
-                for( p = 0; p < shipLength; p++ ) {
-                    grid[startRowValue-p][startColValue]=1;
-                }
-                endRowValue=startRowValue-shipLength;
-                endColValue = startColValue;
-                break;
-                case 4:
-                for( p = 0; p < shipLength; p++ ) {
-                    grid[startRowValue][startColValue+p]=1;
-                }
-                endRowValue = startRowValue;
-                endColValue=startColValue+shipLength;
-                break;
-            } //switch
+                // calculate endx and endy
+                ship.setEndX( ( byte ) (
+                              ship.getStartX() + ( length[ i ] * xDir ) ) );
+                ship.setEndY( ( byte )
+                              ( ship.getStartY() + ( length[ i ] * yDir ) ) );
+            } while ( findOverlap( ship ) );
 
-            //make the ship!
-            fleet[ i ] = new BSShip( (byte)startRowValue,
-                (byte)startColValue,
-                (byte)endRowValue,
-                (byte)endColValue );
+            // set the ship
+            fleet[ i ] = ship;
         }
-
-
-    } //generateGrid()
+    } // generateGrid()
 
     /**
      *
      * @param newGrid
      */
-    public void generateGrid( byte[][] newGrid ) {
+    public void setGrid( byte[][] newGrid ) {
         grid = newGrid;
-    } //generateGrid()
+    }
 
     /**
      *
-     *
+     * @param x1
+     * @param y1
+     * @param x2
+     * @param y2
+     * @param x3
+     * @param y3
+     * @return
      */
-    private boolean findOverlap( int shipLength,
-                                 int startRowValue,
-                                 int startColValue,
-                                 int dir ) {
-        boolean retVal = false;
-        int p = 0;
+    private boolean ccw( byte x1, byte y1,
+                         byte x2, byte y2,
+                         byte x3, byte y3 ) {
+        float dx1, dx2, dy1, dy2;
 
-        switch( dir ) {
-            case 1:
-                for( p = 0; p < shipLength; p++ ) {
-		System.out.println( "case 1" );
-                System.out.println( "IndexRow: " + startRowValue );
-		System.out.println( "IndexCol: " + startColValue );
-		System.out.println( "Offset: " + p );
-                    if(grid[startRowValue+p][startColValue] != 0) {
-                        retVal = true;
-                    }
-                }
-                break;
-            case 2:
-                for( p = 0; p < shipLength; p++ ) {
-		System.out.println( "case 2" );
-                System.out.println( "IndexRow: " + startRowValue );
-		System.out.println( "IndexCol: " + startColValue );
-		System.out.println( "Offset: " + p );
-                    if(grid[startRowValue][startColValue-p] != 0 ) {
-                        retVal = true;
-                    }
-                }
-                break;
-            case 3:
-                for( p = 0; p < shipLength; p++ ) {
-		System.out.println( "case 3" );
-                System.out.println( "IndexRow: " + startRowValue );
-		System.out.println( "IndexCol: " + startColValue );
-		System.out.println( "Offset: " + p );
-                    if(grid[startRowValue-p][startColValue] != 0 ) {
-                        retVal = true;
-                    }
-                }
-                break;
-            case 4:
-                for( p = 0; p < shipLength; p++ ) {
-		System.out.println( "case 4" );
-                System.out.println( "IndexRow: " + startRowValue );
-		System.out.println( "IndexCol: " + startColValue );
-		System.out.println( "Offset: " + p );
-                    if( grid[startRowValue][startColValue+p] != 0 ) {
-                        retVal = true;
-                    }
-                }
-                break;
-            default:
-                System.out.println("wrong!");
-        } //switch
+        dx1 = x2 - x1;
+        dy1 = y2 - y1;
+        dx2 = x3 - x2;
+        dy2 = y3 - y2;
+
+        return dy1 / dx1 < dy2 / dx2;
+    }
+
+    /**
+     *
+     * @param x1
+     * @param y1
+     * @param x2
+     * @param y2
+     * @param x3
+     * @param y3
+     * @param x4
+     * @param y4
+     * @return
+     */
+    private boolean opposite( byte x1, byte y1,
+                              byte x2, byte y2,
+                              byte x3, byte y3,
+                              byte x4, byte y4 ) {
+        return ccw( x1, y1, x2, y2, x3, y3 ) !=
+               ccw( x1, y1, x2, y2, x4, y4 );
+    }
+
+    /**
+     *
+     * @param x1
+     * @param y1
+     * @param x2
+     * @param y2
+     * @param x3
+     * @param y3
+     * @param x4
+     * @param y4
+     * @return
+     */
+    private boolean intersect( byte x1, byte y1,
+                               byte x2, byte y2,
+                               byte x3, byte y3,
+                               byte x4, byte y4 ) {
+        return opposite( x1, y1, x2, y2, x3, y3, x4, y4 ) &&
+               opposite( x3, y3, x4, y4, x1, y1, x2, y2 );
+    }
+
+    /**
+     *
+     * @param ship
+     * @return
+     */
+    private boolean findOverlap( BSShip ship ) {
+        boolean retVal = false;
+
+        for ( int i = 0; !retVal &&
+                         i < SHIP_COUNT &&
+                         fleet[ i ] != null; i++ ) {
+            retVal = intersect( fleet[ i ].getStartX(),
+                                fleet[ i ].getStartY(),
+                                fleet[ i ].getEndX(),
+                                fleet[ i ].getEndY(),
+                                ship.getStartX(),
+                                ship.getStartY(),
+                                ship.getEndX(),
+                                ship.getEndY() );
+        }
 
         return retVal;
     }
@@ -290,8 +219,8 @@ public class BSGrid {
      *
      * @return grid
      */
-    public byte[][] getGridArray() {
-	return grid;
+    public byte[][] getGrid() {
+        return grid;
     } //getGridArray()
 
     /**
@@ -306,10 +235,7 @@ public class BSGrid {
      * @return  returns the particular ship from the grid
      */
     public BSShip getShip( int i ) {
-	
-	//return the ship
-	return fleet[ i - 1 ];
-
+        return fleet[ i - 1 ];
     } //getShip()
 
 
@@ -321,16 +247,13 @@ public class BSGrid {
      */
     public String toString() {
         StringBuffer gridString = new StringBuffer();
-        String[] letters = { "A", "B", "C", "D", "E",
-        "F", "G", "H", "I", "J" };
         int j = 0;
 
         //add top area
-        gridString.append(
-        " 0123456789\n" );
+        gridString.append( " 0123456789\n" );
 
         for( int i = 0; i < ROW_COUNT; i++ ) {
-            gridString.append( letters[ i ] );
+            gridString.append( ( char ) ( 'A' + i ) );
             for( j = 0; j < COL_COUNT; j++ ) {
                 if( grid[ i ][ j ] == 0 ) { //empty
                     gridString.append( "." );
@@ -347,7 +270,6 @@ public class BSGrid {
 
         return gridString.toString();
     } //toString()
-
 } // BSGrid
 
 
