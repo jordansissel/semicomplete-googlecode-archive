@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.10  2004/01/20 03:48:07  tristan
+ *   added print grid functions to display status.
+ *
  *   Revision 1.9  2004/01/20 03:43:09  tristan
  *   added vars for last move.
  *
@@ -66,6 +69,7 @@ public class TextClient extends BSClient {
             // start game loop
             while ( !isGameOver() && getConnection().isConnected() ) {
                 if ( !isClientTurn() ) {
+                    System.out.println( "Waiting for your opponent to fire." );
                     waitForTurn();
                     printOpponentMove();
                 } else {
@@ -89,6 +93,10 @@ public class TextClient extends BSClient {
         char row = 'a';
         int col = 1;
         String errorMsg = "Input must be [A-J] [1-10]";
+
+        // print opponent's grid
+        System.out.println( "Opponent's Grid:" );
+        System.out.println( getGame().getTargetGrid() );
 
         // get the row and column
         do {
@@ -153,6 +161,8 @@ public class TextClient extends BSClient {
     public void printOpponentMove() {
         String row = new String( new char[] { getLastRow() } ).toUpperCase();
 
+        System.out.println( "Your Grid:" );
+        System.out.println( getGame().getOwnGrid() );
         System.out.println( "Your opponent fired at " + row +
                             "-" + getLastCol() );
 
@@ -161,5 +171,7 @@ public class TextClient extends BSClient {
         } else {
             System.out.println( "Your opponent missed." );
         }
+
+        // show the grid
     }
 }   // TextClient
