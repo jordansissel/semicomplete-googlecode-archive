@@ -3,35 +3,30 @@
 use strict;
 use IO::Select;
 use IO::Stty;
+#use Term::ReadKey;
 use Net::OSCAR;
 
-stty("-echo");
-
-#use Net::AIM; # This module sucks ass.
-#use Net::AIMTOC
-#use Term::ReadLine;
+#ReadMode(3);
 
 my $aliases = undef;   # Aliases
 my $commands = undef;  # Commands
 my $state = undef;     # State information
 
-my @commands = sort qw( );
 my $aim = Net::OSCAR->new();
-#my $term = Term::ReadLine->new("tic");
-#$aim->timeout(1);
+$aim->timeout(1);
 
 setup_readline();
 setup_callbacks();
 setup_commands();
 setup_aim();
 
-#login();
+login();
 
 select STDOUT; $| = 1;
 
 while (1) {
 	#out("Signon: " . $state->{"signon"} . " / $aim");
-	#$aim->do_one_loop();# if (($aim->is_on()) || ($state->{"signon"}));
+	$aim->do_one_loop(); # if (($aim->is_on()) || ($state->{"signon"}));
 	check_readline();
 }
 
@@ -40,7 +35,6 @@ sub login {
 	$user = query("login: ");
 	$pass = query("password: ", 1);
 	$state->{"signon"} = 1;
-	out("Signon: " . $state->{"signon"});
 	$aim->signon($user,$pass);
 	#$aim->newconn(Screenname => $user, Password => $pass);
 }
@@ -111,13 +105,6 @@ sub setup_callbacks {
 sub setup_readline {
 	$state->{"input"} = IO::Select->new();
 	$state->{"input"}->add(\*STDIN);
-
-	#if ($term->ReadLine eq 'Term::ReadLine::Gnu') {
-
-	#} else {
-		#$readline::rl_completion_function = 
-			#$readline::rl_completion_function = 'readline_complete';
-	#}
 }
 
 sub setup_aim {
@@ -160,7 +147,7 @@ sub event_admin_ok {
 sub event_buddy_in {
 	my ($aim, $sn, $group, $data) = @_;
 	if (!defined($state->{"buddylist"}->{$sn})) {
-		out("$sn ($group) signed on.");
+		out("* $sn ($group) is online.");
 	} else {
 		# Here we can add sections to output data
 		# pertainting to the user's new state.
@@ -267,8 +254,8 @@ sub event_is_away {
 # it will return the saved state.
 sub stty {
 	return $state->{"stty"} if (!defined($_[0]));
-	$state->{"stty"} = IO::Stty::stty(\*STDIN, "-g");
-	return IO::Stty::stty(\*STDIN, $_[0]);
+	#$state->{"stty"} = IO::Stty::stty(\*STDIN, "-g");
+	return IO::Stty::stty(@_);
 }
 
 ###
@@ -280,18 +267,33 @@ sub add_hook {
 }
 
 # Nonblocking readline
-sub check_readline {
+sub REAL_check_readline { 
+	my $char;
+	$char = ReadKey(-1);
+	if (defined($char)) {
+		if ($char eq "\n") {
+			command($state->{"frag"});
+			$state->{"frag"} = undef;
+			return;
+		}
+		$state->{"frag"} = complete($state->{"frag"},
+											 length($state->{"frag"}),
+											 $char);
+		real_out("\r" . $state->{"frag"});
+	}
+}
+
+sub __check_readline {
    my $char;
    my ($ready) = $state->{"input"}->can_read();
    if (defined($ready)) {
       $char = getc();
-		print "Read: $char\n";
       if ($char eq "\n") {
          command($state->{"frag"});
          $state->{"frag"} = undef;
          return;    
       } else {
-         $state->{"frag"} .= complete($state->{"frag"},
+         $state->{"frag"} = complete($state->{"frag"},
                                       length($state->{"frag"}), $char);
       }
    }
@@ -304,7 +306,7 @@ sub readline {
    while (1) {
       $char = getc();
       last if ($char eq "\n");
-      $line .= complete($line, length($line), $char);
+      $line = complete($line, length($line), $char);
    }
 
    return $line;
@@ -318,10 +320,10 @@ sub complete {
       out("Tab pressed!");
    }
 
-   return $char;
+   return $line . $char;
 }
 
-sub _check_readline {
+sub check_readline {
 	my $line;
 	if ($state->{"frag"}) {
 		$line = $state->{"frag"};
