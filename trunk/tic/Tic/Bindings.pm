@@ -121,7 +121,6 @@ sub killline_binding {
 }
 
 sub fardelete_callback {
-	$sh->out("Fardelete: '".$sh->{"input_line"}."'");
 	if ($state->{"target"}) {
 		$sh->{"input_line"} = "/msg \"" . $state->{"target"} . "\"";
 		$sh->{"input_position"} = length($sh->{"input_line"});
