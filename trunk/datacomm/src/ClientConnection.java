@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.7  2004/01/19 05:17:03  tristan
+ *   switched to use command and response for receiving
+ *
  *   Revision 1.6  2004/01/19 05:13:39  tristan
  *   added send and receive msg commands
  *
@@ -112,6 +115,7 @@ public abstract class ClientConnection extends Thread {
     public abstract boolean connect();
     public abstract void disconnect();
     public abstract void sendMessage( Message var );
-    public abstract Message receiveMessage();
+    public abstract Command receiveCommand();
+    public abstract Response receiveResponse();
 
 }   // ClientConnection
