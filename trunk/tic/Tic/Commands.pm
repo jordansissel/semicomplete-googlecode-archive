@@ -76,6 +76,7 @@ HELP
 	} else {
 		($sn, $msg) = @_;
 	} 
+
 	$sh->error("Message who?") and return unless defined($sn);
 	$sh->error("You didn't tell me what to say!") and return unless defined($msg)&& length($msg) > 0;
 
@@ -216,7 +217,17 @@ HELP
 	$state = shift;
 	my ($args) = @_;
 	my $aim = $state->{"aim"};
-	my $sn = $args;
+	my $sn;
+
+	#if (scalar(@_) == 1) {
+		#if ($args =~ m/^"([^"]+)"\s+(.*$)/) {
+			#($sn, $msg) = ($1, $2);
+		#} else {
+			#($sn, $msg) = split(/\s/, $args, 2);
+		#}
+	#} else {
+		#($sn, $msg) = @_;
+	#} 
 
 	if ($sn eq '') {
 		$sh->error("Invalid number of arguments to /getaway");
@@ -500,7 +511,12 @@ HELP
 
 		my $reg = join(" ", @ARGV);
 		if (length($reg) > 0) {
-			@buddies = grep($_->{"screenname"} =~ m/\Q$reg\E/i, @buddies);
+			eval "m/$reg/";
+			if ($@) {
+				$sh->error("Invalid regular expression, '$reg'");
+				return;
+			}
+			@buddies = grep($_->{"screenname"} =~ m/$reg/i, @buddies);
 		}
 
 		$sh->out("$g") if scalar(@buddies);
