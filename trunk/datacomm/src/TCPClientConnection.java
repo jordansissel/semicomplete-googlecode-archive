@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.5  2004/01/19 05:31:51  tristan
+ *   implemented send/receive functions.
+ *
  *   Revision 1.4  2004/01/13 18:14:54  tristan
  *   finished connect method. untested
  *
@@ -73,8 +76,8 @@ public class TCPClientConnection extends ClientConnection {
                                      socket.getInputStream() ) );
 
             // test for hello/response
-            out.println( HELLO_MSG + " Hello" );
-            if ( parseMessage( in.readLine() ) == HELLO_RESPONSE ) {
+            sendMessage( new Command( "Hello" ) );
+            if ( receiveResponse().getId() == HELLO_RESPONSE ) {
                 retVal = true;
             }
         } catch ( Exception e ) {
@@ -104,19 +107,39 @@ public class TCPClientConnection extends ClientConnection {
     }
 
     /**
-     * Returns the integer corresponding to this msg.
-     * @param msg The message to parse.
-     * @return The integer value of the msg. -1 if error.
+     * Sends a message to the server.
+     * @param msg The message to send.
      */
-    private int parseMessage( String msg ) {
-        int retVal = -1;
-        String[] parsed = msg.split( "\\s", 1 );
+    public void sendMessage( Message msg ) {
+        out.println( msg.toString() );
+    }
 
-        if ( parsed.length >= 1 ) {
-            try {
-                retVal = Integer.parseInt( parsed[ 0 ] );
-            } catch ( NumberFormatException e ) {
-            }
+    /**
+     * Receves a command object from the server.
+     * @return The command received.
+     */
+    public Command receiveCommand() {
+        Command retVal = null;
+
+        try {
+            retVal = Command.parseCommand( in.readLine() );
+        } catch ( Exception e ) {
+            // error parsing?
+        }
+
+        return retVal;
+    }
+
+    /**
+     * Receives a response object from the server.
+     * @return The response object received.
+     */
+    public Response receiveResponse() {
+        Response retVal = null;
+
+        try {
+            retVal = Response.parseResponse( in.readLine() );
+        } catch ( Exception e ) {
         }
 
         return retVal;

@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.8  2004/01/19 05:32:42  tristan
+ *   implemented send/receive functions.
+ *
  *   Revision 1.7  2004/01/19 05:17:03  tristan
  *   switched to use command and response for receiving
  *
@@ -36,10 +39,9 @@ import java.net.InetAddress;
  *
  * @author tristan
  */
-public abstract class ClientConnection extends Thread {
+public abstract class ClientConnection {
     // constants
-    public static final int HELLO_MSG = 101;
-    public static final int HELLO_RESPONSE = 102;
+    public static final int HELLO_RESPONSE = 101;
 
     // member variables
     private InetAddress serverHost;
@@ -53,7 +55,7 @@ public abstract class ClientConnection extends Thread {
     public ClientConnection( InetAddress serverHost, int serverPort ) {
         this.serverHost = serverHost;
         this.serverPort = serverPort;
-        connected = false;
+        this.connected = false;
     }
 
     /**
