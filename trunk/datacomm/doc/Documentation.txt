@@ -138,14 +138,12 @@ Test Cases:
         same names.
 
         Results:
-            First Game created. Second game received error message.
 
     -Case 6:
         With a game, send a shot to other player.
         Receive results of a shot. 
 
         Results:
-            Correct information received about the shot.
 
     -Case 7:
         With a game, send multiple shots back and forth. Make sure
@@ -153,9 +151,6 @@ Test Cases:
         correctly.
 
         Results:
-            The shots were recieved by each player. The grids 
-            were correctly altered and printed out in a readable
-            form.
 
     -Case 8:
         Play a game through. Await correct win/lose response from
