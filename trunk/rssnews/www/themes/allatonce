@@ -1,0 +1,19 @@
+<%args>
+	$articles
+</%args>
+<%perl>
+	$m->out("Articles: $articles\n<br>");
+	# Sort the articles by date ?
+	my @news = values(%$articles);
+	@news = sort($a->{"lastupdate"} <=> $b->{"lastupdate"}, values(%$articles));
+</%perl>
+% foreach my $article (@news) {
+%    if (ref($article) eq 'HASH') {
+<a href="<% $article->{"url"} %>">
+<small>[<% $article->{"sourcename"} %>]</small>
+<% $article->{"title"} %>
+</a>
+<br>
+%    } else {
+%    }
+% }
