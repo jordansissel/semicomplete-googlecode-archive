@@ -5,11 +5,17 @@ use IO::Select;
 use IO::Stty;
 use Term::ReadKey;
 use Net::OSCAR;
+use POSIX qw(strftime);
+
+use Tic::Constants qw(KEY_CONSTANTS); # Super-magical happy land!
+use Tic::Bindings qw(:DEFAULT);
 
 ReadMode(3);
 
 my $aliases = undef;   # Aliases
 my $commands = undef;  # Commands
+my $bindings = DEFAULT_BINDINGS; 
+my $mappings = DEFAULT_MAPPINGS;
 my $state = undef;     # State information
 
 my $aim = Net::OSCAR->new();
@@ -272,22 +278,35 @@ sub check_readline {
 	$char = ReadKey(-1);
 	if (defined($char)) {
 		if ($char eq "\n") {
-			real_out("\n\e[2K");
+			real_out("\n");
 			command($state->{"input_line"});
 			$state->{"input_line"} = undef;
 			$state->{"input_position"} = 0;
 			return;
 		}
-		my $ret =  complete($state->{"input_line"},
-								  $state->{"input_position"},
-								  $char);
+
+		# Returned (string, char, extrahash)
+		my ($ret, $foo, $extra) =  handle_keys($state->{"input_line"},
+								               $state->{"input_position"},
+								               $char);
+		#print STDERR "$ret / $foo / $extra\n";
 		if (defined($ret)) {
-			my $back = length($ret) - $state->{"input_position"};
-			real_out("\e[2K\r" . $ret);
+			my $pos = $state->{"input_position"}; 
+			my $back = length($ret) - $pos;
+			my $shift = ( ($pos > 1) ? "\r\e[".($pos-1)."C" : "\r" );
+			real_out("\r\e[2K" . $ret);
+			#print STDERR ": $back / $pos\n";
+
+			#real_out("$shift" . substr($ret,$pos - 1));
 			real_out("\e[".$back."D") if ($back > 0);
+			if (defined($extra->{"-print"})) {
+				real_out($extra->{"-print"});
+			}
 			$state->{"input_line"} = $ret;
 		} else {
-			#real_out("\r" . $state->{"input_line"});
+			if (defined($extra->{"-print"})) {
+				real_out($extra->{"-print"});
+			}
 		}
 	}
 }
@@ -299,15 +318,16 @@ sub readline {
    while (1) {
       $char = getc();
       last if ($char eq "\n");
-      $line = complete($line, length($line), $char);
+      $line = handle_keys($line, length($line), $char);
    }
 
    return $line;
 }
 
-# Completion!
-sub complete {
+# Handle keys... and strife!
+sub handle_keys {
    my ($line, $pos, $char) = @_;
+	my $extra;
 
 	if ($state->{"escape"}) {
 		$state->{"escape_string"} .= $char;
@@ -318,70 +338,37 @@ sub complete {
 		$state->{"escape"} = 0 unless ($state->{"escape_expect_ansi"});
 
 		unless ($state->{"escape_expect_ansi"}) {
-			if (length($state->{"escape_string"}) > 1) {
-				my $foo = $state->{"escape_string"};
-				print STDERR "Escape string: " . $state->{"escape_string"} . "\n";
+			my $estring = $state->{"escape_string"};
 
-				if ($foo =~ m/[CD]$/) {
-					print STDERR $state->{"input_position"} . " < " . length($state->{"input_line"}) . "\n" if ($foo =~ m/C$/);
-					print STDERR $state->{"input_position"} . " > 0\n" if ($foo =~ m/D$/);
-					print STDERR "C: " . (($foo =~ m/C$/) && ($state->{"input_position"} < length($state->{"input_line"}))) . "\n";
-					print STDERR "D: " . (($foo =~ m/D$/) && ($state->{"input_position"} > 0)) . "\n";
-					if (($foo =~ m/C$/)) { 
-						if ($state->{"input_position"} < length($state->{"input_line"})) {
-						$state->{"input_position"}++
-						} else {
-							return;
-						}
-					}
-
-					if ($foo =~ m/D$/) {
-						if ($state->{"input_position"} > 0) {
-							$state->{"input_position"}--;
-						} else {
-							return;
-						}
-					}
-				} else {
-					return;
-				}
-			}
-			real_out("\e" . $state->{"escape_string"});
 			$state->{"escape_string"} = undef;
+			my (@foo) = execute_binding("\e".$estring);
+			print STDERR "Escape ret: " . scalar(@foo) . "\n";
+			return @foo;
 		}
 		return undef;
 	}
 
-   if ($char eq "\t") {                        # Tab
-      out("Tab pressed!");
-		$char = undef;
-   } elsif ($char eq "\e") {                   # Escape
-		#out("Escape!");
+   if ($char eq "\e") {                   # Escape
 		$state->{"escape"} = 1;
 		$state->{"escape_string"} = undef;
-		return undef;
-	} elsif ($char eq "\x08") {                 # Backspace
-		if (length($line) > 0) {
-			$line = substr($line, 0, $state->{"input_position"} - 1) .
-				     substr($line, $state->{"input_position"});
-			$state->{"input_position"}--;
-		}
-		$char = undef;
-	} elsif ($char eq "\x15") {                 # CTRL+U
-		$line = ""; # not undef...
-		$char = undef;
-		$state->{"input_position"} = 0;
-		$state->{"input_line"} = undef;
+
+		# Return undef becuase we don't know what to do yet.
+		return undef; 
+	} 
+
+	if (ord($char) <= 26) {                # Control characters
+		($line, $char, $extra) = execute_binding($char);
 	}
+
 
 	if ((defined($char)) && (ord($char) >= 32)) {
 		$line = substr($line,0,$state->{"input_position"}) . $char . 
 			     substr($line,$state->{"input_position"});
 		$state->{"input_position"}++;
-		print STDERR "Position: " . $state->{"input_position"} . "\n";
+		#print STDERR "Position: " . $state->{"input_position"} . "\n";
 	}
 
-   return $line;
+   return ($line, $char, $extra);
 }
 
 sub command {
@@ -622,4 +609,41 @@ sub buddyscore {
 	#out($buddy->{"screenname"} . " = $sum");
 
 	return $sum;
+}
+
+sub execute_binding {
+	my ($key) = shift;  # Could be a series, ESC-w
+	$key = prettify_key($key);
+	#print "Prettified key: $key\n";
+	if (defined($bindings->{$key})) {
+		#print STDERR "Key: $key\n";
+		if (ref($mappings->{$bindings->{$key}}) eq 'CODE') {
+			return &{$mappings->{$bindings->{$key}}}($state);
+		} else {
+			error("Unimplemented function, " . $bindings->{$key});
+		}
+	}
+	return ($state->{"input_line"}, undef, undef);
+}
+
+sub prettify_key {
+	my ($key) = shift;
+
+	# Return ^X for control characters like CTRL+A and such.
+	if (length($key) == 1) {     # Should only ever be control codes...
+		if (ord($key) <= 26) {    # Control codes
+			return "^" . chr(65 + ord($key) - 1);
+		}
+	}
+
+	# Return ESC-X for escape shenanigans, like ESC-w
+	if (length($key) == 2) {
+		my ($p,$k) = split("", $key);
+		if ($p eq "\e") {     # Escape character
+			return "ESC-" . $k;
+		}
+	}
+
+	# Ok, it's not ^X or ESC-X, it's gotta be some ansi funk.
+	return KEY_CONSTANTS->{$key};
 }
