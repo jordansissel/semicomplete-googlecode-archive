@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.3  2004/01/26 20:29:34  psionic
+ *   - Added new methods getGame and addGame
+ *
  *   Revision 1.2  2004/01/20 07:58:56  tristan
  *   finished most methods for bs server.
  *
@@ -29,6 +32,8 @@ import java.util.Iterator;
 public class BSServer {
     private boolean running;
     private List protocols;
+	 private List players;
+	 private List games;
 
     /**
      * Initializes the various protocol servers and starts them.
@@ -92,4 +97,26 @@ public class BSServer {
             shutdown();
         }
     }
+
+	 public ServerGame getGame(Player p) {
+		 Iterator i = games.iterator();
+		 while (i.hasNext()) {
+			 ServerGame g = (ServerGame) i.next();
+			 if (p.getName().equals(g.getPlayer1().getName())) {
+				 return g;
+			 }
+		 }
+
+		 g = new ServerGame();
+		 g.setPlayer1(p);
+		 addGame(g);
+
+		 return g;
+
+	 }
+
+	 public void addGame(ServerGame g) {
+		 games.add(g);
+	 }
+
 }   // BSServer
