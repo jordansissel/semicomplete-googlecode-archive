@@ -1,41 +1,48 @@
 package Tic::Bindings;
 
-#use Tic::Shenanigans
-
+use strict;
+use Tic::Common;
 use Exporter;
+
+our @ISA = qw(Exporter);
+our @EXPORT = qw(DEFAULT_BINDINGS DEFAULT_MAPPINGS);
 
 # Default key -> sub bindings
 use constant DEFAULT_BINDINGS => {
-	"LEFT"        =>    "bind_left",
-	"RIGHT"       =>    "bind_right",
+	"LEFT"        =>    "backward-char",
+	"RIGHT"       =>    "forward-char",
 
-	"^I"          =>    "bind_complete",
-	"TAB"         =>    "bind_complete",
+	"^I"          =>    "complete-word",
+	"TAB"         =>    "complete-word",
 
-	"BACKSPACE"   =>    "bind_backspace",
-	"^H"          =>    "bind_backspace",
-	"^U"          =>    "bind_killline",
+	"BACKSPACE"   =>    "delete-char-backward",
+	"^H"          =>    "delete-char-backward",
+	"^?"          =>    "delete-char-backward",
+	"^U"          =>    "kill-line",
 };
 
 # Default "string" -> sub binding.
 use constant DEFAULT_MAPPINGS => {
-	"bind_left"         => \&bind_left,
-	"bind_right"        => \&bind_right,
-	"bind_complete"     => \&bind_complete,
-	"bind_backspace"    => \&bind_backspace,
-	"bind_killline"     => \&bind_killline,
+	"backward-char"           => \&backward_char,
+	"forward-char"            => \&forward_char,
+	"complete-word"           => \&complete_word,
+	"delete-char-backward"    => \&delete_char_backward,
+	"kill-line"               => \&kill_line,
 
 };
 
-@ISA = qw(Exporter);
-@EXPORT = qw(DEFAULT_BINDINGS DEFAULT_MAPPINGS);
+my $state;
 
 sub import {
-	print STDERR "Importing... " . join("\n", @_) . "\n";
+	debug("Importing from Tic::Bindings");
 	Tic::Bindings->export_to_level(1,@_);
 }
 
-sub bind_right {
+sub set_state {
+	$state = shift;
+}
+
+sub forward_char {
 	my $state = shift;
 	my $ret;
 	if ($state->{"input_position"} < length($state->{"input_line"})) {
@@ -47,7 +54,7 @@ sub bind_right {
 	return ($state->{"input_string"}, undef, $ret);
 }
 
-sub bind_left {
+sub backward_char {
 	my $state = shift;
 	my $ret;
 	if ($state->{"input_position"} > 0) {
@@ -58,7 +65,7 @@ sub bind_left {
 	return ($state->{"input_string"}, undef, $ret);
 }
 
-sub bind_killline {
+sub kill_line {
 	my $state = shift;
 	my $ret;
 	$ret->{-print} = "\e[2K\r";
@@ -69,7 +76,7 @@ sub bind_killline {
 	return (undef, undef, { -print => "\r\e[2K" } );  # Not undef!
 }
 
-sub bind_complete {
+sub complete_word {
 	my $state = shift;
 	my $line = $state->{"input_line"};
 	my $pos = $state->{"input_position"};
@@ -82,15 +89,16 @@ sub bind_complete {
 	my ($b,$e); # beginning and end
 	$pos-- if (substr($line,$pos,1) eq ' ');
 
-	for ($x = 0; $x < length($line); $x++) {
+	for (my $x = 0; $x < length($line); $x++) {
 		unless (defined($b)) { # Look for the beginning of the word
 			my $p = $pos - $x;
-			print STDERR "B: $p / '" . substr($line,$p,1) . "'\n";
+			#print STDERR "B: $p / '" . substr($line,$p,1) . "'\n";
 			$b = $p if (($p <= 0) || (substr($line,$p,1) =~ m/^\s/));
+			$b++ if ($b > 0);
 		}
 		unless (defined($e)) { # Look for the end of the word
 			my $p = $pos + $x;
-			print STDERR "F: $p / '" . substr($line,$p,1) . "'\n";
+			#print STDERR "F: $p / '" . substr($line,$p,1) . "'\n";
 			$e = $p if (($p >= length($line)) || (substr($line,$p,1) =~ m/^\s/));
 		}
 		last if (defined($b) && defined($e));
@@ -98,7 +106,7 @@ sub bind_complete {
 	$b ||= 0;
 	$e ||= length($line);
 
-	print STDERR "Init: $pos / Beginning: $b / End: $e == '" . substr($line,$b,$e) . "'\n";
+	#print STDERR "Init: $pos / Beginning: $b / End: $e == '" . substr($line,$b,$e) . "'\n";
 
 	$string = substr($line,$b,($e - $b));
 	my $comp = do_complete($state, $string, $b, $e);
@@ -108,49 +116,61 @@ sub bind_complete {
 
 	}
 
-	print STDERR "Line: $line\n";
+	#print STDERR "Line: $line\n";
 
 	return ($line, undef);
 }
 
 sub do_complete {
 	my ($state,$string,$b,$e) = @_;
+	print STDERR "To complete: '$string'\n";
 	if ($b eq '0') {
-		if ($string =~ m!^/(.*)!) {
-			# Try to complete a command.
-			print STDERR "Commands: " . join("\n", keys(%{$state->{"commands"}}))."\n";
-			@coms = grep(m/^$1/,keys(%{$state->{"commands"}}));
-			push(@coms,grep(m/^$1/,keys(%{$state->{"aliases"}})));
-			print STDERR "Matches: " . scalar(@coms) . "\n";
-			@coms = sort(@coms);
-			if (scalar(@coms) > 0) {
-				$string = "/" . $coms[0] . " ";
+		if ($string =~ m!^/(.*)$!) {
+			$string = do_complete_command($state,$string);
+		}
+	} else {
+		# This isn't the first word, and maybe isn't a command.
+		return if ($string eq '');
+		my $line = $state->{"input_line"};
+		my @words = split(/\s+/,$line);
+
+		# Complete commands for /alias
+		if ($words[0] =~ m!^/alias!) {
+			if ($string eq $words[2]) {
+				$string = do_complete_command($state,$1) if ($string =~ m!^/(.*)$!);
 			}
 		}
 	}
 	return $string;
 }
 
-sub bind_backspace {
+sub do_complete_command {
+	my ($state, $partial) = @_;
+	#$partial =~ s!^/!!;
+	my @coms = grep(m/^$1/,keys(%{$state->{"commands"}}));
+	push(@coms,grep(m/^$1/,keys(%{$state->{"aliases"}})));
+	@coms = sort(@coms);
+	$partial  = "/" . $coms[0] . " " if (scalar(@coms) > 0);
+	return $partial;
+}
+
+sub delete_char_backward {
 	my $state = shift;
 	my $ret;
 	my ($line) = $state->{"input_line"};
 	if ($state->{"input_position"} > 0) {
-		#if ($state->{"input_position")
-		print STDERR "Backspace!\n";
 		my ($pos,$pos2) = (length($line), $state->{input_position});
-		$line = substr($line, 0, $state->{"input_position"} - 1) .
-				  substr($line, $state->{"input_position"});
+		#$line = substr($line, 0, $state->{"input_position"} - 1) .
+				  #substr($line, $state->{"input_position"});
+
+		substr($line,$state->{input_position} - 1,1) = "";
+
 		$state->{"input_position"}--;
-		#print STDERR "End/Pos -> $pos/$pos2\n";
 
 		# go from pos -> end of string + 1, print a space, jump back to pos.
 		$ret->{-print} =  "\e[".($pos - $pos2 - 2)."C \e[".($pos-$pos2-1)."D";
-	} else {
-		print STDERR "No Backspace!\n";
-	}
+	} 
 	return ($line,undef,$ret);
 }
 
-# true dat...
 1;
