@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.6  2004/01/19 17:26:51  tristan
+ *   implemented send/receive and part of command
+ *
  *   Revision 1.5  2004/01/13 18:03:12  tristan
  *   added packet generation to connect method. untested
  *
@@ -26,6 +29,7 @@
 import java.net.InetAddress;
 import java.net.DatagramSocket;
 import java.net.DatagramPacket;
+import java.net.SocketTimeoutException;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.DataInputStream;
@@ -101,33 +105,100 @@ public class UDPClientConnection extends ClientConnection {
 
         // attempt to send a hello to the server
         socket.connect( getServerHost(), getServerPort() );
-        DatagramPacket packet = new DatagramPacket( buffer.toByteArray(),
-                                                    buffer.size() );
 
-        for ( int i = 0; i < RETRY_COUNT && !retVal; i++ ) {
-            try {
-                // set msg
-                buffer.reset();
-                out.writeInt( HELLO_MSG );
+        // send hello msg
+        sendMessage( new Command( "HELLO" ) );
 
-                // send package
-                socket.send( packet );
-                socket.setSoTimeout( TIMEOUT );
-
-                // test response
-                socket.receive( packet );
-                int response = in.readInt();
-                if ( response == HELLO_RESPONSE ) {
-                    retVal = true;
-                }
-            } catch ( Exception e ) {
-                System.err.println( e.getMessage() );
-                e.printStackTrace();
-            }
+        // listen for response
+        Response response = receiveResponse();
+        if ( response != null && response.getId() == HELLO_RESPONSE ) {
+            retVal = true;
         }
+        setConnected( retVal );
 
         // update status
         setConnected( retVal );
+
+        return retVal;
+    }
+
+    /**
+     * Sends a command or response to the server.
+     * @param msg The message to send.
+     */
+    public void sendMessage( Message msg ) {
+        DatagramPacket packet = null;
+
+        // make the packet
+        try {
+            // TODO include packet # maybe?
+            buffer.reset();
+            packet = new DatagramPacket( buffer.toByteArray(), buffer.size() );
+            out.write( msg.toByteArray() );
+        } catch ( Exception e ) {
+        }
+
+        // TODO add acknowledgement
+        try {
+            // send packet
+            socket.send( packet );
+        } catch ( Exception e ) {
+            System.err.println( e.getMessage() );
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Receives a command object from the server.
+     * @return A command object.
+     */
+    public Command receiveCommand() {
+        Command retVal = null;
+        DatagramPacket packet = null;
+
+        // make the receive packet
+        buffer.reset();
+        packet = new DatagramPacket( buffer.toByteArray(), buffer.size() );
+
+        // try and receive a packet
+        for ( int i = 0; i < RETRY_COUNT && retVal == null; i++ ) {
+            try {
+                socket.setSoTimeout( TIMEOUT );
+                socket.receive( packet );
+
+                // received
+                retVal = new Command( in.readUTF() );
+                // TODO add way to parse args from bytes
+            } catch ( Exception e ) {
+            }
+        }
+
+        return retVal;
+    }
+
+    /**
+     * Returns a response object from the server.
+     * @return A response object from the server.
+     */
+    public Response receiveResponse() {
+        Response retVal = null;
+        DatagramPacket packet = null;
+
+        // make the receive packet
+        buffer.reset();
+        packet = new DatagramPacket( buffer.toByteArray(), buffer.size() );
+
+        // try and receive a packet
+        for ( int i = 0; i < RETRY_COUNT && retVal == null; i++ ) {
+            try {
+                socket.setSoTimeout( TIMEOUT );
+                socket.receive( packet );
+
+                // received
+                retVal = new Response( in.readInt(), in.readUTF() );
+            } catch ( Exception e ) {
+            }
+        }
 
         return retVal;
     }
