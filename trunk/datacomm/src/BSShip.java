@@ -6,6 +6,12 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.4  2004/01/13 02:14:24  njohnson
+ *   I finished the BSGrid's generateGrid() method which is now quite huge.
+ *   It might be better with some AI( or worse ) since it just tries to throw
+ *   ships down randomly and checks for overlaps.
+ *   I also added a default constructor to BSShip to ease my mind.
+ *
  *   Revision 1.3  2004/01/12 23:33:02  njohnson
  *   Almost completed with BSShip. Just need to finish commenting.
  *
@@ -27,6 +33,23 @@
 public class BSShip {
 	private byte[] location = new byte[4];	
 
+	/**
+	 *
+	 *
+	 *
+	 */
+	public BSShip() {
+		location[ 0 ] = 0;
+		location[ 1 ] = 0;
+		location[ 2 ] = 0;
+		location[ 3 ] = 0;
+	} // constructor
+	
+	/**
+	 *
+	 *
+	 *
+	 */
 	public BSShip( byte startPointX, 
 			byte startPointY,		
 			byte endPointX,
@@ -44,7 +67,7 @@ public class BSShip {
 	 * the starting point of the ship.
 	 * Format: { <row>, <column> }
 	 * Where <row> is the number associated with the letter of 
-	 * the grid's row ( 10 - A, 11 - B, ... , 19 - I, 20 - J )
+	 * the grid's row ( 1 - A, 2 - B, ... , 9 - I, 10 - J )
 	 * and <column> is the number of the grid's column. 
 	 *
 	 * @return 
@@ -61,7 +84,7 @@ public class BSShip {
 	 * the ending point of the ship.
 	 * Format: { <row>, <column> }
 	 * Where <row> is the number associated with the letter of 
-	 * the grid's row ( 10 - A, 11 - B, ... , 19 - I, 20 - J )
+	 * the grid's row ( 1 - A, 2 - B, ... , 9 - I, 10 - J )
 	 * and <column> is the number of the grid's column. 
 	 *
 	 * @return
