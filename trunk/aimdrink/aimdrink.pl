@@ -6,6 +6,7 @@ use IO::Select;
 use Symbol;
 use Socket;
 use strict;
+use IPC::Open2;
 
 require "userdata.pl";
 
@@ -20,9 +21,10 @@ my $s = IO::Select->new();
 $userdata = Drink::read_users();
 
 $aim = new Net::AIM;
-#$aim->newconn(Screenname => 'CSH Drink', Password => 'cshdrink123');
+$aim->debug(1);
+$aim->newconn(Screenname => 'CSH Drink', Password => 'cshdrink123');
 #$aim->newconn(Screenname => 'CSH Drink2', Password => 'cshdrink123');
-$aim->newconn(Screenname => 'mobilesoutherner', Password => 'carleneway');
+#$aim->newconn(Screenname => 'mobilesoutherner', Password => 'carleneway');
 
 #Handlers
 $conn = $aim->getconn();
@@ -77,8 +79,29 @@ sub read_from_sessions {
 
 sub sendim {
    my ($from,$msg) = @_;
+   $msg = translate($from,$msg);
    $aim->send_im($from,$msg);
    print "--> $from: $msg\n";
+}
+
+sub translate {
+   my ($from,$msg) = @_;
+   my $language = $session{$from}{'data'}->{'language'};
+   print "Language: " . $language . "\n";
+
+   my @list = ('b1ff','brooklyn','chef','cockney','drawl','fudd','funetak','jethro','jive','kraut','pansy','postmodern','redneck','valspeak','warez');
+
+   my $lang = grep($language,@list);
+   print "Lang; $lang\n";
+   if ($lang > 0) {
+      my ($r,$w);
+      my ($pid) = open2($r,$w,"/usr/local/bin/$language") or die "Fuck!\n";
+      print $w $msg;
+      close($w);
+      $msg = readline($r);
+   }
+
+   return $msg;
 }
 
 sub on_im {
@@ -115,12 +138,17 @@ sub handle_message {
    print "$from: $msg\n";
    if (defined($session{$from})) {
       if ($msg =~ /^h(e(l(p)?)?)?$/) {
-	 sendim($from, "This is the AIM Drink Client. The following commands are available: \n     Status\n     Drop\nAlso feel free to type 'help <command>'");
-      } elsif ($msg =~ /^h(e(l(p)?)?)?.(.*)$/i) {
+	 sendim($from, "This is the AIM Drink Client. The following commands are available: <br>     Status<br>     Drop<br>Also feel free to type 'help <command>'");
+      } elsif ($msg =~ /^h(e(l(p)?)?)? (.*)$/i) {
 	 if ($4 =~ m/^s(t(a(t(u(s)?)?)?)?)?$/i) { #help status
 	    sendim($from,"<b>STATUS</b> - Display the contents of Drink: Available drinks, price, and inventory.");
 	 } elsif ($4 =~ m/^d(r(o(p?)?)?)?$/i) { #help drop
 	    sendim($from,"<b>DROP <NUM></b> - Drop a drink from the specified slot number.");
+	 }
+      } elsif ($msg =~ /^s(e(t)?)? (.*)$/i) { #set
+	 if ($3 =~ m/^l(a(n(g(u(a(g(e)?)?)?)?)?)?)? (.*)$/i) { #set language
+	    print "New language for $from: $8\n";
+	    $session{$from}{'data'}->{'language'} = $8;
 	 }
       } elsif ($msg =~ /^s(t(a(t(u(s)?)?)?)?)?$/i) { #status
 	 get_drink_stats($session{$from}{'socket'});
