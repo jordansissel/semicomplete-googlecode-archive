@@ -61,13 +61,14 @@ HELP
 
 	my ($args) = @_;
 	my ($sn, $msg);
-	out(join(" / ", @_));
   
 	if (scalar(@_) == 1) {
 		($sn, $msg) = split(/\s/, $args, 2);
 	} else {
 		($sn, $msg) = @_;
 	} 
+	error("Message who?") and return unless defined($sn);
+	error("You didn't tell me what to say!") and return unless defined($msg);
 	
 	$aim->send_im($sn, $msg);
 	if (($state->{"logging"}->{"who_log"}->{$sn} == 1) || ($state->{"config"}->{"logging"} eq "all")) {
@@ -424,7 +425,6 @@ HELP
 	} else {
 		prettyprint($state, "error_generic", "Invalid parameter to /timestamp");
 	}
-
 }
 
 sub command_who {
@@ -434,12 +434,14 @@ Syntax: /who
 Displays your buddy list
 HELP
 	$state = shift;
+
 	my ($args) = @_;
 	my $aim = $state->{"aim"};
 
 	foreach my $g ($aim->groups()) {
 		out($g);
 		my @buddies = $aim->buddies($g);
+		my $count = 0;
 		foreach my $b (sort(compare($a,$b),@buddies)) {
 			my $bud = $aim->buddy($b,$g);
 			next unless (defined($bud));
@@ -450,9 +452,34 @@ HELP
 			$e .= "idle, " if ($bud->{"idle"});
 			$e =~ s/, $//;
 
-			out("    $b ($e)")
+			if ($args eq '-active') {
+				if ($e eq "online") {
+					out("   $b ($e)");
+					$count++;
+				}
+			} elsif ($args eq '-idle') {
+				if ($e =~ m/idle/) {
+					out("   $b ($e)");
+				  	$count++;
+				}
+			} elsif ($args eq '-away') {
+				if ($e =~ m/away/) {
+					out("   $b ($e)");
+				  	$count++;
+				}
+			} elsif ($args eq '') {
+				out("   $b ($e)");
+				$count++;
+			} else {
+				if ($b =~ m/$args/i) {
+					out("   $b ($e)");
+					$count++;
+				}
+			}
+
 			#if (($args =~ m/\b$type\b/) && ($e =~ m/\b$type\b/));
 		}
+		error("No buddies matching your query, '$args'") if ($count == 0);
 	}
 }
 
