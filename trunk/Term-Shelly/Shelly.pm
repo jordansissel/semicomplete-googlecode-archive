@@ -31,7 +31,7 @@ use strict;
 use warnings;
 
 use vars qw($VERSION);
-$VERSION = '0.01';
+$VERSION = '0.2';
 
 # Default perl modules...
 use IO::Handle; # I need flush()... or do i?;
@@ -112,19 +112,19 @@ sub new ($) {
 	};
 
 	my $mappings = {
-		"anykey"                 => \&anykey,
-		"backward-char"          => \&backward_char,
-		"forward-char"           => \&forward_char,
-		"delete-char-backward"   => \&delete_char_backward,
-		"kill-line"              => \&kill_line,
-		"newline"                => \&newline,
-		"redraw"                 => \&fix_inputline,
-		"beginning-of-line"      => \&beginning_of_line,
-		"end-of-line"            => \&end_of_line,
-		"delete-word-backward"   => \&delete_word_backward,
+		"anykey"                 => [ \&anykey ],
+		"backward-char"          => [ \&backward_char ],
+		"forward-char"           => [ \&forward_char ],
+		"delete-char-backward"   => [ \&delete_char_backward ],
+		"kill-line"              => [ \&kill_line ],
+		"newline"                => [ \&newline ],
+		"redraw"                 => [ \&fix_inputline ],
+		"beginning-of-line"      => [ \&beginning_of_line ],
+		"end-of-line"            => [ \&end_of_line ],
+		"delete-word-backward"   => [ \&delete_word_backward ],
 
-		"complete-word"          => \&complete_word,
-		#"expand-line"            => \&expand_line,
+		"complete-word"          => [ \&complete_word ],
+		#"expand-line"            => [ \&expand_line ],
 	};
 
 	$self->{"bindings"} = $bindings;
@@ -252,12 +252,16 @@ sub execute_binding ($$) {
 			delete($self->{"completion"});
 		}
 
-		if (ref($mappings->{$bindings->{$key}}) eq 'CODE') {
+		if (ref($mappings->{$bindings->{$key}}) =~ m/(CODE|ARRAY)/) {
 
 			# This is a hack, passing $self instead of doing:
 			# $self->function, becuase I don't want to do an eval.
 
-			return &{$mappings->{$bindings->{$key}}}($self);
+			if ($1 eq 'ARRAY') {
+				map { &{$_}($self) } @{$mappings->{$bindings->{$key}}};
+			} else {
+				&{$mappings->{$bindings->{$key}}}($self);
+			}
 
 		} else {
 			$self->error("Unimplemented function, " . $bindings->{$key});
