@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.2  2004/01/19 21:10:09  tristan
+ *   changed to use constants
+ *
  *   Revision 1.1  2004/01/19 20:47:21  tristan
  *   refactored to a new name
  *
@@ -79,7 +82,7 @@ public class TCPClient extends Client {
                                      socket.getInputStream() ) );
 
             // test for hello/response
-            sendMessage( new Command( "Hello" ) );
+            sendMessage( new Command( HELLO ) );
             if ( receiveResponse().getId() == HELLO_RESPONSE ) {
                 retVal = true;
             }

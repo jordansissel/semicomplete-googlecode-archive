@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.2  2004/01/19 21:11:01  tristan
+ *   changed to use constants
+ *
  *   Revision 1.1  2004/01/19 20:46:33  tristan
  *   refactored to a new name
  *
@@ -110,7 +113,7 @@ public class UDPClient extends Client {
         socket.connect( getServerHost(), getServerPort() );
 
         // send hello msg
-        sendMessage( new Command( "HELLO" ) );
+        sendMessage( new Command( HELLO ) );
 
         // listen for response
         Response response = receiveResponse();
