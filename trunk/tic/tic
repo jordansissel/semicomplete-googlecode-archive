@@ -3,12 +3,13 @@
 
 use strict;
 use IO::Select;
-use IO::Stty;
-use Term::ReadKey;
 use Net::OSCAR;
 use POSIX qw(strftime);
+use Term::ReadKey;
+use Term::Size;
 
-use Tic::Constants; # Super-magical happy land!
+# Super-magical happy land!
+use Tic::Constants; 
 use Tic::Bindings;
 use Tic::Common;
 use Tic::Commands;
@@ -24,20 +25,23 @@ my $bindings = DEFAULT_BINDINGS;
 my $mappings = DEFAULT_MAPPINGS;
 my $config = DEFAULT_OUTPUT;
 
+my $settings = read_config($ENV{HOME}."/.ticrc");
+
 my $state = undef;     # State information
-$state->{"bindings"} = $bindings;
-$state->{"mappings"} = $mappings;
+$state->{"bindings"} = $bindings; 
+$state->{"mappings"} = $mappings; 
 $state->{"config"} = $config;
+$state->{"settings"} = $settings;
+
+($state->{"termcols"}) = Term::Size::chars();
+out("Columns: " . $state->{"termcols"});
 
 my $aim = Net::OSCAR->new();
 #$aim->timeout(1);
 $state->{"aim"} = $aim;
 
-setup_readline();
 setup_callbacks();
 setup_commands();
-setup_aim();
-
 
 Tic::Events->set_state($state);
 Tic::Commands->set_state($state);
@@ -49,7 +53,18 @@ prepare_completion($commands);
 # Autoflush stdout.
 $| = 1;
 
-login();
+login($settings->{"screenname"}, $settings->{"password"});
+
+# What is this?!
+# - When we call check_readline() and there's nothing to read, we want
+#   to allow parsing of aim events.
+# 
+# What for?
+# Without using an "aimok" state (telling when it's ok to process
+# aim events), we will process aim event all the time. This becomes
+# very time consuming; that is, pasting things takes a while.
+# This new state solves it
+
 $state->{"aimok"} = 1;
 
 # $aim->do_one_loop() sleeps for .01 seconds waiting for data. This is time
@@ -58,10 +73,11 @@ $state->{"aimok"} = 1;
 # check_readline() does not read a keypress $state->{"aimok"} is set to 1.
 # This makes it so pasting things is very fast because while you're pasting
 # $aim->do_one_loop() is never called.
+
 while (1) {
-	#print "Loop - " . $aim->do_one_loop() . "\n";
 	$aim->do_one_loop() if ($state->{"aimok"});
 	check_readline();
+	#$state->{"aimok"} = 1 if ($state->{"is_typing"} < time());
 }
 
 # init functions
@@ -87,15 +103,6 @@ sub setup_callbacks {
 	$aim->set_callback_im_ok(\&event_im_ok);
 	$aim->set_callback_rate_alert(\&event_rate_alert);
 	$aim->set_callback_signon_done(\&event_signon_done);
-}
-
-sub setup_readline {
-	$state->{"input"} = IO::Select->new();
-	$state->{"input"}->add(\*STDIN);
-}
-
-sub setup_aim {
-	#$aim->timeout(1);
 }
 
 sub setup_commands {
@@ -131,14 +138,24 @@ sub setup_commands {
 # Nonblocking readline
 sub check_readline { 
 	my $char;
+
+	# ReadKey(-1) means no timeout waiting for data, thus is nonblocking
 	$char = ReadKey(-1);
 	if (defined($char)) {
 		if ($char eq "\n") {
+			# 
 			my $line = $state->{"input_line"};
 			real_out("\n");
 			$state->{"input_line"} = undef;
 			$state->{"input_position"} = 0;
+
+			# Instead of printing an EOL, we could have the commands each handle
+			# outputting things themselves, so that things aren't so cluttered 
+			# and messy looking?
+
 			command($line);
+			#$state->{"is_typing"} = 0;
+			$state->{"aimok"} = 1;
 			return;
 		}
 
@@ -163,6 +180,7 @@ sub check_readline {
 		}
 
 		$state->{"aimok"} = 0;
+		#$state->{"is_typing"} = time();
 	} else {
 		$state->{"aimok"} = 1;
 	}
@@ -299,4 +317,33 @@ sub prettify_key {
 
 	# Ok, it's not ^X or ESC-X, it's gotta be some ansi funk.
 	return KEY_CONSTANTS->{$key};
+}
+
+sub read_config {
+	my ($file) = shift;
+
+	if ( -r $file ) {
+		my $conf;
+		open(FILE,"< $file") or die("Failed trying to read $file (Unexpected!).\n$!\n");
+
+		my $c = 0;
+		while (my $line = <FILE>) {
+			$c++;
+			next if ($line =~ m/^#/);
+			chomp($line);
+			$line =~ s/#.*$//;
+			if ($line =~ m/^(screenname|password|server|port)(?:\s|=)/i) {
+				if ($line =~ m/(\S+)\s*=\s*(.+)$/) {
+					print "$1 => $2\n";
+					$conf->{lc($1)} = $2;
+				} else {
+					print STDERR "Syntax error on line $c of $file:\n$line\n";
+				}
+			} else {
+				print STDERR "Invalid option on line $c of $file:\n$line\n";
+			}
+		}
+		close(FILE);
+		return $conf;
+	} 
 }
