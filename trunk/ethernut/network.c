@@ -151,7 +151,7 @@ void network_thread(void *args) {
 				}
 			}
 		} 
-		else if (strcmp(buf, "ACK")) {
+		else if (strcmp(buf, "ACK") == 0) {
 			log(20, "ACK received from %s", inet_ntoa(srcaddr.sin_addr));
 		}
 
