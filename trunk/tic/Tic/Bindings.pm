@@ -4,7 +4,6 @@ package Tic::Bindings;
 use strict;
 use Tic::Common;
 use Tic::Commands;
-#use Tic::Interface;
 use Net::OSCAR qw/:standard/;
 use vars ('@ISA', '@EXPORT');
 use Exporter;
@@ -24,7 +23,6 @@ sub set_state {
 	my $self = shift;
 	$state = shift;
 	Tic::Common->set_state($state);
-	Tic::Interface->set_state($state);
 	$sh = $state->{"sh"};
 
 	$sh->{"bindings"}->{"^T"} = "expand-line";
@@ -80,7 +78,7 @@ sub anykey_binding {
 			
 		# We're typing to someone on our buddylist
 		if (length($line) >= 1) {
-			Tic::Interface::prompter("TARGET", $sn) ;
+			prompter("TARGET", $sn) ;
 
 			# Drop off the first 2 arguments.. this is a lame hack
 			$line = \$sh->{"input_line"};
