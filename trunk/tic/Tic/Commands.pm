@@ -15,7 +15,7 @@ use Exporter;
 				 command_login command_quit command_buddylist command_default
 				 command_undefault command_log command_timestamp command_who
 				 command_timestamp command_getaway command_help command_date
-				 command_delbuddy command_away);
+				 command_delbuddy command_away command_set);
 
 my $state;
 my $sh;
@@ -348,10 +348,12 @@ HELP
 		if ($aim->buddy("$args")) {
 			$state->{"default"} = $args;
 			$sh->out("New default target: $args");
+			prompter("TARGET", $state->{"default"});
 		} elsif ($args eq ';') {
 			if ($state->{"last_from"}) {
 				$state->{"default"} = $state->{"last_from"};
 				$sh->out("New default target: " . $state->{"default"});
+				prompter("TARGET", $state->{"default"});
 			} else {
 				$sh->error("No one has sent you a message yet... what are you trying to do?!");
 			}
@@ -370,6 +372,7 @@ HELP
 	$state = shift;
 	my ($args) = @_;
 	$sh->out("Default target cleared.");
+	prompter("TARGET", undef);
 	undef($state->{"default"});
 }
 
@@ -485,7 +488,7 @@ HELP
 
 		#map { $sh->out("B: " . $_->{"screenname"}); } @buddies;
 		
-		# TODO: Only display all matches to their query?
+		# Only display all matches to their query?
 		# -a    active
 		# -w    away
 		# -o    offline
@@ -499,7 +502,7 @@ HELP
 		foreach my $flag (grep($opts{$_} == 1, keys(%opts))) { 
 			my $sub = $USERFLAGS{$flag};
 			#out("Grepping for $flag - " . scalar(@buddies) . "before");
-			@buddies = grep(&{$sub}($_), @buddies);
+			@buddies = grep($sub->($_), @buddies);
 			#out("After:" . scalar(@buddies));
 		}
 
@@ -610,6 +613,7 @@ HELP
 
 	if (length($msg) == 0) {
 		if (defined($state->{"away"})) {
+			$sh->prompt("");
 			$sh->out("You are no longer away...");
 			$aim->set_away("");
 			delete $state->{"away"};
@@ -617,10 +621,26 @@ HELP
 			$sh->error("Go away with what message?");
 		}
 	} else {
+		$sh->prompt("AWAY> ");
 		$aim->set_away($args);
 		$state->{"away"} = $args;
 		$sh->out("You have gone away: $args");
 	}
+}
+
+sub command_set {
+	return "%s" if ($_[0] eq 'completion');
+	return << "HELP" if ($_[0] eq "help");
+Syntax: /set option[=value]
+If the value is specified, it will set the given option to the value. If the value is omitted, then the current value will be printed.
+HELP
+	my $state = shift;
+	my ($args) = @_;
+
+	my ($key, $val) = split(/\s*=\s*/, $args, 2);
+
+	$state->{"settings"}->{$key} = $val if ($val);
+	$sh->out("$key = $val");
 }
 
 sub compare {
