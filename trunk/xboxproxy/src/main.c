@@ -70,6 +70,8 @@ static fd_set proxysocks;
 static char *pcapdev = NULL;
 static char *proxyserver = NULL;
 static int use_udp = 0;
+static int serverport = SERVER_PORT;
+
 static struct libnet_link_int *libnet;
 
 void addxbox(u_char *macaddr, proxy_t *ppt);
@@ -130,7 +132,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 			if (use_udp) {
 				struct sockaddr_in to;
 				to.sin_addr = p->addr;
-				to.sin_port = htons(SERVER_PORT);
+				to.sin_port = htons(serverport);
 				to.sin_family = PF_INET;
 
 				sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
@@ -162,7 +164,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 		if (use_udp) {
 			struct sockaddr_in to;
 			to.sin_addr = p->addr;
-			to.sin_port = htons(SERVER_PORT);
+			to.sin_port = htons(serverport);
 			to.sin_family = PF_INET;
 
 			sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
@@ -238,9 +240,9 @@ void proxy(void *args) {
 	}
 	serveraddr.sin_family = PF_INET;
 	serveraddr.sin_addr.s_addr = INADDR_ANY;
-	serveraddr.sin_port = htons(SERVER_PORT);
+	serveraddr.sin_port = htons(serverport);
 	
-	debuglog(5, "Binding to any on port %d", SERVER_PORT);
+	debuglog(5, "Binding to any on port %d", serverport);
 	if (bind(server, (struct sockaddr *)&serveraddr, sizeof(struct sockaddr)) == -1) {
 		debuglog(0, "bind() failed: %s", strerror(errno));
 		pthread_exit(NULL);
@@ -251,7 +253,7 @@ void proxy(void *args) {
 		pthread_exit(NULL);
 	}
 
-	debuglog(1, "Listening on port %d", SERVER_PORT);
+	debuglog(1, "Listening on port %d", serverport);
 
 	FD_SET(server, &proxysocks);
 
@@ -290,6 +292,22 @@ void proxy(void *args) {
 
 			debuglog(1, "Data ready from %d descriptors", sel);
 
+			/* Check known proxy connections for data */
+			hash_scan_begin(&hs, proxies);
+			while ((node = hash_scan_next(&hs))) {
+				proxy_t *p = (proxy_t *)(node->hash_data);
+				if (FD_ISSET(p->fd, &proxysocks)) {
+					debuglog(1, "Data received from %s", inet_ntoa(p->addr));
+					if (recv_from_proxy(p) > 0 )
+						FD_SET(p->fd, &proxysocks);
+					else
+						FD_CLR(p->fd, &proxysocks);
+				} else {
+					FD_SET(p->fd, &proxysocks);
+				}
+			}
+
+			debuglog(14,"Data from a connected proxy client!");
 			if (FD_ISSET(server, &proxysocks)) {
 				proxy_t *newproxy;
 
@@ -308,21 +326,6 @@ void proxy(void *args) {
 				FD_SET(fd, &proxysocks);
 			} 
 
-			/* Check known proxy connections for data */
-			hash_scan_begin(&hs, proxies);
-			while ((node = hash_scan_next(&hs))) {
-				proxy_t *p = (proxy_t *)(node->hash_data);
-				debuglog(1, "Data received from %s", inet_ntoa(p->addr));
-				if (FD_ISSET(p->fd, &proxysocks)) {
-					if (recv_from_proxy(p) > 0 )
-						FD_SET(p->fd, &proxysocks);
-					else
-						FD_CLR(p->fd, &proxysocks);
-				} else {
-					FD_SET(p->fd, &proxysocks);
-				}
-			}
-			debuglog(14,"Data from a connected proxy client!");
 		}
 	}
 }
@@ -359,7 +362,7 @@ void connect_to_proxy() {
 
 	destaddr.sin_family = PF_INET;
 	destaddr.sin_addr = in;
-	destaddr.sin_port = htons(SERVER_PORT);
+	destaddr.sin_port = htons(serverport);
 
 	if (!use_udp) {
 		if (connect(sock, (struct sockaddr *)&destaddr, sizeof(struct sockaddr))) {
@@ -438,7 +441,8 @@ void distribute_packet(proxy_t *ppt, char *packet, int pktlen) {
 
 	libnet_write_link_layer(libnet, pcapdev, packet, pktlen);
 
-	//hexdump(packet, pktlen);
+	if (get_log_level() > 10)
+		hexdump(packet, pktlen);
 }
 
 void remove_proxy(proxy_t *ppt) {
@@ -471,8 +475,11 @@ int main(int argc, char **argv) {
 	pthread_t pcapthread, proxythread;
 
 	/* Argument Processing */
-	while ((ch = getopt(argc, argv, "us:i:")) != -1) {
+	while ((ch = getopt(argc, argv, "us:i:d:")) != -1) {
 		switch (ch) {
+			case 'd':
+				set_log_level(atoi(optarg));
+				break;
 			case 'u':
 				debuglog(10, "-u flag, enabling udp");
 				use_udp = 1;
@@ -487,6 +494,11 @@ int main(int argc, char **argv) {
 				strlcpy(proxyserver,optarg,strlen(optarg) + 1);
 				debuglog(10, "-s flag, setting proxy server to %s", proxyserver);
 				break;
+			case 'p':
+				serverport = atoi(optarg);
+				break;
+			case 'h':
+			case '?':
 			default:
 				//usage();
 				break;
