@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.3  2004/01/20 08:13:40  tristan
+ *   included the bs server too.
+ *
  *   Revision 1.2  2004/01/20 07:37:53  tristan
  *   implemented many of the basic methods.
  *
@@ -27,6 +30,7 @@ import java.net.InetAddress;
  * @author Nick Johnson
  */
 public abstract class BSProtocolServer extends Thread {
+    private BSServer server;
     private InetAddress host;
     private int port;
     private List clients;
@@ -34,14 +38,32 @@ public abstract class BSProtocolServer extends Thread {
 
     /**
      * Initializes the bs protocol server.
+     * @param server The parent bs server.
      * @param host The host this protocol binds to.
      * @param port The port to bind to.
      */
-    public BSProtocolServer( InetAddress host, int port ) {
+    public BSProtocolServer( BSServer server, InetAddress host, int port ) {
+        this.server = server;
         this.host = host;
         this.port = port;
         this.clients = new ArrayList();
         this.running = false;
+    }
+
+    /**
+     * Returns the parent bs server.
+     * @return The parent bs server.
+     */
+    public BSServer getServer() {
+        return server;
+    }
+
+    /**
+     * Changes the parent bs server.
+     * @param server The parent bs server.
+     */
+    public void setServer( BSServer server ) {
+        this.server = server;
     }
 
     /**
@@ -66,14 +88,6 @@ public abstract class BSProtocolServer extends Thread {
      */
     public boolean isRunning() {
         return running;
-    }
-
-    /**
-     * Changes this event loop's running status.
-     * @param running Whether or not the event loop should continue.
-     */
-    public void setRunning( boolean running ) {
-        this.running = running;
     }
 
     /**
