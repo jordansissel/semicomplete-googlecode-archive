@@ -26,9 +26,9 @@ config: Makefile.inc
 Makefile.inc: configure
 	@sh configure
 
-all: $(OBJS) proxy
+all: proxy
 
-proxy:
+proxy: $(OBJS)
 	$(CC) $(LDFLAGS) $(LIBS) $(OBJS) /usr/local/lib/libnet.a -o proxy
 
 clean:
