@@ -1,0 +1,47 @@
+CREATE TABLE public.sources (
+	name         VARCHAR(30),        -- name of the feed
+	descr        VARCHAR(255),       -- description of the feed
+	feed         VARCHAR(200),       -- url where the feed can be found
+	url          VARCHAR(200),       -- url of the website 
+	type         VARCHAR(10),        -- type of the feed (rss, atom, etc)
+	lastupdate   DATE,               -- date this feed was last updated
+	id           SERIAL,
+	PRIMARY KEY (id)
+);
+
+CREATE TABLE public.users (
+	username        VARCHAR(30),     -- username?
+	password        VARCHAR(40),     -- password
+	email           VARCHAR(50),     -- email, duh...
+
+	-- What other data? Settings? Should settings be in another table?
+
+	id              SERIAL,
+	PRIMARY KEY (id)
+);
+
+CREATE TABLE public.articles (
+	sourceid        INTEGER references sources (id),
+	url             VARCHAR(150),    -- url of this article
+	title           VARCHAR(60),     -- title of the article
+	descr           VARCHAR(200),    -- happy description
+	id              SERIAL,
+	PRIMARY KEY (id)
+);
+
+CREATE TABLE public.watching (
+	userid          INTEGER references users (id),
+	sourceid        INTEGER references sources (id),
+	PRIMARY KEY (userid, sourceid)
+);
+
+CREATE TABLE public.seen (
+	userid          INTEGER references users (id),
+	articleid       INTEGER references articles (id),
+	PRIMARY KEY (userid, articleid)
+);
+
+CREATE TABLE public.sessions (
+	userid          INTEGER references users (id),
+	sessionkey      VARCHAR(20)     -- session identifier, given from cookies
+);
