@@ -4,6 +4,7 @@ use MP3::Tag;
 use Storable qw(nstore);
 use strict;
 use warnings;
+use POSIX ":sys_wait_h";
 
 my %hashy;
 my $id = 0;
@@ -12,7 +13,35 @@ open(FILES, "< $ENV{HOME}/foo.m3u") or die ($!);
 my $time = time() - 1;
 my @foo = <FILES>;
 
-rabble(\@foo);
+my $forks = $ARGV[0] || 2;
+
+my @list;
+my $size = int(scalar(@foo) / $forks) + 1;
+my $total = scalar(@foo);
+
+for (my $s = 0; $s < $total; $s += $size) {
+	push(@list, [ splice(@foo,0,$size) ] );
+}
+
+#rabble(\@foo);
+
+my %pids;
+
+$SIG{CHLD} = sub { my $p = waitpid(-1,0); delete($pids{$p}); };
+
+foreach (@list) {
+	if (my $pid = fork()) {
+		$pids{$pid} = 1;
+	} else {
+		print "$$ ; " . ref($_) . "\n";
+		rabble($_);
+		exit(0);
+	} 
+}
+
+while (keys(%pids) > 0) {
+	 sleep(3);
+}
 
 sub rabble {
 	my $razzle = shift;
@@ -24,11 +53,12 @@ sub rabble {
 
 		my $t = time() - $time;
 		#if ($id % 50 == 0) {
-			printf("[%d / %.2f/sec / %.2f%%] $id - %s\n",
+			printf("[%d][%d / %.2f/sec / %.2f%%] $id - %s\n",
+					 $$,
 					 $t, 
 					 $id / $t,
-					 ($id / @foo) * 100, 
-					 substr($foo,0,50));
+					 ($id / scalar(@$razzle)) * 100, 
+					 substr($foo,0,80));
 		#}
 		my $tag = MP3::Tag->new($_);
 
@@ -41,13 +71,11 @@ sub rabble {
 			album => $album,
 			file => $foo,
 			id => $id,
-
 		};
 
 		$id++;
 		$tag = undef;
 	}
-
 
 	print "ALL DONE!!!\n";
 	print "Took " . (time() - $time) . " seconds\n\n";
@@ -56,6 +84,6 @@ sub rabble {
 	print "Storing...\n";
 
 
-	nstore(\%hashy, $ENV{HOME} . "/.pimp/tags");
+	nstore(\%hashy, $ENV{HOME} . "/.pimp/tags.$$");
 	print "Done - took " . (time() - $time) . " seconds\n";
 }
