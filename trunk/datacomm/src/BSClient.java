@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.6  2004/01/19 21:00:50  tristan
+ *   implements protocol constants now
+ *
  *   Revision 1.5  2004/01/19 20:48:20  tristan
  *   changes due to refactoring
  *
@@ -23,12 +26,15 @@
  *
  */
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Abstract class for a BS Client object
  *
  * @author tristan
  */
-public abstract class BSClient extends Thread {
+public abstract class BSClient extends Thread implements ProtocolConstants {
     private Client connection;
     private String yourName;
     private String otherName;
@@ -113,16 +119,32 @@ public abstract class BSClient extends Thread {
     }
 
     /**
-     * Starts the game.
+     * Sends a start game message to the server telling it that we
+     * are looking for a specific opponent.
      */
     public void startGame() {
-
+        List args = new ArrayList();
+        args.add( yourName );
+        args.add( otherName );
+        connection.sendMessage( new Command( "STARTGAME", args ) );
     }
 
     /**
-     * Finds an opponent.
+     * Waits until an opponent is found.
      */
     public void findOpponent() {
+        Response found = connection.receiveResponse();
+
+        if ( found.getId() == PLAYERFOUND ) {
+
+        }
+    }
+
+    /**
+     * Initializes the game board from the server and does
+     * other startup things.
+     */
+    public void initGame() {
 
     }
 
