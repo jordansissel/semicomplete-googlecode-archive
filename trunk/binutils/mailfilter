@@ -9,7 +9,8 @@
 #
 
 use strict;
-use MIME::Parser;
+#use MIME::Parser;
+#MIME::Parser sucks, mhstore rocks.
 
 # Basic settings {{{
 my $TMP = "/u9/psionic/tmp";
@@ -17,7 +18,7 @@ my $BROWSER = 'w3m -title -T text/html';
 #my $BROWSER = "cat";
 my $MHL_PROG = "/usr/local/libexec/nmh/mhl";
 my $MHL_HTML_OPTS = "-form mhl.html";
-my $MHL_PLAIN_OPTS = "";
+my $MHL_PLAIN_OPTS = "-form mhl.plaintext";
 
 # This was stolen from my .muttrc - I'll need to come up with a decent
 # parser for these lines eventually.
@@ -25,6 +26,11 @@ my %pgp = (
 pgp_verify_command => "gpg --no-secmem-warning --quiet --no-verbose --batch --output - --verify %s %f"
 	 );
 #}}}
+
+# Plain-text types to be displayed normally without filtration:
+my @plaintext_types = ( 
+   'text/.*', 'message/delivery-status' 
+   );
 
 # Set $mail, $folder, $base, other useful variables. {{{
 my ($mail) = $ARGV[0];
@@ -54,7 +60,7 @@ open(MAIL, "< $file") or die("Unable to open $file.\n$!\n");
 $from_line = <MAIL>; chomp($from_line);
 
 my $boundary;
-my $rcv = 0; my $dto = 0;
+my %ticks;
 my $lookforctype = 0;
 my @part_types;
 while (<MAIL>) {
@@ -68,13 +74,11 @@ while (<MAIL>) {
 
       if (s/^([A-Za-z-]+):\s+//) {
 	 my $a = $1;
-	 if ($a eq 'Received') {
-	    $a = $a . "_$rcv";
-	    $rcv++;
-	 } elsif ($a eq 'Delivered-To') {
-	    $a = $a . "_$dto";
-	    $dto++;
+	 unless ($a =~ m/^Content-Type$/i) {
+	    $ticks{$1}++;
+	    $a .= "_" . $ticks{$1};
 	 }
+
 	 $header = $a;
 	 push(@order,$header);
       }
@@ -107,35 +111,49 @@ while (<MAIL>) {
       }
 
    }
-} # We're done reading the headers }}}
+} 
+close(MAIL);
+# We're done reading the headers }}}
 
 #{{{ Useful Variables (content-typpe, tempfile template, ...)
 my ($ctype) = grep(/^content-type$/i,keys(%headers)); 
 $ctype = $headers{$ctype};
 my $fr = $folder; $fr =~ s,^.*/([^/]+)$,$1,;
-my $template = "msg.$fr.$mail";
-my $templatereg = '^msg\.'.$fr.'\.'.$mail;
+my $template = "$mail";
+my $templatereg = '^'.$mail.'\.[0-9]+\.';
 #}}}
 
 if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
    print STDERR "Parsing multipart mail ($ctype)\n";
    system("rm $TMP/$template* > /dev/null 2>&1");
 
-   my $parser = new MIME::Parser;
-   $parser->output_dir($TMP);
-   $parser->filer->output_prefix("$template");
-   $parser->parse_in($file);
+   my %parts;
+
+   my $partlist = `mhlist -noheaders`;
+   foreach (split("\n",$partlist)) {
+      next if (m,multipart,i);
+      chomp(); s/^\s+//;
+      my ($part,$type,$size,$desc) = split(/\s+/,$_,4);
+      $parts{$part} = { 'type' => $type, 'size' => $size, 
+                        'desc' => $desc, 'part' => $part };
+      #print "Parts: " . $parts{$part} . "\n";
+      system("mhstore -part $part > /dev/null 2>&1");
+   }
+
+   #system("mhstore");
 
    #print `ls $TMP/$template*`;
    opendir(DIR,"$TMP");
-   my @parts = grep { m,$templatereg, } readdir(DIR);
+   my @fileparts = grep { m,$templatereg, } readdir(DIR);
    closedir(DIR);
+
+   #print "Files: " . join(" | ", @fileparts) . "\n";
 
    # If part 2 is html, then open it first assuming that this email was dually
    # sent as text/plain and text/html.
    my $mailpart;
-   if ( ($parts[1] =~ m/\.html$/ && ($mailpart = $parts[1])) || 
-	($parts[0] =~ m/\.html$/ && ($mailpart = $parts[0])) ) {
+   if ( ($parts{2}{type} =~ m/\.html$/ && ($mailpart = $parts{2})) || 
+	($parts{1}{type} =~ m/\.html$/ && ($mailpart = $parts{1})) ) {
       my $tmpfile = "$TMP/.headers.$fr.$mail";
       print STDERR "Starting browser\n";
 
@@ -146,35 +164,42 @@ if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
       browser_print("< $tmpfile","text/plain");
       browser_print("< $TMP/$mailpart");
 
-      #open(MAIL, "< $TMP/".$mailpart) or 
-	 #die("Failed trying to read $TMP/".$mailpart."\n$!\n");
-#
-      #while (<MAIL>) {
-	 #print BROWSER $_;
-      #}
-      #close(MAIL);
-      
       close(BROWSER);
 
-      system("rm $tmpfile");
+      #system("rm $tmpfile");
    } else {
       # This doesn't appear to be an html mail, let's deduce what it is...
 
-      if (scalar(grep(/application\/pgp-signature/,@part_types)) > 0) {
-	 # This is pgp signed mail.
+      print STDERR "Starting browser...\n";
+      open(BROWSER, "| $BROWSER");
+      #open(BROWSER, "> /dev/null");
+      browser_set_content_type("text/html");
+      my $tmpfile = "$TMP/.headers.$fr.$mail";
+      mhl_write_headers($tmpfile);
+      browser_print($tmpfile,"text/html");
+
+      # Do PGP stuff first?
+      if (scalar(grep(/application\/pgp-signature/,@part_types)) > 0) { 
+	 # pgp-signed email {{{
+	 print STDERR "pgp signature found, invoking pgp... ";
 	 my ($plain, $sig, $plaintype);
+	 my ($pidx, $sidx);
 	 my $count = 0;
-	 foreach my $part (@parts) {
+	 foreach my $part (@fileparts) {
 	    my $type = $part_types[$count];
-	    if ($type =~ m,text/(plain|html),) {
+	    if ( (!defined($plain)) && ($type =~ m,text/(plain|html),) ) {
 	       $plain = $part;
 	       $plaintype = $type;
+	       $pidx = $count;
 	    }
-	    $sig = $part if ($type eq 'application/pgp-signature');
+	    if ( (!defined($sig)) && ($type eq 'application/pgp-signature') ) {
+	       $sig = $part;
+	       $sidx = $count;
+	    } 
 	    $count++;
 	 }
-	 print "Plain: $plain\n";
-	 print "sig: $sig\n";
+	 #print "Plain: $plain\n";
+	 #print "sig: $sig\n";
 
 	 #print "text/plain part: $plain\n";
 	 #print "pgp-sig part: $sig\n";
@@ -182,65 +207,48 @@ if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
 	 $pgp_verify =~ s,%s,$TMP/$sig,;
 	 $pgp_verify =~ s,%f,$TMP/$plain,;
 
-         print STDERR "Starting browser...\n";
-	 open(BROWSER, "| $BROWSER");
-	 browser_set_content_type("text/html");
-	 #open(BROWSER, "> /dev/null");
-
-	 my $tmpfile = "$TMP/.headers.$fr.$mail";
-
-	 mhl_write_headers($tmpfile);
-	 browser_print($tmpfile,"text/html");
 	 browser_print("$pgp_verify 2>&1 |", "text/plain",1);
-         browser_print("$TMP/$plain","$plaintype");
+         #browser_print("$TMP/$plain","$plaintype");
 
-	 #open(MAIL, "< $TMP/".$plain) or 
-	    #die("Failed trying to read $TMP/".$plain."\n$!\n");
+	 undef($parts{$sidx});
+	 print STDERR "done.\n"
 
-	 #while (<MAIL>) {
-	    #print BROWSER $_;
-	    #print BROWSER "<br>" if ($plaintype eq 'text/plain');
-	 #}
-	 #close(MAIL);
-
-	 close(BROWSER);
-
-	 #system("$MHL_PROG $MHL_PLAIN_OPTS $mail | " . $ENV{'PAGER'});
-      } else {
-	 my $UNKNOWN_FORMAT = "*** Unknown Mail footprint!!!\n*** Could not figure out what kind of mail this is.\n*** Number of parts: " . scalar(@parts) . "\n*** Content-Type: $ctype\n";
-	 system("(echo '$UNKNOWN_FORMAT' && $MHL_PROG $MHL_PLAIN_OPTS $mail) | " . $ENV{'PAGER'});
+	 #}}}
       }
 
+      browser_print("< $TMP/" . $fileparts[0], $parts{1}{'type'}, 1);
+
+      undef($parts{1});
+
+      mime_for_you(\%parts,@fileparts);
+
+      close(BROWSER);
+      system("rm $tmpfile");
    }
 
-   foreach (@parts) {
-      #system("rm $TMP/$_");
+   foreach (@fileparts) {
+      system("rm $TMP/$_");
    }
 #}}}
 } else { # {{{ Not multipart mail.
 
-   if ($ctype =~ m,^text/html,) {
-      print "Starting browser...\n";
-      system("$MHL_PROG $MHL_HTML_OPTS $mail | $BROWSER");
-   } elsif ($ctype =~ m,^text/plain,) {
-      print "Starting browser...\n";
-      system("$MHL_PROG $MHL_PLAIN_OPTS $mail | " . $ENV{'PAGER'});
-   } else {
-      print "Mail content type: " . $ctype . "\n";
-      print "I don't know how to handle this!\n";
-   }
+   print "Starting browser...\n";
+   open(BROWSER,"| $BROWSER") or die(":( $!");
+   browser_print("$MHL_PROG $MHL_PLAIN_OPTS $mail |","$ctype");
+   close(BROWSER);
+
 } # }}}
 
 sub mhl_write_headers { #{{{
-   my ($tmpfile) = shift;
+   my ($out) = shift;
 
-   open(MHLWRITE, "| $MHL_PROG $MHL_HTML_OPTS > $tmpfile") or
+   open(MHLWRITE, "| $MHL_PROG $MHL_HTML_OPTS > $out") or
       die("Failed trying to pipe to $MHL_PROG\n$!\n"); 
 
    print MHLWRITE "$from_line\n";
    foreach (@order) {
       my $a = $_;
-      $a =~ s/^(Received|Delivered-To)_[0-9]+$/(Received|Delivered-To)/;
+      $a =~ s/^([A-Za-z-]+)_[0-9]+$/\1/;
 
       print MHLWRITE "$a:  $headers{$_}\n";
    }
@@ -254,8 +262,8 @@ sub browser_print { #{{{
    if (ref($what) eq 'GLOB') {
       $contents = $what;
    } else {
-      open($contents,"$what") 
-	 or die("Unable to open $what for reading.\n> $!\n");
+      open($contents,$what) 
+	 or die("Unable to open $what for reading.\nreason> $!\n");
    }
 
    my $not_real_html = 0;
@@ -275,8 +283,6 @@ sub browser_print { #{{{
 
    print BROWSER "<hr>" if ($splitter);
 
-
-
    close($contents) if (ref($what) ne 'GLOB');
 } #}}}
 
@@ -285,3 +291,45 @@ sub browser_set_content_type { #{{{
 
    $browser_content_type = $type;
 } #}}}
+
+sub handle_mime_attachment { #{{{
+   my ($part,$file,$defer) = @_;
+
+   my $yep;
+   foreach (@plaintext_types) {
+      if ($part->{type} =~ m/$_/i) {
+	 print BROWSER "[ Part " . $part->{'part'} . " - " . 
+	                $part->{'desc'} . ", type=" . 
+			$part->{'type'} . " ]<br>\n";
+
+         browser_print("< $TMP/$file", $part->{type}, 1);
+	 $yep = 1;
+	 last;
+      }
+   }
+   push(@{$defer}, [ $part, $file ]) unless ($yep);
+
+} #}}}
+
+sub mime_for_you {
+   my ($parts,@fileparts) = @_;
+
+   my @justlink;
+   foreach (keys(%{$parts})) {
+      next unless (defined($parts->{$_}));
+      handle_mime_attachment($parts->{$_},$fileparts[$_ - 1],\@justlink);
+   }
+
+   # These next files weren't plaintext-printed, so link them.
+   if (scalar(@justlink) > 0) {
+      print BROWSER "Download Attachments:<br>\n";
+      foreach (@justlink) {
+	 my ($part,$file) = @{$_};
+	 print BROWSER "&nbsp;&nbsp;&nbsp;<a href=\"file://$TMP/$file\">";
+	 print BROWSER $part->{'desc'} . " - ";
+	 print BROWSER "$file (".$part->{'type'}.")</a><br>\n";
+      }
+   }
+}
+
+
