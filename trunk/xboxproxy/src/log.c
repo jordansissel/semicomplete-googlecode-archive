@@ -20,6 +20,11 @@ void set_log_level(int level) {
 	loglevel = level;
 }
 
+int get_log_level() {
+	return loglevel;
+}
+
+
 /* Log whatever if loglevel >= level */
 void debuglog(int level, const char *format, ...) {
 	va_list args;
