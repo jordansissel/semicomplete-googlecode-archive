@@ -6,6 +6,10 @@
  * 
  * Revisions:
  *   $Log$
+ *   Revision 1.6  2004/01/18 23:17:36  njohnson
+ *   filled in a bit of the stubs. alterGrid now take a specific grid in
+ *   arguments. We are altering either ownGrid or targetGrid
+ *
  *   Revision 1.5  2004/01/18 23:02:48  njohnson
  *   added some important stubs that need to be implemented.
  *
@@ -44,6 +48,7 @@ public class BSGame {
     private BSGrid ownGrid;
     private BSGrid targetGrid;
 
+
     public BSGame( String ownName, 
             String targetName,    
             BSGrid ownGrid,
@@ -61,14 +66,34 @@ public class BSGame {
         the_grid.generateGrid( new_grid );
     } //clearGrid()
 
-    public void alterGrid( char x, int i, boolean hit ) {
+    /** 
+     * Alters the byte at a point on grid
+     *
+     *
+     */
+    public void alterGrid( BSGrid the_grid, char x, int i, boolean hit ) {
+        int j = 0;
+        byte new_byte = 0;
+
+
+        the_grid[ j ][ i ] = new_byte;
 
     } //alterGrid()
 
+    /**
+     * Returns the player who owns this game's own grid.
+     *
+     * @return - ownGrid
+     */
     public BSGrid getOwnGrid() {
         return ownGrid;
     } //getOwnGrid()
 
+    /**
+     * Returns the player who owns this game's target grid.
+     *
+     * @return - the target grid
+     */
     public BSGrid getTargetGrid() {
         return targetGrid;
     } //getTargetGrid()
