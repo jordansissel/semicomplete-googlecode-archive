@@ -33,10 +33,12 @@ BEGIN {
 }
 
 my $MAXBUFSIZE = 65536;       # mp3 inbound buffer
-my $BUFSIZE = 16384;          # mp3 to-decode buffer
+my $BUFSIZE = 1024;          # mp3 to-decode buffer
 my $BUFFER_ERROR_RATE = 5;    # Errors per 5 seconds or osmething
 my $CLIENTWRITESIZE = 8192;   # bytes to send to control clients per loop
 my $METAINT = 16384;          # Shoutcast metadata interval
+
+my $pimp = {};
 #}}}
 
 # Protocol Numbers/Identifiers {{{
@@ -63,11 +65,9 @@ use constant {
 	SONG_FILENAME => 405,
 	SONG_CURTIME => 406,
 
-}; #}}}
+	NEW_SONG => 501,
 
-my $pimp = {};
-#my $stream = new Audio::Mad::Stream();
-#my $frame = new Audio::Mad::Frame();
+}; #}}}
 
 # process_decode {{{
 # actually does the transmission of mp3 data
@@ -93,6 +93,7 @@ sub process_control() {
 			$select->add($client);
 			$pimp->{"control_clients"}->{$client} = $client;
 			$pimp->{"client_send_buffers"}->{"$sock"} = "";
+			print_to_client("$client", NEW_SONG, current_song_title());
 		} else {
 			# This is a client sending data
 			my $data;
@@ -203,7 +204,7 @@ sub play_song(;$) {
 		} else {
 			$pimp->{"state"} = "playing" if ($pimp->{"state"} ne 'paused');
 			$pimp->{"current_song"} = $song;
-			print_to_client("BROADCAST", current_song_title());
+			print_to_client("BROADCAST", NEW_SONG, current_song_title());
 		}
 	} else {
 		signal_event("open_failed");
@@ -285,13 +286,13 @@ sub play_to_clients() {
 	my @data = splice(@{$pimp->{"output"}}, 0, 10);
 	my ($hcnt,$bcnt) = (0,0); # Handle and overbuffered-count
 
-	foreach my $sock ($select->handles()) { 
+	foreach my $sock ($select->handles()) {
 		next if ($sock == $pimp->{"http"});
 
 		my $obuf = $pimp->{"http_output_buffer"}->{$sock};
 		push(@$obuf, @data) ;
 
-		if (scalar(@$obuf) > 20) {
+		if (scalar(@$obuf) > 5) {
 			$bcnt++;
 			print "Chunks remaining for " . sock2addr($sock) . ": " . 
 				scalar(@$obuf) . "\n";
@@ -309,47 +310,50 @@ sub play_to_clients() {
 		next if ($sock == $pimp->{"http"}); 
 		next unless (exists($pimp->{"http_clients"}->{$sock}));
 
-		@data = splice(@{$pimp->{"http_output_buffer"}->{$sock}}, 0, 20);
+		while (grep($sock, $select->can_write(0)) && scalar(@{$pimp->{"http_output_buffer"}->{$sock}}) > 0) {
+			#@data = splice(@{$pimp->{"http_output_buffer"}->{$sock}}, 0, 4);
+			(@data) = shift @{$pimp->{"http_output_buffer"}->{$sock}};
 
-		my $data = join('', @data);
-		if (length($data) > 0) {
-			# Inject metadata if we need to {{{
-			my $metaint = \$pimp->{"metaintleft"}->{"$sock"};
-			if (defined($$metaint)) {
-				# Check if we need to inject metadata
-				$$metaint -= length($data);
-				if ($$metaint <= 0) {
-					my $metadata = "";
-					if (defined($pimp->{"metatitle"}->{$sock}) && $pimp->{"metatitle"}->{$sock} eq current_song_title()) {
-						$metadata = "\0";
+			my $data = join('', @data);
+			if (length($data) > 0) {
+				# Inject metadata if we need to {{{
+					my $metaint = \$pimp->{"metaintleft"}->{"$sock"};
+					if (defined($$metaint)) {
+						# Check if we need to inject metadata
+						$$metaint -= length($data);
+						if ($$metaint <= 0) {
+							my $metadata = "";
+							if (defined($pimp->{"metatitle"}->{$sock}) && $pimp->{"metatitle"}->{$sock} eq current_song_title()) {
+								$metadata = "\0";
+							} else {
+								my $len;
+								$metadata .= "StreamTitle='" . current_song_title() . "';";
+								$metadata .= "StreamUrl='http://www.foo.com/bar';";
+								$len = (1 + int((length($metadata) + 1) / 16)) * 16;
+								$metadata .= chr(0) x ($len - length($metadata));
+
+								# Put the meta data in the proper place.
+								$metadata = chr(int($len / 16))  . $metadata;
+
+								#print "Metaint is: $$metaint\n";
+								#print "MetaLength is: $len / " . length($metadata) . "\n";
+								#print STDERR "META: $metadata\n\n\n";
+
+							}
+							substr($data,length($data) + $$metaint, 0) = $metadata;
+
+							$pimp->{"metatitle"}->{$sock} = current_song_title();
+							# Set next interval to METAINT minus the overflow
+							$$metaint = $METAINT + $$metaint;
+						}
+					} #}}}
+
+					if ($sock->connected()) {
+						#print "Sending " . length($data) . "B to " . sock2addr($sock) . "\n";
+						syswrite($sock,$data);
 					} else {
-						my $len;
-						$metadata .= "StreamTitle='" . current_song_title() . "';";
-						$metadata .= "StreamUrl='http://www.foo.com/bar';";
-						$len = (1 + int((length($metadata) + 1) / 16)) * 16;
-						$metadata .= chr(0) x ($len - length($metadata));
-
-						# Put the meta data in the proper place.
-						$metadata = chr(int($len / 16))  . $metadata;
-
-						#print "Metaint is: $$metaint\n";
-						#print "MetaLength is: $len / " . length($metadata) . "\n";
-						#print STDERR "META: $metadata\n\n\n";
-
+						drop_http_client($sock);
 					}
-					substr($data,length($data) + $$metaint, 0) = $metadata;
-
-					$pimp->{"metatitle"}->{$sock} = current_song_title();
-					# Set next interval to METAINT minus the overflow
-					$$metaint = $METAINT + $$metaint;
-				}
-			} #}}}
-
-			if ($sock->connected()) {
-				#print "Sending " . length($data) . "B to " . sock2addr($sock) . "\n";
-				syswrite($sock,$data);
-			} else {
-				drop_http_client($sock);
 			}
 		}
 	}
@@ -378,9 +382,8 @@ sub decode_current_mp3() {
 
 	# Grab up to 10 chunks of mp3 data
 	for (1 .. 10) {
-
-		my $data = substr($$buffer, 0, 500);
-		substr($$buffer, 0, 500) = "";
+		my $data = substr($$buffer, 0, $BUFSIZE);
+		substr($$buffer, 0, $BUFSIZE) = "";
 
 		# Push the next frame onto the output bufferness
 		push(@{$output}, $data);
@@ -449,9 +452,9 @@ sub handle_http_request($) {
 	$response .= "icy-url: http://whack.csh.rit.edu/this/is/a/lie\r\n";
 	$response .= "icy-name: I like music!\r\n";
 
-	#print sock2addr($sock) . " sent:\n";
-	#print $buffer . "\n";
-	#print sock2addr($sock) . " requested:\n" . $buffer . "\n";
+	print sock2addr($sock) . " sent:\n";
+	print $buffer . "\n";
+	print sock2addr($sock) . " requested:\n" . $buffer . "\n";
 	foreach my $line (split(/\r?\n/, $buffer)) {
 		my ($key,$val) = split(/:\s*/, $line, 2);
 		if ($key eq 'Icy-MetaData') {
@@ -464,8 +467,8 @@ sub handle_http_request($) {
 	}
 	$response .= "\r\n";
 
-	#print "Sending to " . sock2addr($sock) . ":\n";
-	#print $response . "\n-\n";
+	print "Sending to " . sock2addr($sock) . ":\n";
+	print $response . "\n-\n";
 
 	print $sock $response;
 
@@ -652,14 +655,16 @@ sub queue($$$) {
 		map { print_to_client($sock, QUEUE_ENTRY, $_->{"file"}) } @{$pimp->{"song_queue"}};
 		print_to_client($sock, QUEUE_END);
 	} elsif ('shuffle' =~ m/^\Q$args\E/) {
-		my $i = @{$pimp->{"song_queue"}};
+		my $arr = $pimp->{"song_queue"};
+		my $i = @$arr;
 		while ($i--) {
 			my $j = int(rand($i + 1));
-			$pimp->{"song_queue"}->[$i,$j] = $pimp->{"song_queue"}->[$j,$i];
+			@{$arr}[$i,$j] = @{$arr}[$j,$i];
 		}
 	} elsif ('all' =~ m/^\Q$args\E/) {
-		push(@{$pimp->{"song_queue"}}, @{$pimp->{"jump_lists"}->{"$sock"}});
-	} elsif ('all' =~ m/^\Q$args\E/) {
+		push(@{$pimp->{"song_queue"}}, @{$pimp->{"jump_lists"}->{"$sock"}})
+			if (ref($pimp->{"jump_lists"}->{"$sock"}) eq 'ARRAY');
+	} elsif ('clear' =~ m/^\Q$args\E/) {
 		splice(@{$pimp->{"song_queue"}});
 	} else {
 		foreach my $id (split(/\s+/,$args)) {
@@ -791,6 +796,7 @@ signal_event("command_next");
 signal_event("command_play");
 
 while (1) {
+	#print "LOOP\n";
 	process_decode();
 	process_control();
 	process_http();
