@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.7  2004/01/19 23:20:52  tristan
+ *   wrote start game and find opponent
+ *
  *   Revision 1.6  2004/01/19 21:00:50  tristan
  *   implements protocol constants now
  *
@@ -126,18 +129,24 @@ public abstract class BSClient extends Thread implements ProtocolConstants {
         List args = new ArrayList();
         args.add( yourName );
         args.add( otherName );
-        connection.sendMessage( new Command( "STARTGAME", args ) );
+        connection.sendMessage( new Command( STARTGAME, args ) );
+
+        // check for a receive msg
+        Response response = null;
+        do {
+            response = connection.receiveResponse();
+        } while ( response != null && response.getId() != STARTGAME_RESPONSE );
     }
 
     /**
      * Waits until an opponent is found.
      */
     public void findOpponent() {
-        Response found = connection.receiveResponse();
+        Response response = null;
 
-        if ( found.getId() == PLAYERFOUND ) {
-
-        }
+        do {
+            response = connection.receiveResponse();
+        } while ( response != null && response.getId() != PLAYERFOUND );
     }
 
     /**
@@ -145,7 +154,7 @@ public abstract class BSClient extends Thread implements ProtocolConstants {
      * other startup things.
      */
     public void initGame() {
-
+        
     }
 
     /**
