@@ -6,8 +6,8 @@
  *
  * Revisions:
  *     $Log$
- *     Revision 1.17  2004/01/19 05:47:43  njohnson
- *     fixed some NullPointerExcpeptions. fixed shipLength problem is BSGrid.java
+ *     Revision 1.18  2004/01/19 07:25:46  njohnson
+ *     still working on ArrayOutofBounds
  *
  *     Revision 1.11  2004/01/18 23:02:48  njohnson
  *     added some important stubs that need to be implemented.
@@ -75,36 +75,39 @@ public class BSGrid {
         int dir = 0; // direction from start to end of ship
                      //
                      //        1
-                     //    2    +    4
+                     //    2   +   4
                      //        3
                      //
 
         for( int i = 0; i < 5; i++ ) {
 
-        //generate the random values for the ship's
-        //start position
-        startRowValue = (int)
-        ( Math.ceil( Math.random()*10 ) - 1.0 );
-        startColValue = (int)
-        ( Math.ceil( Math.random()*10 ) - 1.0 );
+            //generate the random values for the ship's
+            //start position
+            startRowValue = (int)
+            ( Math.ceil( Math.random()*10 ) - 1.0 );
+            startColValue = (int)
+            ( Math.ceil( Math.random()*10 ) - 1.0 );
 
-        //gotta set the ship's length
-        switch( i ) {
-            case 0:
-                shipLength = 2;
-                break;
-            case 1:
-                shipLength = 3;
-                break;
-            case 2:
-                shipLength = 3;
-                break;
-            case 3:
-                shipLength = 4;
-                break;
-            case 4:
-                shipLength = 5;
-                break;
+            System.out.println( "Random Row Value: " + startRowValue );	
+	    System.out.println( "Random Col Value: " + startColValue );
+
+            //gotta set the ship's length
+            switch( i ) {
+                case 0:
+                    shipLength = 2;
+                    break;
+                case 1:
+                    shipLength = 3;
+                    break;
+                case 2:
+                    shipLength = 3;
+                    break;
+                case 3:
+                    shipLength = 4;
+                    break;
+                case 4:
+                    shipLength = 5;
+                    break;
             }
 
 
@@ -122,14 +125,14 @@ public class BSGrid {
             }
 
             //initially check for ship overlap
-                        overlap = findOverlap( shipLength,
-                                               startRowValue,
-                                               startColValue,
-                                               dir );
+            overlap = findOverlap( shipLength,
+                                   startRowValue,
+                                   startColValue,
+                                   dir );
 
             //fill in ships and make sure they
             //don't overlap or go off the grid
-             while( overlap ) {
+            while( overlap ) {
                 //generate the new startValues
                 startRowValue = (int)
                 ( Math.ceil( Math.random()*10 ) - 1.0 );
@@ -141,14 +144,11 @@ public class BSGrid {
                 //reverse the ship if necessary
                 if( dir == 1 && ( startColValue - shipLength ) < 0 ) {
                     dir = 3;
-                } else if( dir == 2 &&
-                  ( startRowValue - shipLength ) < 0 ) {
+                } else if( dir == 2 && ( startRowValue - shipLength ) < 0 ) {
                     dir = 4;
-                } else if( dir == 3 &&
-                  ( startColValue + shipLength ) > 9 ) {
+                } else if( dir == 3 && ( startColValue + shipLength ) > 9 ) {
                     dir = 1;
-                } else if( dir == 4 &&
-                  ( startRowValue + shipLength ) > 9 ) {
+                } else if( dir == 4 && ( startRowValue + shipLength ) > 9 ) {
                     dir = 2;
                 }
 
@@ -222,45 +222,45 @@ public class BSGrid {
 
         switch( dir ) {
             case 1:
+                for( p = 0; p < shipLength; p++ ) {
 		System.out.println( "case 1" );
                 System.out.println( "IndexRow: " + startRowValue );
 		System.out.println( "IndexCol: " + startColValue );
 		System.out.println( "Offset: " + p );
-                for( p = 0; p < shipLength; p++ ) {
                     if(grid[startRowValue+p][startColValue] != 0) {
                         retVal = true;
                     }
                 }
                 break;
             case 2:
+                for( p = 0; p < shipLength; p++ ) {
 		System.out.println( "case 2" );
                 System.out.println( "IndexRow: " + startRowValue );
 		System.out.println( "IndexCol: " + startColValue );
 		System.out.println( "Offset: " + p );
-                for( p = 0; p < shipLength; p++ ) {
                     if(grid[startRowValue][startColValue-p] != 0 ) {
                         retVal = true;
                     }
                 }
                 break;
             case 3:
+                for( p = 0; p < shipLength; p++ ) {
 		System.out.println( "case 3" );
                 System.out.println( "IndexRow: " + startRowValue );
 		System.out.println( "IndexCol: " + startColValue );
 		System.out.println( "Offset: " + p );
-                for( p = 0; p < shipLength; p++ ) {
                     if(grid[startRowValue-p][startColValue] != 0 ) {
                         retVal = true;
                     }
                 }
                 break;
             case 4:
+                for( p = 0; p < shipLength; p++ ) {
 		System.out.println( "case 4" );
                 System.out.println( "IndexRow: " + startRowValue );
 		System.out.println( "IndexCol: " + startColValue );
 		System.out.println( "Offset: " + p );
-                for( p = 0; p < shipLength; p++ ) {
-                    if(grid[startRowValue][startColValue+p] != 0 ) {
+                    if( grid[startRowValue][startColValue+p] != 0 ) {
                         retVal = true;
                     }
                 }
