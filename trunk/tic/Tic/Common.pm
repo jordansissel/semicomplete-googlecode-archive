@@ -152,7 +152,7 @@ sub deep_copy {
 sub getrealsn {
 	my ($state,$sn) = @_;
 	my $foo = $state->{"aim"}->buddy($sn);
-	return $foo->{"screenname"} if (defined($foo));
+	return $foo->{"screenname"} if (defined($foo->{"screenname"}));
 	return $sn;
 }
 

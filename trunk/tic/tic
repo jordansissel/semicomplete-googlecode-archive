@@ -5,8 +5,8 @@ use strict;
 use IO::Select;
 use Net::OSCAR;
 use POSIX qw(strftime);
-use Term::ReadKey;
-use Term::Size;
+use Term::ReadKey;  #<3 readkey
+#use Term::Size;
 
 # Super-magical happy land!
 use Tic::Constants; 
@@ -33,7 +33,7 @@ $state->{"mappings"} = $mappings;
 $state->{"config"} = $config;
 $state->{"settings"} = $settings;
 
-($state->{"termcols"}) = Term::Size::chars();
+($state->{"termcols"}) = GetTerminalSize(); #Term::Size::chars();
 out("Columns: " . $state->{"termcols"});
 
 my $aim = Net::OSCAR->new();
