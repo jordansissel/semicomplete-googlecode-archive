@@ -1,12 +1,13 @@
 #!/usr/bin/perl
 
 use MP3::Tag;
+use Storable;
 
 my %hashy;
 my $id = 0;
 open(FILES, "< $ENV{HOME}/foo.m3u") or die ($!);
 
-my $time = time();
+my $time = time() - 1;
 my @foo = <FILES>;
 foreach (@foo) {
 	next if (m/^#/);
@@ -17,7 +18,7 @@ foreach (@foo) {
 	my $t = time() - $time;
 	printf("[%d / %.2f/sec / %.2f%%] %s\n",
 			 $t, 
-			 $id / ($t + .0000001),
+			 $id / $t),
 			 $id / @foo, 
 			 substr($foo,0,50));
 	my $tag = MP3::Tag->new($_);
@@ -32,3 +33,12 @@ foreach (@foo) {
 	$id++;
 	$tag = undef;
 }
+
+
+print "ALL DONE!!!\n";
+print "Took " . (time() - $time) . " seconds\n\n";
+
+$time = time();
+print "Storing...\n";
+store(\%hashy, $ENV{HOME} . ".pimp/tags");
+print "Done - took " . (time() - $time) . " seconds\n";
