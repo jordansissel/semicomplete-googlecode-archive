@@ -1,0 +1,79 @@
+#!/usr/bin/perl
+
+use Audio::Mad qw(:all);
+use Audio::Ao qw(:all);
+use IO::Select;
+
+my $stream   = new Audio::Mad::Stream();
+my $frame    = new Audio::Mad::Frame();
+my $synth    = new Audio::Mad::Synth();
+my $timer    = new Audio::Mad::Timer();
+my $resample = new Audio::Mad::Resample(44100, 22050);
+my $dither   = new Audio::Mad::Dither();
+
+my $select = IO::Select->new(\*STDIN);
+my $BUFSIZE = 65536;
+
+my $buffer;
+my $tbytes = 0;
+
+my $time = time();
+if (sysread(STDIN,$buffer,$BUFSIZE,0)) {
+	$tbytes += length($buffer);
+	print "Buffer read OK [$tbytes bytes read so far]\n";
+} else {
+	die("Unable to read from STDIN!?\n$!\n");
+}
+$stream->buffer($buffer);
+
+initialize_ao;
+
+
+my $device = open_live(default_driver_id(), 16, 22050, 2, is_big_endian(), {});
+die("Unable to open sound device\n") unless defined($device);
+my ($fsize);
+
+FOO:
+while (1) {
+	if ($frame->decode($stream) == -1) {
+		next if ($stream->err_ok());
+		if ($stream->error == MAD_ERROR_BUFLEN || 
+			 $stream->error == MAD_ERROR_BUFPTR) {
+
+			# Make sure we don't drop the last frame fragment
+			$buffer = substr($buffer, $stream->next_frame());
+
+			last if (sysread(STDIN, $buffer, $BUFSIZE - length($buffer), length($buffer)) == 0);
+
+			$tbytes += length($buffer);
+			$stream->buffer($buffer);
+			my $b = $tbytes / (time() - $time) if (time() - $time > 0);
+			print "Buffer read OK [$tbytes total | $b bytes/sec]\n";
+
+			redo FOO;
+		}
+
+		print STDERR "Fatal error\n";
+		last;
+	}
+	$fsize = ($stream->next_frame() - $stream->this_frame()) unless defined($fsize);
+	if ($fsize - 10 > ($stream->next_frame() - $stream->this_frame())) {
+		$oldbuf = substr($buffer,$stream->this_frame());
+	}
+	$synth->synth($frame);
+	my $pcm = $dither->dither($resample->resample($synth->samples()));
+
+	play($device,$pcm,length($pcm));
+}
+#if (read(STDIN,$buffer,$BUFSIZE,0)) {
+	#print "Buffer read OK [$tbytes bytes read so far]\n";
+	#$buffer = $oldbuf . $buffer;
+	#$oldbuf = undef;
+	#$stream->buffer($buffer);
+	#$stream->sync();
+	#$tbytes += length($buffer);
+	#goto FOO;
+#}
+
+close_ao($device);
+shutdown_ao;
