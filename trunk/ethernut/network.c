@@ -33,6 +33,16 @@ void network_init() {
 	//NutRegisterDevice
 	//NutDhcpIfconfig
 	
+	/*
+	if ((nuts = malloc(sizeof(nut_t))) == NULL) {
+		log(0, "network_init malloc() failed: %s", strerror(errno));
+		pthread_exit(NULL);
+	}
+	*/
+
+	nuts = NULL;
+	nut_count = 0;
+	
 	if (network_send_discover() < 0) {
 		/* Something failed trying to send a discover packet */
 	}
@@ -70,7 +80,6 @@ int network_send_discover() {
 		return sock;
 	}
 
-	bytes = 1;
 	bytes = sendto(sock, DISCOVERY_MESSAGE, strlen(DISCOVERY_MESSAGE), 0, 
 						(struct sockaddr *)&destaddr, sizeof(destaddr));
 
@@ -128,14 +137,37 @@ void network_thread(void *args) {
 		int bytes = 0;
 		char buf[1024];
 		memset(buf, 0, 1024);
+		int c;
+		
+		/* Check the list of known ethernuts, and ping them if we haven't in DISCOVERY_INTERVAL */
+		for (c = 0; c < nut_count; c++) {
+			time_t t = time(NULL);
+			if (nuts[c].lastseen + DISCOVERY_INTERVAL < t) {
+				struct sockaddr_in nutaddr;
+				nutaddr.sin_family = AF_INET;
+				nutaddr.sin_port = htons(DISCOVERY_PORT);
+				nutaddr.sin_addr = nuts[c].ip; 
+				memset(&(nutaddr.sin_zero), '\0', 8);
 
+				log(10, "Pinging %s - haven't seen them in a while...", inet_ntoa((struct in_addr)nuts[c].ip));
+				bytes = sendto(discovery, DISCOVERY_MESSAGE, strlen(DISCOVERY_MESSAGE), 0, 
+									(struct sockaddr *)&nutaddr, sizeof(nutaddr));
+
+				if (bytes < 0) {
+					log(0, "discovery ping sendto() failed: %s", strerror(errno));
+					pthread_exit(NULL);
+				}
+			}
+
+		}
+
+		/* Now check if we have any discovery packets coming in */
 		if (recvfrom(discovery, buf, 1024, 0, (struct sockaddr *)&srcaddr, &fromlen) < 0) {
 			log(0, "network_thread recvfrom() failed: %s", strerror(errno));
 			pthread_exit(NULL);
 		}
 
 		log(5, "Packet from 0x%08x %s: %s", srcaddr.sin_addr, inet_ntoa(srcaddr.sin_addr), buf);
-
 
 		if (strcmp(buf,"Hello!") == 0) {
 			log(20, "Packet is a discovery broadcast");
@@ -155,7 +187,14 @@ void network_thread(void *args) {
 		} 
 		else if (strcmp(buf, "ACK") == 0) {
 			log(20, "ACK received from %s", inet_ntoa(srcaddr.sin_addr));
+			nuts = realloc(nuts, sizeof(nut_t) * (nut_count + 1));
+			nuts[nut_count].ip = srcaddr.sin_addr;
+			nuts[nut_count].lastseen = time(NULL);
+			nut_count++;
 		}
-
 	}
+}
+
+void network_addnut(unsigned int ip) {
+
 }
