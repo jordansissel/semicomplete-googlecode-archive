@@ -36,22 +36,33 @@ setup_readline();
 setup_callbacks();
 setup_commands();
 setup_aim();
-#load_config();
+
 
 Tic::Events->set_state($state);
 Tic::Commands->set_state($state);
 Tic::Bindings->set_state($state);
 Tic::Common->set_state($state);
 
+prepare_completion($commands);
+
 # Autoflush stdout.
 $| = 1;
 
-login();
+#login();
+$state->{"aimok"} = 1;
 
 while (1) {
-	$aim->do_one_loop();
+	$aim->do_one_loop() if ($state->{"aimok"}); # WTF?!? See below.
 	check_readline();
 }
+
+# ^^^ Explanation...
+# $aim->do_one_loop() sleeps for .01 seconds waiting for data. This is time
+# that could be better spent reading from the input. So, what I did
+# is every time a key is read set $state->{"aimok"} to 0. And any time
+# check_readline() does not read a keypress $state->{"aimok"} is set to 1.
+# This makes it so pasting things is very fast because while you're pasting
+# $aim->do_one_loop() is never called.
 
 sub login {
 	my ($user,$pass);
@@ -100,20 +111,20 @@ sub setup_aim {
 sub setup_commands {
 	$commands = {
 		"alias"                   => \&command_alias,
-		"echo"                    => \&command_echo,
 		"buddylist"               => \&command_buddylist,
 		"default"                 => \&command_default,
-		"undefault"               => \&command_undefault,
+		"echo"                    => \&command_echo,
+		"getaway"                 => \&command_getaway,
 		"info"                    => \&command_info,
+		"help"                    => \&command_help,
+		"log"                     => \&command_log,
 		"login"                   => \&command_login,
 		"msg"                     => \&command_msg,
 		"quit"                    => \&command_quit,
-		"unalias"                 => \&command_unalias,
-		"who"                     => \&command_who,
-		"log"                     => \&command_log,
 		"timestamp"               => \&command_timestamp,
-		"sn"                      => \&command_sn,
-
+		"unalias"                 => \&command_unalias,
+		"undefault"               => \&command_undefault,
+		"who"                     => \&command_who,
 	};
 	$aliases = {
 		"a" => "/alias",
@@ -160,6 +171,10 @@ sub check_readline {
 				real_out($extra->{"-print"});
 			}
 		}
+
+		$state->{"aimok"} = 0;
+	} else {
+		$state->{"aimok"} = 1;
 	}
 }
 
