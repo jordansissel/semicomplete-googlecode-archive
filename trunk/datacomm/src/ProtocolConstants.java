@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.4  2004/01/20 02:25:30  tristan
+ *   added first/second init game response
+ *
  *   Revision 1.3  2004/01/20 02:07:40  tristan
  *   added init game
  *
@@ -30,6 +33,7 @@ public interface ProtocolConstants {
     public static final int STARTGAME_RESPONSE = 102;
     public static final int PLAYERFOUND = 103;
     public static final String INITGAME = "INITGAME";
-    public static final int INITGAME_RESPONSE = 104;
+    public static final int INITGAME_RESPONSE_FIRST = 104;
+    public static final int INITGAME_RESPONSE_SECOND = 105;
 }   // ProtocolConstants
 
