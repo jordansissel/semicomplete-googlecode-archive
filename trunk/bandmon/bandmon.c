@@ -38,7 +38,6 @@ sigalarm(int sig) {
 	if (sig == SIGALRM) {
 		int i;
 
-
 		for (i = 1; i < CSH_NET_SIZE; i++) {
 			int *this = (cshnet + i);
 			int argc = 0;
@@ -50,7 +49,7 @@ sigalarm(int sig) {
 			c = (i >> 8) + 60;
 			d = (i & 0xff);
 
-			if ((d > 0) && (d < 255)) {
+			if ((d > 0) && (d < 255) && *this > 0) {
 
 				sprintf(file, "/mnt/129.21.%d.%d.rrd\0", c, d);
 				sprintf(data, "%d:%d\0", time(NULL), *this);
