@@ -344,7 +344,6 @@ THREAD(network_tcphandler, args) {
 		char pkt[10];
 		memset(buf, '\0', 4);
 		memset(pkt, '\0', 10);
-		sprintf(pkt, "%02x %02x %02x %02x", (int)buf[0], (int)buf[1], (int)buf[2], (int)buf[3]);
 		if ((bytes = recv(conn->fd, buf, 4, 0)) <= 0) {
 			if (bytes < 0)
 				log(0, "network_tcphandler recv failed: %s", strerror(errno));
@@ -355,9 +354,10 @@ THREAD(network_tcphandler, args) {
 			free(conn);
 			THREAD_EXIT();
 		}
+		sprintf(pkt, "%02x %02x %02x %02x", (int)buf[0], (int)buf[1], (int)buf[2], (int)buf[3]);
 
 		log(10, "Packet from %s:%d: %s (%s)", 
-			 inet_ntoa(conn->src.sin_addr), conn->src.sin_port, pkt);
+			 inet_ntoa(conn->src.sin_addr), conn->src.sin_port, pkt, buf);
 
 	}
 
