@@ -1,3 +1,4 @@
+# $Id$
 package Tic::Common;
 
 use strict;

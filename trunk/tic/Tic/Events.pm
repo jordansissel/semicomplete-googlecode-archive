@@ -1,3 +1,4 @@
+# $Id$
 package Tic::Events;
 
 use strict;

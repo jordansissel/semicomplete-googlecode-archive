@@ -1,3 +1,4 @@
+# $Id$
 package Tic::Constants;
 
 use Tic::Common;
