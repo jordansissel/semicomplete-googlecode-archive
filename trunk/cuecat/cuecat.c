@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #define XK_MISCELLANY
 #define XK_LATIN1
@@ -12,6 +13,9 @@
 #include <X11/X.h>
 #include <X11/Xlib.h>
 #include <X11/keysymdef.h>
+
+char *encstring;
+int offset = 0;
 
 int fatal(Display *d, XErrorEvent *e) {
 	char error[120];
@@ -43,6 +47,7 @@ int main(int argc, char **argv) {
 	char *input = NULL;
 	int inputlen = 128;
 	int inputoffset = 0;
+	int shiftheld;
 
 	input = (char *)malloc(inputlen);
 
@@ -77,16 +82,16 @@ int main(int argc, char **argv) {
 
 	XGrabKey(dpy, XKeysymToKeycode(dpy, XK_F10), AnyModifier, 
 						root, True, GrabModeSync, GrabModeSync);
-
+	//XSync(dpy, False);
 
 	for (;;) {
 		XEvent e;
 		XKeyEvent ke;
 		if (XPending(dpy)) {
 			char *kp;
-			XKeyEvent ke = e.xkey;
 			int keysym;
 				
+			//XSync(dpy, False);
 			XNextEvent(dpy, &e);
 			ke = e.xkey;
 
@@ -94,27 +99,54 @@ int main(int argc, char **argv) {
 				keysym = XKeycodeToKeysym(dpy, ke.keycode, 0);
 				kp = XKeysymToString(keysym);
 				//strcpy(keyname, XKeysymToString(XKeycodeToKeysym(dpy, ke.keycode, 0)));
-				printf("[%d] Sym: %d / %d\n", ke.type, keysym, XK_F10);
+				printf("[PRESS] Sym: %d / %d\n", keysym, XK_F10);
 				if (kp != NULL) {
 					printf("Name: %s\n", kp);
 				}
 
 				switch (keysym) {
+					case XK_Shift_L:
+					case XK_Shift_R:
+						shiftheld = 1;
+						break;
 					case XK_F10:
 						XGrabKeyboard(dpy, root, True, GrabModeAsync, GrabModeAsync, CurrentTime);
+						XSync(dpy, False);
 						inputoffset = 0;
 						memset(input, 0, inputlen);
 						break;
 					case XK_Return:
 						printf("Input: '%s'\n", input);
+						encstring = input;
+						offset = 0;
+						decodecat();
 						XUngrabKeyboard(dpy, CurrentTime);
+						XSync(dpy, False);
+						XFlush(dpy);
 						break;
 					case XK_period:
 						*(input + inputoffset++) = '.';
 					default:
 						if ((kp != NULL) && (strlen(kp) == 1)) {
-							*(input + inputoffset++) = kp[0];
+							*(input + inputoffset++) = 
+								((shiftheld) ? toupper(kp[0]) : tolower(kp[0]));
+							printf("Appended: [%d] %c\n", shiftheld, *(input + inputoffset - 1));
 						}
+						break;
+				}
+			} else if (ke.type == KeyRelease) {
+				keysym = XKeycodeToKeysym(dpy, ke.keycode, 0);
+				kp = XKeysymToString(keysym);
+
+				switch (keysym) {
+					case XK_Shift_L:
+					case XK_Shift_R:
+						printf("[RELEASE] Sym: %d / %d\n", keysym, XK_F10);
+						if (kp != NULL) {
+							printf("Name: %s\n", kp);
+						}
+
+						shiftheld = 0;
 						break;
 				}
 			}

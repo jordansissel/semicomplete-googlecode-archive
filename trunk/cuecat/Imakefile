@@ -1,8 +1,8 @@
 DEPLIBS = $(DEPXTESTLIB) $(DEPEXTENSIONLIB) $(DEPXLIB)
 LOCAL_LIBRARIES = $(XTESTLIB) $(EXTENSIONLIB) $(XLIB)
 
-SRCS = cuecat.c
-OBJS = cuecat.o
+SRCS = cuecat.c decode.c
+OBJS = cuecat.o decode.o
 
 CC = gcc
 
