@@ -9,7 +9,7 @@ use POSIX qw(strftime);
 
 @ISA = qw(Exporter);
 @EXPORT = qw(out real_out error debug query deep_copy prettyprint prettylog
-             login);
+             login set_config get_config);
 
 my $state;
 
@@ -70,37 +70,40 @@ sub prettyprint {
 		$output .= " ";
 	}
 
-	$output .= $state->{"config"}->{"$type"};
+	if (defined(get_config("$type"))) {
+		 #$output .= $state->{"config"}->{"$type"};
+		 $output .= get_config("$type");
 
-	# What are the escapes?
-	# %% - literal %
-	# %S - your own screen name
-	# %a - alias name
-	# %c - chatroom related to this message
-	# %e - error message
-	# %g - Group user belongs to
-	# %h - help topic
-	# %i - idle time of user 
-	# %m - Message being sent
-	# %s - Screen name of target (or who is messaging you)
-	# %v - alias value
-	# %w - warning level
+		 # What are the escapes?
+		 # %% - literal %
+		 # %S - your own screen name
+		 # %a - alias name
+		 # %c - chatroom related to this message
+		 # %e - error message
+		 # %g - Group user belongs to
+		 # %h - help topic
+		 # %i - idle time of user 
+		 # %m - Message being sent
+		 # %s - Screen name of target (or who is messaging you)
+		 # %v - alias value
+		 # %w - warning level
 
-	$data->{"sn"} = getrealsn($state, $data->{"sn"});
+		 $data->{"sn"} = getrealsn($state, $data->{"sn"});
 
-	if (ref($data) eq "HASH") {
-		$output =~ s/%s/$data->{"sn"}/g if (defined($data->{"sn"}));
-		$output =~ s/%m/$data->{"msg"}/g if (defined($data->{"msg"}));
-		$output =~ s/%g/$data->{"group"}/g if (defined($data->{"group"}));
-		$output =~ s/%c/$data->{"chat"}/g if (defined($data->{"chat"}));
-		$output =~ s/%w/$data->{"warn"}/g if (defined($data->{"warn"}));
-		$output =~ s/%i/$data->{"idle"}/g if (defined($data->{"idle"}));
-		$output =~ s/%e/$data->{"error"}/g if (defined($data->{"error"}));
-		$output =~ s/%h/$data->{"subject"}/g if (defined($data->{"subject"}));
-		$output =~ s/%a/$data->{"alias"}/g if (defined($data->{"alias"}));
-		$output =~ s/%v/$data->{"value"}/g if (defined($data->{"value"}));
-		$output =~ s/%S/$state->{"sn"}/g;
-		$output =~ s/%%/%/g;
+		 if (ref($data) eq "HASH") {
+		 $output =~ s/%s/$data->{"sn"}/g if (defined($data->{"sn"}));
+		 $output =~ s/%m/$data->{"msg"}/g if (defined($data->{"msg"}));
+		 $output =~ s/%g/$data->{"group"}/g if (defined($data->{"group"}));
+		 $output =~ s/%c/$data->{"chat"}/g if (defined($data->{"chat"}));
+		 $output =~ s/%w/$data->{"warn"}/g if (defined($data->{"warn"}));
+		 $output =~ s/%i/$data->{"idle"}/g if (defined($data->{"idle"}));
+		 $output =~ s/%e/$data->{"error"}/g if (defined($data->{"error"}));
+		 $output =~ s/%h/$data->{"subject"}/g if (defined($data->{"subject"}));
+		 $output =~ s/%a/$data->{"alias"}/g if (defined($data->{"alias"}));
+		 $output =~ s/%v/$data->{"value"}/g if (defined($data->{"value"}));
+		 $output =~ s/%S/$state->{"sn"}/g;
+		 $output =~ s/%%/%/g;
+		 }
 	}
 
 	$output =~ s!<(?:(?:(?:html|body|font|b|i|u)(?:\s[^>]+)?)|(?:/(?:font|b|i|u)))>!!gi;
@@ -120,7 +123,7 @@ sub prettylog {
 		if (defined($data->{"sn"})) {
 			my $sn = getrealsn($state,$data->{"sn"});
 			open(IMLOG, ">> ".$ENV{HOME}."/.tic/" . $sn . ".log") or 
-				die("Failed trying to open ~/.tic/".$sn." - $!\n");
+				die("Failed trying to open ~/.tic/".$sn.".log - $!\nEvent: $type\n");
 			select IMLOG;
 			prettyprint(@_);
 			select STDOUT;
@@ -181,4 +184,17 @@ sub login {
 	$state->{"aim"}->signon(%hash);
 }
 
+sub get_config {
+	my ($a) = @_;
+	#out("$state | get_config($a) = " . $state->{"config"}->{$a});
+	return $state->{"config"}->{$a};
+}
+
+sub set_config {
+	my ($a,$b) = @_;
+	#out("$state | set_config($a,$b)");
+	$state->{"config"}->{$a} = $b;
+}
+
 1;
+
