@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.2  2004/01/19 21:09:11  tristan
+ *   implements protocol constants now
+ *
  *   Revision 1.1  2004/01/19 20:47:49  tristan
  *   refactored to a new name
  *
@@ -45,10 +48,7 @@ import java.net.InetAddress;
  *
  * @author tristan
  */
-public abstract class Client extends Thread {
-    // constants
-    public static final int HELLO_RESPONSE = 101;
-
+public abstract class Client extends Thread implements ProtocolConstants {
     // member variables
     private InetAddress serverHost;
     private int serverPort;
