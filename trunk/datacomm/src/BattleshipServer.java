@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.8  2004/01/20 08:34:00  tristan
+ *   refactored stuff to BSServer
+ *
  *   Revision 1.7  2004/01/20 04:23:33  tristan
  *   updated comments for everything.
  *
@@ -30,9 +33,7 @@
  *
  */
 
-import java.net.*;
-import java.io.IOException;
-import java.util.HashMap;
+import java.net.InetAddress;
 
 /**
  * The main method that starts the battle ship server.
@@ -42,16 +43,9 @@ import java.util.HashMap;
  * @author Nick Johnson
  */
 public class BattleshipServer extends Thread {
-    private InetAddress host;
-    private int tcpPort;
-    private int udpPort;
-	private ServerSocket tcplisten;
-	private DatagramSocket udplisten;
-
-	 private HashMap playerwants = new HashMap();
-
     /**
      * Starts up the program.
+     *
      * @param args The command line arguments.
      */
     public static void main( String[] args ) {
@@ -66,9 +60,7 @@ public class BattleshipServer extends Thread {
                 int udp = Integer.parseInt( args[ 2 ] );
 
                 // create the server
-                BattleshipServer server = new BattleshipServer( host,
-                                                                tcp,
-                                                                udp );
+                BSServer server = new BSServer( host, tcp, udp );
                 server.start();
             } catch ( NumberFormatException e ) {
                 System.err.println( "TCPport and UDPport must be numbers" );
@@ -79,107 +71,8 @@ public class BattleshipServer extends Thread {
             }
         } else {
             System.err.println( "Usage: java BattleshipServer <host> " +
-                                "<TCPport> <UDPport>" );
+                    "<TCPport> <UDPport>" );
             System.exit( 1 );
         }
     }
-
-    /**
-     * Initialize a battle ship server.
-     * @param host The host to connect to.
-     * @param tcpPort The TCP port to use.
-     * @param udpPort The UDP port to use.
-     * @exception IllegalArgumentException if tcp is the same as udp.
-     */
-    public BattleshipServer( InetAddress host,
-									  int tcpPort,
-									  int udpPort ) throws IllegalArgumentException,
-									                       IOException {
-		this.host = host;
-		this.tcpPort = tcpPort;
-		this.udpPort = udpPort;
-		tcplisten = new ServerSocket(tcpPort);
-		//udplisten = new DatagramSocket(udpPort);
-    }
-
-    /**
-     * Returns the inet address this battleship server is bound to.
-     * @return The server's inet address.
-     */
-    public InetAddress getHost() {
-        return host;
-    }
-
-    /**
-     * Returns the tcp port for this server.
-     * @return The tcp port.
-     */
-    public int getTcpPort() {
-        return tcpPort;
-    }
-
-    /**
-     * Sets the tcp port this server should use.
-     * @param tcpPort The server's tcp port.
-     */
-    public void setTcpPort( int tcpPort ) {
-        this.tcpPort = tcpPort;
-    }
-
-    /**
-     * Returns the server's UDP port.
-     * @return The server's udp port.
-     */
-    public int getUdpPort() {
-        return udpPort;
-    }
-
-    /**
-     * Changes the server's udp port.
-     * @param udpPort The server's new udp port.
-     */
-    public void setUdpPort( int udpPort ) {
-        this.udpPort = udpPort;
-    }
-
-	 public String playerWants() {
-		 if (playerwants.containsKey(player1)) {
-			 return playerwants.get(player1);
-		 }
-		 return null;
-	 }
-
-    /**
-     * Starts the server's tcp and udp servers.
-     */
-    public void run() {
-		 try {
-			 tcplisten.setSoTimeout(1);
-		 } catch (SocketException e) {
-			 System.err.println("Error trying to set accept() timeout on server's tcp listener socket. " + e);
-		 }
-
-		 while (true) {
-			 // Look for attempts to connect to tcp or udp
-			 try {
-				 Socket newconn = tcplisten.accept();
-				 Thread newclient = new TCPServer(newconn, this);
-				 newclient.start();
-			 } catch (SocketTimeoutException e) {
-				 // ignore
-			 } catch (IOException e) {
-				 System.err.println("Error trying to accept incoming connection on tcp port. " + e);
-			 }
-
-		 }
-
-	 }
-
-    /**
-     * Shutdown tcp and udp connections.
-     */
-    public void finalize() {
-
-    }
-
 }   // BattleshipServer
