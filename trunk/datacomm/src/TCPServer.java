@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.8  2004/01/20 08:57:35  tristan
+ *   fixed compile time errors.
+ *
  *   Revision 1.7  2004/01/20 04:31:19  tristan
  *   fixed commenting.
  *
@@ -28,8 +31,11 @@
  *
  */
 
-import java.io.*;
-import java.net.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 
 /**
  * Manages a server's connection with the client
@@ -39,106 +45,133 @@ import java.net.*;
  * @author Nick Johnson
  */
 
-public class TCPServer extends Thread {
-	private Socket sock;
-	private ServerGame game;
-	private BattleshipServer server;
-	private boolean error = false;
-	private boolean hellodone = false;
-	private boolean isready = false;
+public class TCPServer extends Server {
+    private Socket socket;
+    private ServerGame game;
+    private BSServer server;
+    private boolean error = false;
+    private boolean hellodone = false;
+    private boolean isready = false;
+    private BufferedReader in;
+    private PrintWriter out;
 
     /**
      * Creates a new tcp server.
-     * @param sock The socket to connect to.
-     * @param serv The battle ship server for this connection.
+     *
+     * @param socket The socket to connect to.
+     * @param server The battle ship server for this connection.
      */
-	public TCPServer(Socket sock, BattleshipServer serv) {
-		this.sock = sock;
-		server = serv;
-	}
+    public TCPServer( Socket socket, BSServer server ) {
+        super( server );
+
+        this.socket = socket;
+
+        try {
+            in = new BufferedReader(
+                new InputStreamReader( socket.getInputStream() )
+            );
+            out = new PrintWriter( socket.getOutputStream(), true );
+        } catch ( Exception e ) {
+            disconnect();
+        }
+    }
 
     /**
      * Sets the game for this tcp server.
+     *
      * @param g The game shared by the clients.
      */
-	public void setGame(ServerGame g) {
-		game = g;
-	}
+    public void setGame( ServerGame g ) {
+        game = g;
+    }
 
     /**
      * Runs the clients in a thread.
      */
-	public void run() {
+    public void run() {
 
-		try {
-			String line = null;
-			BufferedReader in = new BufferedReader( new InputStreamReader(sock.getInputStream()));
-			PrintWriter out = new PrintWriter( sock.getOutputStream() );
-			boolean started = false;
 
-			// Game hasn't started yet.
-			// Look for hello
-			while (!isready) {
-				// Look for hello.
-				line = in.readLine();
-				if (line != null) {
-					if (! line.matches("^\\s*$")) {
-						try {
-							Command foo = Command.parseCommand(line);
-							System.out.println("--> " + foo);
-							if (foo instanceof HelloCommand) {
-								if (!hellodone) {
-									hellodone = true;
-									Response resp = new HelloResponse();
-									out.println(resp);
-								} else {
-									Response error = new ErrorResponse("You already said hello!");
-									out.println(error);
-								}
-							}
+        try {
+            String line = null;
+            boolean started = false;
 
-							if (foo instanceof StartGameCommand) {
-								if (!isready && hellodone) {
-									isready = true;
-									Response resp = new StartGameResponse();
-									out.println(resp);
-								}
-							}
-						} catch (InvalidCommandArgumentsException e) {
-							Response error = new ErrorResponse("Invalid arguments.");
-							out.println(error);
-						}
-					}
-				}
-			}
+            // Game hasn't started yet.
+            // Look for hello
+            while ( !isready ) {
+                // Look for hello.
+                line = in.readLine();
+                if ( line != null ) {
+                    if ( !line.matches( "^\\s*$" ) ) {
+                        try {
+                            Command foo = Command.parseCommand( line );
+                            System.out.println( "--> " + foo );
+                            if ( foo instanceof HelloCommand ) {
+                                if ( !hellodone ) {
+                                    hellodone = true;
+                                    Response resp = new HelloResponse();
+                                    out.println( resp );
+                                } else {
+                                    Response error = new ErrorResponse(
+                                        "You already said hello!"
+                                    );
+                                    out.println( error );
+                                }
+                            }
 
-			// Wait for PlayerFound
-			while (playerWanted()) {
-				yield(50);
-			}
+                            if ( foo instanceof StartGameCommand ) {
+                                if ( !isready && hellodone ) {
+                                    isready = true;
+                                    Response resp = new StartGameResponse();
+                                    out.println( resp );
+                                }
+                            }
+                        } catch ( InvalidCommandArgumentsException e ) {
+                            Response error = new ErrorResponse(
+                                "Invalid arguments."
+                            );
+                            out.println( error );
+                        }
+                    }
+                }
+            }
 
-			while (!error) {
-				line = in.readLine();
-				if (line != null) {
-					if (! line.matches("^\\s*$")) {
-						try {
-							Command foo = Command.parseCommand(line);
-							System.out.println("--> " + foo);
-						} catch (InvalidCommandArgumentsException e) {
-							System.err.println("* Invalid arguments sent. \"" + line + "\"");
-							Response error = new ErrorResponse("Invalid arguments.");
-							out.println(error);
-						}
-					}
-				} else {
-					error = true;
-				}
-			}
+            // Wait for PlayerFound
+            //while ( playerWanted() ) {
+            //   yield( 50 );
+            //}
 
-			System.err.println("There was an error on the socket, it is now closed.");
+            while ( !error ) {
+                line = in.readLine();
+                if ( line != null ) {
+                    if ( !line.matches( "^\\s*$" ) ) {
+                        try {
+                            Command foo = Command.parseCommand( line );
+                            System.out.println( "--> " + foo );
+                        } catch ( InvalidCommandArgumentsException e ) {
+                            System.err.println( "* Invalid arguments sent. \"" +
+                                                line + "\"" );
+                            Response error = new ErrorResponse(
+                                "Invalid arguments."
+                            );
+                            out.println( error );
+                        }
+                    }
+                } else {
+                    error = true;
+                }
+            }
 
-		} catch (IOException e) {
-			System.out.println(e);
-		}
-	}
+            System.err.println( "There was an error on the socket, " +
+                                "it is now closed." );
+        } catch ( IOException e ) {
+            System.out.println( e );
+        }
+    }
+
+    /**
+     * Disconnects the client.
+     */
+    public void disconnect() {
+
+    }
 } // TCPServer
