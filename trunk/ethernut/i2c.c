@@ -55,7 +55,7 @@ void i2c_findslaves() {
 void i2c_addnode(byte addr) {
 	log(10, "Adding new I2C node: 0x%02x", addr);
 	nodecount++;
-	nodes = (i2cnode_t *) realloc(sizeof(i2cnode_t) * nodecount);
+	nodes = (i2cnode_t *) realloc(nodes, sizeof(i2cnode_t) * nodecount);
 	nodes[nodecount - 1].addr = addr;
 	nodes[nodecount - 1].status = 0;
 }
