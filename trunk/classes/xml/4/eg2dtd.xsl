@@ -7,8 +7,11 @@
 	<xsl:apply-templates select="//element"/>
 </xsl:template>
 
-<!--
-<xsl:template match="doctype">
+<!-- Uncomment this if you want a doctype specifier
+
+<xsl:template match="/doctype">
+	<xsl:text>&lt;!DOCTYPE doctype SYSTEM "eg.dtd"&gt;</xsl:text>
+	<xsl:text>&#010;</xsl:text>
 	<xsl:apply-templates select="//element" />
 </xsl:template>
 -->

@@ -1,0 +1,10 @@
+<doctype>
+	<element tag="element">
+		<alt repeat="some">
+			text
+			<element tag="element"/>
+			<element tag="alt" like="element"/>
+			<element tag="seq" like="element"/>
+		</alt>
+	</element>
+</doctype>
