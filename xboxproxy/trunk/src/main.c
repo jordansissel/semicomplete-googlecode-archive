@@ -72,7 +72,13 @@ static char *proxyserver = NULL;
 static int use_udp = 0;
 static int serverport = SERVER_PORT;
 
+#ifdef LIBNET_VERSION_1_0
 static struct libnet_link_int *libnet;
+#else
+#	ifdef LIBNET_VERSION_1_1
+libnet_t *libnet;
+#	endif
+#endif
 
 void addxbox(u_char *macaddr, proxy_t *ppt);
 void packet_handler(u_char *args, const struct pcap_pkthdr *head,
@@ -240,17 +246,26 @@ void pcap(void *args) {
 		pthread_exit(NULL);
 	}
 
+#ifdef LIBNET_VERSION_1_0
 	libnet = libnet_open_link_interface(pcapdev, errbuf);
 	if (libnet == NULL) {
 		debuglog(0, "libnet_open_link_interface() failed: %s", errbuf);
 		pthread_exit(NULL);
 	}
+#else
+#	ifdef LIBNET_VERSION_1_1
+	libnet = libnet_init(LIBNET_LINK, pcapdev, errbuf);
+	if (libnet == NULL) {
+		debuglog(0, "libnet_init() failed: %s", errbuf);
+		pthread_exit(NULL);
+	}
+#	endif
+#endif
 
 	debuglog(2, "Opened %s, listening for xbox traffic", pcapdev);
 
 	pcap_compile(handle, &filter, filter_app, 1, net);
 	pcap_setfilter(handle, &filter);
-	//for (;;)
 	pcap_loop(handle, -1, packet_handler, NULL);
 
 	pcap_close(handle);
@@ -480,12 +495,15 @@ void distribute_packet(proxy_t *ppt, char *packet, int pktlen) {
 	debuglog(30, "----- REMOTE PACKET From: %s", ether_ntoa((struct ether_addr *)eptr->ether_shost));
 	debuglog(30, "----- REMOTE PACKET To: %s", ether_ntoa((struct ether_addr *)eptr->ether_dhost));
 
+#ifdef LIBNET_VERSION_1_0
 	bytes = libnet_write_link_layer(libnet, pcapdev, packet, pktlen);
+#else
+#	ifdef LIBNET_VERSION_1_1
+	bytes = libnet_adv_write_link(libnet, packet, pktlen);
+#	endif
+#endif
 
 	if (bytes < 0) {
-		debuglog(0, "FATAL ERROR WRITING RAW PACKET TO DEVICE");
-		debuglog(0, "FATAL ERROR WRITING RAW PACKET TO DEVICE");
-		debuglog(0, "FATAL ERROR WRITING RAW PACKET TO DEVICE");
 		debuglog(0, "FATAL ERROR WRITING RAW PACKET TO DEVICE");
 	} else {
 		debuglog(4, "Packet dumped on local net (%s), bytes vs length = %d vs %d", 
