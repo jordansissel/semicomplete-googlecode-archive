@@ -6,10 +6,13 @@
  *
  * Revisions:
  *	$Log$
+ *	Revision 1.6  2004/01/19 04:53:51  psionic
+ *	- Added framework for generic syntax checking
+ *
  *	Revision 1.5  2004/01/19 02:25:24  psionic
  *	- Added validateArgument method. This will use the meta syntax specified by
  *	  each command and validate that it is indeed the proper data type.
- *
+ *	
  *	Revision 1.4  2004/01/17 18:22:08  tristan
  *	fixed parse bug
  *
@@ -43,10 +46,10 @@ public class Command {
 	);
 
 	/* Syntax definition for how the arguments should be defined. */
-	protected String[] syntax = { };
+	public String[] getSyntax() { String[] a = { }; return a; }
 
-	private String command;
-	private List args;
+	protected String command;
+	protected List args;
 
 	/**
 	 * Initialize a default command.
@@ -60,8 +63,14 @@ public class Command {
 	 * Initializes a new Command out of the command and it's arguments.
 	 */
 	public Command( String command, List args ) {
-		setCommand( command );
+		this.command  = command;
 		this.args = args;
+	}
+
+	public Command( String command, String args ) 
+	       throws InvalidCommandArgumentsException {
+		this.command = command;
+		this.args = parseArgs(args);
 	}
 
 	/**
@@ -69,7 +78,7 @@ public class Command {
 	 * @param command The command.
 	 */
 	public Command( String command ) {
-		  this( command, null );
+		this( command, new ArrayList() );
 	}
 
 	/**
@@ -93,7 +102,11 @@ public class Command {
 	 * Changes the command args.
 	 * @param args The command args.
 	 */
-	public void setArgs( List args ) {
+	public void setArgs( List args ) throws InvalidCommandArgumentsException {
+		if ( ! this.validateArguments(args) ) {
+			throw new InvalidCommandArgumentsException();
+		}
+
 		this.args = args;
 	}
 
@@ -144,9 +157,8 @@ public class Command {
 	 * Sets the command args and parses them.
 	 * @param unparsedArgs The unparsed arguments.
 	 */
-	public static List parseArgs( String unparsedArgs ) 
-	       throws InvalidCommandArguemntsException {
-
+	public List parseArgs( String unparsedArgs ) 
+	       throws InvalidCommandArgumentsException {
 		List retVal = new ArrayList();
 		int cur = 0;
 
@@ -155,11 +167,6 @@ public class Command {
 			Matcher m = argsPattern.matcher( unparsedArgs );
 
 			if ( m.matches() ) {
-
-				if ( ! validateArgument(m.group(1), syntax[cur]) ) {
-					throw new InvalidCommandArgumentsException(this);
-				}
-
 				retVal.add( m.group( 1 ) );
 
 				if ( m.groupCount() == 1 ) {
@@ -179,6 +186,10 @@ public class Command {
 			retVal.add( unparsedArgs );
 		}
 
+		if ( ! this.validateArguments(retVal) ) {
+			throw new InvalidCommandArgumentsException();
+		}
+
 		return retVal;
 	}
 
@@ -186,7 +197,8 @@ public class Command {
 	 * Parses a command and it's arguments.
 	 * @param unparsedCommand The command to parse.
 	 */
-	public static Command parseCommand( String unparsedCommand ) {
+	public Command parseCommand( String unparsedCommand ) 
+	       throws InvalidCommandArgumentsException {
 		String[] items = unparsedCommand.split( "\\s", 2 );
 		Command retVal = new Command();
 
@@ -207,23 +219,7 @@ public class Command {
 	 * Validate argument data type
 	 *
 	 */
-	private boolean validateArgument(String arg, String type) {
-
-		if (type == "%i") {    /* Excepting an integer */
-			try {
-				Integer i = new Integer(arg);
-			} catch (Exception e) {
-				return false;
-			}
-		}
-		if (type = "%c") {    /* Excepting a single character */
-			try {
-				Character c = new Character(arg);
-			} catch (Exception e) {
-				return false;
-			}
-		}
-
+	private boolean validateArguments(List args) {
 		return true;
 	}
 }	// Command.java
