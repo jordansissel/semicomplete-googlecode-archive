@@ -24,7 +24,7 @@
 #include <netinet/ip.h>
 
 /* How long do we wait before reporting data? (in seconds) */
-#define WAIT_SECONDS 10
+#define WAIT_SECONDS 11
 
 /* CSH has a /23, that means 512 addresses. */
 #define CSH_NET_SIZE 512
@@ -52,7 +52,7 @@ sigalarm(int sig) {
 			if ((d > 0) && (d < 255) && *this > 0) {
 
 				sprintf(file, "/mnt/129.21.%d.%d.rrd\0", c, d);
-				sprintf(data, "%d:%d\0", time(NULL), *this);
+				sprintf(data, "N:%d\0", *this);
 
 				argv[argc++] = "update";
 				argv[argc++] = file;
