@@ -6,6 +6,47 @@ use IO::Select;
 use Net::OSCAR qw/:standard/;
 use POSIX qw(strftime);
 use Term::Shelly;
+use Exporter;
+
+BEGIN {
+	# This is a hack, but hey, it's perl :)
+
+	sub tryload {
+		my $module = shift;
+		my $file = $module;
+		$file =~ s!::!/!g;
+		$file .= ".pm";
+
+		TRYLOAD: {
+			foreach my $prefix (@INC) {
+				if (-f "$prefix/$file") {
+					require "$prefix/$file";
+					last TRYLOAD;
+				}
+			}
+			# failed.
+			return 0;
+		}
+
+		import $module @_;
+		
+		return 1;
+	}
+
+	if (!tryload("Inline", qw(C))) {
+		print STDERR "Failed trying to load Inline\n";
+	}
+
+}
+
+#print join("\n", sort keys %INC) . "\n";
+
+foo();
+exit;
+
+#import Inline qw(C);
+
+foo();
 
 use lib '/home/psionic/projects/tic';
 
@@ -219,4 +260,14 @@ sub do_check_typing {
 		$state->{"aim"}->send_typing_status($sn, TYPINGSTATUS_TYPING);
 		$state->{"typing_status"}->{"status"} = TYPINGSTATUS_TYPING;
 	}
+}
+
+
+__END__
+__C__
+
+#include <stdio.h>
+
+void foo() {
+	printf("Hello!\n");
 }
