@@ -35,6 +35,8 @@ use constant DEFAULT_OUTPUT => {
 	"evil_anon"        => "* You were warnked anonymously. Your new warn level is %w%%",
 
 	"generic_status"   => "* %m",
+	"nohelp"           => "There is no help available for %h",
+	"alias_is"         => "%a is aliased to '%v'",
 
 	"error_rate_alert" => "Slow down! You're sending messages too fast.",
 	"error_rate_limit" => "Message rate limit exceeded. Your messages are being ignored from the server :(",
