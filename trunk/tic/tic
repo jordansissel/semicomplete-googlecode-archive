@@ -110,9 +110,12 @@ sub setup_callbacks {
 
 sub setup_commands {
 	$commands = {
+		"addbuddy"                => \&command_addbuddy,
 		"alias"                   => \&command_alias,
+		"away"                    => \&command_away,
 		"buddylist"               => \&command_buddylist,
 		"default"                 => \&command_default,
+		"delbuddy"                => \&command_delbuddy,
 		"echo"                    => \&command_echo,
 		"date"                    => \&command_date,
 		"getaway"                 => \&command_getaway,
@@ -203,7 +206,7 @@ sub check_readline {
 			# Determine what the leftmost pos is:
 			my $l = ($state->{"leftcol"} < $state->{"input_position"}) ? 
 				      $state->{"leftcol"} : $state->{"input_position"};
-			real_out("\r\e[2K" . substr($ret,$l, $state->{"termcols"}));
+			real_out("\r\e[2K" . substr($ret,$l, $state->{"termcols"} - 1));
 			real_out("\e[".$back."D") if ($back > 0);
 
 			# Parse line for who this is going to -
