@@ -11,6 +11,7 @@
 use strict;
 use MIME::Parser;
 
+# Basic settings {{{
 my $TMP = "/u9/psionic/tmp";
 my $BROWSER = 'w3m -title -T text/html';
 #my $BROWSER = "cat";
@@ -23,7 +24,9 @@ my $MHL_PLAIN_OPTS = "";
 my %pgp = (
 pgp_verify_command => "gpg --no-secmem-warning --quiet --no-verbose --batch --output - --verify %s %f"
 	 );
+#}}}
 
+# Set $mail, $folder, $base, other useful variables. {{{
 my ($mail) = $ARGV[0];
 my ($folder) = `folder -fast`; chomp($folder);
 my $base;
@@ -34,8 +37,10 @@ if ($folder !~ m,^/,) {
 }
 my ($file) = "$base/$folder/$mail";
 
-################################################################################
-# Read in the mail headers
+my $browser_content_type;
+#}}}
+
+# Read in the mail headers {{{
 
 my %headers;
 my @order;
@@ -102,33 +107,28 @@ while (<MAIL>) {
       }
 
    }
-} # We're done reading the headers
+} # We're done reading the headers }}}
 
-################################################################################
-# Now split up multipart mail
-
-# If it's a multipart mail, unglue it.
-my ($multipart) = 0;
+#{{{ Useful Variables (content-typpe, tempfile template, ...)
 my ($ctype) = grep(/^content-type$/i,keys(%headers)); 
 $ctype = $headers{$ctype};
 my $fr = $folder; $fr =~ s,^.*/([^/]+)$,$1,;
-my $template = "$TMP/msg.$fr.$mail";
-if ($ctype =~ m,^multipart/,i) {
+my $template = "msg.$fr.$mail";
+my $templatereg = '^msg\.'.$fr.'\.'.$mail;
+#}}}
+
+if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
    print STDERR "Parsing multipart mail ($ctype)\n";
-   system("rm $template* > /dev/null 2>&1");
+   system("rm $TMP/$template* > /dev/null 2>&1");
 
    my $parser = new MIME::Parser;
    $parser->output_dir($TMP);
-   $parser->filer->output_prefix("msg.$fr.$mail");
+   $parser->filer->output_prefix("$template");
    $parser->parse_in($file);
 
-   $multipart = 1;
-} 
-
-if ($multipart) {
-   #print `ls $TMP/msg.$fr.$mail*`;
+   #print `ls $TMP/$template*`;
    opendir(DIR,"$TMP");
-   my @parts = grep { m,^msg\.$fr\.$mail, } readdir(DIR);
+   my @parts = grep { m,$templatereg, } readdir(DIR);
    closedir(DIR);
 
    # If part 2 is html, then open it first assuming that this email was dually
@@ -138,34 +138,28 @@ if ($multipart) {
 	($parts[0] =~ m/\.html$/ && ($mailpart = $parts[0])) ) {
       my $tmpfile = "$TMP/.headers.$fr.$mail";
       print STDERR "Starting browser\n";
+
       open(BROWSER, "| $BROWSER");
+      browser_set_content_type("text/html");
 
       mhl_write_headers($tmpfile);
+      browser_print("< $tmpfile","text/plain");
+      browser_print("< $TMP/$mailpart");
 
-      mhl_read_header
-
-      open(HEADERS,"< $tmpfile");
-      while (<HEADERS>) { 
-	 print BROWSER $_;
-      }
-
-      open(MAIL, "< $TMP/".$mailpart) or 
-	 die("Failed trying to read $TMP/".$mailpart."\n$!\n");
-
-      while (<MAIL>) {
-	 print BROWSER $_;
-      }
-      close(MAIL);
-
+      #open(MAIL, "< $TMP/".$mailpart) or 
+	 #die("Failed trying to read $TMP/".$mailpart."\n$!\n");
+#
+      #while (<MAIL>) {
+	 #print BROWSER $_;
+      #}
+      #close(MAIL);
+      
       close(BROWSER);
 
       system("rm $tmpfile");
    } else {
       # This doesn't appear to be an html mail, let's deduce what it is...
 
-      #print scalar(grep(/application\/pgp-signature/,@part_types)) . "\n";
-      #print scalar(@part_types) . "\n";
-      #if ($ctype =~ m,multipart/(signed|mixed|alternative),) {
       if (scalar(grep(/application\/pgp-signature/,@part_types)) > 0) {
 	 # This is pgp signed mail.
 	 my ($plain, $sig, $plaintype);
@@ -190,31 +184,24 @@ if ($multipart) {
 
          print STDERR "Starting browser...\n";
 	 open(BROWSER, "| $BROWSER");
+	 browser_set_content_type("text/html");
 	 #open(BROWSER, "> /dev/null");
 
 	 my $tmpfile = "$TMP/.headers.$fr.$mail";
 
 	 mhl_write_headers($tmpfile);
+	 browser_print($tmpfile,"text/html");
+	 browser_print("$pgp_verify 2>&1 |", "text/plain",1);
+         browser_print("$TMP/$plain","$plaintype");
 
-         browser_print_from_file("$tmpfile");
+	 #open(MAIL, "< $TMP/".$plain) or 
+	    #die("Failed trying to read $TMP/".$plain."\n$!\n");
 
-
-	 open(PGP_VERIFY,"$pgp_verify 2>&1 |");
-	 while (<PGP_VERIFY>) {
-	    s/</&lt;/g; s/>/&gt;/g;
-	    print BROWSER $_;
-	    print BROWSER "<br>";
-	 }
-	 print BROWSER "<hr>\n";
-
-	 open(MAIL, "< $TMP/".$plain) or 
-	    die("Failed trying to read $TMP/".$plain."\n$!\n");
-
-	 while (<MAIL>) {
-	    print BROWSER $_;
-	    print BROWSER "<br>" if ($plaintype eq 'text/plain');
-	 }
-	 close(MAIL);
+	 #while (<MAIL>) {
+	    #print BROWSER $_;
+	    #print BROWSER "<br>" if ($plaintype eq 'text/plain');
+	 #}
+	 #close(MAIL);
 
 	 close(BROWSER);
 
@@ -229,8 +216,8 @@ if ($multipart) {
    foreach (@parts) {
       #system("rm $TMP/$_");
    }
-} else {
-   print "Mail content type: " . $ctype . "\n";
+#}}}
+} else { # {{{ Not multipart mail.
 
    if ($ctype =~ m,^text/html,) {
       print "Starting browser...\n";
@@ -238,14 +225,16 @@ if ($multipart) {
    } elsif ($ctype =~ m,^text/plain,) {
       print "Starting browser...\n";
       system("$MHL_PROG $MHL_PLAIN_OPTS $mail | " . $ENV{'PAGER'});
+   } else {
+      print "Mail content type: " . $ctype . "\n";
+      print "I don't know how to handle this!\n";
    }
-}
+} # }}}
 
-
-sub mhl_write_headers {
+sub mhl_write_headers { #{{{
    my ($tmpfile) = shift;
 
-   open(MHLWRITE, "| $MHL_PROG $MHL_HTML_OPTS > $tmpfile")
+   open(MHLWRITE, "| $MHL_PROG $MHL_HTML_OPTS > $tmpfile") or
       die("Failed trying to pipe to $MHL_PROG\n$!\n"); 
 
    print MHLWRITE "$from_line\n";
@@ -256,14 +245,43 @@ sub mhl_write_headers {
       print MHLWRITE "$a:  $headers{$_}\n";
    }
    close(MHLWRITE);
-}
+} #}}}
 
-sub browser_print_from_file {
-   my $file = shift;
+sub browser_print { #{{{
+   my ($what,$type,$splitter) = @_;
+   my $contents;
 
-   open(HEADERS,"< $file") 
-	   or die("Unable to open $tmpfile for reading.\n> $!\n");
-   while (<HEADERS>) { 
-      print BROWSER $_;
+   if (ref($what) eq 'GLOB') {
+      $contents = $what;
+   } else {
+      open($contents,"$what") 
+	 or die("Unable to open $what for reading.\n> $!\n");
    }
-}
+
+   my $not_real_html = 0;
+   if ( ($browser_content_type eq 'text/html') && 
+	($browser_content_type ne $type) ) {
+      $not_real_html = 1;
+   }
+			
+   while (<$contents>) { 
+      if ($not_real_html) {
+	 s/</&lt;/g; s/>/&gt;/g;
+         print BROWSER $_ . "<br>";
+      } else {
+	 print BROWSER $_;
+      }
+   }
+
+   print BROWSER "<hr>" if ($splitter);
+
+
+
+   close($contents) if (ref($what) ne 'GLOB');
+} #}}}
+
+sub browser_set_content_type { #{{{
+   my $type = shift;
+
+   $browser_content_type = $type;
+} #}}}
