@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.8  2004/01/20 03:42:37  tristan
+ *   wrote basic functions for print game finish
+ *
  *   Revision 1.7  2004/01/20 03:31:13  tristan
  *   uncommented block.
  *
@@ -134,13 +137,26 @@ public class TextClient extends BSClient {
      * Prints who won, etc.
      */
     public void printGameFinish() {
-
+        if ( wonGame() ) {
+            System.out.println( "Congradulations, you won!" );
+        } else {
+            System.out.println( "You Lose!" );
+        }
     }
 
     /**
      * Prints the opponents move.
      */
     public void printOpponentMove() {
+        String row = new String( new char[] { getLastRow() } ).toUpperCase();
 
+        System.out.println( "Your opponent fired at " + row +
+                            "-" + getLastCol() );
+
+        if ( isLastHit() ) {
+            System.out.println( "Your opponent hit one of your ships!" );
+        } else {
+            System.out.println( "Your opponent missed." );
+        }
     }
 }   // TextClient
