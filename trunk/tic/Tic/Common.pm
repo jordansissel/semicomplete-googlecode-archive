@@ -160,6 +160,8 @@ sub get_username {
 
 sub get_password {
 	$state->{"login_password"} = shift;
+
+	# Reset the prompt and echoing...
 	$sh->prompt("");
 	$sh->echo(1);
 
