@@ -1,0 +1,34 @@
+Security Improvements
+---------------------
+
+1) Use SSL or TLS to encrypt communication
+2) Use passworded authentication for users.
+3) Upgrade protocol to be more safe and secure
+	- Ensure that a player doesn't cheat through board manipulation
+	- Ensure that a player can't fire more than once per turn
+4) Prevent DDoS through connection flooding.
+5) Ensure connection drops are handled properly (expiring player connections)
+
+
+Implemented Improvements
+------------------------
+1) SSL encryption. This uses Diffie-Hellman as a key-exchange by default.
+	Diffie-Hellman is known to be susceptible to a "Man in the middle" attack,
+	where a user sits between the client and server and performs dual DH key
+	exchange on either side. If you want to use a key certificate you must
+	create one and tell java to use it.
+	Additionally, UDP has been disabled - It is unable to be easily secured and
+	such is a security risk.
+
+	* Check Google.com for "jsse keytool" for more information on how to create
+	  a certificate that java can use.
+
+2) Password authentication for users: New users will be promtped to create a
+	password. Existing users will be required to provide his or her password
+	before he or she will be allowed to play.
+
+3) Prevention of DDoS through connection flooding. IP Tracking of inbound
+	connections is done. If too many connection attempts are detected from one
+	IP address that IP address will be ignored.
+   
+
