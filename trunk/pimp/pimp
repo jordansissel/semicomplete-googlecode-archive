@@ -9,15 +9,16 @@
 use strict;
 use warnings;
 
-use Audio::Mad qw(:all);
 use Audio::Ao qw(:all);
+use Audio::Mad qw(:all);
 use File::Glob qw(:glob);
-use IO::Socket;
-use IO::Select;
 use IO::Handle;
+use IO::Select;
+use IO::Socket;
 use MP3::Tag;
-use Socket;
 use POSIX;
+use Socket;
+use URI;
 
 use constant ERR_DECODE => 1;
 use constant ERR_EOF => 2;
@@ -26,19 +27,17 @@ $SIG{INT} = \&do_shutdown;
 $SIG{__DIE__} = \&do_shutdown;
 
 my ($serv, $player) = IO::Socket->socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC);
-my $BUFSIZE = 65536;
+my $BUFSIZE = 8192;
 
-my $pimp = {};
+my $pimp = { };
 
 # MP3 Player writes to $server, reads from $player
-# Server writes to $server, reads from CHILD
+# Server writes to $player, reads from $server
 
 my $spid = fork();
 if ($spid == 0) {
 	run_server();
-
-	print STDERR "Server died!\n";
-	exit(1);
+	die("Server died!\n");
 }
 
 my $stream   = new Audio::Mad::Stream();
@@ -119,19 +118,20 @@ sub play_loop {
 # Decode a frame of our happy MP3
 sub decode_current_mp3 {
 	if ($frame->decode($stream) == -1) {
+
+		# If there's a buffer-related error, then we need to read more from 
 		if ($stream->error() == MAD_ERROR_BUFLEN || 
 			 $stream->error == MAD_ERROR_BUFPTR) {
-			my $buffer = substr($pimp->{"current_buffer"}, $stream->next_frame());
-			return ERR_EOF if (sysread($pimp->{"current_fd"}, $buffer, $BUFSIZE - length($buffer), length($buffer)) == 0);
+			my $buf = substr($pimp->{"current_buffer"}, $stream->next_frame());
+			return ERR_EOF unless (sysread($pimp->{"current_fd"}, $buf, $BUFSIZE - length($buffer), length($buf)));
+			print "Buffered: " . length($buf) . "\n";
 
-			$stream->buffer($buffer);
-			$pimp->{"current_buffer"} = $buffer;
+			$stream->buffer($buf);
+			$pimp->{"current_buffer"} = $buf;
 			return ERR_DECODE;
 		}
 
-		unless ($stream->err_ok()) {
-			return ERR_EOF;
-		}
+		return ERR_EOF if ($stream->err_ok());
 	}
 	$synth->synth($frame);
 	return $dither->dither($synth->samples());
@@ -233,20 +233,47 @@ sub next_song {
 }
 
 sub play_song {
-	my $file = $_[0];
-	if ($file =~ m/\.mp3$/) {
+	my $file = shift;
+	#if ($file =~ m/\.mp3$/) {
 		local $/ = undef;
-		open(MP3, $file) or signal_event("open_fail", $_[0]) and return;
-		unless (sysread(MP3, $buffer, $BUFSIZE, 0)) {
+
+		# Support for HTTP streams
+
+		my $fd;
+		if ($file =~ m!^http://!) {
+			print "HTTP!\n";
+			my $uri = URI->new($file);
+			#$file =~ m!http://([A-Za-z0-9.-]+)(?::([0-9]+))?!;
+			my $port = $uri->port();
+
+			socket($fd, PF_INET, SOCK_STREAM, getprotobyname('tcp')) or 
+				signal_event("socket_fail", $file) and return;
+			connect($fd, sockaddr_in($port, inet_aton($uri->host()))) or
+				signal_event("connect_fail", $file) and return;
+
+			print $fd "GET " . $uri->path() . "\r\n";
+			print $fd "Host: " . $uri->host() . "\r\n";
+			print $fd "\r\n";
+
+			print "GET " . $uri->path() . "\r\n";
+			print "Host: " . $uri->host() . "\r\n";
+			print "\r\n";
+		} elsif ($file =~ m/\.mp3$/) {
+			open($fd, $file) or signal_event("open_fail", $file) and return;
+		} else {
+			signal_event("open_fail", $file);
+		}
+
+		unless (sysread($fd, $buffer, $BUFSIZE, 0)) {
 			warn("Failed reading from $file\n");
 			next_song();
 		}
-		#print "BUFFER LENGTH: " . length($buffer) . "\n";
+		print "BUFFER LENGTH: " . length($buffer) . "\n";
 		#close(MP3);
 		$stream->buffer($buffer);
 
 		$pimp->{"current_buffer"} = $buffer;
-		$pimp->{"current_fd"} = \*MP3;
+		$pimp->{"current_fd"} = $fd;
 		$pimp->{"current_type"} = "mp3";
 
 		my $mp3 = MP3::Tag->new($file);
@@ -257,7 +284,7 @@ sub play_song {
 		$pimp->{"current_song"} = $pimp->{"playlist"}->{$file};
 		$mp3->close();
 
-	}
+	#}
 	$pimp->{"state"} ||= "playing";
 	$pimp->{"state"} = "playing" if ($pimp->{"state"} eq "pause");
 	signal_event("new_song");
@@ -375,6 +402,6 @@ sub read_playlist {
 	while (my $line = <LIST>) {
 		next if ($line =~ m/^#/);
 		chomp($line);
-		push(@playlist,$line) if ($line =~ m/\.mp3$/);
+		push(@playlist,$line);# if ($line =~ m/\.mp3$/);
 	}
 }
