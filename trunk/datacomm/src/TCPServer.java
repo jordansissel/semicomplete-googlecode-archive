@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.9  2004/01/26 20:34:57  psionic
+ *   *** empty log message ***
+ *
  *   Revision 1.8  2004/01/20 08:57:35  tristan
  *   fixed compile time errors.
  *
@@ -40,7 +43,7 @@ import java.net.Socket;
 /**
  * Manages a server's connection with the client
  *
- * @author Tristan O'Tierney
+ *' @author Tristan O'Tierney
  * @author Jordan Sissel
  * @author Nick Johnson
  */
@@ -123,6 +126,10 @@ public class TCPServer extends Server {
                                     isready = true;
                                     Response resp = new StartGameResponse();
                                     out.println( resp );
+												Player p = new TCPPlayer(foo.getArgs(0), socket)
+												server.addPlayer(p);
+												game = server.getGame(p);
+												
                                 }
                             }
                         } catch ( InvalidCommandArgumentsException e ) {
