@@ -46,9 +46,11 @@ static char broadcastmac[ETHER_ADDR_LEN] = {
 	0xFF, 0xFF, 0xFF
 };
 
+struct proxy;
+
 typedef struct xbox {
 	u_char macaddr[ETHER_ADDR_LEN];
-	int location; /* The IP address of the proxy this xbox is located at */
+	struct proxy *proxy; /* The IP address of the proxy this xbox is located at */
 	time_t lastseen; /* Last time a packet was seen from this xbox */
 } xbox_t;
 
@@ -71,7 +73,7 @@ static int use_udp = 0;
 static struct libnet_link_int *libnet;
 //static int clientfd = 0;
 
-void addxbox(u_char *macaddr, int proxyip);
+void addxbox(u_char *macaddr, proxy_t *ppt);
 void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 						  const u_char *packet);
 void remove_proxy(proxy_t *ppt);
@@ -137,19 +139,20 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 
 }
 
-void addxbox(u_char *macaddr, int proxyip) {
+void addxbox(u_char *macaddr, proxy_t *ppt) {
 	xbox_t *newbox = NULL;
 	hnode_t *box = NULL;
 
 	box = hash_lookup(xboxen, macaddr);
 	if (box == NULL) {
 		debuglog(1, "New xbox found: %s", ether_ntoa((struct ether_addr *)macaddr));
-		debuglog(1, "\tLocation: %s", (proxyip ? "Remote" : "Local"));
+		debuglog(1, "\tLocation: %s", (ppt == NULL ? "Local" : inet_ntoa(ppt->addr)));
 		newbox = malloc(sizeof(xbox_t));
 		memcpy(newbox->macaddr,macaddr,ETHER_ADDR_LEN);
 		newbox->lastseen = time(NULL);
-		newbox->location = proxyip;
+		newbox->proxy = ppt;
 		hash_alloc_insert(xboxen, macaddr, newbox);
+		hash_alloc_insert(ppt->xboxen, macaddr, newbox);
 	}
 }
 
@@ -365,6 +368,7 @@ int recv_from_proxy(proxy_t *ppt) {
 		return 0;
 	}
 
+
 	packet = malloc(pktlen);
 	bytes = recv(ppt->fd, packet, pktlen, 0);
 	if (bytes < 0) {
@@ -374,6 +378,8 @@ int recv_from_proxy(proxy_t *ppt) {
 		remove_proxy(ppt);
 		return 0;
 	}
+
+	addxbox(((struct ether_header *)packet)->ether_shost, ppt);
 
 	debuglog(1, "Packet received from %s. Length: %d vs %d", inet_ntoa(ppt->addr), bytes, pktlen);
 
