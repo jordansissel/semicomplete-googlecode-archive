@@ -3,7 +3,7 @@
 
 use strict;
 use IO::Select;
-use Net::OSCAR;
+use Net::OSCAR qw/:standard/;
 use POSIX qw(strftime);
 use Term::ReadKey;  #<3 readkey
 use Term::Shelly;
@@ -53,6 +53,9 @@ login($settings->{"screenname"}, $settings->{"password"});
 while (1) {
 	$aim->do_one_loop();
 	$sh->do_one_loop();
+
+	# Some things (like typing-checking) depends on delays
+	do_check_typing();
 }
 
 # init functions
@@ -188,4 +191,17 @@ sub read_config {
 		close(FILE);
 		return $conf;
 	} 
+}
+
+# Check if we're typing. If we've stopped typing, tell the other person so...
+sub do_check_typing {
+	# $state->{"typing_status"}
+	
+	if (defined($state->{"typing_status"}) && 
+		 $state->{"typing_status"}->{"status"} == TYPINGSTATUS_STARTED &&
+		 $state->{"typing_status"}->{"time"} + 1 < time()) {
+		my $sn = $state->{"typing_status"}->{"sn"};
+		$state->{"aim"}->send_typing_status($sn, TYPINGSTATUS_TYPING);
+		$state->{"typing_status"}->{"status"} = TYPINGSTATUS_TYPING;
+	}
 }
