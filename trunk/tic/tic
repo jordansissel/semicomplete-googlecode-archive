@@ -175,7 +175,7 @@ sub check_readline {
 				my $left = length($ret) - $state->{"termcols"};
 				$state->{"leftcol"} = $left + 1;
 			}
-			print STDERR $state->{"leftcol"} . " / " . $state->{"termcols"} . " - " . substr($ret,$state->{"leftcol"} ,$state->{"termcols"}) . "\n";
+			#print STDERR $state->{"leftcol"} . " / " . $state->{"termcols"} . " - " . substr($ret,$state->{"leftcol"} ,$state->{"termcols"}) . "\n";
 
 			# Determine what the leftmost pos is:
 			my $l = ($state->{"leftcol"} < $state->{"input_position"}) ? 
