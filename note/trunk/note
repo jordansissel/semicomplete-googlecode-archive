@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/local/bin/perl
 
 use strict;
 use warnings;
@@ -11,6 +11,10 @@ use Getopt::Std;
 my $opts = {};
 getopt('h:', $opts);
 
+#select STDERR;
+#$| = 1;
+#select STDOUT;
+
 use Data::Dumper;
 use POSIX qw(strftime);
 use File::Temp qw(tempfile);
@@ -21,6 +25,8 @@ set_options();
 
 my $db = DBI->connect("dbi:Pg:dbname=$dbname;host=$dbhost",
 							 $dbuser,$dbpass, { AutoCommit => 1 });
+
+my $state = {};
 
 my $ui = new Curses::UI( -color_support => 1, -default_colors => 1 );
 
@@ -81,8 +87,6 @@ SELECT id, TO_CHAR(date_created, 'MM/DD') AS date_created, shown,
  ORDER BY subject ASC
 SQL
 
-	#print STDERR "Rows: " . keys(%$res) . "\n";
-
 	$ui->nostatus();
 
 	return $res;
@@ -108,6 +112,11 @@ sub display_list { #{{{
 	my $labels = shift || { };
 	my $depth = shift || 0;
 
+	if ($depth == 0) {
+		$state->{"selected"} = 0;
+		$state->{"count"} = 0;
+	}
+
 	my @keys;
 
 	map { 
@@ -115,10 +124,15 @@ sub display_list { #{{{
 	} values(%$followups);
 
 	my $cnt = 0;
+	my $act = $list->get_active_value(); 
 	foreach my $id (@keys) {
-		#print STDERR "ID: $id / " . $notes->{$id} . "\n";
+		#print STDERR "ID: $id  / $act / " . $state->{"selected"} . " / $cnt / " . $notes->{$id} . "\n";
 		next if ($notes->{$id}->{"shown"} == 0);
 		push(@$values, $id);
+
+		if (defined($act) && $id == $act) {
+			$state->{"selected"} = $state->{"count"} ;
+		}
 
 		if ($cnt == $#keys) {
 			$labels->{$id} = " " x ($depth * 2) . (($parentid != 0) ? '\ ' : '');
@@ -128,19 +142,33 @@ sub display_list { #{{{
 		$labels->{$id} .= ($expanded->{$id} ? "-" : "+");
 		$labels->{$id} .= " " . $notes->{$id}->{"date_created"} . "    ";
 		$labels->{$id} .= $notes->{$id}->{"subject"};
+
+		$state->{"count"}++;
+		$cnt++;
+
 		if ($expanded->{$id}) {
 			display_list($list, $notes, $id, $values, $labels, $depth + 1);
 		}
-		$cnt++;
+
 	}
 
+	# Only update the listbox if this is the base call (0 depth recursion)
+	return if ($depth);
+
 	my $sel = $list->get();
-	my $act = $list->get_active_value();
+
+	# For some reason $state->{"selected"} gets reset to 0 after values()
+	# is called. I don't get it... Let's make a copy and use that...
+	my $line = $state->{"selected"};
+
 	$list->values($values);
 	$list->labels($labels);
 	$list->set_selection($sel);
-	
-	$list->draw();
+
+	$list->{-ypos} = $line;
+
+	$list->layout_content;
+	$list->schedule_draw(1);
 } #}}}
 
 sub db_error { #{{{
@@ -158,7 +186,7 @@ sub create_new_note { #{{{
 	my ($fh, $file) = tempfile();
 	$followup = $list->get_active_value() if ($followup);
 
-	print STDERR "Followup: $followup\n";
+	#print STDERR "Followup: $followup\n";
 
 	print $fh "Subject: ";
 	close ($fh);
