@@ -1,6 +1,8 @@
+COMMANDS = Command FireCommand HelloCommand ReadyCommand
 %: %.java
 	@echo "* $@.java"
-	@rm errors.$@ 2>&1 > /dev/null || true
-	@javac $@.java 2> errors.$@ || true
+	@rm errors.$@ 2> /dev/null > /dev/null || true
 	@echo "javac $@.java"
-	@[ -r "errors.$@" ] && echo "Errors occurred. Output can be found in ./errors.$@"
+	@javac $@.java 2> errors.$@ || echo "Errors occurred. Output can be found in ./errors.$@" && exit 1
+
+server: BattleshipServer $(COMMANDS) TCPServer ServerGame

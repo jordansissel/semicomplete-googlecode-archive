@@ -6,9 +6,13 @@
  *
  * Revisions:
  *	$Log$
+ *	Revision 1.11  2004/01/19 23:48:52  psionic
+ *	- Bulk commit: Command infrastructure improved. New commands can be added
+ *	  dynamically now.
+ *
  *	Revision 1.10  2004/01/19 16:58:32  tristan
  *	changed two methods to static
- *
+ *	
  *	Revision 1.9  2004/01/19 16:17:42  tristan
  *	added char in tobytearray
  *	
@@ -77,7 +81,7 @@ public class Command implements Message {
 	 * Initializes a new Command out of the command and it's arguments.
 	 */
 	public Command( String command, List args ) {
-		this.command  = command;
+		this.command = command;
 		this.args = args;
 	}
 
@@ -117,7 +121,7 @@ public class Command implements Message {
 	 * @param args The command args.
 	 */
 	public void setArgs( List args ) throws InvalidCommandArgumentsException {
-		if ( ! this.validateArguments() ) {
+		if ( ! this.validateArguments(args) ) {
 			throw new InvalidCommandArgumentsException();
 		}
 
@@ -200,7 +204,7 @@ public class Command implements Message {
 			retVal.add( unparsedArgs );
 		}
 
-		/*if ( ! this.validateArguments() ) {
+		/*if ( ! this.validateArguments(retVal) ) {
 			throw new InvalidCommandArgumentsException();
 		}*/
 
@@ -214,7 +218,18 @@ public class Command implements Message {
 	public static Command parseCommand( String unparsedCommand )
 	       throws InvalidCommandArgumentsException {
 		String[] items = unparsedCommand.split( "\\s", 2 );
-		Command retVal = new Command();
+		items[0] = items[0].substring(0,1).toUpperCase() + 
+		           items[0].substring(1).toLowerCase();
+		Command retVal = null;
+
+		try {
+			retVal = (Command) Class.forName(items[0] + "Command").newInstance();
+		} catch (Exception e) {
+			System.err.println(" -> " + e);
+		}
+		if (retVal == null) {
+			return null;
+		}
 
 		// if command was found
 		if ( items.length > 0 ) {
@@ -222,6 +237,7 @@ public class Command implements Message {
 
 			// if items were found
 			if ( items.length == 2 ) {
+				System.err.println("Parseargs ("+items[0]+") - " + items[1]);
 				retVal.setArgs( parseArgs( items[ 1 ] ) );
 			}
 		}
@@ -233,7 +249,7 @@ public class Command implements Message {
 	 * Validate argument data type
 	 *
 	 */
-	protected boolean validateArguments() 
+	public boolean validateArguments(List args) 
 	        throws InvalidCommandArgumentsException {
 		return true;
 	}

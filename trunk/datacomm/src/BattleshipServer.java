@@ -6,6 +6,10 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.5  2004/01/19 23:48:52  psionic
+ *   - Bulk commit: Command infrastructure improved. New commands can be added
+ *     dynamically now.
+ *
  *   Revision 1.4  2004/01/19 20:54:18  psionic
  *   - Updated server-side happyland framework for TCP
  *
@@ -20,7 +24,8 @@
  *
  */
 
-import java.net.InetAddress;
+import java.net.*;
+import java.io.IOException;
 
 /**
  * The main method that starts the battle ship server.
@@ -77,7 +82,8 @@ public class BattleshipServer extends Thread {
      */
     public BattleshipServer( InetAddress host,
 									  int tcpPort,
-									  int udpPort ) throws IllegalArgumentException {
+									  int udpPort ) throws IllegalArgumentException,
+									                       IOException {
 		this.host = host;
 		this.tcpPort = tcpPort;
 		this.udpPort = udpPort;
@@ -129,22 +135,27 @@ public class BattleshipServer extends Thread {
      * Starts the server's tcp and udp servers.
      */
     public void run() {
-		 tcplisten.setSoTimeout(1);
+		 try {
+			 tcplisten.setSoTimeout(1);
+		 } catch (SocketException e) {
+			 System.err.println("Error trying to set accept() timeout on server's tcp listener socket. " + e);
+		 }
 
 		 while (true) {
 			 // Look for attempts to connect to tcp or udp
 			 try {
 				 Socket newconn = tcplisten.accept();
-				 Thread newclient = new TCPServer(newconn);
-
+				 Thread newclient = new TCPServer(newconn, this);
 				 newclient.start();
-			 } catch (SocketTimeoutException) {
+			 } catch (SocketTimeoutException e) {
 				 // ignore
+			 } catch (IOException e) {
+				 System.err.println("Error trying to accept incoming connection on tcp port. " + e);
 			 }
 
-
 		 }
-    }
+
+	 }
 
     /**
      * Shutdown tcp and udp connections.
@@ -152,4 +163,5 @@ public class BattleshipServer extends Thread {
     public void finalize() {
 
     }
+
 }   // BattleshipServer

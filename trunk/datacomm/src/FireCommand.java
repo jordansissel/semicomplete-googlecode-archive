@@ -6,6 +6,10 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.6  2004/01/19 23:48:52  psionic
+ *   - Bulk commit: Command infrastructure improved. New commands can be added
+ *     dynamically now.
+ *
  *   Revision 1.5  2004/01/19 19:23:13  psionic
  *   - validateArguments changed to public from protected
  *
@@ -41,13 +45,13 @@ public class FireCommand extends Command {
 		this.args = this.parseArgs(args);
 	}
 
-	public boolean validateArguments() 
+	public boolean validateArguments(List args) 
 	        throws InvalidCommandArgumentsException {
 		System.err.println("FireCommand validateArguments()");
 
 		// Number of arguments
-		if (this.args.size() != 2) {
-			System.err.println("- Failed num args");
+		if (args.size() != 2) {
+			System.err.println("- Failed num args ("+args+")");
 			return false;
 		}
 

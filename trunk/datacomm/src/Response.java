@@ -6,6 +6,10 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.5  2004/01/19 23:48:52  psionic
+ *   - Bulk commit: Command infrastructure improved. New commands can be added
+ *     dynamically now.
+ *
  *   Revision 1.4  2004/01/19 20:36:58  tristan
  *   implemented validate arguments method.
  *
@@ -22,13 +26,14 @@
 
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.List;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 
 /**
  * Response to a command query.
  *
- * @author tristan
+ * @author tristan and Jordan Sissel
  */
 public class Response implements Message {
     // constants
@@ -123,6 +128,7 @@ public class Response implements Message {
                     retVal.setMessage( m.group( 2 ) );
                 }
             } catch ( NumberFormatException e ) {
+					// ignore
             }
         }
 
@@ -151,7 +157,8 @@ public class Response implements Message {
      * @return
      * @throws InvalidCommandArgumentsException
      */
-    public boolean validateArguments() throws InvalidCommandArgumentsException {
+    public boolean validateArguments(List args) 
+	        throws InvalidCommandArgumentsException {
         return true;
     }
 }   // Response

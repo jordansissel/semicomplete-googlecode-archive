@@ -6,6 +6,10 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.6  2004/01/19 23:48:52  psionic
+ *   - Bulk commit: Command infrastructure improved. New commands can be added
+ *     dynamically now.
+ *
  *   Revision 1.5  2004/01/19 19:23:35  psionic
  *   - changed validateArguments to public from protected
  *
@@ -23,6 +27,8 @@
  *
  */
 
+import java.util.List;
+
 /**
  * Interface for binary network messages.
  * 
@@ -31,7 +37,7 @@
 public interface Message {
     public byte[] toByteArray();
     public String toString();
-	 public boolean validateArguments() 
+	 public boolean validateArguments(List args) 
 	           throws InvalidCommandArgumentsException;
 }   // Message
 
