@@ -81,6 +81,7 @@ libnet_t *libnet;
 #endif
 
 void addxbox(u_char *macaddr, proxy_t *ppt);
+void addproxy(struct sockaddr_in *addr, int sock);
 void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 						  const u_char *packet);
 void remove_proxy(proxy_t *ppt);
@@ -144,7 +145,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 				to.sin_port = htons(serverport);
 				to.sin_family = PF_INET;
 
-				sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
+				//sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
 				sendto(p->fd, packet, head->caplen, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
 			} else {
 				write(p->fd, &(head->caplen), 4); /* First 4 bytes is the size */
@@ -191,6 +192,36 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 
 	}
 
+}
+
+void addproxy(struct sockaddr_in *addr, int sock) {
+	proxy_t *newproxy = NULL;
+	hnode_t *proxy = NULL;
+
+	proxy = hash_lookup(proxies, &(addr->sin_addr.s_addr));
+	if (proxy == NULL) {
+		hscan_t hs;
+		hnode_t *node;
+
+		newproxy = malloc(sizeof(proxy_t));
+		newproxy->ip = (int) addr->sin_addr.s_addr;
+		newproxy->addr = addr->sin_addr;
+		newproxy->fd = sock;
+		newproxy->xboxen = hash_create(64, comparemac, NULL);
+
+		hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
+
+		debuglog(1, "NEW PROXY FOUND: %s", inet_ntoa(addr->sin_addr));
+
+		/* Check known proxy connections for data */
+		hash_scan_begin(&hs, proxies);
+		fprintf(stderr, "KNOWN PROXIES:\n");
+		while ((node = hash_scan_next(&hs))) {
+			proxy_t *p = (proxy_t *)(node->hash_data);
+			fprintf(stderr, "PROXY: %s\n", inet_ntoa(p->addr));
+		}
+		fprintf(stderr, "END\n");
+	}
 }
 
 void addxbox(u_char *macaddr, proxy_t *ppt) {
@@ -296,9 +327,12 @@ void proxy(void *args) {
 		pthread_exit(NULL);
 	}
 
-	if (listen(server, SOMAXCONN) < 0) {
-		debuglog(0, "listen() failed: %s", strerror(errno));
-		pthread_exit(NULL);
+	if (!use_udp) {
+		if (listen(server, SOMAXCONN) < 0) {
+			debuglog(0, "listen() failed: %s", strerror(errno));
+			debuglog(0, "UDP: %d", use_udp);
+			pthread_exit(NULL);
+		}
 	}
 
 	debuglog(1, "Listening on port %d", serverport);
@@ -325,13 +359,13 @@ void proxy(void *args) {
 		proxycopy = proxysocks;
 
 		FD_SET(server, &proxysocks);
-		debuglog(12, "select: %08x", proxysocks);
+		debuglog(150, "select: %08x", proxysocks);
 		sel = select(FD_SETSIZE, &proxysocks, NULL, NULL, &timeout);
 		if (sel < 0) {
 			debuglog(0, "select() failed: %s", strerror(errno));
 			pthread_exit(NULL);
 		} else if (sel == 0) {
-			debuglog(13, "select() timed out waiting for data... trying again");
+			debuglog(150, "select() timed out waiting for data... trying again");
 			proxysocks = proxycopy;
 		} else {
 			hscan_t hs;
@@ -339,40 +373,66 @@ void proxy(void *args) {
 
 			debuglog(15, "Data ready from %d descriptors", sel);
 
-			/* Check known proxy connections for data */
-			hash_scan_begin(&hs, proxies);
-			while ((node = hash_scan_next(&hs))) {
-				proxy_t *p = (proxy_t *)(node->hash_data);
-				if (FD_ISSET(p->fd, &proxysocks)) {
-					debuglog(13, "Data received from %s", inet_ntoa(p->addr));
-					if (recv_from_proxy(p) > 0 )
-						FD_SET(p->fd, &proxysocks);
+			if (use_udp) {
+				if (FD_ISSET(server, &proxysocks)) {
+					debuglog(13, "Data received on udp");
+					if (recv_from_proxy(NULL) > 0 )
+						FD_SET(server, &proxysocks);
 					else
-						FD_CLR(p->fd, &proxysocks);
+						FD_CLR(server, &proxysocks);
 				} else {
-					FD_SET(p->fd, &proxysocks);
+					FD_SET(server, &proxysocks);
 				}
+
+			} else {
+				/* Check known proxy connections for data */
+				hash_scan_begin(&hs, proxies);
+				while ((node = hash_scan_next(&hs))) {
+					proxy_t *p = (proxy_t *)(node->hash_data);
+					if (FD_ISSET(p->fd, &proxysocks)) {
+						debuglog(13, "Data received from %s", inet_ntoa(p->addr));
+						if (recv_from_proxy(p) > 0 )
+							FD_SET(p->fd, &proxysocks);
+						else
+							FD_CLR(p->fd, &proxysocks);
+					} else {
+						FD_SET(p->fd, &proxysocks);
+					}
+				}
+
+				debuglog(14,"Data from a connected proxy client!");
+				if (FD_ISSET(server, &proxysocks)) {
+					proxy_t *newproxy;
+
+					if ((fd = accept(server, (struct sockaddr *)&srcaddr, &size)) < 0) {
+						debuglog(0, "accept() failed: %s", strerror(errno));
+						pthread_exit(NULL);
+					}
+
+					/* Check bufsize... */
+					do {
+						int bufsiz;
+						int sizeofthing;
+						getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &bufsiz, &sizeofthing);
+						debuglog(0, "Socket rcvbuf: %d", bufsiz);
+						getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &bufsiz, &sizeofthing);
+						debuglog(0, "Socket sndbuf: %d", bufsiz);
+					} while (0);
+
+				
+					debuglog(1, "New proxy connection from %s:%d",
+								inet_ntoa(srcaddr.sin_addr), htons(srcaddr.sin_port));
+
+					newproxy = malloc(sizeof(proxy_t));
+					newproxy->ip = (int) srcaddr.sin_addr.s_addr;
+					newproxy->addr = srcaddr.sin_addr;
+					newproxy->fd = fd;
+					newproxy->xboxen = hash_create(64, comparemac, NULL);
+
+					hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
+					FD_SET(fd, &proxysocks);
+				} 
 			}
-
-			debuglog(14,"Data from a connected proxy client!");
-			if (FD_ISSET(server, &proxysocks)) {
-				proxy_t *newproxy;
-
-				if ((fd = accept(server, (struct sockaddr *)&srcaddr, &size)) < 0) {
-					debuglog(0, "accept() failed: %s", strerror(errno));
-					pthread_exit(NULL);
-				}
-
-				newproxy = malloc(sizeof(proxy_t));
-				newproxy->ip = (int) srcaddr.sin_addr.s_addr;
-				newproxy->addr = srcaddr.sin_addr;
-				newproxy->fd = fd;
-				newproxy->xboxen = hash_create(64, comparemac, NULL);
-
-				hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
-				FD_SET(fd, &proxysocks);
-			} 
-
 		}
 	}
 }
@@ -402,8 +462,9 @@ void connect_to_proxy() {
 		pthread_exit(NULL);
 	}
 
-	/* Grab the IP this hostname is */
+	/* Grab the IP this hostname is, this is an ugly oneliner */
 	memcpy(&(in.s_addr),hostdata->h_addr_list[0],hostdata->h_length);
+
 	debuglog(1, "%s is %s (%s)", proxyserver, hostdata->h_name, inet_ntoa(in));
 				//inet_ntoa((struct in_addr *)(hostdata->h_addr_list[0])));
 
@@ -442,28 +503,41 @@ int recv_from_proxy(proxy_t *ppt) {
 	char *packet;
 
 	if (use_udp) {
-		//bytes = recvfrom(ppt->fd, &pktlen, 4, 0, 
+		bytes = 4;
+		pktlen = 8192;
 	} else {
 		bytes = recv(ppt->fd, &pktlen, 4, 0);
-	}
-	debuglog(100, "Bytes read: [%d] %d", bytes, pktlen);
+		debuglog(100, "Bytes read: [%d] %d", bytes, pktlen);
 
-	/* if bytes read is 0, then the connection was closed. */
-	if (bytes < 0) {
-		debuglog(0, "recv_from_proxy - recv() (1) failed: %s", strerror(errno));
-		return bytes;
-	} else if (bytes == 0) {
-		remove_proxy(ppt);
-		return 0;
+		/* if bytes read is 0, then the connection was closed. */
+		if (bytes < 0) {
+			debuglog(0, "recv_from_proxy - recv() (1) failed: %s", strerror(errno));
+			return bytes;
+		} else if (bytes == 0) {
+			remove_proxy(ppt);
+			return 0;
+		}
 	}
 
 	packet = malloc(pktlen);
-	bytes = recv(ppt->fd, packet, pktlen, 0);
+
+	if (use_udp) {
+		struct sockaddr_in from;
+		int len;
+		bytes = recvfrom(ppt->fd, packet, pktlen, 0, (struct sockaddr *)&from, &len);
+
+		/* sock is -1 becuase this is udp, we don't have a socket really... */
+		addproxy(&from, ppt->fd);
+	} else {
+		bytes = recv(ppt->fd, packet, pktlen, 0);
+	}
+
 	if (bytes < 0) {
 		debuglog(0, "recv_from_proxy - recv() (2) failed: %s", strerror(errno));
 		return bytes;
 	} if (bytes == 0) {
-		remove_proxy(ppt);
+		if (!use_udp) 
+			remove_proxy(ppt);
 		return 0;
 	}
 
