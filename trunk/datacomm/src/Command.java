@@ -6,9 +6,12 @@
  *
  * Revisions:
  *	$Log$
+ *	Revision 1.14  2004/01/20 08:48:08  tristan
+ *	added commenting.
+ *
  *	Revision 1.13  2004/01/20 04:23:33  tristan
  *	updated comments for everything.
- *
+ *	
  *	Revision 1.12  2004/01/20 00:12:01  psionic
  *	- Fixed a little bug
  *	
@@ -93,7 +96,13 @@ public class Command implements Message {
 		this.args = args;
 	}
 
-	public Command( String command, String args ) 
+    /**
+     * Initializes a command and it's arguments.
+     * @param command The command var.
+     * @param args The command's arguments.
+     * @throws InvalidCommandArgumentsException Thrown if args aren't parsed.
+     */
+	public Command( String command, String args )
 	       throws InvalidCommandArgumentsException {
 		this.command = command;
 		this.args = parseArgs(args);
