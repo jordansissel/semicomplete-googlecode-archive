@@ -6,6 +6,12 @@
  * 
  * Revisions:
  *   $Log$
+ *   Revision 1.2  2004/01/12 04:14:23  njohnson
+ *   Finalized basic game model. BSGame will be the game for each client
+ *   respective to their point of view. Therefore, the main method
+ *   invoked to create the local game with instantiate to BSGame methods
+ *   for each player.
+ *
  *   Revision 1.1  2004/01/12 02:01:46  njohnson
  *   Initial Commit.
  *
@@ -23,44 +29,46 @@ import java.util.*;
  * @author Nicholas Johnson - nrj7064
  */
 public class BSGame {
+	private String ownName;
+	private String targetName;
+	private byte[] misses;
 	private BSGrid ownGrid;
 	private BSGrid targetGrid;
-	private String firstName;
-	private String secondName;
 
-	public BSGame( String firstName, 
-			String secondName,	
+	public BSGame( String ownName, 
+			String targetName,	
 			BSGrid ownGrid;
 			BSGrid targetGrid; ) {
 
 
 	} // BSGame()
 
-	public initializeGrid( BSGrid the_grid ) {
+	public void initializeGrid( BSGrid the_grid ) {
 
 	} //initializeGrid()
 
-	public getOwnGrid() {
-
+	public BSGrid getOwnGrid() {
+		return ownGrid;
 	} //getOwnGrid()
 
-	public getTargetGrid() {
+	public BSGrid getTargetGrid() {
+		return targetGrid;
+	} //getTargetGrid()
 
-	} //getTargetGrid
+	public void printGrid() {
+
+	} //printGrid()
 
 	/**
 	 * The main method the runs a game locally.
 	 *
+	 * @args
 	 *
 	 */
 	public static void main( String[] args ) {
 		String input_string = new String();
 
-		//prompt for the names of players
-		System.out.println( "What is the name of player one: " );
-
-		System.out.println( "What is the name of player two: " );
-
+		//starts two games, one for each player
 
 		//Generate the grids for each player	
 
