@@ -14,9 +14,7 @@ use Tic::Constants;
 use Tic::Common;
 use Tic::Commands;
 use Tic::Events;
-
-# We don't need Bindings anymore, Term::Shelly provides us this :)
-#use Tic::Bindings;
+use Tic::Bindings;
 
 mkdir($ENV{HOME}."/.tic", "0700") unless (-d $ENV{HOME} . "/.tic");
 
@@ -46,6 +44,7 @@ $state->{"command_callback"} = \&command;
 Tic::Events->set_state($state);
 Tic::Commands->set_state($state);
 Tic::Common->set_state($state);
+Tic::Bindings->set_state($state);
 
 setup_enviroment();
 
