@@ -7,8 +7,11 @@ use Term::ReadKey;
 use Net::OSCAR;
 use POSIX qw(strftime);
 
-use Tic::Constants qw(KEY_CONSTANTS); # Super-magical happy land!
-use Tic::Bindings qw(:DEFAULT);
+use Tic::Constants; # Super-magical happy land!
+use Tic::Bindings;
+use Tic::Common;
+use Tic::Commands;
+use Tic::Events;
 
 ReadMode(3);
 
@@ -16,26 +19,35 @@ my $aliases = undef;   # Aliases
 my $commands = undef;  # Commands
 my $bindings = DEFAULT_BINDINGS; 
 my $mappings = DEFAULT_MAPPINGS;
+my $config = DEFAULT_OUTPUT;
 
 my $state = undef;     # State information
 $state->{"bindings"} = $bindings;
 $state->{"mappings"} = $mappings;
+$state->{"config"} = $config;
 
 my $aim = Net::OSCAR->new();
 #$aim->timeout(1);
+$state->{"aim"} = $aim;
 
 setup_readline();
 setup_callbacks();
 setup_commands();
 setup_aim();
+#load_config();
 
-#login();
+Tic::Events->set_state($state);
+Tic::Commands->set_state($state);
+Tic::Bindings->set_state($state);
+Tic::Common->set_state($state);
 
+# Autoflush stdout.
 $| = 1;
 
+login();
+
 while (1) {
-	#out("Signon: " . $state->{"signon"} . " / $aim");
-	$aim->do_one_loop(); # if (($aim->is_on()) || ($state->{"signon"}));
+	$aim->do_one_loop();
 	check_readline();
 }
 
@@ -45,26 +57,9 @@ sub login {
 	$pass = query("password: ", 1);
 	$state->{"signon"} = 1;
 	$aim->signon($user,$pass);
+	$state->{"sn"} = $user;
 	#$aim->newconn(Screenname => $user, Password => $pass);
 }
-
-sub query {
-	my ($q, $hide) = @_;
-	real_out("$q");
-	#stty("echo") unless ($hide);
-	chomp($q = <STDIN>);
-	#stty("-echo") if ($hide);
-	out() if ($hide);
-	return $q;
-}
-
-# Output functions
-
-sub out { real_out(join("\n",@_) . "\n"); }
-
-sub real_out { print STDOUT @_; }
-
-sub error { print STDERR "*> " . shift() . "\n"; }
 
 # init functions
 
@@ -122,17 +117,21 @@ sub setup_aim {
 
 sub setup_commands {
 	$commands = {
-		"alias" => \&command_alias,     # Done
-		"echo" => \&command_echo,       # Done
-		"buddylist" => \&command_buddylist,
-		"default" => \&command_default,
-		"undefault" => \&command_undefault,
-		"info" => \&command_info,       # Done
-		"login" => \&command_login,     # Done but breaks
-		"msg" => \&command_msg,         # Done
-		"quit" => \&command_quit,       # Don
-		"unalias" => \&command_unalias, # Done
-		"who" => \&command_who,
+		"alias"                   => \&command_alias,
+		"echo"                    => \&command_echo,
+		"buddylist"               => \&command_buddylist,
+		"default"                 => \&command_default,
+		"undefault"               => \&command_undefault,
+		"info"                    => \&command_info,
+		"login"                   => \&command_login,
+		"msg"                     => \&command_msg,
+		"quit"                    => \&command_quit,
+		"unalias"                 => \&command_unalias,
+		"who"                     => \&command_who,
+		"log"                     => \&command_log,
+		"timestamp"               => \&command_timestamp,
+		"sn"                      => \&command_sn,
+
 	};
 	$aliases = {
 		"a" => "/alias",
@@ -146,148 +145,17 @@ sub setup_commands {
 	$state->{"commands"} = $commands;
 }
 
-# Call backs
-
-sub event_admin_error {
-	my ($aim, $reqtype, $error, $errurl) = @_;
-}
-
-sub event_admin_ok {
-	my ($aim, $reqtype) = @_;
-}
-
-sub event_buddy_in {
-	my ($aim, $sn, $group, $data) = @_;
-	if (!defined($state->{"buddylist"}->{$sn})) {
-		out("* $sn ($group) is online.");
-	} else {
-		# Here we can add sections to output data
-		# pertainting to the user's new state.
-	}
-	$state->{"buddylist"}->{$sn} = $data;
-
-}
-
-sub event_buddy_info {
-	my ($aim, $sn, $data) = @_;
-	foreach (@{$state->{"hooks"}->{"buddy_info"}}) {
-		if ($sn eq $_->{sn}) {
-			&{$_->{sub}}($sn);
-			return;
-		}
-	}
-
-	if ($data->{"profile"}) {
-		out("Buddy info for $sn");
-		out("------------------");
-		if (1) { # If they have w3m...
-			my $prof = $data->{'profile'};
-			out(`echo "$prof" | lynx -dump -stdin`);
-			#out(`echo "$prof" | w3m -T text/html -dump`);
-		}
-	} elsif ($data->{"awaymsg"}) {
-	}
-
-}
-
-sub event_buddy_out {
-	my ($aim, $sn, $group) = @_;
-}
-
-sub event_buddylist_error {
-	my ($aim, $error, $what) = @_;
-}
-
-sub event_buddylist_ok {
-	my ($aim) = @_;
-}
-
-sub event_chat_buddy_in {
-	my ($aim, $sn, $chat, $data) = @_;
-}
-
-sub event_chat_buddy_out {
-	my ($aim, $sn, $chat) = @_;
-}
-
-sub event_chat_closed {
-	my ($aim, $chat, $error) = @_;
-}
-
-sub event_chat_im_in {
-	my ($aim, $from, $chat, $msg) = @_;
-}
-
-sub event_connection_changed {
-	my ($aim, $conn, $status) = @_;
-}
-
-sub event_error {
-	my ($aim, $conn, $err, $desc, $fatal) = @_;
-	error("$desc");
-	if ($fatal) {
-		error("This error was fatal and you have been disconnected. :(") ;
-		$aim = Net::OSCAR->new();
-		$state->{"signon"} = 0;
-	}
-	
-}
-
-sub event_evil {
-	my ($aim, $newevil, $from) = @_; 
-}
-
-sub event_im_in {
-	my ($aim, $from, $msg, $away) = @_;
-	$state->{"last_from"} = $from;
-	out("<*$from*> $msg");
-}
-
-sub event_im_ok {
-	my ($aim, $to, $reqid) = @_;
-}
-
-sub event_rate_alert {
-	my ($aim, $level, $clear, $window, $worrisome) = @_;
-}
-
-sub event_signon_done {
-	my ($aim) = @_;
-	$state->{"signon"} = 0;
-}
-
-# Useful pseudo events
-
-sub event_is_away {
-	
-}
-
-# stty! Saves previous stty state by default. If no params are passed then
-# it will return the saved state.
-sub stty {
-	return $state->{"stty"} if (!defined($_[0]));
-	#$state->{"stty"} = IO::Stty::stty(\*STDIN, "-g");
-	return IO::Stty::stty(@_);
-}
-
-###
-# Shenanigans!
-
-sub add_hook {
-	my ($hook, $data) = @_;
-	push(@{$state->{"hooks"}->{$hook}}, $data);
-}
-
 # Nonblocking readline
 sub check_readline { 
 	my $char;
 	$char = ReadKey(-1);
 	if (defined($char)) {
 		if ($char eq "\n") {
+			my $line = $state->{"input_line"};
 			real_out("\n");
-			command($state->{"input_line"});
 			$state->{"input_line"} = undef;
 			$state->{"input_position"} = 0;
+			command($line);
 			return;
 		}
 
@@ -300,7 +168,6 @@ sub check_readline {
 			my $pos = $state->{"input_position"}; 
 			my $back = length($ret) - $pos;
 			if (defined($extra->{"-print"})) {
-				print STDERR "Extra!\n";
 				real_out($extra->{"-print"});
 			}
 			real_out("\r\e[2K" . $ret);
@@ -308,7 +175,6 @@ sub check_readline {
 			$state->{"input_line"} = $ret;
 		} else {
 			if (defined($extra->{"-print"})) {
-				print STDERR "Extra!\n";
 				real_out($extra->{"-print"});
 			}
 		}
@@ -346,7 +212,7 @@ sub handle_keys {
 
 			$state->{"escape_string"} = undef;
 			my (@foo) = execute_binding("\e".$estring);
-			print STDERR "Escape ret: " . scalar(@foo) . "\n";
+			#print STDERR "Escape ret: " . scalar(@foo) . "\n";
 			return @foo;
 		}
 		return undef;
@@ -381,7 +247,7 @@ sub command {
    if ($cmd =~ s!^/!!) {
 		#out("<$cmd>");
 		if (defined($commands->{$cmd})) { 
-			&{$commands->{$cmd}}($args);
+			&{$commands->{$cmd}}($state, $args);
 		} elsif (defined($aliases->{$cmd})) {
 			$state->{"recursion_check"}++;
 			if ($state->{"recursion_check"} > 10) {
@@ -397,222 +263,18 @@ sub command {
 	} elsif ($cmd !~ m/^$/) {
 	   if ($_[0] =~ s/^;(.)/$1/) {
 			if (($state->{"last_from"}) && ($_[0] =~ m/./)) {
-				$aim->send_im($state->{"last_from"}, $_[0]);
+				command_msg($state,$state->{"last_from"}, $_[0]);
+				#$aim->send_im($state->{"last_from"}, $_[0]);
 			} else {
 				error("No one has messaged you yet, how am I supposed to know who messaged you last?");
 			}
 		} else {
 			if ($state->{"default"}) {
-				$aim->send_im($state->{"default"}, $_[0]);
+				#$aim->send_im($state->{"default"}, $_[0]);
+				command_msg($state,$state->{"default"}, $_[0]);
 			}
 		}
 	}
-}
-
-sub create_alias {
-	my ($alias, $cmd) = @_;
-	$alias =~ s!^/!!;
-
-	$aliases->{$alias} = $cmd;
-}
-
-sub remove_alias {
-	my ($alias) = @_;
-
-	undef($aliases->{$alias});
-}
-
-sub command_msg {
-	my ($args) = shift;
-	my ($sn, $msg) = split(/\s+/, $args, 2);
-	
-	$aim->send_im($sn, $msg);
-}
-
-sub command_alias {
-	my ($args) = shift;
-	my ($alias, $cmd) = split(/\s+/, $args, 2);
-
-	if ($alias =~ m/^$/) {
-		if (scalar(keys(%{$aliases})) == 0) {
-			out("There are no aliases set.");
-		} else {
-			out("Aliases");
-			out("--------------");
-			foreach my $alias (keys(%{$aliases})) {
-				next unless (defined($aliases->{$alias}));
-				out("$alias => " . $aliases->{$alias});
-			}
-		}
-		return;
-	}
-
-	if ($cmd =~ m/^$/) {
-		if (defined($aliases->{$alias})) {
-			out("$alias => " . $aliases->{$alias});
-		} else {
-			error("No such alias, \"$alias\"");
-		}
-	} else {
-		create_alias($alias, $cmd);
-	}
-}
-
-sub command_unalias {
-	my ($args) = shift;
-	my ($alias) = split(/\s+/, $args);
-
-	if ($alias =~ m/^$/) {
-		error("Unalias what?");
-		return;
-	}
-
-	remove_alias($alias);
-	out("Removed the alias \"/$alias\"");
-}
-
-sub command_echo {
-	my ($args) = shift;
-	out($args);
-}
-
-sub command_info {
-	my ($sn,$key) = split(" ", $_[0]);
-
-	if ($sn eq '') {
-		error("Invalid number of arguments to /info.");
-		return;
-	}
-
-	if ($key eq '') {
-		out("Fetching user info for $sn");
-		$aim->get_info($sn);
-	} else {
-		out("State info for $sn");
-		out("$key: " . $aim->buddy($sn)->{$key});
-	}
-}
-
-sub command_login {
-	my ($args) = shift;
-	if ($args eq '-f') {
-		login();
-	} else {
-		if ($aim->is_on()) {
-			error("You are already logged in, use /login -f to force reconnection.");
-		} else {
-			login();
-		}
-	}
-}
-
-sub command_quit {
-	error("Bye :)");
-	$aim->signoff();
-	exit;
-}
-
-sub command_buddylist {
-	my ($args) = shift;
-
-	foreach my $g ($aim->groups()) {
-		out($g);
-		foreach my $b ($aim->buddies($g)) {
-			my $bud = $aim->buddy($b,$g);
-
-			my $extra;
-			if ($bud) {
-				$extra .= " [MOBILE]" if $bud->{mobile};
-				$extra .= " [TYPINGSTATUS]" if $bud->{typingstatus};
-				$extra .= " [ONLINE]" if $bud->{online};
-				$extra .= " [TRIAL]" if $bud->{trial};
-				$extra .= " [AOL]" if $bud->{aol};
-				$extra .= " [FREE]" if $bud->{free};
-				$extra .= " [AWAY]" if $bud->{away};
-				$extra .= " {".$bud->{comment}."}" if defined $bud->{comment};
-				$extra .= " {{".$bud->{alias}."}}" if defined $bud->{alias};
-				$extra .= " (".$bud->{extended_status}.")" if defined $bud->{extended_status};
-			}
-
-			out("$b ($extra)");
-		}
-	}
-}
-
-sub command_default {
-	my ($args) = shift;
-	($args) = split(/\s+/,$args);
-
-	if ($args eq '') {
-		if ($state->{"default"}) {
-			out("Default target: " . $state->{"default"});
-		} else {
-			error("No default target yet");
-		}
-	} else {
-		if ($aim->buddy("$args")) {
-			$state->{"default"} = $args;
-			out("New default target: $args");
-		} elsif ($args eq ';') {
-			if ($state->{"last_from"}) {
-				$state->{"default"} = $state->{"last_from"};
-				out("New default target: " . $state->{"default"});
-			} else {
-				error("No one has sent you a message yet... what are you trying to do?!");
-			}
-		} else {
-			error("The buddy $args is not on your buddylist, I won't default to it.");
-		}
-	}
-}
-
-sub command_undefault {
-	out("Default target cleared.");
-	undef($state->{"default"});
-}
-
-sub command_who {
-	my ($args) = shift;
-
-	foreach my $g ($aim->groups()) {
-		out($g);
-		my @buddies = $aim->buddies($g);
-		foreach my $b (sort(compare($a,$b),@buddies)) {
-			my $bud = $aim->buddy($b,$g);
-			next unless (defined($bud));
-			my $e;
-			$e .= "offline" unless ($bud->{"online"});
-			$e ||= "online, ";
-			$e .= "away, " if ($bud->{"away"});
-			$e .= "idle, " if ($bud->{"idle"});
-			$e =~ s/, $//;
-
-			out("    $b ($e)");
-
-		}
-	}
-}
-
-sub compare {
-	#out("Compare $a and $b");
-	local $a = buddyscore($a);
-	local $b = buddyscore($b);
-	return $a <=> $b;
-}
-
-sub buddyscore {
-	my $buddy = shift;
-	$buddy = $aim->buddy($buddy);
-	my $sum = 0;
-	return -11 if (!defined($buddy));
-
-	$sum += 10 if ($buddy->{online});
-	$sum -= 10 unless ($buddy->{online}); 
-	$sum -= 5 if ($buddy->{away});
-	$sum -= 3 if ($buddy->{idle});
-	#out($buddy->{"screenname"} . " = $sum");
-
-	return $sum;
 }
 
 sub execute_binding {
