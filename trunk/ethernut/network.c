@@ -436,16 +436,26 @@ void network_tcpbroadcast(char *message, int bytes) {
 		destaddr.sin_addr = nuts[c].ip;
 		destaddr.sin_port = htons(DISCOVERY_PORT);
 
-		//log(10, "Trying to connect to %s:%d", inet_ntoa(destaddr.sin_addr), DISCO
 		if (connect(sock, (struct sockaddr *)&destaddr, sizeof(destaddr)) < 0) {
 			logerror("network_tcpbroadcast connect()");
-			THREAD_EXIT();
-		}
+			switch (errno) {
+				case ECONNREFUSED:
+				case ENETUNREACH:
+				case ETIMEDOUT:
+					break;
+				default:
+					log(10, "DYING PTHREAD_SELF: %x", pthread_self());
+					THREAD_EXIT();
+			}
+		} else {
+			/* connect() was successful! */
 
-		log(10, "Sending '%s' to %s:%d", message, inet_ntoa(destaddr.sin_addr), DISCOVERY_PORT);
-		if (send(sock, message, bytes, 0) < 0) {
-			logerror("network_tcpbroadcast send()");
-			THREAD_EXIT();
+			log(10, "Sending '%s' to %s:%d", message, inet_ntoa(destaddr.sin_addr), DISCOVERY_PORT);
+			log(10, "SENDING PTHREAD_SELF: %x", pthread_self());
+			if (send(sock, message, bytes, 0) < 0) {
+				logerror("network_tcpbroadcast send()");
+				//THREAD_EXIT();
+			}
 		}
 		close(sock);
 	}
