@@ -161,7 +161,6 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 
 		if (p == NULL) {
 			debuglog(3, "Packet is destined for something on this net, ignore it");
-			return;
 		}
 
 		debuglog(3, "Proxy is: %s", (p == NULL ? "Local" : inet_ntoa(p->addr)));
@@ -226,9 +225,10 @@ void pcap(void *args) {
 
 	pcap_compile(handle, &filter, filter_app, 0, net);
 	pcap_setfilter(handle, &filter);
-	for (;;) {
+	for (;;)
 		pcap_loop(handle, 1, packet_handler, NULL);
-	}
+
+	/* We'll never get here... but it's a nice thought */
 	pcap_close(handle);
 
 	pthread_exit(NULL);
@@ -276,7 +276,7 @@ void proxy(void *args) {
 		int size = sizeof(struct sockaddr_in); /* sizeof(srcaddr) */
 		int sel;
 		struct timeval timeout;
-		timeout.tv_sec = 3;
+		timeout.tv_sec = 0;
 		timeout.tv_usec = 0;
 		fd_set proxycopy;
 
