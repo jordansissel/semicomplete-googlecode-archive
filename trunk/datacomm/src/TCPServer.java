@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.11  2004/01/26 22:47:01  tristan
+ *   fixed null bug.
+ *
  *   Revision 1.10  2004/01/26 21:21:28  psionic
  *   - Updated commands framework, added game-starting ability
  *
@@ -54,7 +57,6 @@ import java.net.Socket;
 public class TCPServer extends Server {
     private Socket socket;
     private ServerGame game;
-    private BSServer server;
     private boolean error = false;
     private boolean hellodone = false;
     private boolean isready = false;
@@ -127,11 +129,11 @@ public class TCPServer extends Server {
                             if ( foo instanceof StartgameCommand ) {
                                 if ( !isready && hellodone ) {
                                     isready = true;
-                                    Response resp = new StartGameResponse();
+                                    Response resp = new StartgameResponse();
                                     out.println( resp );
-												Player p = new TCPPlayer((String)foo.getArgs(0), socket);
-												server.addPlayer(p);
-												game = server.getGame(p);
+												Player p = new TCPPlayer((String)foo.getArg(0), socket);
+												getServer().addPlayer(p);
+												game = getServer().getGame(p);
 												
                                 }
                             }
