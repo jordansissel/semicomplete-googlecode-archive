@@ -27,7 +27,7 @@ my $state = undef;     # State information
 $state->{"config"} = $config;
 $state->{"settings"} = $settings;
 
-my $aim = Net::OSCAR->new();
+my $aim = Net::OSCAR->new(capabilities => [ "typing_status" ]);
 #$aim->timeout(1);
 $state->{"aim"} = $aim;
 
