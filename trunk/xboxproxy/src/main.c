@@ -224,7 +224,7 @@ void pcap(void *args) {
 
 	debuglog(2, "Opened %s, listening for xbox traffic", pcapdev);
 
-	pcap_compile(handle, &filter, filter_app, 1, net);
+	pcap_compile(handle, &filter, filter_app, 0, net);
 	pcap_setfilter(handle, &filter);
 	pcap_loop(handle, -1, packet_handler, NULL);
 	pcap_close(handle);
@@ -289,7 +289,7 @@ void proxy(void *args) {
 			debuglog(0, "select() failed: %s", strerror(errno));
 			pthread_exit(NULL);
 		} else if (sel == 0) {
-			debuglog(2, "select() timed out waiting for data... trying again");
+			debuglog(13, "select() timed out waiting for data... trying again");
 			proxysocks = proxycopy;
 		} else {
 			hscan_t hs;
@@ -434,8 +434,9 @@ int recv_from_proxy(proxy_t *ppt) {
 	if (bytes < pktlen) {
 		total = bytes;
 		while (total < pktlen) {
-			recv(ppt->fd, packet + total, pktlen - total, 0);
+			bytes = recv(ppt->fd, packet + total, pktlen - total, 0);
 			debuglog(1, "REASSEMBLY PROGRESS - %s. Length: %d vs %d", inet_ntoa(ppt->addr), total, pktlen);
+			total += bytes;
 		}
 	}
 
