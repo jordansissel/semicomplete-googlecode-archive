@@ -80,17 +80,20 @@ sub anykey_binding {
 		}
 	}
 
-	$aim->send_typing_status($sn, TYPINGSTATUS_STARTED);
-	$state->{"typing_status"} = {
-		"status" => TYPINGSTATUS_STARTED,
-		"sn" => $sn,
-		"time" => time,
-	};
-
 	# Record that we've typed...
 	if ($aim->is_on) {
+		if ($state->{"typing_status"}->{"status"} != TYPINGSTATUS_STARTED) {
+			$aim->send_typing_status($sn, TYPINGSTATUS_STARTED);
+			$state->{"typing_status"} = {
+				"status" => TYPINGSTATUS_STARTED,
+				"sn" => $sn,
+				"time" => time,
+			};
+		}
+
 		$state->{"idle"} = time();
 		if ($state->{"is_idle"} == 1) {
+			$sh->out("Setting not-idle");
 			$state->{"is_idle"} = 0;
 			$aim->set_idle(0);
 		}

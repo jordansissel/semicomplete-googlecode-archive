@@ -5,9 +5,9 @@ use strict;
 use IO::Select;
 use Net::OSCAR qw/:standard/;
 use POSIX qw(strftime);
-#use Term::ReadKey;  #<3 readkey
 use Term::Shelly;
-#use Term::Size;
+
+use lib '/home/psionic/projects/tic';
 
 # Super-magical happy land!
 use Tic::Constants; 

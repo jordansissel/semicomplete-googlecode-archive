@@ -207,18 +207,19 @@ sub expand_aliases {
 	if ($cmd =~ s!^/!!) {
 		if (defined($commands->{$cmd})) {
 			return "/$cmd $args";
-			#&{$commands->{$cmd}}($state, $args);
 		} elsif (defined($aliases->{$cmd})) {
 			$state->{"recursion_check"}++;
 			if ($state->{"recursion_check"} > 10) {
 				$sh->out("Too much recursion in this alias. Aborting execution");
+				$state->{"recursion_check"} = 0;
 				return;
 			}  
 			($cmd, $args) = $aliases->{$cmd} . " " . $args;
-			return expand_aliases($cmd,$args);
+			$string = expand_aliases($cmd,$args);
 			$state->{"recursion_check"}--;
 		}
 	}
+
 
 	return $string;
 }
