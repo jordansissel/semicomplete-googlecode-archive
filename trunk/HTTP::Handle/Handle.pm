@@ -19,7 +19,7 @@ HTTP::Handle - HTTP Class designed for streaming
 
 =head1 VERSION
 
-Version: 0.1
+Version: 0.2
 
 $Id$
 
@@ -39,7 +39,7 @@ use IO::Handle;
 use Socket;
 use URI;
 
-my $VERSION = "0.1";
+my $VERSION = "0.2";
 
 =pod
 
@@ -48,6 +48,24 @@ my $VERSION = "0.1";
 =item HTTP::Handle->new()
 
 Create a new HTTP::Handle object thingy.
+
+Arguments possible:
+
+=over 4
+
+=item url => "http://www.google.com/"
+
+Sets the initial URL to connect to.
+
+=item follow_redirects => [ 0 | 1 ]
+
+Automatically follow HTTP redirects. This defaults to true (1). Set to 0 to disable this.
+
+=item http_request => HASHREF
+
+Any thing put in here will be sent as "key: value" in the http request string.
+
+=back
 
 =cut
 
@@ -78,7 +96,10 @@ sub new {
 
 =item $http->connect()
 
-Connect, send the http request, and process the response headers.
+Connect, send the http request, and process the response headers. 
+
+This function returns -1 on failure, undef otherwise. The reason for failure will be printed to STDERR.
+
 
 =cut
 
@@ -95,6 +116,14 @@ CONNECT:
 	$self->{"socket"} = $sock;
 
 	_debug("Connecting to " . $self->{"host"} . ":" . $self->{"port"});
+
+	my $inetnum = inet_aton($self->{"host"});
+
+	if (!defined($inetnum)) {
+		_fatal("Unable to resolve hostname: " . $self->{"host"});
+		return -1;
+	}
+
 	connect($sock, sockaddr_in($self->{"port"}, inet_aton($self->{"host"}))) 
 		or _fatal("Failed connecting to " . $self->{"host"} . ":" . $self->{"port"}) and return -1;
 	_debug("Connected");
