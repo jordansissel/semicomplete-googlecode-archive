@@ -46,8 +46,35 @@ int XGetIdle() {
 	return idle;
 }
 
+
 CODE
 
-print __PACKAGE__ . " loaded.\n";
+sub X11IdleCheck() {
+	my $state = shift;
+
+	if ($state->{"settings"}->{"idle_method"} =~ m/X(11)?/i) {
+		if ($state->{"settings"}->{"x11_display"}) {
+			if ($state->{"last_x11_idle_check"} < time()) {
+
+				# XConnect only connects if we aren't.
+				if (XConnect($state->{"settings"}->{"x11_display"})) {
+					$state->{"idle"} = time() - XGetIdle();
+					$state->{"last_x11_idle_check"} = time();
+
+					if ($state->{"idle"} == time() && $state->{"is_idle"} == 1) {                           
+						$sh->out("Setting not-idle");
+						$aim->set_idle(0);
+						$state->{"is_idle"} = 0;
+					}
+				} else {
+					$sh->error("Resetting x11_display, cannot connect.");
+					$state->{"settings"}->{"idle_method"} = undef;
+				}
+			}
+		}
+	}
+}
+
+print ("X11Idle loaded\n");
 
 1;
