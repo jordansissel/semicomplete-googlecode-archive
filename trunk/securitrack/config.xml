@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xml" href="config.xsl"?>
+
+<xml>
+	<software>
+		<application name="apache-external" realname="apache">
+			<service>http</service>
+			<service>https</service>
+			<version>1.3.27</version>
+			<extra>
+				<plugin name="mod_perl">
+					<requisite name="perl" type="application" version="5.8.2" />
+				</plugin>
+				<plugin name="mod_php4">
+					<requisite name="php" type="application" version="4.3.4" />
+				</plugin>
+			</extra>
+		</application>
+		<application name="apache-internal" realname="apache">
+			<service>https</service>
+			<service>soap</service>
+			<version>1.3.29</version>
+			<extra>
+				<plugin name="mod_perl">
+					<requisite name="perl" type="application" version="5.6.1" />
+				</plugin>
+			</extra>
+		</application>
+		<application name="mysql">
+			<service>database</service>
+			<version>3.23.56</version>
+		</application>
+		<application name="perl">
+			<version>5.8.2</version>
+		</application>
+		<application name="php">
+			<version>4.3.4</version>
+			<requisite name="mysql" type="library" version="3.23.56" />
+			<requisite name="zlib" type="library" version="1.2.1" />
+			<requisite name="libxml" altname="libxml2" type="library" version="2.6.6" />
+		</application>
+	</software>
+	<servers>
+		<host name="www1">
+			<service provider="apache-external">
+				<provides>http</provides>
+				<provides>https</provides>
+			</service>
+		</host>
+		<host name="www2">
+			<service provider="apache-external">
+				<provides>http</provides>
+				<provides>https</provides>
+			</service>
+		</host>
+		<host name="www3">
+			<service provider="apache-external">
+				<provides>http</provides>
+				<provides>https</provides>
+			</service>
+		</host>
+
+		<host name="intrawww1">
+			<service provider="apache-internal">
+				<provides>https</provides>
+				<provides>soap</provides>
+			</service>
+		</host>
+		<host name="intrawww2">
+			<service provider="apache-internal">
+				<provides>https</provides>
+				<provides>soap</provides>
+			</service>
+		</host>
+	</servers>
+	<clusters>
+		<cluster name="www">
+			<host>www1</host>
+			<host>www2</host>
+			<host>www3</host>
+		</cluster>
+		<cluster name="intranet">
+			<host>intrawww1</host>
+			<host>intrawww2</host>
+		</cluster>
+	</clusters>
+</xml>
