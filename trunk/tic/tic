@@ -319,22 +319,31 @@ sub complete {
 
 		unless ($state->{"escape_expect_ansi"}) {
 			if (length($state->{"escape_string"}) > 1) {
-				print STDERR "Escape string: " . $state->{"escape_string"} . "\n";
 				my $foo = $state->{"escape_string"};
+				print STDERR "Escape string: " . $state->{"escape_string"} . "\n";
+
 				if ($foo =~ m/[CD]$/) {
-					print STDERR $state->{"input_position"} . " < " . length($state->{"input_line"}) if ($foo =~ m/C$/);
-					if (($foo =~ m/C$/) &&
-						($state->{"input_position"} < length($state->{"input_line"}))) {
-						$state->{"input_position"}++;
-					} else { 
-						return;
+					print STDERR $state->{"input_position"} . " < " . length($state->{"input_line"}) . "\n" if ($foo =~ m/C$/);
+					print STDERR $state->{"input_position"} . " > 0\n" if ($foo =~ m/D$/);
+					print STDERR "C: " . (($foo =~ m/C$/) && ($state->{"input_position"} < length($state->{"input_line"}))) . "\n";
+					print STDERR "D: " . (($foo =~ m/D$/) && ($state->{"input_position"} > 0)) . "\n";
+					if (($foo =~ m/C$/)) { 
+						if ($state->{"input_position"} < length($state->{"input_line"})) {
+						$state->{"input_position"}++
+						} else {
+							return;
+						}
 					}
 
-					if (($foo =~ m/D$/) && ($state->{"input_position"} > 0)) {
-						$state->{"input_position"}--;
-					} else {
-						return;
+					if ($foo =~ m/D$/) {
+						if ($state->{"input_position"} > 0) {
+							$state->{"input_position"}--;
+						} else {
+							return;
+						}
 					}
+				} else {
+					return;
 				}
 			}
 			real_out("\e" . $state->{"escape_string"});
@@ -354,7 +363,7 @@ sub complete {
 	} elsif ($char eq "\x08") {                 # Backspace
 		if (length($line) > 0) {
 			$line = substr($line, 0, $state->{"input_position"} - 1) .
-				     substr($line, $state->{"input_position"} + 1);
+				     substr($line, $state->{"input_position"});
 			$state->{"input_position"}--;
 		}
 		$char = undef;
