@@ -541,7 +541,7 @@ int main(int argc, char **argv) {
 	/* Initialization and Defaults */
 	xboxen = hash_create(64, comparemac, NULL);
 	proxies = hash_create(64, compareip, NULL);
-	set_log_level(10);
+	set_log_level(0);
 
 	pthread_t pcapthread, proxythread;
 
