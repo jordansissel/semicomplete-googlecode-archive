@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.6  2004/01/19 02:34:42  tristan
+ *   refactored to a text client
+ *
  *   Revision 1.5  2004/01/19 02:18:56  tristan
  *   added game var
  *
@@ -30,28 +33,7 @@ import java.net.InetAddress;
  * 
  * @author tristan
  */
-public class BattleshipPlayer extends Thread {
-
-    // member variables
-    private ClientConnection connection;
-    private String yourName;
-    private String otherName;
-    private BSGame game;
-
-    /**
-     * Initializes the battleship player
-     * @param connection The client's connection to the server.
-     * @param yourName This client's name.
-     * @param otherName The client's opposition.
-     */
-    public BattleshipPlayer( ClientConnection connection,
-                             String yourName,
-                             String otherName ) {
-        this.connection = connection;
-        this.yourName = yourName;
-        this.otherName = otherName;
-        this.game = new BSGame();
-    }
+public class BattleshipPlayer {
 
     /**
      * Starts up the program.
@@ -75,11 +57,9 @@ public class BattleshipPlayer extends Thread {
                 }
 
                 // make the client
-                BattleshipPlayer client = new BattleshipPlayer(
-                    connection,
-                    args[ 3 ],
-                    args[ 4 ] );
-
+                BSClient client = new TextClient( connection,
+                                                  args[ 3 ],
+                                                  args[ 4 ] );
                 client.start();
             } catch ( NumberFormatException e ) {
                 System.err.println( "TCP or UDP port must be a number" );
@@ -93,64 +73,5 @@ public class BattleshipPlayer extends Thread {
                                 "<otherName>" );
             System.exit( 1 );
         }
-    }
-
-    /**
-     * Starts up the battle ship client
-     */
-    public void run() {
-        if ( connection.connect() ) {
-            // send a start game message
-
-            // block until server says opponent found
-
-
-            while ( connection.isConnected() ) {
-
-                // talk to server
-            }
-        } else {
-            System.out.println( "Failing to connect to server" );
-        }
-    }
-
-    /**
-     * Returns the client connection for this player.
-     * @return The player's connection to the server.
-     */
-    public ClientConnection getConnection() {
-        return connection;
-    }
-
-    /**
-     * Sets the connection for the server.
-     * @param connection Changes the connection for the client.
-     */
-    public void setConnection( ClientConnection connection ) {
-        this.connection = connection;
-    }
-
-    /**
-     * Gets the name of this player.
-     * @return The player's name.
-     */
-    public String getYourName() {
-        return yourName;
-    }
-
-    /**
-     * Sets the player's name.
-     * @param yourName The name for this player.
-     */
-    public void setYourName( String yourName ) {
-        this.yourName = yourName;
-    }
-
-    /**
-     * Returns the other player's name.
-     * @return The other player's name.
-     */
-    public String getOtherName() {
-        return otherName;
     }
 }   // BattleshipPlayer
