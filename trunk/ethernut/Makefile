@@ -6,6 +6,8 @@ OBJECTS=main.o busmaster.o log.o network.o i2c.o
 
 CFLAGS+=-fno-builtin-log -Wall
 
+LDFLAGS+=-pthread
+
 all: ethernut
 
 clean:
