@@ -43,6 +43,7 @@ sub import {
 sub set_state {
 	my $self = shift;
 	$state = shift;
+	Tic::Common->set_state($state);
 }
 
 sub prepare_completion {
