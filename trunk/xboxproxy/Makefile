@@ -22,5 +22,5 @@ clean:
 	rm $(OBJS) >/dev/null 2>&1 || true;
 
 %.o: %.c
-	sh -c "$(CC) $(CFLAGS) -c $< -o $@"
+	$(CC) $(CFLAGS) -c $< -o $@
 
