@@ -6,11 +6,8 @@
  *
  * Revisions:
  * 	$Log$
- * 	Revision 1.2  2004/01/12 04:14:23  njohnson
- * 	Finalized basic game model. BSGame will be the game for each client
- * 	respective to their point of view. Therefore, the main method
- * 	invoked to create the local game with instantiate to BSGame methods
- * 	for each player.
+ * 	Revision 1.3  2004/01/12 04:51:41  njohnson
+ * 	I made the code compilation error free. Still mostly stubs.
  *
  * 	Revision 1.1  2004/01/12 02:29:50  njohnson
  * 	initial commit
@@ -32,9 +29,10 @@ public class BSGrid {
 
 	} // constructor
 
-	public int[] generateGrid() {
+	public byte[] generateGrid() {
+		byte[] newGrid = new byte[10];
 
-
+		return newGrid;
 	} //generateGrid()
 
 } // BSGrid
