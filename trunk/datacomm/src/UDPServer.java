@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.3  2004/01/20 08:30:36  tristan
+ *   added basic disconnect method.
+ *
  *   Revision 1.2  2004/01/20 04:23:33  tristan
  *   updated comments for everything.
  *
@@ -28,10 +31,19 @@
  * @author Nick Johnson
  */
 public class UDPServer extends Server {
+
     /**
-     * Creates a new UDPServer
+     * The server that manages this server.
+     * @param server
      */
-    public UDPServer() {
+    public UDPServer( BSServer server ) {
+        super( server );
+    }
+
+    /**
+     * Disconnects the client from this connection.
+     */
+    public void disconnect() {
 
     }
 }   // UDPServer
