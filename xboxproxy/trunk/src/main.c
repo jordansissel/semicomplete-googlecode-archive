@@ -467,7 +467,7 @@ void distribute_packet(proxy_t *ppt, char *packet, int pktlen) {
 		debuglog(0, "FATAL ERROR WRITING RAW PACKET TO DEVICE");
 		debuglog(0, "FATAL ERROR WRITING RAW PACKET TO DEVICE");
 	} else {
-		debuglog(0, "Packet dumped on local net, bytes vs length = %d vs %d", bytes, eptr->pktlen);
+		debuglog(0, "Packet dumped on local net, bytes vs length = %d vs %d", bytes, pktlen);
 	}
 
 	if (get_log_level() > 10)
