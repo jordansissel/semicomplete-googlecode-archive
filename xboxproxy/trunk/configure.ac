@@ -19,7 +19,8 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS([arpa/inet.h limits.h netdb.h netinet/in.h stddef.h stdlib.h string.h sys/socket.h sys/time.h unistd.h])
 
 AC_CHECK_HEADERS(netinet/if_ether.h, , , [#include <sys/types.h>
-#include <sys/socket.h>])
+#include <sys/socket.h>
+#include <net/if.h>])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -51,8 +52,8 @@ esac
 AC_CHECK_LIB(pthread,pthread_create,LD_FLAGS="$LDFLAGS -lpthread")
 
 # Check for libnet
-AC_ARG_WITH([libnet-prefix],
-            AC_HELP_STRING([--with-libnet-prefix=DIR], 
+AC_ARG_WITH([libnet],
+            AC_HELP_STRING([--with-libnet=DIR], 
 									[search for libnet in DIR/include and DIR/lib]),
 				[ LIBNET_PREFIX=$withval ],
 				[ LIBNET_PREFIX=/usr/local ])
@@ -62,7 +63,7 @@ AC_CHECK_FILE([$LIBNET_PREFIX/lib/libnet.a],
 				  [LDFLAGS="$LDFLAGS -L$LIBNET_PREFIX/lib"
 				  CFLAGS="$CFLAGS -I$LIBNET_PREFIX/include" ],
 				  AC_MSG_ERROR([
-Libnet not found in $LIBNET_PREFIX. Specify path with --with-libnet-prefix
+Libnet not found in $LIBNET_PREFIX. Specify path with --with-libnet
 ]))
 
 AC_CHECK_LIB(net, libnet_write_link_layer, 
