@@ -6,6 +6,9 @@
  * 
  * Revisions:
  *   $Log$
+ *   Revision 1.13  2004/01/19 05:47:43  njohnson
+ *   fixed some NullPointerExcpeptions. fixed shipLength problem is BSGrid.java
+ *
  *   Revision 1.12  2004/01/19 04:27:36  njohnson
  *   All stubs written. Time to test.
  *
@@ -150,7 +153,6 @@ public class BSGame {
      * @return    true - if hit
      *        false - if miss
      *
-     * @throws AlreadyShotThereException
      */
     public boolean shot( char x, int i ) {
         boolean retVal = false;
@@ -297,20 +299,15 @@ public class BSGame {
     } //shipSunk()
      
     /**
-     * The main method the runs a game locally.
+     * The main method that tests stuff.
      *
      * @args - player one's name
      *         player two's name
      *       type of game?
      */
     public static void main( String[] args ) {
-        String input_string = new String();
-
-        //starts two games, one for each player
-
-        //Generate the grids for each player    
-
-        //play the game. player one gets the first shot
+        //Generate a game
+        BSGame test_game = new BSGame();
 
 
     } //main()

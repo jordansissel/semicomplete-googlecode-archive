@@ -6,8 +6,8 @@
  *
  * Revisions:
  *     $Log$
- *     Revision 1.16  2004/01/19 04:27:36  njohnson
- *     All stubs written. Time to test.
+ *     Revision 1.17  2004/01/19 05:47:43  njohnson
+ *     fixed some NullPointerExcpeptions. fixed shipLength problem is BSGrid.java
  *
  *     Revision 1.11  2004/01/18 23:02:48  njohnson
  *     added some important stubs that need to be implemented.
@@ -58,22 +58,20 @@ public class BSGrid {
      */
     public BSGrid() {
         fleet = new BSShip[ 4 ];
-        generateGrid();
+        grid = new byte[10][10];
     } // constructor
 
     /**
      *
      */
     public void generateGrid() {
-        byte[][] newGrid;
-        newGrid = new byte[10][10];
         int startRowValue = 0;
         int startColValue = 0;
         int endRowValue = 0;
         int endColValue = 0;
         boolean overlap = false; //true if there is a ship overlap
         int p = 0;
-        int shipL = 0; // the ship length;
+        int shipLength = 0; // the ship length;
         int dir = 0; // direction from start to end of ship
                      //
                      //        1
@@ -93,41 +91,41 @@ public class BSGrid {
         //gotta set the ship's length
         switch( i ) {
             case 0:
-                shipL = 2;
+                shipLength = 2;
                 break;
             case 1:
-                shipL = 3;
+                shipLength = 3;
                 break;
             case 2:
-                shipL = 3;
+                shipLength = 3;
                 break;
             case 3:
-                shipL = 4;
-                    break;
-                case 4:
-                    shipL = 5;
-                    break;
+                shipLength = 4;
+                break;
+            case 4:
+                shipLength = 5;
+                break;
             }
 
 
             //check grid bounds, reverse ship if
             //necessary
             dir = (int) Math.ceil( Math.random()*4 );
-            if( dir == 1 && ( startColValue - shipL ) < 0  ) {
+            if( dir == 1 && ( startColValue - shipLength  ) < 0  ) {
                 dir = 3;
-            } else if( dir == 2 && ( startRowValue - shipL ) < 0 ) {
+            } else if( dir == 2 && ( startRowValue - shipLength ) < 0 ) {
                 dir = 4;
-            } else if( dir == 3 && ( startColValue + shipL ) > 9 ) {
+            } else if( dir == 3 && ( startColValue + shipLength ) > 9 ) {
                 dir = 1;
-            } else if( dir == 4 && ( startRowValue + shipL ) > 9 ) {
+            } else if( dir == 4 && ( startRowValue + shipLength ) > 9 ) {
                 dir = 2;
             }
 
             //initially check for ship overlap
-                        overlap = findOverlap( shipL,
+                        overlap = findOverlap( shipLength,
                                                startRowValue,
                                                startColValue,
-                           dir );
+                                               dir );
 
             //fill in ships and make sure they
             //don't overlap or go off the grid
@@ -141,21 +139,21 @@ public class BSGrid {
                 overlap = false;
 
                 //reverse the ship if necessary
-                if( dir == 1 && ( startColValue - shipL) < 0 ) {
+                if( dir == 1 && ( startColValue - shipLength ) < 0 ) {
                     dir = 3;
                 } else if( dir == 2 &&
-                  ( startRowValue - shipL ) < 0 ) {
+                  ( startRowValue - shipLength ) < 0 ) {
                     dir = 4;
                 } else if( dir == 3 &&
-                  ( startColValue + shipL ) > 9 ) {
+                  ( startColValue + shipLength ) > 9 ) {
                     dir = 1;
                 } else if( dir == 4 &&
-                  ( startRowValue + shipL ) > 9 ) {
+                  ( startRowValue + shipLength ) > 9 ) {
                     dir = 2;
                 }
 
                 //check for ship overlap again.
-                overlap = findOverlap( shipL,
+                overlap = findOverlap( shipLength,
                                        startRowValue,
                                        startColValue,
                                        dir );
@@ -164,44 +162,44 @@ public class BSGrid {
             //fill in the grid with the ship
             switch( dir ) {
                 case 1:
-                for( p = 0; p < shipL; p++ ) {
+                for( p = 0; p < shipLength; p++ ) {
                     grid[startRowValue+p][startColValue]=1;
                 }
-                endRowValue=startRowValue+shipL;
+                endRowValue=startRowValue+shipLength;
                 endColValue = startColValue;
                 break;
                 case 2:
-                for( p = 0; p < shipL; p++ ) {
+                for( p = 0; p < shipLength; p++ ) {
                     grid[startRowValue][startColValue-p]=1;
                 }
                 endRowValue = startRowValue;
-                endColValue=startColValue-shipL;
+                endColValue=startColValue-shipLength;
                 break;
                 case 3:
-                for( p = 0; p < shipL; p++ ) {
+                for( p = 0; p < shipLength; p++ ) {
                     grid[startRowValue-p][startColValue]=1;
                 }
-                endRowValue=startRowValue-shipL;
+                endRowValue=startRowValue-shipLength;
                 endColValue = startColValue;
                 break;
                 case 4:
-                for( p = 0; p < shipL; p++ ) {
+                for( p = 0; p < shipLength; p++ ) {
                     grid[startRowValue][startColValue+p]=1;
                 }
                 endRowValue = startRowValue;
-                endColValue=startColValue+shipL;
+                endColValue=startColValue+shipLength;
                 break;
             } //switch
 
             //make the ship!
-            fleet[ i ] = new BSShip((byte)startRowValue,
+            fleet[ i ] = new BSShip( (byte)startRowValue,
                 (byte)startColValue,
                 (byte)endRowValue,
                 (byte)endColValue );
         }
 
 
-} //generateGrid()
+    } //generateGrid()
 
     /**
      *
@@ -224,6 +222,10 @@ public class BSGrid {
 
         switch( dir ) {
             case 1:
+		System.out.println( "case 1" );
+                System.out.println( "IndexRow: " + startRowValue );
+		System.out.println( "IndexCol: " + startColValue );
+		System.out.println( "Offset: " + p );
                 for( p = 0; p < shipLength; p++ ) {
                     if(grid[startRowValue+p][startColValue] != 0) {
                         retVal = true;
@@ -231,6 +233,10 @@ public class BSGrid {
                 }
                 break;
             case 2:
+		System.out.println( "case 2" );
+                System.out.println( "IndexRow: " + startRowValue );
+		System.out.println( "IndexCol: " + startColValue );
+		System.out.println( "Offset: " + p );
                 for( p = 0; p < shipLength; p++ ) {
                     if(grid[startRowValue][startColValue-p] != 0 ) {
                         retVal = true;
@@ -238,6 +244,10 @@ public class BSGrid {
                 }
                 break;
             case 3:
+		System.out.println( "case 3" );
+                System.out.println( "IndexRow: " + startRowValue );
+		System.out.println( "IndexCol: " + startColValue );
+		System.out.println( "Offset: " + p );
                 for( p = 0; p < shipLength; p++ ) {
                     if(grid[startRowValue-p][startColValue] != 0 ) {
                         retVal = true;
@@ -245,6 +255,10 @@ public class BSGrid {
                 }
                 break;
             case 4:
+		System.out.println( "case 4" );
+                System.out.println( "IndexRow: " + startRowValue );
+		System.out.println( "IndexCol: " + startColValue );
+		System.out.println( "Offset: " + p );
                 for( p = 0; p < shipLength; p++ ) {
                     if(grid[startRowValue][startColValue+p] != 0 ) {
                         retVal = true;
