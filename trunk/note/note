@@ -2,64 +2,309 @@
 
 use strict;
 use warnings;
+
+use DBI;
+use Curses;
 use Curses::UI;
+use Getopt::Std;
 
-my $cui = new Curses::UI(-color_support => 1);
+my $opts = {};
+getopt('h:', $opts);
 
-my $main = $cui->add('Main', 'Window', 
-							-height => 10,
-						  	-bg => 'green', -fg => 'green');
+use Data::Dumper;
+use POSIX qw(strftime);
+use File::Temp qw(tempfile);
 
-$cui->set_binding(sub {exit(0)}, "\cC");
+my ($dbuser,$dbpass,$dbname,$dbhost);
 
-my $list = list_create($main);
-my $calendar = calendar_create($main);
+set_options();
 
-$list->values( [1234, "hello", "rabble" ] );
-$list->add_labels( {
-					1234 => "one two three four",
-					hello => "testing",
-					rabble => "foobar",
-					});
+my $db = DBI->connect("dbi:Pg:dbname=$dbname;host=$dbhost",
+							 $dbuser,$dbpass, { AutoCommit => 1 });
+
+my $ui = new Curses::UI( -color_support => 1, -default_colors => 1 );
+
+my $main = $ui->add('main', 'Window', -bfg => 'red');
+my $list = $main->add('notelist', 'Listbox', -height => '5');
+my $textbox = $main->add('textbox', 'TextViewer', -y => '5', -border => 1,
+								 -vscrollbar => 1, -wrapping => 1);
+
+$ui->set_routine("redraw", sub { $ui->draw });
+$ui->set_binding("redraw", "\cL");
+
+$main->set_routine("quit", \&shutdown);
+$main->set_binding("quit", "q");
+
+$main->set_routine("create-new-note", sub { create_new_note(0) });
+$main->set_binding("create-new-note", "c");
+
+$main->set_routine("create-followup-note", sub { create_new_note(1) });
+$main->set_binding("create-followup-note", "f");
+$main->set_binding("create-followup-note", "r");
+
+$main->set_routine("edit-note", \&edit_note);
+$main->set_binding("edit-note", "e");
+
+$main->set_routine("delete-note", \&delete_note);
+$main->set_binding("delete-note", "d");
+
+$list->set_routine("toggle-expansion", \&toggle_expansion);
+$list->set_binding("toggle-expansion", " ");
+
+$list->set_routine("edit-note", \&edit_note);
+$list->set_binding("edit-note", "e");
+
+$list->onChange(\&note_selected);
 
 $list->focus();
 
-$cui->mainloop();
+my $expanded = {};
 
-## LIST
+my $notes = read_notes($db);
+my $followups = read_followups($db);
 
-sub list_create {
-	my $widget = shift;
-	my $ret;
+display_list($list, $notes);
 
-	$ret = $widget->add('list', 'Listbox');
-	$ret->onChange(\&list_item_selected);
-	#$ret->onSelectionChange(\&list_item_selected);
-}
+$ui->mainloop();
 
-sub list_item_selected {
-	my $widget = shift;
+# Useful functions.... {{{
+
+sub read_notes { #{{{
+	my $db = shift;
+
+	$ui->status( -message => "Reading notes from database..." );
+
+	my $res = $db->selectall_hashref(<< "SQL", "id") or db_error($db);
+SELECT id, TO_CHAR(date_created, 'MM/DD') AS date_created, shown,
+       TO_CHAR(date_modified, 'MM/DD') AS date_modified, subject, contents
+  FROM notes.notes
+ ORDER BY subject ASC
+SQL
+
+	#print STDERR "Rows: " . keys(%$res) . "\n";
+
+	$ui->nostatus();
+
+	return $res;
+} #}}}
+
+sub read_followups { #{{{
+	my $db = shift;
+
+	my $res = $db->selectall_hashref(<< "SQL", "childid") or db_error($db);
+SELECT parentid, childid FROM notes.followups
+SQL
+
+	return $res;
+} #}}}
+
+sub display_list { #{{{
+	my $list = shift;
+	#my $notes = shift;
+	shift;
+
+	my $parentid = shift || 0;
+	my $values = shift || [ ];
+	my $labels = shift || { };
+	my $depth = shift || 0;
+
+	my @keys;
+
+	map { 
+	  	push(@keys, $_->{"childid"}) if ($_->{"parentid"} == $parentid) 
+	} values(%$followups);
+
+	my $cnt = 0;
+	foreach my $id (@keys) {
+		#print STDERR "ID: $id / " . $notes->{$id} . "\n";
+		next if ($notes->{$id}->{"shown"} == 0);
+		push(@$values, $id);
+
+		if ($cnt == $#keys) {
+			$labels->{$id} = " " x ($depth * 2) . (($parentid != 0) ? '\ ' : '');
+		} else {
+			$labels->{$id} = " " x ($depth * 2) . (($parentid != 0) ? '| ' : '');
+		}
+		$labels->{$id} .= ($expanded->{$id} ? "-" : "+");
+		$labels->{$id} .= " " . $notes->{$id}->{"date_created"} . "    ";
+		$labels->{$id} .= $notes->{$id}->{"subject"};
+		if ($expanded->{$id}) {
+			display_list($list, $notes, $id, $values, $labels, $depth + 1);
+		}
+		$cnt++;
+	}
+
+	my $sel = $list->get();
+	my $act = $list->get_active_value();
+	$list->values($values);
+	$list->labels($labels);
+	$list->set_selection($sel);
 	
-	print STDERR $widget->id() . "\n" if (defined($widget->id()));
-}
+	$list->draw();
+} #}}}
 
-## CALENDAR
+sub db_error { #{{{
+	my $db = shift;
+	print STDERR "Error: " . $db->errstr();
+	exit(1);
+} #}}}
 
-sub calendar_create {
-	my $widget = shift;
+sub create_new_note { #{{{
+	my $followup = shift || 0;
+	my $subject;
+	my $contents;
 
-	$widget->add('calendar', 'Calendar', -onchange => \&calendar_date_set);
-	$widget->set_binding(\&calendar_close, "\cG");
-	return $widget;
-}
+	$followup = 0 if (ref($followup));
+	my ($fh, $file) = tempfile();
+	$followup = $list->get_active_value() if ($followup);
 
-sub calendar_date_set {
-	my $cal = shift;
+	print STDERR "Followup: $followup\n";
 
-	print $cal->get();
-}
+	print $fh "Subject: ";
+	close ($fh);
 
-sub calendar_close {
-	list_show($main);
-}
+	edit_file($file);
 
+	my $note = parse_note($file);
+
+	$db->begin_work();
+	my $res = $db->prepare("INSERT INTO notes.notes (subject, contents) VALUES (?,?)"); 
+	$res->execute($note->{"subject"}, $note->{"contents"}) or db_error($db);
+	$res->finish();
+
+	my $id = $db->selectall_arrayref("SELECT CURRVAL('notes.notes_id_seq')");
+	$id = $id->[0]->[0];
+
+	$res = $db->prepare("INSERT INTO notes.followups (parentid, childid) VALUES (?,?)");
+	$res->execute($followup, $id) or db_error($db);
+
+	$db->commit();
+
+	# After creation, reload the list...
+	$notes = read_notes($db);
+	$followups = read_followups($db);
+	display_list($list, $notes);
+
+} #}}}
+
+sub edit_note { #{{{
+	my ($noteid) = $list->get_active_value();
+
+	my ($fh, $file) = tempfile();
+
+	print $fh "Subject: " . $notes->{$noteid}->{"subject"} . "\n";
+	print $fh $notes->{$noteid}->{"contents"};
+	close ($fh);
+
+	edit_file($file);
+
+	$ui->status(-message => "Updating database...");
+
+	my $note = parse_note($file);
+
+	my $res = $db->prepare("UPDATE notes.notes set subject = ?, contents = ? WHERE id = ?"); 
+	$res->execute($note->{"subject"}, $note->{"contents"}, $noteid) 
+		or db_error($db);
+	$res->finish();
+
+	# After creation, reload the list...
+	$notes = read_notes($db);
+	$followups = read_followups($db);
+
+	$ui->nostatus();
+	display_list($list, $notes);
+	note_selected($list);
+
+} #}}}
+
+sub delete_note { #{{{
+	my ($noteid) = $list->get_active_value();
+
+	my $val = $ui->dialog(-message => "Confirm deletion of this entry?",
+								 -buttons => [ 'ok', 'cancel' ]);
+
+	return unless ($val);
+
+	my $res = $db->prepare("DELETE FROM notes.notes WHERE id = $noteid");
+	$res->execute() or db_error($db);
+	$res->finish();
+
+	$db->do("DELETE FROM notes.followups WHERE childid = $noteid");
+
+	my $parentid = $notes->{$noteid}->{"parentid"};
+	$res = $db->prepare("UPDATE notes.followups SET parentid = ? WHERE parentid = ?");
+	$res->execute($parentid, $noteid) or db_error($db);
+	$res->finish();
+
+	$notes = read_notes($db);
+	$followups = read_followups($db);
+	display_list($list, $notes);
+} #}}}
+
+sub parse_note { #{{{
+	my $file = shift;
+	my $fh;
+	my ($subject, $contents);
+	open($fh, $file);
+	while (<$fh>) {
+		last if ($_ !~ m/^\S+:.*$/);
+		chomp;
+		$subject = $1 if (m/^Subject:\s*(.*)\s*$/i);
+	}
+	local $/ = undef;
+	$contents = $_ . <$fh>;
+	close($fh);
+	unlink($file);
+
+	return { subject => $subject, contents => $contents };
+} #}}}
+
+sub note_selected { #{{{
+	my $list = shift;
+	my $id = $list->get();
+
+	return if (!$id);
+	$textbox->title("[$id] " . $notes->{$id}->{"subject"});
+	$textbox->text($notes->{$id}->{"contents"});
+} #}}}
+
+sub shutdown { #{{{
+	$db->disconnect();
+	exit(0);
+} # }}}
+
+sub toggle_expansion { #{{{
+	my $list = shift;
+	my $id = $list->get_active_value();
+	$expanded->{$id} = 0 unless defined($expanded->{$id});;
+	$expanded->{$id} ^= 1;
+
+	display_list($list, $notes);
+} #}}}
+
+sub edit_file { #{{{
+	my $file = shift;
+	Curses::UI::leave_curses();
+	my $ret = system($ENV{"EDITOR"} || "vi", $file);
+	Curses::UI::reset_curses();
+} #}}}
+ 
+sub set_options { #{{{
+	open(CONFIG, "< " . $ENV{HOME} . "/.noterc") or return;
+
+	while (<CONFIG>) {
+		chomp;
+		next if (m/^#/);
+		next unless (m/^\s*(\S+)\s*=\s*(\S+)\s*/);
+		my ($key,$val) = ($1, $2);
+		$dbuser = $2 if ($1 eq 'dbuser');
+		$dbpass = $2 if ($1 eq 'dbpass');
+		$dbname = $2 if ($1 eq 'dbname');
+		$dbhost = $2 if ($1 eq 'dbhost');
+	}
+
+	$dbhost = $opts->{h} || $dbhost;
+	close(CONFIG);
+} #}}}
+
+# }}}
