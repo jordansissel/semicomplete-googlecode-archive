@@ -58,7 +58,7 @@ $sh->{"supress_newline_echo"} = 1;
 $state->{"aim_ok"} = 1;
 
 while (1) {
-	$aim->do_one_loop() if ($state->{"aim_ok"});
+	$aim->do_one_loop();
 	$sh->do_one_loop();
 
 	# Some things (like typing-checking) depends on delays
@@ -66,20 +66,21 @@ while (1) {
 
 	# Are we idle?
 	if ($aim->is_on) {
-		if (feature("X11Idle")) {
-			#Tic::Feature::X11Idle->X11IdleCheck($state);
-		}
-
-		if (($state->{"is_idle"} != 1) && 
-			 ($state->{"idle"} + get_config("idle_timeout") < time())) {
-			#$sh->out("idle: " . $state->{"idle"} . " / " . get_config("idle_timeout"));
-			#$sh->out("Setting idle - " . $state->{"idle"} . " / " . get_config("idle_timeout") . " / " . time());
-			#$aim->set_idle(get_config("idle_timeout"));
-			#$state->{"is_idle"} = 1;
+		if ($state->{"settings"}->{"use_idle"}) {
+			$state->{"idle_callback"}->();
 		}
 	}
 }
 
+sub check_idle {
+	if (($state->{"is_idle"} != 1) && 
+		 ($state->{"idle"} + get_config("idle_timeout") < time())) {
+		#$sh->out("idle: " . $state->{"idle"} . " / " . get_config("idle_timeout"));
+		#$sh->out("Setting idle - " . $state->{"idle"} . " / " . get_config("idle_timeout") . " / " . time());
+		#$aim->set_idle(get_config("idle_timeout"));
+		#$state->{"is_idle"} = 1;
+	}
+}
 # init functions
 
 sub setup_callbacks {
@@ -103,30 +104,32 @@ sub setup_callbacks {
 	$aim->set_callback_im_ok(\&event_im_ok);
 	$aim->set_callback_rate_alert(\&event_rate_alert);
 	$aim->set_callback_signon_done(\&event_signon_done);
+
+	$state->{"idle_callback"} = \&check_idle
 }
 
 sub setup_commands {
 	$commands = {
-		"addbuddy"                => \&command_addbuddy,
-		"alias"                   => \&command_alias,
-		"away"                    => \&command_away,
-		"buddylist"               => \&command_buddylist,
-		"default"                 => \&command_default,
-		"delbuddy"                => \&command_delbuddy,
-		"echo"                    => \&command_echo,
-		"date"                    => \&command_date,
-		"getaway"                 => \&command_getaway,
-		"info"                    => \&command_info,
-		"help"                    => \&command_help,
-		"log"                     => \&command_log,
-		"login"                   => \&command_login,
-		"msg"                     => \&command_msg,
-		"quit"                    => \&command_quit,
-		"set"                     => \&command_set,
-		"timestamp"               => \&command_timestamp,
-		"unalias"                 => \&command_unalias,
-		"undefault"               => \&command_undefault,
-		"who"                     => \&command_who,
+		"addbuddy"  => \&command_addbuddy,
+		"alias"     => \&command_alias,
+		"away"      => \&command_away,
+		"buddylist" => \&command_buddylist,
+		"default"   => \&command_default,
+		"delbuddy"  => \&command_delbuddy,
+		"echo"      => \&command_echo,
+		"date"      => \&command_date,
+		"getaway"   => \&command_getaway,
+		"info"      => \&command_info,
+		"help"      => \&command_help,
+		"log"       => \&command_log,
+		"login"     => \&command_login,
+		"msg"       => \&command_msg,
+		"quit"      => \&command_quit,
+		"set"       => \&command_set,
+		"timestamp" => \&command_timestamp,
+		"unalias"   => \&command_unalias,
+		"undefault" => \&command_undefault,
+		"who"       => \&command_who,
 	};
 	$aliases = {
 		"a" => "/alias",
@@ -147,12 +150,13 @@ sub setup_enviroment {
 			set_config("logging","only specified users");
 			get_config("who_log")->{"$1"} = 1;
 			#$state->{"logging"}->{"who_log"}->{"$1"} = $settings->{"$key"};
-		} elsif ($key =~ m/^log$/) {
+		} elsif ($key eq 'log') {
 			set_config("logging", $settings->{"$key"});
-		} elsif ($key =~ m/^timestamp$/) {
+		} elsif ($key eq 'timestamp') {
 			command_timestamp($state,$settings->{"$key"});
-		} elsif ($key =~ m/^timestamp_fmt$/) {
+		} elsif ($key eq 'timestamp_fmt') {
 			set_config("timestamp",$settings->{"$key"});
+		} elsif ($key eq 'idle_method') {
 		}
 	}
 
@@ -204,7 +208,8 @@ sub read_config {
 			$line =~ s/#.*$//;
 			if ($line =~ m/^(
 								  screenname|password|server|port|log|log\.[^\.]+|
-								  timestamp|timestamp_fmt|idle_timeout
+								  timestamp|timestamp_fmt|idle_timeout|use_idle|
+								  idle_method
 								  )(?:\s|=)/ix) {
 				if ($line =~ m/(\S+)\s*=\s*(.+)$/) {
 					$state->{"settings"}->{lc($1)} = $2;

@@ -8,20 +8,6 @@ use Term::Shelly;
 use Term::ReadKey;
 use POSIX qw(strftime);
 
-BEGIN {
-	# beware, hackish!
-	
-	sub load {
-		my $module = shift;
-		my ($caller) = caller();
-		eval("use $module");
-		return (wantarray() ? (0, $@) : 0) if ($@);
-		import $module @_;
-		return 1;
-	}
-
-}
-
 
 @ISA = qw(Exporter);
 @EXPORT = qw(debug deep_copy prettyprint prettylog login set_config get_config
@@ -40,6 +26,48 @@ sub set_state {
 sub import {
 	#debug("Importing from Tic::Common");
 	Tic::Common->export_to_level(1,@_);
+}
+
+# beware, hackish!
+	
+sub load {
+	my $module = shift;
+
+	my ($filename) = $module;
+
+	$filename =~ s!::!/!g;
+	$filename .= ".pm" if ($module !~ m/\.[a-zA-Z]+$/);
+	if (exists $INC{$filename}) {
+		return 1 if $INC{$filename};
+		die "Compilation failed in require";
+	}
+	my ($realfilename,$result);
+ITER: {
+		foreach my $prefix (@INC) {
+			$realfilename = "$prefix/$filename";
+			if (-f $realfilename) {
+				$INC{$filename} = $realfilename;
+				$result = do $realfilename;
+				last ITER;
+			}
+		}
+		print STDERR "Unable to load $filename\n";
+
+		return 0;
+	}
+	if ($@) {
+		$INC{$filename} = undef;
+		die $@;
+	} elsif (!$result) {
+		delete $INC{$filename};
+		die "$filename did not return true value";
+	} else {
+
+		return (wantarray() ? (0, $@) : 0) if ($@);
+		import($module,@_);
+		$module->set_state($state);
+		return 1;
+	}
 }
 
 sub debug { foreach (@_) { $sh->error("debug> $_\n"); } }

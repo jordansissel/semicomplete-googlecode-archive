@@ -46,34 +46,48 @@ int XGetIdle() {
 	return idle;
 }
 
-
 CODE
 
+my $sh;
+my $state;
+
+sub set_state {
+	my $self = shift;
+	$state = shift;
+	$sh = $state->{"sh"};
+	$state->{"idle_callback"} = \&X11IdleCheck;
+}
+
 sub X11IdleCheck() {
-	my $state = shift;
+	#my $state = shift;
+	my $aim = $state->{"aim"};
 
-	if ($state->{"settings"}->{"idle_method"} =~ m/X(11)?/i) {
-		if ($state->{"settings"}->{"x11_display"}) {
-			if ($state->{"last_x11_idle_check"} < time()) {
+	#if ($state->{"settings"}->{"idle_method"} =~ m/X(11)?/i)
+	if (defined($state->{"settings"}->{"x11_display"})) {
+		if ($state->{"last_x11_idle_check"} < time()) {
 
-				# XConnect only connects if we aren't.
-				if (XConnect($state->{"settings"}->{"x11_display"})) {
-					$state->{"idle"} = time() - XGetIdle();
-					$state->{"last_x11_idle_check"} = time();
+			$sh->out("Checking idle X11-style");
+			# XConnect only connects if we aren't.
+			if (XConnect($state->{"settings"}->{"x11_display"})) {
+				$state->{"idle"} = time() - XGetIdle();
+				$state->{"last_x11_idle_check"} = time();
+				$sh->out("Idle: " . $state->{"idle"});
 
-					if ($state->{"idle"} == time() && $state->{"is_idle"} == 1) {                           
-						$sh->out("Setting not-idle");
-						$aim->set_idle(0);
-						$state->{"is_idle"} = 0;
-					}
-				} else {
-					$sh->error("Resetting x11_display, cannot connect.");
-					$state->{"settings"}->{"idle_method"} = undef;
+				if ($state->{"idle"} == time() && $state->{"is_idle"} == 1) {                           
+					$sh->out("Setting not-idle");
+					$aim->set_idle(0);
+					$state->{"is_idle"} = 0;
 				}
+			} else {
+				$sh->error("Resetting x11_display, cannot connect.");
+				$state->{"settings"}->{"idle_method"} = undef;
 			}
 		}
 	}
+	#
 }
+
+sub testy { print "TESTING!\n"; }
 
 print ("X11Idle loaded\n");
 
