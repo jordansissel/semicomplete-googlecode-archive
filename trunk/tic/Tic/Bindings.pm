@@ -2,7 +2,7 @@ package Tic::Bindings;
 
 use strict;
 use Tic::Common;
-use vars qw(@ISA @EXPORT);
+use vars ('@ISA', '@EXPORT');
 use Exporter;
 
 @ISA = qw(Exporter);

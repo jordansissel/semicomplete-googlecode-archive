@@ -1,7 +1,7 @@
 package Tic::Constants;
 
 use Tic::Common;
-use vars qw(@ISA @EXPORT);
+use vars ('@ISA', '@EXPORT');
 
 use Exporter;
 use constant KEY_CONSTANTS => {

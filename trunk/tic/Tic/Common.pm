@@ -1,7 +1,7 @@
 package Tic::Common;
 
 use strict;
-use vars qw(@ISA @EXPORT);
+use vars ('@ISA', '@EXPORT');
 use Exporter;
 use Term::ReadKey;
 use POSIX qw(strftime);
