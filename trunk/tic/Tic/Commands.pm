@@ -84,7 +84,6 @@ Features worth knowing about:
 HELP
 	} # if "help"
 
-	my $what =~ s/\s.*//;
 	my ($state,$what) = @_;
 	$what =~ s/\s.*//;
 
