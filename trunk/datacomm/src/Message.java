@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.4  2004/01/19 05:56:00  psionic
+ *   *** empty log message ***
+ *
  *   Revision 1.3  2004/01/19 05:36:49  psionic
  *   - initial
  *
@@ -25,6 +28,7 @@
 public interface Message {
     public byte[] toByteArray();
     public String toString();
-	 protected boolean validateArguments();
+	 protected boolean validateArguments() 
+	           throws InvalidCommandArgumentsException();
 }   // Message
 

@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.4  2004/01/19 05:56:00  psionic
+ *   *** empty log message ***
+ *
  *   Revision 1.3  2004/01/19 05:36:49  psionic
  *   - initial
  *
@@ -35,7 +38,7 @@ public class FireCommand extends Command {
 		this.args = this.parseArgs(args);
 	}
 
-	protected boolean validateArguments(List args) 
+	protected boolean validateArguments() 
 	        throws InvalidCommandArgumentsException {
 
 		// Number of arguments
