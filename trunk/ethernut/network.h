@@ -7,10 +7,11 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
+#include "common.h"
+
 #define DISCOVERY_PORT 3000
 #define DISCOVERY_MESSAGE "Hello there"
 #define DISCOVERY_ACK "ACK"
-
 
 /* How long to wait before repinging each nut */
 #define DISCOVERY_INTERVAL 10
@@ -41,10 +42,12 @@ int network_send_discover();
 void network_start_thread();
 
 /* The actual network thread */
-void network_thread(void *args);
+THREAD(network_thread, args);
+//void network_thread(void *args);
 
 /* The pinger thread */
-void network_pingthread(void *args);
+THREAD(network_pingthread, args);
+//void network_pingthread(void *args);
 
 /* Register a new EtherNut that was found */
 void network_addnut(struct in_addr ip);
