@@ -56,26 +56,36 @@ sub expand_line {
 sub anykey_binding { 
 	my $line = $sh->{"input_line"};
 	my $aim = $state->{"aim"};
+	my $sn;
 
 	$line = expand_aliases($line);
+
+	#$sh->out("Line: '$line'");
+
+	if (length($line) == 0) {
+		killline_binding();
+		return;
+	}
 
 	# Let the user know we're typing...
 
 	if ($line =~ s!^/msg\s+!!) {
-		my $sn = next_arg(\$line);
+		$sn = next_arg(\$line);
 
 		return unless defined($aim->buddy($sn)) && $aim->buddy($sn)->{"typing_status"} == 1;
 
-		if (!defined($state->{"typing_status"})) {
-			$aim->send_typing_status($sn, TYPINGSTATUS_STARTED);
-			$state->{"typing_status"} = {
-			  "status" => TYPINGSTATUS_TYPING,
-			  "sn" => $sn,
-			}
-		} else {
-			$aim->send_typing_status($sn, TYPINGSTATUS_TYPING);
+	} elsif ($line !~ m!^/!) { # line starts with something that isn't /
+		if (defined($state->{"default"})) {
+			$sn = $state->{"default"};
 		}
 	}
+
+	$aim->send_typing_status($sn, TYPINGSTATUS_STARTED);
+	$state->{"typing_status"} = {
+		"status" => TYPINGSTATUS_STARTED,
+		"sn" => $sn,
+		"time" => time,
+	};
 }
 
 sub killline_binding {
