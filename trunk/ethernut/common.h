@@ -35,4 +35,7 @@
 #define MUTEX pthread_mutex_t
 #endif
 
+/* Add a thread, also from main.o */
+extern void addthread(pthread_t thread);
+
 #endif
