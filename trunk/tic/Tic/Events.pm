@@ -49,14 +49,17 @@ sub event_buddy_in {
 			} else {
 				prettyprint($state, "buddy_notaway", { sn => $sn } );
 			}
-		#} elsif ($b->{"idle"} < $data->{"idle"}) {
-			#prettyprint($state, "buddy_idle", { sn => $sn, idle => $data->{"idle"} } );
-			#prettyprint($state, "buddy_noidle", { sn => $sn } );
-		} else {
-			my $foo = "$sn / i(" . $b->{"idle"} . ", " . $data->{"idle"} .")";
-			$foo .= " | a(" . $b->{"away"} . ", " . $data->{"away"} . ")";
-			prettyprint($state, "buddy_in", { sn => $foo } );
 		}
+		if ($b->{"idle"} xor $data->{"idle"}) {
+			if ($data->{"idle"}) {
+				prettyprint($state, "buddy_idle", { sn => $sn, idle => $data->{"idle"} } );
+			} else {
+				prettyprint($state, "buddy_noidle", { sn => $sn } );
+			}
+		}
+		#my $foo = "$sn / i(" . $b->{"idle"} . ", " . $data->{"idle"} .")";
+		#$foo .= " | a(" . $b->{"away"} . ", " . $data->{"away"} . ")";
+		#prettyprint($state, "buddy_in", { sn => $foo } );
 	}
 	$state->{"buddylist"}->{$sn} = deep_copy($data);
 
