@@ -19,6 +19,8 @@ use MP3::Tag;
 use Socket;
 use POSIX;
 
+use constant ERR_DECODE => "-1";
+
 $SIG{INT} = \&do_shutdown;
 $SIG{__DIE__} = \&do_shutdown;
 
@@ -101,7 +103,7 @@ sub play_loop {
 			$pcm = decode_current_mp3();
 			if (defined($pcm) && $pcm ne '') {
 				play($device, $pcm, length($pcm));
-			} else {
+			} elsif ($pcm ne ERR_DECODE) {
 				# End of song or something broke.
 				next_song();
 			}
@@ -117,8 +119,8 @@ sub decode_current_mp3 {
 			return;
 		}
 		warn "decoding error: " . $stream->error();
-		print $player "BROADCAST Error in decoding of " . $pimp->{"current_song"}->{"file"} . "\n";
-		return;
+		#print $player "BROADCAST Error in decoding of " . $pimp->{"current_song"}->{"file"} . "\n";
+		return ERR_DECODE;
 	}
 	$synth->synth($frame);
 	#my $pcm = $dither->dither($resample->resample($synth->samples()));
