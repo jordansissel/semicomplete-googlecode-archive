@@ -388,15 +388,15 @@ sub newline {
 	# Process the input line.
 
 	$self->real_out("\n");
+
 	my $line = $self->{"input_line"};
-	#print "You wrote: " . $self->{"input_line"} . "\n";
 
 	$self->{"input_line"} = "";
 	$self->{"input_position"} = 0;
 	$self->{"leftcol"} = 0;
 
 	if (ref($self->{"readline_callback"}) eq 'CODE') {
-		&{$self->{"readline_callback"}}($self->{"input_line"});
+		&{$self->{"readline_callback"}}($line);
 	}
 
 	$self->fix_inputline();
