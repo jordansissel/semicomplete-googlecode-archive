@@ -304,7 +304,7 @@ system("rm $TMP/$template* > /dev/null 2>&1");
 
 my %parts;
 
-my @partlist = split("\n",`mhlist -noheaders`);
+my @partlist = split("\n",`mhlist -noheaders 2> /dev/null`);
 my @fileparts;
 my $x = 1;
 foreach (@partlist) {
@@ -316,11 +316,13 @@ foreach (@partlist) {
 		  'desc' => $desc, 'part' => $x };
    my $storefile = `mhstore -part $part 2>&1`;
    chomp($storefile);
-   $storefile =~ s/^mhstore:.*\n//;  # Slurp out errors
-   $storefile =~ s/^.*as file //;
-   $parts{$x}->{'file'} = $storefile;
-   push(@fileparts,"$storefile");
-   $x++;
+   if ($storefile =~ m/^storing/) {
+      #$storefile =~ s/^mhstore:.*//;  # Slurp out errors
+      $storefile =~ s/^.*as file //;
+      $parts{$x}->{'file'} = $storefile;
+      push(@fileparts,"$storefile");
+      $x++;
+   }
 }
 
 #system("mhstore");

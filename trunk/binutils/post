@@ -150,7 +150,8 @@ if [ $CMD = "post" ]; then
 	 # Verify that this file is indeed under ${WEBDIR}
 	 # < not implemented, jordan is lazy >
 
-	 if [ "${linkto%%.png}" != "${linkto}" ]; then
+	 if [ "${linkto%%.png}" != "${linkto}" ] || \
+	    [ "${linkto%%.jpg}" != "${linkto}" ]; then
 	    # It's an image. Make a thumbnail and move on.
 	    img=`basename ${linkto}`
 	    dir=`echo $linkto | sed -e "s/${img}\$//"`
@@ -216,12 +217,7 @@ elif [ $CMD = "edit" ]; then
    LINES=`expr ${LINES} + 1`
 
    # Let's be cool and only use less if we need more lines than we have!
-   CRTLINES=`stty | grep ^rows | awk '{print $3}' | sed -e 's/;//'`
-   if [ ${CRTLINES} -gt ${LINES} ]; then
-      ${ECHO} "${DATA}"
-   else
-      ${ECHO} "${DATA}" | less
-   fi
+   ${ECHO} "${DATA}"| less -F
 
    ${ECHO} "Which entry do you want to edit? (Choose an ID)"
    read ID

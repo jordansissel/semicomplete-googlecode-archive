@@ -13,7 +13,7 @@ if ($opts{f}) {  #-f flag, hostfile specified
       die "The file $hosts does not exist.";
    }
 } else {
-   $hosts = "/u9/psionic/bin/hostlist";
+   $hosts = "/u9/psionic/Solaris/UserCenter/hostlist";
 }
 $cmd = pop(@ARGV);
 

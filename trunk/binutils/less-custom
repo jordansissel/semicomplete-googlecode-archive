@@ -3,8 +3,9 @@
 ECHO=/usr/ucb/echo 
 
 if [ "$*" ]; then
-   /usr/local/libexec/nmh/mhl -form mhl.format $* | less -c -~
-   mark $* -sequence read -add
+   #/usr/local/libexec/nmh/mhl -form mhl.format $* | less -c -~
+   mhshow-custom $*
+   #mark $* -sequence read -add
 fi
 
 ${ECHO}

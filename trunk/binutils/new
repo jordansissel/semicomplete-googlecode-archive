@@ -6,7 +6,7 @@ ECHO=/usr/ucb/echo
 SIGN=
 NUM=
 
-IGNORE_MAILBOXES=".archive .locks jason outbox"
+IGNORE_MAILBOXES=".archive .locks jason outbox csh"
 
 function showmail { #{{{
    FOLDER=+`folder -fast`
