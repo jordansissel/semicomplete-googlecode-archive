@@ -19,11 +19,15 @@
 #    - Automagically verify pgp signatures
 #    - Non-displayable attachments are linked for download availability
 #    - Uses settings from .mh_profile (if any)
+#    - Automatically fetch pgp public keys [Added 2003/08/13]
+#    - Support for screen. (See SCREEN_POLICY below) [Added 2003/08/13]
 #
 #  Problems:
 #    - Doesn't let you fully customize mhstore-store parameters. 
 #      For now, if you insist on having your own mhstore-store entries, you
 #      *MUST* use %m%P as the FIRST part of the filename.
+#    - Won't do pgp_verify_command on mail that is a single part mail with
+#      the pgp signature at the bottom, yet.
 #
 
 use strict;
@@ -31,7 +35,15 @@ use Symbol; # Fix for 5.005_03
 
 # User settings, change these to suit your enviroment: {{{
 
-# PGP stuff, I'll add more here later as I need them.
+# Screen policy - This setting determines how to (if at all) interact with {{{
+# the screen program. Setting this value to "0" means it doesn't invoke screen
+# at all. A value of 1 will use screen (and invoke a new window) only if you
+# are currently running IN a screen session. Finally, a value of 2 will force
+# it to ALWAYS use screen, regardless of whether or not you are currently 
+# in a screen session or not.
+my $SCREEN_POLICY = 1;                                                     #}}}
+
+# PGP stuff, I'll add more here later as I need them. {{{
 my %pgp = (
 
 # Command to verify a pgp signed email. %s is the "sig" file, %f is the content.
@@ -43,19 +55,20 @@ pgp_recvkey_command => "gpg --no-secmem-warning --no-verbose --batch --output - 
 # Automatically download pgp keys?
 pgp_recvkey_auto => 1,
 
-	 );
+	 ); #}}}
 
-# Plain-text types to be displayed. Content-Types not matched here will be
+# Plain-text types to be displayed. Content-Types not matched here will be {{{
 # shown as links at the bottom of the email (if the mail is multipart)
 # These can be regular expressions.
 my @plaintext_types = ( 
    'text/.*', 
    'message/delivery-status', 
-   );
+   ); #}}}
 
 # End user configuration }}}
 
 # Basic setup and shenanigans! {{{
+
 # Read in .mh_profile {{{
 my $mhp = $ENV{"HOME"}."/.mh_profile";
 $mhp = $ENV{"MH"} if ($ENV{"MH"});
@@ -130,7 +143,6 @@ foreach my $viewer (@v) {
    last if ($VBROWSER);
 }
 print STDERR "Using this viewer: $VBROWSER\n";
-#exit;
 my $BROWSER = $VBROWSER;;
 if ($VBROWSER !~ /^\|/) {
    $BROWSER = "> /tmp/" . mktemp();
@@ -183,6 +195,19 @@ close(MHLHTML);
 }
 #}}}
 
+# Screen support (w00t!) {{{
+my $SCREEN_STY;
+unless ($VBROWSER =~ m/^>/) {
+   if (($ENV{"STY"} && $SCREEN_POLICY == 1) || ($SCREEN_POLICY == 2)) {
+      print STDERR "Screen session detected...\n";
+      $SCREEN_STY = $ENV{"STY"};
+      # If our browser is a pipe-to browser, we can't do that with screen...
+      if ($VBROWSER =~ /^\|/) {
+	 $BROWSER = "> /tmp/" . mktemp();
+	 $VBROWSER =~ s/^\|\s*//;
+      }
+   }
+} #}}}
 #}}}
 
 # Set $mail, $folder, $base, other useful variables. {{{
@@ -411,13 +436,15 @@ if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
       mime_for_you(\%parts,@fileparts);
 
       close(BROWSER);
-      check_open_browser();
+      check_open_browser(\@fileparts);
 
       system("rm $tmpfile > /dev/null 2>&1");
    }
 
-   foreach (@fileparts) {
-      system("rm $_ > /dev/null 2>&1");
+   unless (($ENV{"STY"} && $SCREEN_POLICY == 1) || ($SCREEN_POLICY == 2)) {
+      foreach (@fileparts) {
+	 system("rm $_ > /dev/null 2>&1");
+      }
    }
 #}}}
 } else { # Not multipart mail. {{{
@@ -628,6 +655,7 @@ sub mktemp { #{{{
 } #}}}
 
 sub check_open_browser { #{{{
+   my $files = shift;
    if ($VBROWSER !~ m/^[\|>]/) {
       print STERR "Now running browser!\n";
       $BROWSER =~ s/>\s+//;
@@ -635,7 +663,18 @@ sub check_open_browser { #{{{
 	 system("mv $BROWSER $BROWSER.html");
 	 $BROWSER .=".html";
       } 
-      system("$VBROWSER $BROWSER");
-      system("rm $BROWSER");
+      if ( ($SCREEN_POLICY == 2) || ( ($SCREEN_STY && $SCREEN_POLICY) ) ) {
+         my $screen = "screen ";
+	 $screen .= " -X screen" if ($SCREEN_STY);
+	 $screen .= " sh -c \"" if ($SCREEN_STY);;
+	 $screen .= " $VBROWSER $BROWSER";
+	 $screen .= " && rm " . join(" ", @${files}) . "\"" if ($SCREEN_STY);
+	 #print STDERR "Invoking screen as: $screen\n";
+	 system("$screen");
+	 system("rm $BROWSER") unless ($SCREEN_STY);
+      } else {
+	 system("$VBROWSER $BROWSER");
+	 system("rm $BROWSER");
+      }
    }
 } #}}}
