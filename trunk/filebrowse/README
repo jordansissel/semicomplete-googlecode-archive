@@ -1,0 +1,21 @@
+perl file browser
+<insert hot name and hand gestures here>
+
+Authors
+=======
+ - Luke Macken
+ - John Resig
+ - Jordan Sissel
+ - Chris Klieber
+ - The Pete
+
+Features
+========
+ - Browses compressed archives (tar|gz) without file extraction.
+ - Preview items in compressed archive without extraction.
+ - Hot preview pane.
+ - Detailed directory listings.
+ - MP3 preview information from IDv[2|3] tags.
+ - Shows thumbnails for images, and dimensions.
+ - File and Folder copy, move, and deletion. 
+ - File and folder permission changing.
