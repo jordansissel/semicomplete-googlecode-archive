@@ -2,21 +2,25 @@
  * Command.java
  *
  * Version:
- *   $Id$
+ *	$Id$
  *
  * Revisions:
- *   $Log$
- *   Revision 1.4  2004/01/17 18:22:08  tristan
- *   fixed parse bug
+ *	$Log$
+ *	Revision 1.5  2004/01/19 02:25:24  psionic
+ *	- Added validateArgument method. This will use the meta syntax specified by
+ *	  each command and validate that it is indeed the proper data type.
  *
- *   Revision 1.3  2004/01/14 06:02:14  tristan
- *   removed unneeded var
+ *	Revision 1.4  2004/01/17 18:22:08  tristan
+ *	fixed parse bug
  *
- *   Revision 1.2  2004/01/14 05:53:33  tristan
- *   finished command parsing
+ *	Revision 1.3  2004/01/14 06:02:14  tristan
+ *	removed unneeded var
  *
- *   Revision 1.1  2004/01/14 04:36:04  tristan
- *   initial
+ *	Revision 1.2  2004/01/14 05:53:33  tristan
+ *	finished command parsing
+ *
+ *	Revision 1.1  2004/01/14 04:36:04  tristan
+ *	initial
  *
  */
 
@@ -33,10 +37,13 @@ import java.util.regex.Matcher;
  */
 public class Command {
 
-    // regexes needed to parse commands
-    public static final Pattern argsPattern = Pattern.compile(
-        "\\s*(.*?)\\s*,{1}\\s*(.*)\\s*"
-    );
+	/* Regular expression to parse a command */
+	public static final Pattern argsPattern = Pattern.compile(
+		"\\s*(.*?)\\s*,{1}\\s*(.*)\\s*"
+	);
+
+	/* Syntax definition for how the arguments should be defined. */
+	protected String[] syntax = { };
 
 	private String command;
 	private List args;
@@ -62,7 +69,7 @@ public class Command {
 	 * @param command The command.
 	 */
 	public Command( String command ) {
-        this( command, null );
+		  this( command, null );
 	}
 
 	/**
@@ -103,67 +110,76 @@ public class Command {
 	 * @param command The command.
 	 */
 	public void setCommand( String command ) {
-        if ( command != null ) {
-		    this.command = command.toUpperCase();
-        } else {
-            this.command = null;
-        }
+		  if ( command != null ) {
+			 this.command = command.toUpperCase();
+		  } else {
+				this.command = null;
+		  }
 	}
 
 	/**
 	 * Return the command as a string.
 	 * @return The command as a string.
 	 */
-    public String toString() {
-        StringBuffer retVal = new StringBuffer( command );
+	 public String toString() {
+		  StringBuffer retVal = new StringBuffer( command );
 
-        if ( args != null ) {
-            Iterator i = args.iterator();
+		  if ( args != null ) {
+				Iterator i = args.iterator();
 
-            while ( i.hasNext() ) {
-                Object item = i.next();
-                retVal.append( " " + item );
+				while ( i.hasNext() ) {
+					 Object item = i.next();
+					 retVal.append( " " + item );
 
-                if ( i.hasNext() ) {
-                    retVal.append( "," );
-                }
-            }
-        }
+					 if ( i.hasNext() ) {
+						  retVal.append( "," );
+					 }
+				}
+		  }
 
-        return retVal.toString();
-    }
+		  return retVal.toString();
+	 }
 
 	/**
 	 * Sets the command args and parses them.
 	 * @param unparsedArgs The unparsed arguments.
 	 */
-	public static List parseArgs( String unparsedArgs ) {
-        List retVal = new ArrayList();
+	public static List parseArgs( String unparsedArgs ) 
+	       throws InvalidCommandArguemntsException {
 
-        // parse each arg
-        do {
-            Matcher m = argsPattern.matcher( unparsedArgs );
+		List retVal = new ArrayList();
+		int cur = 0;
 
-            if ( m.matches() ) {
-                retVal.add( m.group( 1 ) );
+		// parse each arg
+		do {
+			Matcher m = argsPattern.matcher( unparsedArgs );
 
-                if ( m.groupCount() == 1 ) {
-                    unparsedArgs = null;
-                    break;
-                } else {
-                    unparsedArgs = m.group( 2 );
-                }
-            } else {
-                break;
-            }
-        } while ( true );
+			if ( m.matches() ) {
 
-        // add trailing arg
-        if ( unparsedArgs != null ) {
-            retVal.add( unparsedArgs );
-        }
+				if ( ! validateArgument(m.group(1), syntax[cur]) ) {
+					throw new InvalidCommandArgumentsException(this);
+				}
 
-        return retVal;
+				retVal.add( m.group( 1 ) );
+
+				if ( m.groupCount() == 1 ) {
+					unparsedArgs = null;
+					break;
+				} else {
+					unparsedArgs = m.group( 2 );
+				}
+			} else {
+				break;
+			}
+			cur++;
+		} while ( true );
+
+		// add trailing arg
+		if ( unparsedArgs != null ) {
+			retVal.add( unparsedArgs );
+		}
+
+		return retVal;
 	}
 
 	/**
@@ -171,19 +187,43 @@ public class Command {
 	 * @param unparsedCommand The command to parse.
 	 */
 	public static Command parseCommand( String unparsedCommand ) {
-        String[] items = unparsedCommand.split( "\\s", 2 );
-        Command retVal = new Command();
+		String[] items = unparsedCommand.split( "\\s", 2 );
+		Command retVal = new Command();
 
-        // if command was found
-        if ( items.length > 0 ) {
-            retVal.setCommand( items[ 0 ] );
+		// if command was found
+		if ( items.length > 0 ) {
+			retVal.setCommand( items[ 0 ] );
 
-            // if items were found
-            if ( items.length == 2 ) {
-                retVal.setArgs( parseArgs( items[ 1 ] ) );
-            }
-        }
+			// if items were found
+			if ( items.length == 2 ) {
+				retVal.setArgs( parseArgs( items[ 1 ] ) );
+			}
+		}
 
-        return retVal;
+		return retVal;
 	}
-}   // Command
+
+	/**
+	 * Validate argument data type
+	 *
+	 */
+	private boolean validateArgument(String arg, String type) {
+
+		if (type == "%i") {    /* Excepting an integer */
+			try {
+				Integer i = new Integer(arg);
+			} catch (Exception e) {
+				return false;
+			}
+		}
+		if (type = "%c") {    /* Excepting a single character */
+			try {
+				Character c = new Character(arg);
+			} catch (Exception e) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+}	// Command.java
