@@ -21,7 +21,7 @@ my $s = IO::Select->new();
 $userdata = Drink::read_users();
 
 $aim = new Net::AIM;
-$aim->debug(1);
+$aim->debug(0);
 $aim->newconn(Screenname => 'CSH Drink', Password => 'cshdrink123');
 #$aim->newconn(Screenname => 'CSH Drink2', Password => 'cshdrink123');
 #$aim->newconn(Screenname => 'mobilesoutherner', Password => 'carleneway');
@@ -41,6 +41,8 @@ while (1) {
    $c = ($c + 1) % 1800;
 }
 
+#We never get here...
+
 my $frag = "";
 sub read_from_sessions {
    my ($sock,@ready,$line);
@@ -55,7 +57,7 @@ sub read_from_sessions {
       }
 
       my $brec = recv($sock,$line,8192,0);
-      my $data;
+      my $data = "";
       if (defined($brec)) {
 	 if (length($line) == 0) { 
 	    print "Socket dead, removing...\n";
@@ -91,14 +93,15 @@ sub translate {
 
    my @list = ('b1ff','brooklyn','chef','cockney','drawl','fudd','funetak','jethro','jive','kraut','pansy','postmodern','redneck','valspeak','warez');
 
-   my $lang = grep($language,@list);
-   print "Lang; $lang\n";
-   if ($lang > 0) {
+   my ($lang) = grep(m/^$language$/i,@list);
+   if ($lang) {
       my ($r,$w);
-      my ($pid) = open2($r,$w,"/usr/local/bin/$language") or die "Fuck!\n";
+      my ($pid) = open2($r,$w,"/usr/local/bin/$language") or die "Unable to open filter, $language";
       print $w $msg;
       close($w);
-      $msg = readline($r);
+      $msg = "";
+      while ($_ = readline($r)) { $msg .= $_ };
+      #$msg = readline($r);
    }
 
    return $msg;
@@ -138,7 +141,7 @@ sub handle_message {
    print "$from: $msg\n";
    if (defined($session{$from})) {
       if ($msg =~ /^h(e(l(p)?)?)?$/) {
-	 sendim($from, "This is the AIM Drink Client. The following commands are available: <br>     Status<br>     Drop<br>Also feel free to type 'help <command>'");
+	 sendim($from, "This is the AIM Drink Client! The following commands are available: \n     Status\n     Drop\nAlso feel free to type 'help <command>'");
       } elsif ($msg =~ /^h(e(l(p)?)?)? (.*)$/i) {
 	 if ($4 =~ m/^s(t(a(t(u(s)?)?)?)?)?$/i) { #help status
 	    sendim($from,"<b>STATUS</b> - Display the contents of Drink: Available drinks, price, and inventory.");
@@ -152,6 +155,7 @@ sub handle_message {
 	 }
       } elsif ($msg =~ /^s(t(a(t(u(s)?)?)?)?)?$/i) { #status
 	 get_drink_stats($session{$from}{'socket'});
+	 print "Status: $clientinfo\n";
 	 sendim($from,$clientinfo);
       } elsif ($msg =~ /^d(r(o(p)?)?)?$/i) { #drop
 	 sendim($from,"Not implemented yet.");
@@ -160,7 +164,7 @@ sub handle_message {
       } elsif ($msg =~ /^i(n(f(o)?)?)?$/i) { #info
 	 my $say;
 	 my $data = $session{$from}{'data'};
-	 foreach (keys(%{$data})) { $say .= "<b>$_</b>: " . $data->{$_}."<br>" }
+	 foreach (keys(%{$data})) { $say .= "<b>$_</b>: " . $data->{$_}."\n" }
 	 sendim($from,$say);
       }
       
