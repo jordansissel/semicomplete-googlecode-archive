@@ -68,11 +68,8 @@ HELP
 	my ($sn, $msg);
   
 	if (scalar(@_) == 1) {
-		if ($args =~ m/^"([^"]+)"\s+(.*$)/) {
-			($sn, $msg) = ($1, $2);
-		} else {
-			($sn, $msg) = split(/\s/, $args, 2);
-		}
+		$sn = next_arg(\$args);
+		$msg = $args;
 	} else {
 		($sn, $msg) = @_;
 	} 
@@ -86,7 +83,6 @@ HELP
 		delete($state->{"away_responding"}->{"$sn"});
 	}
 
-	
 	$aim->send_im($sn, $msg, $away);
 	my $wholog = get_config("who_log");
 	if ((get_config("logging") eq "all" || ((ref($wholog) eq 'HASH' && $wholog->{"$sn"} == 1)))) {
@@ -219,15 +215,7 @@ HELP
 	my $aim = $state->{"aim"};
 	my $sn;
 
-	#if (scalar(@_) == 1) {
-		#if ($args =~ m/^"([^"]+)"\s+(.*$)/) {
-			#($sn, $msg) = ($1, $2);
-		#} else {
-			#($sn, $msg) = split(/\s/, $args, 2);
-		#}
-	#} else {
-		#($sn, $msg) = @_;
-	#} 
+	$sn = next_arg(\$args);
 
 	if ($sn eq '') {
 		$sh->error("Invalid number of arguments to /getaway");
@@ -247,7 +235,10 @@ HELP
 	$state = shift;
 	my ($args) = @_;
 	my $aim = $state->{"aim"};
-	my ($sn,$key) = split(/\s+/,$args);
+	my ($sn,$key);
+
+	$sn = next_arg(\$args);
+	$key = $args;
 
 	if ($sn eq '') {
 		$sh->error("Invalid number of arguments to /info.");
@@ -351,6 +342,7 @@ HELP
 			$sh->error("No default target yet");
 		}
 	} else {
+		$args = next_arg(\$args);
 		if ($aim->buddy("$args")) {
 			$state->{"default"} = $args;
 			$sh->out("New default target: $args");
@@ -583,11 +575,7 @@ HELP
 	my $aim = $state->{"aim"};
 
 	my ($sn, $group);
-	if ($args =~ m/^"([^"]+)"\s+(.*$)/) {
-		($sn, $args) = ($1, $2);
-	} else {
-		($sn, $args) = split(/\s/, $args, 2);
-	}
+	$sn = next_arg(\$args);
 
 	if (length($sn) == 0) {
 		$sh->error("No buddy specified to delete :(");
