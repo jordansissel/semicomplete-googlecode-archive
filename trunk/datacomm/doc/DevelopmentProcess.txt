@@ -1,0 +1,18 @@
+
+	Networked Battleship Development Process
+------------------------------------------------------
+
+Group Members:
+
+Jordan Sissel
+Tristan O'Tierney
+Nicholas R. Johnson
+
+Our team decided to split up development three ways between each
+group member. The most logical way was client, server, and game.
+We would collaborate on the protocol and messaging systems.
+
+The game would be able to standalone and play locally, but then
+would be able to be instantiated by the client and run in the 
+network mode. This would allow a good level of abstraction in order
+for each of us to work on things separately.
