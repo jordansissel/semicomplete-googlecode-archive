@@ -26,7 +26,7 @@
 #include "log.h"
 #include "common.h"
 
-static MUTEX *nut_mutex;
+static MUTEX nut_mutex;
 
 /* 
  * Initialize network and discovery hijinks
@@ -40,8 +40,7 @@ void network_init() {
 	nuts = NULL;
 	nut_count = 0;
 
-	nut_mutex = (MUTEX *) malloc(sizeof(nut_mutex));
-	if (MUTEX_INIT(nut_mutex) != 0) {
+	if (MUTEX_INIT(&nut_mutex) != 0) {
 		log(0, "network_init MUTEX_INIT failed: %s", strerror(errno));
 	}
 	
@@ -87,7 +86,7 @@ int network_send_discover() {
 
 	if (bytes < 0) {
 		log(0, "discovery sendto() failed: %s", strerror(errno));
-		pthread_exit(NULL);
+		THREAD_EXIT();
 	}
 
 	close(sock);
@@ -100,18 +99,18 @@ void network_start_thread() {
 	pthread_t pingthread;
 	
 	log(10, "Starting discovery thread");
-	if (pthread_create(&discoverythread, NULL, (void *)&network_thread, NULL) != 0) {
+	if (THREAD_CREATE(&discoverythread, NULL, (void *)&network_thread, NULL) != 0) {
 		log(0, "discovery pthread_create failed: %s", strerror(errno));
 	}
 
 	log(10, "Starting pinger thread");
-	if (pthread_create(&pingthread, NULL, (void *)&network_pingthread, NULL) != 0) {
+	if (THREAD_CREATE(&pingthread, NULL, (void *)&network_pingthread, NULL) != 0) {
 		log(0, "pingthread pthread_create failed: %s", strerror(errno));
 	}
 
 }
 
-void network_thread(void *args) {
+THREAD(network_thread, args) {
 	int sockopt = 1; 
 	int discovery = -1;
 	struct sockaddr_in listenaddr;
@@ -122,14 +121,14 @@ void network_thread(void *args) {
 
 	if ((discovery = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
 		log(0, "network_thread socket() failed: %s", strerror(errno));
-		pthread_exit(NULL);
+		THREAD_EXIT();
 	}
 
 	/* Set this socket to allow broadcast */
 	sockopt = 1;
 	if (setsockopt(discovery, SOL_SOCKET, SO_REUSEADDR, &sockopt, sizeof(sockopt)) < 0) {
 		log(0, "network_thread setsockopt() failed: %s", strerror(errno));
-		pthread_exit(NULL);
+		THREAD_EXIT();
 	}
 
 	listenaddr.sin_family = PF_INET;
@@ -139,7 +138,7 @@ void network_thread(void *args) {
 
 	if (bind(discovery, (struct sockaddr *)&listenaddr, sizeof(struct sockaddr)) == -1) {
 		log(0, "network_thread bind() failed: %s", strerror(errno));
-		pthread_exit(NULL);
+		THREAD_EXIT();
 	}
 
 	for (;;) {
@@ -151,7 +150,7 @@ void network_thread(void *args) {
 		/* Now check if we have any discovery packets coming in */
 		if (recvfrom(discovery, buf, 1024, 0, (struct sockaddr *)&srcaddr, &fromlen) < 0) {
 			log(0, "network_thread recvfrom() failed: %s", strerror(errno));
-			pthread_exit(NULL);
+			THREAD_EXIT();
 		}
 
 		log(5, "Packet from 0x%08x %s: %s", srcaddr.sin_addr, inet_ntoa(srcaddr.sin_addr), buf);
@@ -164,7 +163,7 @@ void network_thread(void *args) {
 			if ((bytes = sendto(discovery, DISCOVERY_ACK, strlen(DISCOVERY_ACK), 0, 
 									  (struct sockaddr *)&srcaddr, sizeof(struct sockaddr))) < 0) {
 				log(0, "network_thread sendto() ack failed: %s", strerror(errno));
-				pthread_exit(NULL);
+				THREAD_EXIT();
 			}
 
 			network_addnut(srcaddr.sin_addr);
@@ -176,7 +175,7 @@ void network_thread(void *args) {
 	}
 }
 
-void network_pingthread(void *args) {
+THREAD(network_pingthread, args) {
 	int c;
 	int bytes;
 
@@ -184,7 +183,7 @@ void network_pingthread(void *args) {
 
 	if ((pingfd = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
 		log(0, "network_thread socket() failed: %s", strerror(errno));
-		pthread_exit(NULL);
+		THREAD_EXIT();
 	}
 
 	for (;;) {
@@ -209,7 +208,7 @@ void network_pingthread(void *args) {
 
 				if (bytes < 0) {
 					log(0, "discovery ping sendto() failed: %s", strerror(errno));
-					pthread_exit(NULL);
+					THREAD_EXIT();
 				}
 			}
 		}
@@ -221,15 +220,14 @@ void network_pingthread(void *args) {
 void network_addnut(struct in_addr ip) {
 	int c;
 	
-	log(0, "Trying to lock nut_mutex");
-	MUTEX_LOCK(nut_mutex);
+	MUTEX_LOCK(&nut_mutex);
 
 	/* Check if this is a existing nut */
 	for (c = 0; c < nut_count; c++) {
 		if (ip.s_addr == nuts[c].ip.s_addr) {
 			log(10, "Found an old nut, %s, updating lastseen", inet_ntoa(nuts[c].ip));
 			nuts[c].lastseen = time(NULL);
-			MUTEX_UNLOCK(nut_mutex);
+			MUTEX_UNLOCK(&nut_mutex);
 			return;
 		}
 	}
@@ -242,14 +240,14 @@ void network_addnut(struct in_addr ip) {
 	nuts[nut_count].lastseen = time(NULL);
 	nut_count++;
 
-	MUTEX_UNLOCK(nut_mutex);
+	MUTEX_UNLOCK(&nut_mutex);
 }
 
 void network_removenut(int index) {
 	int c;
 
 	log(0, "Trying to lock nut_mutex");
-	MUTEX_LOCK(nut_mutex);
+	MUTEX_LOCK(&nut_mutex);
 
 	for (c = index; c < nut_count - 1; c++) {
 		free(&(nuts[c]));
@@ -258,5 +256,5 @@ void network_removenut(int index) {
 
 	nut_count--;
 
-	MUTEX_UNLOCK(nut_mutex);
+	MUTEX_UNLOCK(&nut_mutex);
 }
