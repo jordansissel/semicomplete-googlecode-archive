@@ -14,15 +14,14 @@ I needed a shell kit for an aim client I was writing. All of the Term::ReadLine 
 
 =head1 NEEDS
 
-- Settable key bindings
-- Tab completion
-- Support for window size changes (sigwinch)
-- movement in-line editing.
-- vi mode (Yeah, I lub vi)
-- history
-- Completion function calls
-
-- Settable callbacks for when we have an end-of-line (EOL binding?)
+ - Settable key bindings
+ - Tab completion
+ - Support for window size changes (sigwinch)
+ - movement in-line editing.
+ - vi mode (Yeah, I lub vi)
+ - history
+ - Completion function calls
+ - Settable callbacks for when we have an end-of-line (EOL binding?)
 
 =cut
 
@@ -85,6 +84,7 @@ sub new ($) {
 	($self->{"termcols"}) = GetTerminalSize();
 	$SIG{WINCH} = sub { ($self->{"termcols"}) = GetTerminalSize(); $self->fix_inputline() };
 	my $bindings = {
+		"ANYKEY"      => "anykey",
 		"LEFT"        => "backward-char",
 		"RIGHT"       => "forward-char",
 		"UP"          => "up-history",
@@ -112,6 +112,7 @@ sub new ($) {
 	};
 
 	my $mappings = {
+		"anykey"                 => \&anykey,
 		"backward-char"          => \&backward_char,
 		"forward-char"           => \&forward_char,
 		"delete-char-backward"   => \&delete_char_backward,
@@ -147,7 +148,7 @@ sub do_one_loop ($) {
 	my $char;
 
 	# ReadKey(-1) means no timeout waiting for data, thus is nonblocking
-	while (defined($char = ReadKey(-1))) {
+	while (defined($char = ReadKey(.01))) {
 		$self->handle_key($char);
 	}
 	
@@ -168,6 +169,10 @@ sub handle_key($$) {
 
 	my $line = $self->{"input_line"} || "";
 	my $pos = $self->{"input_position"} || 0;
+
+	# This is sometimes a nice feature to have...
+	# Press the any key!!!
+	$self->execute_binding("ANYKEY");
 
 	if ($self->{"escape"}) {
 		$self->{"escape_string"} .= $char;
@@ -202,14 +207,19 @@ sub handle_key($$) {
 	}
 
 	if ((defined($char)) && (ord($char) >= 32)) {
-		substr($line, $pos, 0) = $char;
-		$self->{"input_position"}++;
+		if (defined($self->{"bindings"}->{"$char"})) {
+			$self->execute_binding($char);
+		} else  {
+			# Insert the character in our string, wherever we are.
+			#substr($line, $pos, 0) = $char;
+			#$self->{"input_position"}++;
+			$self->insert_at_cursor($char);
+		}
 
 		# If we just did a tab completion, kill the state.
 		delete($self->{"completion"}) if (defined($self->{"completion"}));
 	}
 
-	$self->{"input_line"} = $line;
 	$self->fix_inputline();
 }
 
@@ -237,7 +247,7 @@ sub execute_binding ($$) {
 
 		# Check if we have stored completion state and the next binding is
 		# not complete-word. If it isn't, then kill the completion state.
-		if (defined($self->{"completion"}) && 
+		if (defined($self->{"completion"}) && $key ne 'ANYKEY' &&
 			 $bindings->{$key} ne 'complete-word') {
 			delete($self->{"completion"});
 		}
@@ -250,7 +260,7 @@ sub execute_binding ($$) {
 			return &{$mappings->{$bindings->{$key}}}($self);
 
 		} else {
-			error("Unimplemented function, " . $bindings->{$key});
+			$self->error("Unimplemented function, " . $bindings->{$key});
 		}
 	}
 
@@ -292,8 +302,8 @@ sub prettify_key ($$) {
 		}
 	}
 
-	# Ok, so it's not ^X or ESC-X, it's gotta be some ansi funk.
-	return $KEY_CONSTANTS{$key};
+	# Ok, so it's not ^X or ESC-X, it's gotta be some ansi funk or a normal char.
+	return $KEY_CONSTANTS{$key} || $key;
 }
 
 =pod 
@@ -377,7 +387,7 @@ sub newline {
 	# Process the input line.
 
 	$self->real_out("\n");
-	print "You wrote: " . $self->{"input_line"} . "\n";
+	#print "You wrote: " . $self->{"input_line"} . "\n";
 
 	if (ref($self->{"readline_callback"}) eq 'CODE') {
 		&{$self->{"readline_callback"}}($self->{"input_line"});
@@ -518,21 +528,26 @@ RECHECK:
 
 		return unless (defined($match));
 
-		#$self->out("Match: $match / " . $self->{"completion"}->{"index"} . " / " . @matches);
-
 		$self->{"completion"}->{"index"}++;
 		$self->{"completion"}->{"index"} = 0 if ($self->{"completion"}->{"index"} == scalar(@matches));
 
-		substr($line, $bword, $pos - $bword) = $match;
+		substr($line, $bword, $pos - $bword) = $match . " ";
 
 		$self->{"completion"}->{"endpos"} = $pos;
 
-		$pos = $bword + length($match);
+		$pos = $bword + length($match) + 1;
 		$self->{"input_position"} = $pos;
 		$self->{"input_line"} = $line;
 
 		$self->fix_inputline();
+	}
+}
 
+sub anykey {
+	my $self = shift;
+
+	if (ref($self->{"anykey_callback"}) eq 'CODE') {
+		&{$self->{"anykey_callback"}};
 	}
 }
 
@@ -546,27 +561,22 @@ Get or set the prompt
 
 sub prompt ($;$) {
 	my $self = shift;
-	my $p = shift;
 
-	if (defined($p)) {
-		$self->{"input_prompt"} = $p;
-		$self->{"input_prompt_length"} = $p;
+	if (@_) {
+		$self->{"input_prompt"} = shift;
 		$self->fix_inputline();
-	} else {
-		return $self->{"input_prompt"};
 	}
+	return $self->{"input_prompt"};
 }
 
 sub echo ($;$) {
 	my $self = shift;
-	my $e = shift;
 
-	if (defined($e)) {
-		$self->{"echo"} = $e;
+	if (@_) {
+		$self->{"echo"} = shift;;
 		$self->fix_inputline();
-	} else {
-		return $self->{"echo"};
-	}
+	} 
+	return $self->{"echo"};
 }
 
 # --------------------------------------------------------------------
@@ -616,6 +626,18 @@ sub find_word_bound ($$$;$) {
 	$bword -= $mod;
 
 	return $bword;
+}
+
+# -----------------------------------------------------------------------------
+# Functions people might call on us...
+#
+
+sub insert_at_cursor($$) {
+	my $self = shift;
+	my $string = shift;
+
+	substr($self->{"input_line"}, $self->{"input_position"}, 0) = $string;
+	$self->{"input_position"} += length($string)
 }
 
 =pod
