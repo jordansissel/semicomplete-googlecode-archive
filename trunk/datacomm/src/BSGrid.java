@@ -6,6 +6,9 @@
  *
  * Revisions:
  *     $Log$
+ *     Revision 1.19  2004/01/19 21:32:04  tristan
+ *     fixed constants
+ *
  *     Revision 1.18  2004/01/19 07:25:46  njohnson
  *     still working on ArrayOutofBounds
  *
@@ -49,16 +52,19 @@
  * @author Nicholas R. Johnson - nrj7604
  */
 public class BSGrid {
+    public static final int SHIP_COUNT = 5;
+    public static final int ROW_COUNT = 10;
+    public static final int COL_COUNT = 10;
+
     private BSShip[] fleet;
     private byte[][] grid;
 
     /**
      *
-     * @param id
      */
     public BSGrid() {
-        fleet = new BSShip[ 4 ];
-        grid = new byte[10][10];
+        fleet = new BSShip[ SHIP_COUNT ];
+        grid = new byte[ ROW_COUNT ][ COL_COUNT ];
     } // constructor
 
     /**
@@ -79,7 +85,7 @@ public class BSGrid {
                      //        3
                      //
 
-        for( int i = 0; i < 5; i++ ) {
+        for( int i = 0; i < SHIP_COUNT; i++ ) {
 
             //generate the random values for the ship's
             //start position
