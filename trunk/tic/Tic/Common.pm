@@ -42,7 +42,8 @@ sub fix_inputline {
 	# Fix the line
 	if (defined($state->{"input_line"})) {
 		my $back = (length($state->{"input_line"}) - $state->{"input_position"});
-		real_out($state->{"input_line"});
+		#real_out($state->{"input_line"});
+		real_out(substr($state->{"input_line"},$state->{"leftcol"}, $state->{"termcols"}));
 		real_out("\e[" . $back . "D") if ($back > 0);
 	}
 }
