@@ -102,10 +102,14 @@ sub prettyprint {
 		$output =~ s/%%/%/g;
 	}
 
+	$output =~ s!<(?:(?:(?:font|b|i|u)(?:\s[^>]+)?)|(?:/(?:font|b|i|u)))>!!gi;
+	$output =~ s!<br>!\n!gi;
+
 	if ($type =~ m/^error/) {
 		error($output);
 	} else {
-		out("< $type > $output");
+		#out("< $type > $output");
+		out($output);
 	}
 }
 
@@ -152,16 +156,21 @@ sub getrealsn {
 }
 
 sub login {
-	my ($user,$pass);
+	my ($user,$pass) = @_;
+	my ($fail) = 0;
+
 	do {
-		do {
+		$user = $pass = undef if ($fail > 0);
+		while (length($user) == 0) {
 			$user = query("login: ");
-		} while (length($user) == 0);
-		$pass = query("password: ", 1);
+		}
+		$pass = query("password: ", 1) if (length($pass) == 0);
+		$fail++;
 	} while (length($pass) == 0);
 
 	$state->{"signon"} = 1;
 	$state->{"aimok"} = 1;
+	out("Logging in to AIM, please wait :)");
 	$state->{"aim"}->signon($user,$pass);
 }
 
