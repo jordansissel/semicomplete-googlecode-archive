@@ -106,9 +106,12 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 	/* Try adding this xbox to the list */
 	addxbox(eptr->ether_shost, 0);
 
-	debuglog(15, "Packet!");
-	debuglog(3, "From: %s", ether_ntoa((struct ether_addr *)eptr->ether_shost));
-	debuglog(3, "To: %s", ether_ntoa((struct ether_addr *)eptr->ether_dhost));
+	/* If this packet is sent to our local net, ignore it... */
+	if (hash_lookup(xboxen, eptr->ether_shost) != NULL) {
+		 debuglog(15, "Packet!");
+		 debuglog(3, "From: %s", ether_ntoa((struct ether_addr *)eptr->ether_shost));
+		 debuglog(3, "To: %s", ether_ntoa((struct ether_addr *)eptr->ether_dhost));
+	 }
 
 	/*
 	 * If this is broadcast, send it to all known proxies
@@ -154,13 +157,14 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 			return;
 		}
 
-		debuglog(3, "Found packet destined for %s, sending!", 
-						ether_ntoa((struct ether_addr *)(eptr->ether_dhost)));
+		debuglog(3, "Found packet destined for %s! (len: %d)", 
+						ether_ntoa((struct ether_addr *)(eptr->ether_dhost)),
+						head->caplen);
 
 		p = ((xbox_t *)(box->hash_data))->proxy;
 
 		if (p == NULL) {
-			debuglog(3, "Packet is destined for something on this net, ignore it");
+			debuglog(3, "Packet is destined for this net, ignore it");
 			return;
 		}
 
@@ -189,15 +193,34 @@ void addxbox(u_char *macaddr, proxy_t *ppt) {
 
 	box = hash_lookup(xboxen, macaddr);
 	if (box == NULL) {
-		debuglog(1, "New xbox found: %s", ether_ntoa((struct ether_addr *)macaddr));
+		hscan_t hs;
+		hnode_t *node;
+
+		//fprintf(stderr, "NEW XBOX FOUND: %s / LOCATION: %s\n", 
+				  //ether_ntoa((struct ether_addr *)macaddr),
+				  //(ppt == NULL ? "Local" : inet_ntoa(ppt->addr)));
+
+
+		debuglog(1, "NEW XBOX FOUND: %s", ether_ntoa((struct ether_addr *)macaddr));
 		debuglog(1, "\tLocation: %s", (ppt == NULL ? "Local" : inet_ntoa(ppt->addr)));
 		newbox = malloc(sizeof(xbox_t));
 		memcpy(newbox->macaddr,macaddr,ETHER_ADDR_LEN);
+		//fprintf(stderr, "Stored macaddr: %s\n\n", ether_ntoa((struct ether_addr *)(newbox->macaddr)));
 		newbox->lastseen = time(NULL);
 		newbox->proxy = ppt;
-		hash_alloc_insert(xboxen, macaddr, newbox);
+		//hash_alloc_insert(xboxen, macaddr, newbox);
+		hash_alloc_insert(xboxen, newbox->macaddr, newbox);
 		if (ppt != NULL) 
-			hash_alloc_insert(ppt->xboxen, macaddr, newbox);
+			hash_alloc_insert(ppt->xboxen, newbox->macaddr, newbox);
+
+		/* Check known proxy connections for data */
+		hash_scan_begin(&hs, xboxen);
+		fprintf(stderr, "KNOWN XBOXES:\n");
+		while ((node = hash_scan_next(&hs))) {
+			xbox_t *x = (xbox_t *)(node->hash_data);
+			fprintf(stderr, "XBOX: %s\n", ether_ntoa((struct ether_addr *)x->macaddr));
+		}
+		fprintf(stderr, "END\n");
 	}
 }
 
@@ -208,7 +231,8 @@ void pcap(void *args) {
 	bpf_u_int32	mask, net;
 
 	pcap_lookupnet(pcapdev, &net, &mask, errbuf);
-	handle = pcap_open_live(pcapdev, BUFSIZ, 1, 1000, errbuf);
+	/* A generous cap length */
+	handle = pcap_open_live(pcapdev, 2048, 1, 10, errbuf);
 
 	if (handle == NULL) {
 		debuglog(0, "Error trying to open %s: %s", pcapdev, errbuf);
@@ -224,12 +248,11 @@ void pcap(void *args) {
 
 	debuglog(2, "Opened %s, listening for xbox traffic", pcapdev);
 
-	pcap_compile(handle, &filter, filter_app, 0, net);
+	pcap_compile(handle, &filter, filter_app, 1, net);
 	pcap_setfilter(handle, &filter);
-	for (;;)
-		pcap_loop(handle, 1, packet_handler, NULL);
+	//for (;;)
+	pcap_loop(handle, -1, packet_handler, NULL);
 
-	/* We'll never get here... but it's a nice thought */
 	pcap_close(handle);
 
 	pthread_exit(NULL);
@@ -270,7 +293,6 @@ void proxy(void *args) {
 		connect_to_proxy();
 	}
 
-
 	for (;;) {
 		int fd;
 		struct sockaddr_in srcaddr;
@@ -298,14 +320,14 @@ void proxy(void *args) {
 			hscan_t hs;
 			hnode_t *node;
 
-			debuglog(1, "Data ready from %d descriptors", sel);
+			debuglog(15, "Data ready from %d descriptors", sel);
 
 			/* Check known proxy connections for data */
 			hash_scan_begin(&hs, proxies);
 			while ((node = hash_scan_next(&hs))) {
 				proxy_t *p = (proxy_t *)(node->hash_data);
 				if (FD_ISSET(p->fd, &proxysocks)) {
-					debuglog(1, "Data received from %s", inet_ntoa(p->addr));
+					debuglog(13, "Data received from %s", inet_ntoa(p->addr));
 					if (recv_from_proxy(p) > 0 )
 						FD_SET(p->fd, &proxysocks);
 					else
@@ -407,7 +429,7 @@ int recv_from_proxy(proxy_t *ppt) {
 	} else {
 		bytes = recv(ppt->fd, &pktlen, 4, 0);
 	}
-	debuglog(1, "[%d] %d", bytes, pktlen);
+	debuglog(100, "Bytes read: [%d] %d", bytes, pktlen);
 
 	/* if bytes read is 0, then the connection was closed. */
 	if (bytes < 0) {
@@ -417,7 +439,6 @@ int recv_from_proxy(proxy_t *ppt) {
 		remove_proxy(ppt);
 		return 0;
 	}
-
 
 	packet = malloc(pktlen);
 	bytes = recv(ppt->fd, packet, pktlen, 0);
@@ -456,8 +477,8 @@ void distribute_packet(proxy_t *ppt, char *packet, int pktlen) {
 	eptr = (struct ether_header *)packet;
 	ether_type = ntohs(eptr->ether_type);
 
-	debuglog(3, "REMOTE PACKET From: %s", ether_ntoa((struct ether_addr *)eptr->ether_shost));
-	debuglog(3, "REMOTE PACKET To: %s", ether_ntoa((struct ether_addr *)eptr->ether_dhost));
+	debuglog(30, "----- REMOTE PACKET From: %s", ether_ntoa((struct ether_addr *)eptr->ether_shost));
+	debuglog(30, "----- REMOTE PACKET To: %s", ether_ntoa((struct ether_addr *)eptr->ether_dhost));
 
 	bytes = libnet_write_link_layer(libnet, pcapdev, packet, pktlen);
 
@@ -467,7 +488,8 @@ void distribute_packet(proxy_t *ppt, char *packet, int pktlen) {
 		debuglog(0, "FATAL ERROR WRITING RAW PACKET TO DEVICE");
 		debuglog(0, "FATAL ERROR WRITING RAW PACKET TO DEVICE");
 	} else {
-		debuglog(0, "Packet dumped on local net, bytes vs length = %d vs %d", bytes, pktlen);
+		debuglog(4, "Packet dumped on local net (%s), bytes vs length = %d vs %d", 
+					pcapdev, bytes, pktlen);
 	}
 
 	if (get_log_level() > 10)
