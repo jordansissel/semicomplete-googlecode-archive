@@ -61,13 +61,15 @@ sub new {
 			                     },
 	};
 
+	bless $self, $class;
+
 	my %args = @_;
 
 	while (my ($key, $val) = each(%args)) {
 		$self->{$key} = $val;
 	}
 
-	bless $self, $class;
+	$self->url($self->{"uri"}) if (defined($self->{"uri"}));
 
 	return $self;
 }
@@ -150,8 +152,8 @@ sub url($;$) {
 	my $self = shift;
 	my $url = shift;
 
-
 	if (defined($url)) {
+		print "Setting URL\n";
 		my $uri = URI->new($url);
 
 		$self->{"host"} = $uri->host();
@@ -163,7 +165,7 @@ sub url($;$) {
 		$self->{"http_action"} |= "GET";
 
 	} else {
-		return $self->{"url"};
+		return $self->{"uri"};
 	}
 }
 
