@@ -26,8 +26,6 @@
 #    - Doesn't let you fully customize mhstore-store parameters. 
 #      For now, if you insist on having your own mhstore-store entries, you
 #      *MUST* use %m%P as the FIRST part of the filename.
-#    - Won't do pgp_verify_command on mail that is a single part mail with
-#      the pgp signature at the bottom, yet.
 #
 
 use strict;
@@ -153,7 +151,7 @@ $TMP = "/tmp" unless($TMP);  #nmh defaults to /tmp
 
 # HTML Enable? {{{
 my $HTML_ENABLE;
-$HTML_ENABLE = 1 if ($VBROWSER =~ /(cat|w3m|links|lynx)/);
+$HTML_ENABLE = 1 if ($VBROWSER =~ /(w3m|links|lynx)/);
 my $MHL_PROG = "/usr/local/libexec/nmh/mhl";
 my $MHL_HTML_OPTS = "-form mhl.html";
 my $MHL_PLAIN_OPTS = "";
@@ -277,13 +275,13 @@ while (<MAIL>) {
 	 next;
       }
 
-      if ($lookforctype == 1) {
-	 if (m,^Content-Type: ([a-z-]+/[a-z-]+),i) {
+      #if ($lookforctype == 1) {
+	 #if (m,^Content-Type: ([a-z-]+/[a-z-]+),i) {
 	    #print "Part " . (scalar(@part_types) + 1) . ": $1\n";
-	    push(@part_types,$1);
-	    $lookforctype = 0;
-	 }
-      }
+	    ##push(@part_types,$1);
+	    #$lookforctype = 0;
+	 #}
+      #}
 
    }
 } 
@@ -299,183 +297,174 @@ my $template = "$mail";
 my $templatereg = '^'.$mail.'\.[0-9]+\.';
 #}}}
 
-#if ($ctype =~ m,^multipart/,i) { # handle multipart mail
 # Handle the mail, multipart or otherwise, it doesn't matter anymore! =) {{{
-   $ctype = "text/plain" if ($ctype =~ m/^$/);
-   print STDERR "Parsing multipart mail ($ctype)\n";
-   system("rm $TMP/$template* > /dev/null 2>&1");
+$ctype = "text/plain" if ($ctype =~ m/^$/);
+print STDERR "Parsing multipart mail ($ctype)\n";
+system("rm $TMP/$template* > /dev/null 2>&1");
 
-   my %parts;
+my %parts;
 
-   my $partlist = `mhlist -noheaders`;
-   my @fileparts;
-   foreach (split("\n",$partlist)) {
-      next if (m,multipart,i);
-      chomp(); s/^\s+//;
-      my ($part,$type,$size,$desc) = split(/\s+/,$_,4);
-      $parts{$part} = { 'type' => $type, 'size' => $size, 
-                        'desc' => $desc, 'part' => $part };
-      my $storefile = `mhstore -part $part 2>&1`;
-      chomp($storefile);
-      $storefile =~ s/^mhstore:.*\n//;  # Slurp out errors
-      $storefile =~ s/^.*as file //;
-      $parts{$part}->{'file'} = $storefile;
-      push(@fileparts,"$storefile");
+my @partlist = split("\n",`mhlist -noheaders`);
+my @fileparts;
+my $x = 1;
+foreach (@partlist) {
+   next if (m,multipart,i);
+   chomp(); s/^\s+//;
+   my ($part,$type,$size,$desc) = split(/\s+/,$_,4);
+   push(@part_types,$type);
+   $parts{$x} = { 'type' => $type, 'size' => $size, 
+		  'desc' => $desc, 'part' => $x };
+   my $storefile = `mhstore -part $part 2>&1`;
+   chomp($storefile);
+   $storefile =~ s/^mhstore:.*\n//;  # Slurp out errors
+   $storefile =~ s/^.*as file //;
+   $parts{$x}->{'file'} = $storefile;
+   push(@fileparts,"$storefile");
+   $x++;
+}
+
+#system("mhstore");
+
+#print "Files: " . join(" | ", @fileparts) . "\n";
+
+# If part 2 is html, then open it first assuming that this email was dually
+# sent as text/plain and text/html.
+my $mailpart;
+if ( ($HTML_ENABLE) &&
+     ($parts{2}{type} =~ m/\.html$/ && ($mailpart = $parts{2})) || 
+     ($parts{1}{type} =~ m/\.html$/ && ($mailpart = $parts{1})) ) {
+   my $tmpfile = "$TMP/.headers.$fr.$mail";
+   print STDERR "Starting browser (Probably HTML Mail)\n";
+
+   open(BROWSER, "$BROWSER");
+   browser_set_content_type("text/plain") unless ($HTML_ENABLE);
+   browser_set_content_type("text/html") if ($HTML_ENABLE);;
+
+   mhl_write_headers($tmpfile);
+   browser_print("< $tmpfile","text/mail-header");
+   browser_print("< $TMP/$mailpart");
+
+
+   undef($parts{$_});
+   mime_for_you(\%parts,@fileparts);
+
+   close(BROWSER);
+   check_open_browser();
+
+   system("rm $tmpfile");
+} else {
+   # This doesn't appear to be an html mail, let's deduce what it is...
+
+   print STDERR "Starting browser (Multipart mail)\n";
+
+   open(BROWSER, "$BROWSER");
+   browser_set_content_type("text/plain") unless ($HTML_ENABLE);
+   browser_set_content_type("text/html") if ($HTML_ENABLE);;
+   print STDERR "Browser type: $browser_content_type\n";
+
+   my $tmpfile = "$TMP/.headers.$fr.$mail";
+   mhl_write_headers($tmpfile);
+   #print STDERR "Printing headers ($tmpfile)\n";
+   browser_print("< $tmpfile","text/mail-header");
+
+   # Do PGP stuff first?
+   my $DO_PGP;
+   my $PGP_TYPE; 
+   chomp(my $pgp_plain_test = `head -n 1 $fileparts[0]`);
+   if ($pgp_plain_test eq '-----BEGIN PGP SIGNED MESSAGE-----') {
+      $DO_PGP = 1; $PGP_TYPE = 1;
    }
-
-   #system("mhstore");
-
-   #print "Files: " . join(" | ", @fileparts) . "\n";
-
-   # If part 2 is html, then open it first assuming that this email was dually
-   # sent as text/plain and text/html.
-   my $mailpart;
-   if ( ($HTML_ENABLE) &&
-        ($parts{2}{type} =~ m/\.html$/ && ($mailpart = $parts{2})) || 
-	($parts{1}{type} =~ m/\.html$/ && ($mailpart = $parts{1})) ) {
-      my $tmpfile = "$TMP/.headers.$fr.$mail";
-      print STDERR "Starting browser (Probably HTML Mail)\n";
-
-      open(BROWSER, "$BROWSER");
-      browser_set_content_type("text/plain") unless ($HTML_ENABLE);
-      browser_set_content_type("text/html") if ($HTML_ENABLE);;
-
-      mhl_write_headers($tmpfile);
-      browser_print("< $tmpfile","text/mail-header");
-      browser_print("< $TMP/$mailpart");
-
-
-      undef($parts{$_});
-      mime_for_you(\%parts,@fileparts);
-
-      close(BROWSER);
-      check_open_browser();
-
-      system("rm $tmpfile");
-   } else {
-      # This doesn't appear to be an html mail, let's deduce what it is...
-
-      print STDERR "Starting browser (Multipart mail)\n";
-
-      open(BROWSER, "$BROWSER");
-      browser_set_content_type("text/plain") unless ($HTML_ENABLE);
-      browser_set_content_type("text/html") if ($HTML_ENABLE);;
-
-      my $tmpfile = "$TMP/.headers.$fr.$mail";
-      mhl_write_headers($tmpfile);
-      #print STDERR "Printing headers ($tmpfile)\n";
-      browser_print("< $tmpfile","text/mail-header");
-
-      # Do PGP stuff first?
-      my $DO_PGP;
-      my $PGP_TYPE; 
-      chomp(my $pgp_plain_test = `head -n 1 $fileparts[0]`);
-      if ($pgp_plain_test eq '-----BEGIN PGP SIGNED MESSAGE-----') {
-         $DO_PGP = 1; $PGP_TYPE = 1;
+   if (scalar(grep(/application\/pgp-signature?/,@part_types)) > 0) {
+      $DO_PGP = 1;
+      my $count = 0;
+      foreach my $part (@fileparts) {
+	 my $type = $part_types[$count];
+	 if ( (!defined($PGP_TYPE->{'plain'})) && ($type =~ m,text/(plain|html),) ) {
+	    $PGP_TYPE->{'plain'} = $part;
+	    $PGP_TYPE->{'plainidx'} = $count + 1;
+	    $PGP_TYPE->{'plaintype'} = $type;
+	 }
+	 if ( (!defined($PGP_TYPE->{'sig'})) && ($type =~ m,application/pgp-signature?,) ) {
+	    print STDERR "Sig: $part\n";
+	    $PGP_TYPE->{'sig'} = $part;
+	    $PGP_TYPE->{'sigidx'} = $count + 1;
+	 } 
+	 $count++;
       }
-      if (scalar(grep(/application\/pgp-signature/,@part_types)) > 0) {
-         $DO_PGP = 1;
-	 my $count = 0;
-	 foreach my $part (@fileparts) {
-	    my $type = $part_types[$count];
-	    if ( (!defined($PGP_TYPE->{'plain'})) && ($type =~ m,text/(plain|html),) ) {
-	       $PGP_TYPE->{'plain'} = $part;
-	       $PGP_TYPE->{'plainidx'} = $count + 1;
-	       $PGP_TYPE->{'plaintype'} = $type;
+   }
+   
+   if ($DO_PGP) {
+      # pgp-signed email {{{
+      print STDERR "pgp signature found, invoking pgp...\n";
+
+      my $pgp_verify = $pgp{'pgp_verify_command'};
+      if (ref($PGP_TYPE) eq '') {
+	 $pgp_verify =~ s,%s,,;
+	 $pgp_verify =~ s,%f,$fileparts[0],;
+      } else {
+	 $pgp_verify =~ s,%s,$PGP_TYPE->{'sig'},;
+	 $pgp_verify =~ s,%f,$PGP_TYPE->{'plain'},;
+      }
+
+      my $buffer;
+      #open(PGP_VERIFY, "$pgp_verify 2>&1 | ");
+      #$buffer = <PGP_VERIFY>; 
+      #close(PGP_VERIFY);
+     
+      # Simpler...
+      $buffer = `$pgp_verify 2>&1`;
+
+      # If we don't have this public key, fetch it.
+      my ($key,$status) = split("\n",$buffer);
+      $key =~ s/^.*key ID //;
+      if ($status =~ m,Can't check signature: public key not found,) {
+	 print STDERR "Public key not found, $key.\n";;
+	 print STDERR "gpg said:\n" . $buffer . "\n";
+	 if ($pgp{"pgp_recvkey_auto"}) {
+	    print STDERR "Key not found in keyring, automatically fetching...\n";
+	    my $pgp_recvkey = $pgp{"pgp_recvkey_command"};
+	    $pgp_recvkey =~ s/%i/$key/g;
+	    # Grab key, and reverify if we fetched it.
+	    #$buffer = `$pgp_recvkey`;
+	    system("$pgp_recvkey");
+	    $buffer = "";
+	    print STDERR $buffer . "\n";
+	    if ($? == 0) {
+	       $buffer .= "Key ID $key did not exist in your keyring, it was fetched automatically\n"; 
+	       $buffer .=  `$pgp_verify 2>&1`;
+	    } else {
+	       $buffer .= "Failed to fetch key from keyserver. Exit code $?\n";
+	       $buffer .= "Key ID: $key\n";
 	    }
-	    if ( (!defined($PGP_TYPE->{'sig'})) && ($type eq 'application/pgp-signature') ) {
-	       $PGP_TYPE->{'sig'} = $part;
-	       $PGP_TYPE->{'sigidx'} = $count + 1;
-	    } 
-	    $count++;
 	 }
       }
-      
-      if ($DO_PGP) {
-	 # pgp-signed email {{{
-	 print STDERR "pgp signature found, invoking pgp...\n";
 
-	 my $pgp_verify = $pgp{'pgp_verify_command'};
-	 if (ref($PGP_TYPE) eq '') {
-	    $pgp_verify =~ s,%s,,;
-	    $pgp_verify =~ s,%f,$fileparts[0],;
-	 } else {
-	    $pgp_verify =~ s,%s,$PGP_TYPE->{'sig'},;
-	    $pgp_verify =~ s,%f,$PGP_TYPE->{'plain'},;
-	 }
+      $buffer =~ s/gpg:\s*//g;
+      browser_print(\$buffer, "text/signature-result",2);
 
-	 my $buffer;
-	 #open(PGP_VERIFY, "$pgp_verify 2>&1 | ");
-	 #$buffer = <PGP_VERIFY>; 
-	 #close(PGP_VERIFY);
-	
-	 # Simpler...
-	 $buffer = `$pgp_verify 2>&1`;
+      undef $parts{$PGP_TYPE->{'sigidx'}} if (ref($PGP_TYPE) eq 'HASH');
 
-	 # If we don't have this public key, fetch it.
-	 my ($key,$status) = split("\n",$buffer);
-	 $key =~ s/^.*key ID //;
-	 if ($status =~ m,Can't check signature: public key not found,) {
-	    print STDERR "Public key not found, $key.\n";;
-	    print STDERR "gpg said:\n" . $buffer . "\n";
-	    if ($pgp{"pgp_recvkey_auto"}) {
-	       print STDERR "Key not found in keyring, automatically fetching...\n";
-	       my $pgp_recvkey = $pgp{"pgp_recvkey_command"};
-	       $pgp_recvkey =~ s/%i/$key/g;
-	       # Grab key, and reverify if we fetched it.
-	       #$buffer = `$pgp_recvkey`;
-	       system("$pgp_recvkey");
-	       $buffer = "";
-	       print STDERR $buffer . "\n";
-	       if ($? == 0) {
-	          $buffer .= "Key ID $key did not exist in your keyring, it was fetched automatically\n"; 
-		  $buffer .=  `$pgp_verify 2>&1`;
-	       } else {
-		  $buffer .= "Failed to fetch key from keyserver. Exit code $?\n";
-		  $buffer .= "Key ID: $key\n";
-	       }
-	    }
-	 }
+   } #}}}
 
-	 $buffer =~ s/^gpg:\s*//g;
-	 browser_print(\$buffer, "text/signature-result",2);
+   print STDERR "Printing part #1: " . $fileparts[0] . "\n";
+   browser_print("< " . $fileparts[0], $parts{1}{'type'});
 
-	 undef $parts{$PGP_TYPE->{'sigidx'}} if (ref($PGP_TYPE) eq 'HASH');
+   undef($parts{1});
 
-      } #}}}
+   mime_for_you(\%parts,@fileparts) if (scalar(@fileparts) > 1);
 
-      #print "Printing part #1: " . $fileparts[0] . "\n";
-      browser_print("< " . $fileparts[0], $parts{1}{'type'});
+   close(BROWSER);
+   check_open_browser(\@fileparts);
 
-      undef($parts{1});
+   system("rm $tmpfile > /dev/null 2>&1");
+}
 
-      mime_for_you(\%parts,@fileparts) if (scalar(@fileparts) > 1);
-
-      close(BROWSER);
-      check_open_browser(\@fileparts);
-
-      system("rm $tmpfile > /dev/null 2>&1");
+unless (($ENV{"STY"} && $SCREEN_POLICY == 1) || ($SCREEN_POLICY == 2)) {
+   foreach (@fileparts) {
+      system("rm $_ > /dev/null 2>&1");
    }
-
-   unless (($ENV{"STY"} && $SCREEN_POLICY == 1) || ($SCREEN_POLICY == 2)) {
-      foreach (@fileparts) {
-	 system("rm $_ > /dev/null 2>&1");
-      }
-   }
-#}}}
-#}}}
-#} else { # Not multipart mail. {{{
-#   $ctype = "text/plain" if ($ctype =~ m/^$/);
-#   ($ctype) = split("\n",$ctype);
-#   $ctype =~ s/;.*//; 
-#   print STDERR "Starting browser... (Plain ordinary mail / $ctype)\n";
-#   open(BROWSER,"$BROWSER") or die(":( $!");
-#   browser_set_content_type("text/plain") unless ($HTML_ENABLE);
-#   browser_set_content_type("text/html") if ($HTML_ENABLE);;
-#   browser_print("$MHL_PROG $MHL_OPTS $mail |","$ctype");
-#   close(BROWSER);
-#   check_open_browser();
-#} # }}}
+}
+# }}}
 
 sub mhl_write_headers { #{{{
    my ($out) = shift;
@@ -496,6 +485,7 @@ sub mhl_write_headers { #{{{
 sub browser_print { #{{{
    my ($what,$type,$splitter) = @_;
    my $contents;
+   print STDERR "Printing type $type\n";
 
    if (ref($what) eq 'GLOB') {
       $contents = $what;
@@ -544,7 +534,8 @@ sub browser_print { #{{{
 
    my $header_cc_kludge = 0;
 
-   if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && !$pre) { print BROWSER "<pre>"; $pre = 1; }
+   if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && !$pre) { print BROWSER ""; $pre = 1; }
+   #if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && !$pre) { print BROWSER "<pre>"; $pre = 1; }
 
    while (<$contents>) { 
       if ( ($not_real_html) && ($HTML_ENABLE) ) {
@@ -578,7 +569,8 @@ sub browser_print { #{{{
 	    } else {
 	       $not_real_html = 1;
 	    }
-	    if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && !$pre) { print BROWSER "<pre>"; $pre = 1; }
+	    if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && !$pre) { print BROWSER ""; $pre = 1; }
+	    #if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && !$pre) { print BROWSER "<pre>"; $pre = 1; }
 	 }
       } else {
 	 print BROWSER $_;
@@ -586,7 +578,8 @@ sub browser_print { #{{{
 
    }
 
-   if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && $pre) { print BROWSER "</pre>"; $pre = 0; }
+   if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && $pre) { print BROWSER ""; $pre = 0; }
+   #if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && $pre) { print BROWSER "</pre>"; $pre = 0; }
 
    if ($splitter == 2) {
       if ($HTML_ENABLE) { 
@@ -615,14 +608,16 @@ sub handle_mime_attachment { #{{{
    foreach my $pt (@plaintext_types) {
       #print STDERR "$file> ". $part->{type}. ": $pt\n";
       if ($part->{type} =~ m/^$pt$/i) {
-	 if ($part->{type} =~ m,text/html,) {
-	    print BROWSER "[ Part " . $part->{'part'} . " - " . 
-			   $part->{'desc'} . ", type=" . 
-			   $part->{'type'} . " ]<br>\n";
-	    $spl = 2;
+	 if ($HTML_ENABLE) { 
+	    print BROWSER "<hr>";
 	 } else {
-	    print BROWSER "<br>";
+	    #print BROWSER "\033[1m;--------\033[0m;";
+	    print BROWSER "--------------------------------------------------------------------------------\n";
 	 }
+	 print BROWSER "[ Part " . $part->{'part'} . " - " . 
+			$part->{'desc'} . ", type=" . 
+			$part->{'type'} . " ]\n";
+	 print BROWSER "<br><br>\n" if ($HTML_ENABLE);
          browser_print("< $file", $part->{type}, $spl);
 	 $yep = 1;
 	 last;
