@@ -234,6 +234,11 @@ sub handle_command {
 	if ('pause' =~ m/^\Q$cmd\E/) {
 		signal_event("client_pause", $player);
 	} elsif ('play' =~ m/^\Q$cmd\E/) {
+		if ($args =~ m!^http://!) {
+			play_song($args);
+			return;
+		}
+
 		if (defined($pimp->{"jump_lists"}->{"$who"}) && length($args) > 0) {
 			my @files = @{$pimp->{"jump_lists"}->{"$who"}};
 
