@@ -351,6 +351,7 @@ sub handle_key($$) {
 
 		# If we just did a tab completion, kill the state.
 		delete($self->{"completion"}) if (defined($self->{"completion"}));
+		$self->fix_inputline();
 	}
 
 	# This is sometimes a nice feature to have...
@@ -358,7 +359,7 @@ sub handle_key($$) {
 	$self->{"lastchar"} = $char;
 	$self->execute_binding("ANYKEY");
 
-	$self->fix_inputline();
+	#$self->fix_inputline();
 }
 
 =pod
@@ -517,7 +518,7 @@ sub fix_inputline ($) {
 	# only print as much as we can in this one line.
 	my $prompt = $self->{"input_prompt"};
 	my $offset = 0;
-	if ($self->{"leftcol"} < length($self->{"input_prompt"})) {
+	if ($self->{"leftcol"} <= length($self->{"input_prompt"})) {
 		print substr($prompt,$self->{"leftcol"});
 		$offset = length(substr($prompt,$self->{"leftcol"}));
 	}
@@ -558,7 +559,7 @@ sub kill_line {
 	my $self = shift;
 
 	# Ask for more data perhaps...
-	#$self->callback("fardelete") if (length($self->{"input_line"}) == 0);
+	$self->callback("fardelete");# if (length($self->{"input_line"}) == 0);
 
 	$self->{"input_line"} = "";
 	$self->{"input_position"} = 0;
@@ -591,12 +592,10 @@ sub delete_char_backward {
 	my $self = shift;
 
 	$self->callback("fardelete") if (length($self->{"input_line"}) == 0);
-	
 
 	if ($self->{"input_position"} > 0) {
 		substr($self->{"input_line"}, $self->{"input_position"} - 1, 1) = '';
 		$self->{"input_position"}--;
-
 		$self->fix_inputline();
 	}
 }
@@ -759,12 +758,12 @@ sub vi_jumpchar {
 	$mod = ($self->{"jumpchardir"} & JUMP_CHARTO ? 1 : -1);
 
 	if ($mod == 1) {
-		$self->out("F: $line / $pos / " . $line =~ m/^(.{$pos}[^$char]*)$char/);
-		$self->out("   " . " " x ($pos) . "^                   / $1");
+		#$self->out("F: $line / $pos / " . $line =~ m/^(.{$pos}[^$char]*)$char/);
+		#$self->out("   " . " " x ($pos) . "^                   / $1");
 		$pos = length($1) if (defined($1));
 	} else {
-		$self->out("B: $line / $pos / " . $line =~ m/$char([^$char]*.{$pos})$/);
-		$self->out("   " . " " x ($pos - 1) . "^              / $1");
+		#$self->out("B: $line / $pos / " . $line =~ m/$char([^$char]*.{$pos})$/);
+		#$self->out("   " . " " x ($pos - 1) . "^              / $1");
 		$pos = length($line) - length($1) if (defined($1));
 	}
 	$self->{"input_position"} = $pos;
@@ -838,7 +837,9 @@ sub vi_delete {
 
 	if ($exec == 1) {
 		my ($start, $end);
-	$self->callback("fardelete") if (length($self->{"input_line"}) == 0);
+
+		$self->callback("fardelete") if (length($self->{"input_line"}) == 0);
+
 		if ($self->{"input_position"} < $self->{"vi_input_position"}) {
 			$start = $self->{"input_position"};
 			$end = $self->{"vi_input_position"};
@@ -1010,7 +1011,7 @@ sub find_word_bound ($$$$;$) {
 		$rx = qr/^.{$pos}(.+?)$rx(?:$nrx|$)/;
 	}
 
-	$self->out("$rx");
+	#$self->out("$rx");
 
 	if ($line =~ $rx) {
 		$pos += length($1) * $mod;
