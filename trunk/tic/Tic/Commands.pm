@@ -68,24 +68,32 @@ HELP
 
 sub command_help {
 	return "%c"if ($_[0] eq "completion");
-	return << "HELP" if ($_[0] eq "help");
+	if ($_[0] eq "help") {
+		my $commands = join(" ",map("/$_",sort(keys(%{$state->{"commands"}}))));
+		#$commands = join("\n", split(/^.{1,75} /,$commands));
+		return << "HELP";
 Syntax: /help <command>
+
+Available Commands:
+$commands
 
 Features worth knowing about:
  - Tab completion: You can tab-complete aliases, commands, and screennames
    (depending on where they are in the command prompt)
  - Aliases: Tired of typing /msg foobar? Make an alias of it! See /help /alias
- - 
 HELP
+	} # if "help"
 
 	my $what =~ s/\s.*//;
 	my ($state,$what) = @_;
 	$what =~ s/\s.*//;
+
+	$what = "help" unless ($what ne "");
 	if (defined($what)) {
 		$what =~ s!^/!!;
 		my $cmd = $state->{"commands"}->{$what};
 		if (defined($cmd)) {
-			print STDERR "CMD: $cmd\n";
+			#print STDERR "CMD: $cmd\n";
 			prettyprint($state,"help", { help => &{$cmd}("help") } );
 			return;
 		}
