@@ -28,6 +28,9 @@ void log(int level, const char *format, ...) {
 	char date_string[64];
 	time_t ttime;
 
+	if (level > loglevel)
+		return;
+
 	/* Check if logfile's been opened */
 	if (logfile == NULL) {
 		logfile = stdout;
