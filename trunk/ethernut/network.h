@@ -9,7 +9,7 @@
 
 #define DISCOVERY_PORT 3000
 #define DISCOVERY_MESSAGE "Hello!"
-#define DISCOVERY_INTERVAL 1
+#define DISCOVERY_INTERVAL 10
 
 typedef struct nut {
 	//unsigned int ip;
@@ -38,7 +38,10 @@ void network_start_thread();
 /* The actual network thread */
 void network_thread(void *args);
 
+/* The pinger thread */
+void network_pingthread(void *args);
+
 /* Register a new EtherNut that was found */
-void network_addnut(unsigned int ip);
+void network_addnut(struct in_addr ip);
 
 #endif
