@@ -81,7 +81,7 @@ libnet_t *libnet;
 #endif
 
 void addxbox(u_char *macaddr, proxy_t *ppt);
-void addproxy(struct sockaddr_in *addr, int sock);
+proxy_t *addproxy(struct sockaddr_in *addr, int sock);
 void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 						  const u_char *packet);
 void remove_proxy(proxy_t *ppt);
@@ -95,10 +95,60 @@ int comparemac(const void *k1, const void *k2) {
 
 int compareip(const void *k1, const void *k2) {
 	int a, b;
-	a = *(int *)k1;
-	b = *(int *)k2;
+	a = *(unsigned int *)k1;
+	b = *(unsigned int *)k2;
+
+	debuglog(20, "compareip: %08x vs %08x = %d", a, b, (a < b ? -1 : (a > b ? 1 : 0)) );
 
 	return (a < b ? -1 : (a > b ? 1 : 0));
+}
+
+hash_val_t haship(const void *key) {
+	static unsigned long randbox[] = {
+		0x49848f1bU, 0xe6255dbaU, 0x36da5bdcU, 0x47bf94e9U,
+		0x8cbcce22U, 0x559fc06aU, 0xd268f536U, 0xe10af79aU,
+		0xc1af4d69U, 0x1d2917b5U, 0xec4c304dU, 0x9ee5016cU,
+		0x69232f74U, 0xfead7bb3U, 0xe9089ab6U, 0xf012f6aeU,
+	};
+
+	const unsigned char *str = key;
+	int c = 0;
+	hash_val_t acc = 0;
+
+	while (c < sizeof(int)) {
+		acc ^= randbox[(*str + acc) & 0xf];
+		acc = (acc << 1) | (acc >> 31);
+		acc &= 0xffffffffU;
+		acc ^= randbox[((*str++ >> 4) + acc) & 0xf];
+		acc = (acc << 2) | (acc >> 30);
+		acc &= 0xffffffffU;
+		c++;
+	}
+	return acc;
+}
+
+hash_val_t hashmac(const void *key) {
+	static unsigned long randbox[] = {
+		0x49848f1bU, 0xe6255dbaU, 0x36da5bdcU, 0x47bf94e9U,
+		0x8cbcce22U, 0x559fc06aU, 0xd268f536U, 0xe10af79aU,
+		0xc1af4d69U, 0x1d2917b5U, 0xec4c304dU, 0x9ee5016cU,
+		0x69232f74U, 0xfead7bb3U, 0xe9089ab6U, 0xf012f6aeU,
+	};
+
+	const unsigned char *str = key;
+	int c = 0;
+	hash_val_t acc = 0;
+
+	while (c < ETHER_ADDR_LEN) {
+		acc ^= randbox[(*str + acc) & 0xf];
+		acc = (acc << 1) | (acc >> 31);
+		acc &= 0xffffffffU;
+		acc ^= randbox[((*str++ >> 4) + acc) & 0xf];
+		acc = (acc << 2) | (acc >> 30);
+		acc &= 0xffffffffU;
+		c++;
+	}
+	return acc;
 }
 
 /* 
@@ -111,6 +161,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 	eptr = (struct ether_header *) packet;
 
 	/* Try adding this xbox to the list */
+	//debuglog(1, "Adding xbox in packet_handler");
 	addxbox(eptr->ether_shost, 0);
 
 	/* If this packet is sent to our local net, ignore it... */
@@ -183,7 +234,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 			to.sin_port = htons(serverport);
 			to.sin_family = PF_INET;
 
-			sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
+			//sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
 			sendto(p->fd, packet, head->caplen, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
 		} else {
 			write(p->fd, &(head->caplen), 4); /* First 4 bytes is the size */
@@ -194,9 +245,11 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 
 }
 
-void addproxy(struct sockaddr_in *addr, int sock) {
+proxy_t *addproxy(struct sockaddr_in *addr, int sock) {
 	proxy_t *newproxy = NULL;
 	hnode_t *proxy = NULL;
+
+	debuglog(5, "Data from proxy: %s", inet_ntoa(addr->sin_addr));
 
 	proxy = hash_lookup(proxies, &(addr->sin_addr.s_addr));
 	if (proxy == NULL) {
@@ -207,22 +260,30 @@ void addproxy(struct sockaddr_in *addr, int sock) {
 		newproxy->ip = (int) addr->sin_addr.s_addr;
 		newproxy->addr = addr->sin_addr;
 		newproxy->fd = sock;
-		newproxy->xboxen = hash_create(64, comparemac, NULL);
-
-		hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
+		newproxy->xboxen = hash_create(64, comparemac, hashmac);
 
 		debuglog(1, "NEW PROXY FOUND: %s", inet_ntoa(addr->sin_addr));
+		hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
 
 		/* Check known proxy connections for data */
 		hash_scan_begin(&hs, proxies);
 		fprintf(stderr, "KNOWN PROXIES:\n");
 		while ((node = hash_scan_next(&hs))) {
 			proxy_t *p = (proxy_t *)(node->hash_data);
+			struct sockaddr_in i;
+			i.sin_addr.s_addr = *(int *)(node->hash_key);
 			fprintf(stderr, "PROXY: %s\n", inet_ntoa(p->addr));
 		}
 		fprintf(stderr, "END\n");
+
+
+		return newproxy;
+	} else {
+		debuglog(15, "Packet from known proxy...");
+		return (proxy->hash_data);
 	}
 }
+
 
 void addxbox(u_char *macaddr, proxy_t *ppt) {
 	xbox_t *newbox = NULL;
@@ -375,8 +436,10 @@ void proxy(void *args) {
 
 			if (use_udp) {
 				if (FD_ISSET(server, &proxysocks)) {
+					proxy_t p;
+					p.fd = server;
 					debuglog(13, "Data received on udp");
-					if (recv_from_proxy(NULL) > 0 )
+					if (recv_from_proxy(&p) > 0 )
 						FD_SET(server, &proxysocks);
 					else
 						FD_CLR(server, &proxysocks);
@@ -384,7 +447,7 @@ void proxy(void *args) {
 					FD_SET(server, &proxysocks);
 				}
 
-			} else {
+			} else { /* if using tcp... */
 				/* Check known proxy connections for data */
 				hash_scan_begin(&hs, proxies);
 				while ((node = hash_scan_next(&hs))) {
@@ -402,7 +465,7 @@ void proxy(void *args) {
 
 				debuglog(14,"Data from a connected proxy client!");
 				if (FD_ISSET(server, &proxysocks)) {
-					proxy_t *newproxy;
+					//proxy_t *newproxy;
 
 					if ((fd = accept(server, (struct sockaddr *)&srcaddr, &size)) < 0) {
 						debuglog(0, "accept() failed: %s", strerror(errno));
@@ -412,7 +475,7 @@ void proxy(void *args) {
 					/* Check bufsize... */
 					do {
 						int bufsiz;
-						int sizeofthing;
+						int sizeofthing = 4;
 						getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &bufsiz, &sizeofthing);
 						debuglog(0, "Socket rcvbuf: %d", bufsiz);
 						getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &bufsiz, &sizeofthing);
@@ -423,18 +486,21 @@ void proxy(void *args) {
 					debuglog(1, "New proxy connection from %s:%d",
 								inet_ntoa(srcaddr.sin_addr), htons(srcaddr.sin_port));
 
+					/*
 					newproxy = malloc(sizeof(proxy_t));
 					newproxy->ip = (int) srcaddr.sin_addr.s_addr;
 					newproxy->addr = srcaddr.sin_addr;
 					newproxy->fd = fd;
-					newproxy->xboxen = hash_create(64, comparemac, NULL);
+					newproxy->xboxen = hash_create(64, comparemac, hashmac);
 
 					hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
+					*/
+					addproxy(&srcaddr, fd);
 					FD_SET(fd, &proxysocks);
 				} 
-			}
-		}
-	}
+			} /* else if using udp */
+		} /* else, selected data is available */
+	} /* infinite loop */
 }
 
 void connect_to_proxy() {
@@ -443,7 +509,7 @@ void connect_to_proxy() {
 	struct hostent *hostdata;
 	struct in_addr in;
 
-	proxy_t *newproxy;
+	//proxy_t *newproxy;
 
 	if (use_udp) {
 		if ((sock = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -472,12 +538,17 @@ void connect_to_proxy() {
 	destaddr.sin_addr = in;
 	destaddr.sin_port = htons(serverport);
 
-	if (!use_udp) {
+	if (use_udp) {
+		if (sendto(sock, NULL, 0, 0, (struct sockaddr *)&destaddr, sizeof(struct sockaddr)) < 0) {
+			debuglog(0, "sendto() failed [while saying hi]: %s", strerror(errno));
+			pthread_exit(NULL);
+		}
+	} else {
 		if (connect(sock, (struct sockaddr *)&destaddr, sizeof(struct sockaddr))) {
 			debuglog(0, "connect() failed: %s", strerror(errno));
 			pthread_exit(NULL);
 		}
-	}
+	} 
 
 
 	/* After we establish a connection with the proxy server host,
@@ -485,13 +556,16 @@ void connect_to_proxy() {
 	 * (us being the client). Now, add it to the list of
 	 * known proxies and move along.
 	 */
+	/*
 	newproxy = malloc(sizeof(proxy_t));
 	newproxy->ip = (int) destaddr.sin_addr.s_addr;
 	newproxy->addr = destaddr.sin_addr;
 	newproxy->fd = sock;
-	newproxy->xboxen = hash_create(64, comparemac, NULL);
+	newproxy->xboxen = hash_create(64, comparemac, hashmac);
 
 	hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
+	*/
+	addproxy(&destaddr, sock);
 	FD_SET(sock, &proxysocks);
 }
 
@@ -523,17 +597,20 @@ int recv_from_proxy(proxy_t *ppt) {
 
 	if (use_udp) {
 		struct sockaddr_in from;
-		int len;
+		int len = sizeof(struct sockaddr);
 		bytes = recvfrom(ppt->fd, packet, pktlen, 0, (struct sockaddr *)&from, &len);
+		pktlen = bytes; /* XXX: Is this a good idea? */
 
-		/* sock is -1 becuase this is udp, we don't have a socket really... */
-		addproxy(&from, ppt->fd);
+		ppt = addproxy(&from, ppt->fd);
 	} else {
 		bytes = recv(ppt->fd, packet, pktlen, 0);
 	}
 
 	if (bytes < 0) {
-		debuglog(0, "recv_from_proxy - recv() (2) failed: %s", strerror(errno));
+		if (use_udp)
+			debuglog(0, "recv_from_proxy - recvfrom() (2) failed: %s", strerror(errno));
+		else
+			debuglog(0, "recv_from_proxy - recv() (2) failed: %s", strerror(errno));
 		return bytes;
 	} if (bytes == 0) {
 		if (!use_udp) 
@@ -541,6 +618,7 @@ int recv_from_proxy(proxy_t *ppt) {
 		return 0;
 	}
 
+	//debuglog(1, "Adding xbox in  recv_from_proxy");
 	addxbox(((struct ether_header *)packet)->ether_shost, ppt);
 
 	debuglog(1, "Packet received from %s. Length: %d vs %d (%s)", 
@@ -613,8 +691,8 @@ int main(int argc, char **argv) {
 	char ch;
 
 	/* Initialization and Defaults */
-	xboxen = hash_create(64, comparemac, NULL);
-	proxies = hash_create(64, compareip, NULL);
+	xboxen = hash_create(64, comparemac, hashmac);
+	proxies = hash_create(64, compareip, haship);
 	set_log_level(0);
 
 	pthread_t pcapthread, proxythread;
