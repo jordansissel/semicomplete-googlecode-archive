@@ -3,7 +3,7 @@ package Tic::Commands;
 
 use strict;
 use Tic::Common;
-use vars ('@ISA', '@EXPORT');
+use vars qw(@ISA @EXPORT);
 use Exporter;
 
 @ISA = qw(Exporter);
@@ -50,15 +50,23 @@ sub set_config {
 }
 
 sub command_msg {
-	return "%s"if ($_[0] eq "completion");
+	return "%s" if ($_[0] eq "completion");
 	return << "HELP" if ($_[0] eq "help");
 Syntax: /msg <screenname> <message>
 HELP
 
-	$state = shift;
-	my ($args) = @_;
 	my $aim = $state->{"aim"};
-	my ($sn, $msg) = split(/\s+/, $args, 2);
+
+	$state = shift;
+
+	my ($args) = @_;
+	my ($sn, $msg);
+  
+	if (scalar(@_) == 1) {
+		($sn, $msg) = split(/\s+/, $args, 2);
+	} else {
+		($sn, $msg) = @_;
+	} 
 	
 	$aim->send_im($sn, $msg);
 	if (($state->{"logging"}->{"who_log"}->{$sn} == 1) || ($state->{"config"}->{"logging"} eq "all")) {
@@ -242,14 +250,6 @@ HELP
 			login();
 		}
 	}
-}
-
-sub login {
-	my ($user, $pass);
-	$user = query("login: ");
-	$pass = query("password: ", 1);
-	$state->{"signingon"} = 1;
-	$state->{"aim"}->signon($user,$pass);
 }
 
 sub command_quit {
