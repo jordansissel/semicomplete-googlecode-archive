@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.5  2004/01/19 19:23:13  psionic
+ *   - validateArguments changed to public from protected
+ *
  *   Revision 1.4  2004/01/19 05:56:00  psionic
  *   *** empty log message ***
  *
@@ -38,17 +41,20 @@ public class FireCommand extends Command {
 		this.args = this.parseArgs(args);
 	}
 
-	protected boolean validateArguments() 
+	public boolean validateArguments() 
 	        throws InvalidCommandArgumentsException {
+		System.err.println("FireCommand validateArguments()");
 
 		// Number of arguments
-		if (args.size() != 2) {
+		if (this.args.size() != 2) {
+			System.err.println("- Failed num args");
 			return false;
 		}
 
 		// First Argument
 		String arg = (String) args.get(0);
 		if ( (arg.length() > 1) || (!arg.matches("[a-jA-J]")) ) {
+			System.err.println("- Failed arg 1");
 			return false;
 		}
 
@@ -56,6 +62,7 @@ public class FireCommand extends Command {
 		try {
 			Integer i = new Integer((String)args.get(1));
 		} catch (Exception e) {
+			System.err.println("- Failed arg 1");
 			return false;
 		}
 
