@@ -84,17 +84,17 @@ HELP
 		delete($state->{"away_responding"}->{"$sn"});
 	}
 
-	$msg = encode_entities($msg);
-	$aim->send_im($sn, $msg, $away);
 	my $wholog = get_config("who_log");
 	if ((get_config("logging") eq "all" || ((ref($wholog) eq 'HASH' && $wholog->{"$sn"} == 1)))) {
 		prettylog($state,"out_msg", { sn => $sn, msg => $msg } );
 	}
 	prettyprint($state,"out_msg", { sn => $sn, msg => $msg } );
+
+	$aim->send_im($sn, encode_entities($msg), $away);
 }
 
 sub command_help {
-	return "%c"if ($_[0] eq "completion");
+	return "%c" if ($_[0] eq "completion");
 	if ($_[0] eq "help") {
 		my $commands = join(" ",map("/$_",sort(keys(%{$state->{"commands"}}))));
 		#$commands = join("\n", split(/^.{1,75} /,$commands));
@@ -435,7 +435,7 @@ HELP
 
 	$state = shift;
 	my ($args) = @_;
-	$sh->out("command_timestamp($state,$args)");
+	#$sh->out("command_timestamp($state,$args)");
 
 	if ($args =~ m/^(yes|on|plz)$/i) {
 		$state->{"timestamp"} = 1;
@@ -598,8 +598,8 @@ HELP
 sub command_away {
 	return "%s" if ($_[0] eq 'completion');
 	return << "HELP" if ($_[0] eq "help");
-Syntax: /delbuddy <buddy name>
-Deletes a buddy from your buddy list. Put quotes around the name if there are spaces in it. 
+Syntax: /away [ message ]
+Sets away if you include an away message. Sets you back (not away) if no message is given.
 HELP
 	$state = shift;
 
