@@ -5,7 +5,7 @@ CREATE TABLE public.sources (
 	feed         VARCHAR(200),       -- url where the feed can be found
 	url          VARCHAR(200),       -- url of the website 
 	type         VARCHAR(10),        -- type of the feed (rss, atom, etc)
-	lastupdate   DATE,               -- date this feed was last updated
+	lastupdate   TIMESTAMP,          -- date this feed was last updated
 	id           SERIAL,
 	PRIMARY KEY (id)
 );
@@ -28,10 +28,17 @@ CREATE TABLE public.users (
 CREATE TABLE public.articles (
 	sourceid        INTEGER REFERENCES sources (id) ON DELETE CASCADE,
 	url             VARCHAR(250),    -- url of this article
-	title           VARCHAR(100),    -- title of the article
+	title           VARCHAR(200),    -- title of the article
 	descr           TEXT,            -- happy description
+	lastupdate      TIMESTAMP,       -- date this article was found/updated
 	id              SERIAL,
 	PRIMARY KEY (id)
+);
+
+-- Copy of articles, limited to 30 articles per source
+CREATE TABLE public.latest_articles (
+	articleid       INTEGER REFERENCES articles(id) ON DELETE CASCADE,
+	PRIMARY KEY (articleid)
 );
 
 -- Who (users) is watching what newsfeeds (sources)?
@@ -51,6 +58,6 @@ CREATE TABLE public.seen (
 -- Session identification
 CREATE TABLE public.sessions (
 	userid          INTEGER REFERENCES users (id) ON DELETE CASCADE,
-	sessionkey      VARCHAR(20),     -- session identifier, given from cookies
+	sessionkey      VARCHAR(40),     -- session identifier, given from cookies
 	UNIQUE (sessionkey)
 );
