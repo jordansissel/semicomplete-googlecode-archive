@@ -1,0 +1,17 @@
+-- Insert or update an article. 
+--    This will update an article if it already exists
+CREATE OR REPLACE RULE insert_or_update AS ON INSERT TO articles WHERE NEW.url IN (SELECT url FROM articles WHERE NEW.url = url AND NEW.sourceid = sourceid)
+	DO INSTEAD
+	UPDATE articles SET title = NEW.title, descr = NEW.descr, lastupdate = NEW.lastupdate WHERE url = NEW.url AND sourceid = NEW.sourceid; 
+      
+-- If we're already subscribed to something, don't do anything.
+CREATE OR REPLACE RULE subscribe AS ON INSERT TO watching WHERE NEW.sourceid IN (SELECT sourceid FROM watching WHERE NEW.userid = userid and NEW.sourceid = sourceid)
+	DO INSTEAD NOTHING;
+
+
+-- Copy new articles into the latest_articles table, this is pruned
+-- after updating the newslists to trim it down to 30 articles per
+-- source. Hurray.
+--CREATE OR REPLACE RULE new_article AS ON INSERT TO articles
+	--DO 
+	--INSERT INTO latest_articles (articleid) VALUES (NEW.articleid);
