@@ -4,6 +4,7 @@ package Tic::Bindings;
 use strict;
 use Tic::Common;
 use Tic::Commands;
+use Net::OSCAR qw/:standard/;
 use vars ('@ISA', '@EXPORT');
 use Exporter;
 
@@ -29,7 +30,10 @@ sub set_state {
 	$sh->{"mappings"}->{"expand-line"} = \&expand_line;
 	$sh->{"mappings"}->{"complete-lastfrom"} = \&complete_lastfrom;
 
+	$sh->out("Ref: " . ref($sh->{"mappings"}->{"kill-line"}));
+	push(@{$sh->{"mappings"}->{"kill-line"}}, \&killline_binding);
 	$sh->{"completion_function"} = \&completer;
+	$sh->{"anykey_callback"} = \&anykey_binding
 }
 
 sub prepare_completion {
@@ -47,6 +51,39 @@ sub expand_line {
    $sh->{"input_line"} = expand_aliases($string);
    $sh->{"input_position"} = length($sh->{"input_line"});
    $sh->fix_inputline();
+}
+
+sub anykey_binding { 
+	my $line = $sh->{"input_line"};
+	my $aim = $state->{"aim"};
+
+	$line = expand_aliases($line);
+
+	# Let the user know we're typing...
+
+	if ($line =~ s!^/msg\s+!!) {
+		my $sn = next_arg(\$line);
+
+		return unless defined($aim->buddy($sn)) && $aim->buddy($sn)->{"typing_status"} == 1;
+
+		if (!defined($state->{"typing_status"})) {
+			$aim->send_typing_status($sn, TYPINGSTATUS_STARTED);
+			$state->{"typing_status"} = {
+			  "status" => TYPINGSTATUS_TYPING,
+			  "sn" => $sn,
+			}
+		} else {
+			$aim->send_typing_status($sn, TYPINGSTATUS_TYPING);
+		}
+	}
+}
+
+sub killline_binding {
+	if (defined($state->{"typing_status"})) {
+		$state->{"aim"}->send_typing_status($state->{"typing_status"}->{"sn"}, 
+														TYPINGSTATUS_FINISHED);
+		delete $state->{"typing_status"};
+	}
 }
 
 sub complete_lastfrom {
