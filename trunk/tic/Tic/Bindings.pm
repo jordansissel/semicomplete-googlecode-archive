@@ -83,7 +83,7 @@ sub backward_char {
 		}
 		$ret->{-print} = "\e[D";
 	} 
-	print STDERR "Back: " . $state->{"leftcol"} . " / " . $state->{"input_position"} . "\n";
+	#print STDERR "Back: " . $state->{"leftcol"} . " / " . $state->{"input_position"} . "\n";
 
 	return ($state->{"input_line"}, undef, $ret);
 }
