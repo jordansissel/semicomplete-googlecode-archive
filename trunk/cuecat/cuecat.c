@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #define XK_MISCELLANY
+#define XK_LATIN1
 
 #include <X11/X.h>
 #include <X11/Xlib.h>
@@ -65,7 +66,7 @@ int main(int argc, char **argv) {
 		printf("Query: (%d,%d)\n", xc, yc);
 	*/ }
 
-	//ret = XAllowEvents(dpy, AsyncBoth, CurrentTime);
+	ret = XAllowEvents(dpy, AsyncBoth, CurrentTime);
 	/*
 	if (ret) {
 		fatal2(dpy, ret, "XAllowEvents");
@@ -75,7 +76,7 @@ int main(int argc, char **argv) {
 	XSelectInput(dpy, root, KeyPressMask);
 
 	XGrabKey(dpy, XKeysymToKeycode(dpy, XK_F10), AnyModifier, 
-						root, True, GrabModeAsync, GrabModeAsync);
+						root, True, GrabModeSync, GrabModeSync);
 
 
 	for (;;) {
@@ -98,19 +99,23 @@ int main(int argc, char **argv) {
 					printf("Name: %s\n", kp);
 				}
 
-				//if (!strcmp(keyname, "F10")) {
-				if (keysym == XK_F10) {
-					XGrabKeyboard(dpy, root, True, GrabModeAsync, GrabModeAsync, CurrentTime);
-					inputoffset = 0;
-					memset(input, 0, inputlen);
-					//} else if (!strcmp(keyname, "Return")) {
-				} else if (keysym == XK_Return) {
-					printf("Input: '%s'\n", input);
-					XUngrabKeyboard(dpy, CurrentTime);
-				} else {
-					if ((kp != NULL) && (strlen(kp) == 1)) {
-						*(input + inputoffset++) = kp[0];
-					}
+				switch (keysym) {
+					case XK_F10:
+						XGrabKeyboard(dpy, root, True, GrabModeAsync, GrabModeAsync, CurrentTime);
+						inputoffset = 0;
+						memset(input, 0, inputlen);
+						break;
+					case XK_Return:
+						printf("Input: '%s'\n", input);
+						XUngrabKeyboard(dpy, CurrentTime);
+						break;
+					case XK_period:
+						*(input + inputoffset++) = '.';
+					default:
+						if ((kp != NULL) && (strlen(kp) == 1)) {
+							*(input + inputoffset++) = kp[0];
+						}
+						break;
 				}
 			}
 		}
