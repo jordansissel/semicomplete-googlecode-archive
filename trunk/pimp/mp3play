@@ -1,0 +1,149 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Audio::Mad qw(:all);
+use Audio::Ao qw(:all);
+use IO::Socket;
+use IO::Select;
+use Socket;
+use Fcntl;
+use POSIX;
+
+my $spid = fork();
+
+# IPC
+socketpair(CHILD, PARENT, AF_UNIX, SOCK_STREAM, PF_UNSPEC);
+
+if ($spid == 0) {
+	run_server();
+	
+	print STDERR "Server died!\n";
+	exit(1);
+}
+
+# More IPC...
+my $select = IO::Select->new(\*PARENT);
+$select->add(\*CHILD);
+
+my $stream   = new Audio::Mad::Stream();
+my $frame    = new Audio::Mad::Frame();
+my $synth    = new Audio::Mad::Synth();
+my $timer    = new Audio::Mad::Timer();
+my $resample = new Audio::Mad::Resample(44100, 22050);
+my $dither   = new Audio::Mad::Dither();
+
+my $buffer = join('', <STDIN>);
+$stream->buffer($buffer);
+
+#print Dumper($stream->options());
+
+initialize_ao;
+my $device = open_live(default_driver_id(), 16, 22050, 2, is_big_endian(), {});
+
+while (1) {
+	# IPC stuff
+	#print "OK!\n";
+	
+	print $select->can_read(.001) . "\n" if ($select->can_read(.01));
+	#foreach my $foo ($select->can_read(.001)) {
+		#print "$foo READY\n";
+	#}
+
+	# Audio Stuff
+	if ($frame->decode($stream) == -1) {
+		print "Done\n";
+		last unless ($stream->err_ok());
+
+		warn "decoding error: " . $stream->error();
+		next;
+	}
+
+	$synth->synth($frame);
+	my $pcm = $dither->dither($resample->resample($synth->samples()));
+
+	play($device, $pcm, length($pcm));
+	#print $pcm;
+}
+
+close_ao($device);
+shutdown_ao;
+
+
+sub run_server {
+	close(STDIN);
+	my (%ready, %buffers);
+
+	my $select = IO::Select->new();
+	my $server = IO::Socket::INET->new( Proto => "tcp",
+										  LocalPort => "3242",
+										  Listen => SOMAXCONN,
+										  Reuse => 1);
+	$select->add($server);
+	nonblock($server);
+
+	while (1) {
+		my $socket;
+
+		foreach $socket ($select->can_read(1)) {
+			if ($socket == $server) {
+				my $client = $server->accept();
+				$select->add($client);
+				nonblock($client);
+			} else {
+				my $data;
+				my $recv = $socket->recv($data, POSIX::BUFSIZ, 0);
+
+				unless (defined($recv) && length($data)) {
+					# Client disconnected, clean up.
+					delete $ready{$socket};
+					delete $buffers{$socket};
+					$select->remove($socket);
+					close($socket);
+					next;
+				} 
+
+				$buffers{$socket} .= $data;
+
+				while ($buffers{$socket} =~ s/(.*\n)//) {
+					push( @{$ready{$socket}}, $1 );
+				}
+			}	
+		}
+
+		foreach my $client (keys(%ready)) {
+			handle($client, \@{$ready{$client}});
+			delete($ready{$client});
+		}
+	}
+}
+
+sub handle {
+	my $client = shift;
+	my $lines = shift;
+
+	print "Client: $client\n";
+
+	foreach my $line (@{$lines}) {
+		chomp($line);
+		my ($cmd, $args) = split(/\s+/,$line,2);
+		$cmd = lc($cmd);
+		print "\t$cmd - $args\n";
+
+		send(PARENT,"$cmd $args\n",0) or die("$!");
+		send(CHILD,"$cmd $args\n",0) or die("$!");
+	}
+
+	$client->send("Hello!\n") or die("$!");
+}
+
+sub nonblock {
+	my $socket = shift;
+	my $flags;
+
+	$flags = fcntl($socket, F_GETFL, 0)
+		or die "Can't get flags for socket: $!\n";
+	fcntl($socket, F_SETFL, $flags | O_NONBLOCK)
+		or die "Can't make socket nonblocking: $!\n";
+}
