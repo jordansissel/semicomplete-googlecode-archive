@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.5  2004/01/20 02:36:19  tristan
+ *   added fire and fire response constants
+ *
  *   Revision 1.4  2004/01/20 02:25:30  tristan
  *   added first/second init game response
  *
@@ -35,5 +38,11 @@ public interface ProtocolConstants {
     public static final String INITGAME = "INITGAME";
     public static final int INITGAME_RESPONSE_FIRST = 104;
     public static final int INITGAME_RESPONSE_SECOND = 105;
+
+    // 200s: game state constants
+    public static final String FIRE = "FIRE";
+    public static final int FIRE_RESPONSE_HIT = 201;
+    public static final int FIRE_RESPONSE_MISS = 202;
+    
 }   // ProtocolConstants
 
