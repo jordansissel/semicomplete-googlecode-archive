@@ -1,0 +1,262 @@
+main.o main.o: main.c \
+  /opt/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.2/include/sys/types.h \
+  /usr/include/sys/feature_tests.h /usr/include/sys/ccompile.h \
+  /usr/include/sys/isa_defs.h /usr/include/sys/machtypes.h \
+  /usr/include/sys/int_types.h /usr/include/sys/select.h \
+  /usr/include/sys/time_impl.h /usr/include/sys/time.h \
+  /usr/include/time.h /usr/include/iso/time_iso.h config.h \
+  /usr/include/stdlib.h /usr/include/iso/stdlib_iso.h \
+  /usr/include/iso/stdlib_c99.h /usr/include/unistd.h \
+  /usr/include/sys/unistd.h /usr/include/errno.h /usr/include/sys/errno.h \
+  /usr/include/string.h /usr/include/iso/string_iso.h \
+  /usr/include/netdb.h /usr/include/netinet/in.h \
+  /usr/include/sys/stream.h /usr/include/sys/vnode.h \
+  /usr/include/sys/t_lock.h /usr/include/sys/machlock.h \
+  /usr/include/sys/param.h /usr/include/sys/mutex.h \
+  /usr/include/sys/rwlock.h /usr/include/sys/semaphore.h \
+  /usr/include/sys/condvar.h /usr/include/sys/rwstlock.h \
+  /usr/include/sys/ksynch.h /usr/include/sys/cred.h \
+  /usr/include/sys/uio.h /usr/include/sys/resource.h \
+  /usr/include/vm/seg_enum.h /usr/include/sys/poll.h \
+  /usr/include/sys/strmdep.h /usr/include/sys/model.h \
+  /usr/include/sys/strft.h /usr/include/sys/byteorder.h \
+  /usr/include/sys/socket.h /usr/include/sys/netconfig.h \
+  /usr/include/sys/un.h /usr/include/net/if_dl.h /usr/include/arpa/inet.h \
+  /usr/include/netinet/ip.h /usr/include/net/if.h \
+  /usr/include/netinet/if_ether.h /usr/include/sys/ethernet.h \
+  /usr/include/net/if_arp.h /usr/include/pthread.h /usr/include/sched.h \
+  /usr/local/include/pcap.h /usr/local/include/pcap-bpf.h \
+  /opt/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.2/include/stdio.h \
+  /usr/include/stdarg.h /usr/include/iso/stdarg_iso.h \
+  /usr/include/sys/va_impl.h /usr/include/sys/va_list.h \
+  /usr/include/iso/stdarg_c99.h /usr/include/iso/stdio_iso.h \
+  /usr/include/stdio_tag.h /usr/include/stdio_impl.h \
+  /usr/include/iso/stdio_c99.h /usr/include/libnet.h /usr/include/fcntl.h \
+  /usr/include/sys/fcntl.h /usr/include/signal.h \
+  /usr/include/iso/signal_iso.h /usr/include/sys/iso/signal_iso.h \
+  /usr/include/sys/signal.h /usr/include/sys/siginfo.h \
+  /usr/include/sys/machsig.h /usr/include/sys/procset.h \
+  /usr/include/sys/ioctl.h /usr/include/sys/stat.h \
+  /usr/include/sys/stat_impl.h /usr/include/ctype.h \
+  /usr/include/iso/ctype_iso.h /usr/include/iso/ctype_c99.h \
+  /usr/include/netinet/in_systm.h /usr/include/netinet/ip_var.h \
+  /usr/include/netinet/tcp.h /usr/include/sys/inttypes.h \
+  /usr/include/sys/int_limits.h /usr/include/sys/int_const.h \
+  /usr/include/sys/int_fmtio.h /usr/include/netinet/udp.h \
+  /usr/include/netinet/ip_icmp.h /usr/include/netinet/igmp.h \
+  /usr/include/assert.h /usr/include/./libnet/libnet-headers.h \
+  /usr/include/./libnet/libnet-structures.h \
+  /usr/include/./libnet/libnet-macros.h \
+  /usr/include/./libnet/libnet-asn1.h \
+  /usr/include/./libnet/libnet-functions.h \
+  /usr/include/./libnet/libnet-ospf.h log.h hash.h \
+  /opt/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.2/include/limits.h \
+  /usr/include/iso/limits_iso.h
+
+/opt/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.2/include/sys/types.h:
+
+/usr/include/sys/feature_tests.h:
+
+/usr/include/sys/ccompile.h:
+
+/usr/include/sys/isa_defs.h:
+
+/usr/include/sys/machtypes.h:
+
+/usr/include/sys/int_types.h:
+
+/usr/include/sys/select.h:
+
+/usr/include/sys/time_impl.h:
+
+/usr/include/sys/time.h:
+
+/usr/include/time.h:
+
+/usr/include/iso/time_iso.h:
+
+config.h:
+
+/usr/include/stdlib.h:
+
+/usr/include/iso/stdlib_iso.h:
+
+/usr/include/iso/stdlib_c99.h:
+
+/usr/include/unistd.h:
+
+/usr/include/sys/unistd.h:
+
+/usr/include/errno.h:
+
+/usr/include/sys/errno.h:
+
+/usr/include/string.h:
+
+/usr/include/iso/string_iso.h:
+
+/usr/include/netdb.h:
+
+/usr/include/netinet/in.h:
+
+/usr/include/sys/stream.h:
+
+/usr/include/sys/vnode.h:
+
+/usr/include/sys/t_lock.h:
+
+/usr/include/sys/machlock.h:
+
+/usr/include/sys/param.h:
+
+/usr/include/sys/mutex.h:
+
+/usr/include/sys/rwlock.h:
+
+/usr/include/sys/semaphore.h:
+
+/usr/include/sys/condvar.h:
+
+/usr/include/sys/rwstlock.h:
+
+/usr/include/sys/ksynch.h:
+
+/usr/include/sys/cred.h:
+
+/usr/include/sys/uio.h:
+
+/usr/include/sys/resource.h:
+
+/usr/include/vm/seg_enum.h:
+
+/usr/include/sys/poll.h:
+
+/usr/include/sys/strmdep.h:
+
+/usr/include/sys/model.h:
+
+/usr/include/sys/strft.h:
+
+/usr/include/sys/byteorder.h:
+
+/usr/include/sys/socket.h:
+
+/usr/include/sys/netconfig.h:
+
+/usr/include/sys/un.h:
+
+/usr/include/net/if_dl.h:
+
+/usr/include/arpa/inet.h:
+
+/usr/include/netinet/ip.h:
+
+/usr/include/net/if.h:
+
+/usr/include/netinet/if_ether.h:
+
+/usr/include/sys/ethernet.h:
+
+/usr/include/net/if_arp.h:
+
+/usr/include/pthread.h:
+
+/usr/include/sched.h:
+
+/usr/local/include/pcap.h:
+
+/usr/local/include/pcap-bpf.h:
+
+/opt/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.2/include/stdio.h:
+
+/usr/include/stdarg.h:
+
+/usr/include/iso/stdarg_iso.h:
+
+/usr/include/sys/va_impl.h:
+
+/usr/include/sys/va_list.h:
+
+/usr/include/iso/stdarg_c99.h:
+
+/usr/include/iso/stdio_iso.h:
+
+/usr/include/stdio_tag.h:
+
+/usr/include/stdio_impl.h:
+
+/usr/include/iso/stdio_c99.h:
+
+/usr/include/libnet.h:
+
+/usr/include/fcntl.h:
+
+/usr/include/sys/fcntl.h:
+
+/usr/include/signal.h:
+
+/usr/include/iso/signal_iso.h:
+
+/usr/include/sys/iso/signal_iso.h:
+
+/usr/include/sys/signal.h:
+
+/usr/include/sys/siginfo.h:
+
+/usr/include/sys/machsig.h:
+
+/usr/include/sys/procset.h:
+
+/usr/include/sys/ioctl.h:
+
+/usr/include/sys/stat.h:
+
+/usr/include/sys/stat_impl.h:
+
+/usr/include/ctype.h:
+
+/usr/include/iso/ctype_iso.h:
+
+/usr/include/iso/ctype_c99.h:
+
+/usr/include/netinet/in_systm.h:
+
+/usr/include/netinet/ip_var.h:
+
+/usr/include/netinet/tcp.h:
+
+/usr/include/sys/inttypes.h:
+
+/usr/include/sys/int_limits.h:
+
+/usr/include/sys/int_const.h:
+
+/usr/include/sys/int_fmtio.h:
+
+/usr/include/netinet/udp.h:
+
+/usr/include/netinet/ip_icmp.h:
+
+/usr/include/netinet/igmp.h:
+
+/usr/include/assert.h:
+
+/usr/include/./libnet/libnet-headers.h:
+
+/usr/include/./libnet/libnet-structures.h:
+
+/usr/include/./libnet/libnet-macros.h:
+
+/usr/include/./libnet/libnet-asn1.h:
+
+/usr/include/./libnet/libnet-functions.h:
+
+/usr/include/./libnet/libnet-ospf.h:
+
+log.h:
+
+hash.h:
+
+/opt/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.2/include/limits.h:
+
+/usr/include/iso/limits_iso.h:
