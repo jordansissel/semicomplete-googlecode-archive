@@ -26,8 +26,8 @@ sub import {
 
 sub set_state {
 	my $self = shift;
-	#debug("Setting state for ::Events");
 	$state = shift;
+	Tic::Common->set_state($state);
 }
 
 sub event_admin_error {
@@ -150,7 +150,8 @@ sub event_im_in {
 	my ($aim, $from, $msg, $away) = @_;
 	$state->{"last_from"} = $from;
 
-	if (($state->{"logging"}->{"who_log"}->{$from} == 1) || ($state->{"config"}->{"logging"} eq "all")) {
+	my $wlog = get_config("who_log");
+	if ( (get_config("logging") eq 'all') || (ref($wlog) eq 'HASH' && $wlog->{$from} == 1) ) {
 		prettylog($state, "im_msg", { sn => $from, msg => $msg } ) unless ($away);
 		prettylog($state,"im_awaymsg", { sn => $from, msg => $msg } ) if ($away);
 	}
