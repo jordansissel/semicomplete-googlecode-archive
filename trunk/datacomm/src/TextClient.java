@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.4  2004/01/19 05:35:38  tristan
+ *   added print opponent's move function
+ *
  *   Revision 1.3  2004/01/19 04:01:53  tristan
  *   implemented run method.
  *
@@ -48,6 +51,7 @@ public class TextClient extends BSClient {
             while ( !isGameOver() && getConnection().isConnected() ) {
                 if ( !isClientTurn() ) {
                     waitForTurn();
+                    printOpponentMove();
                 } else {
                     doTurn();
                 }
@@ -114,12 +118,20 @@ public class TextClient extends BSClient {
 
         // send a message to the server
         sendCall( row, col );
+        setClientTurn( false );
     }
 
     /**
      * Prints who won, etc.
      */
     public void printGameFinish() {
+
+    }
+
+    /**
+     * Prints the opponents move.
+     */
+    public void printOpponentMove() {
 
     }
 }   // TextClient
