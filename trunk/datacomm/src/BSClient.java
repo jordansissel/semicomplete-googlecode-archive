@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.3  2004/01/19 04:00:35  tristan
+ *   subbed out protocol methods.
+ *
  *   Revision 1.2  2004/01/19 02:34:58  tristan
  *   added a new constructor
  *
@@ -99,5 +102,51 @@ public abstract class BSClient extends Thread {
      */
     public String getOtherName() {
         return otherName;
+    }
+
+    /**
+     * Starts the game.
+     */
+    public void startGame() {
+
+    }
+
+    /**
+     * Finds an opponent.
+     */
+    public void findOpponent() {
+
+    }
+
+    /**
+     * Determines if it's this client's turn or not.
+     * @return Whether or not it's our turn.
+     */
+    public boolean isClientTurn() {
+        return true;
+    }
+
+    /**
+     * Determines if this game is over.
+     * @return Whether or not the game is still in play.
+     */
+    public boolean isGameOver() {
+        return false;
+    }
+
+    /**
+     * Sends a call to the server
+     * @param row Which row to hit.
+     * @param col Which column to hit.
+     */
+    public void sendCall( char row, int col ) {
+
+    }
+
+    /**
+     * Blocks until it's the user's turn
+     */
+    public void waitForTurn() {
+        
     }
 }   // BSClient
