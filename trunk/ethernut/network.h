@@ -11,14 +11,25 @@
 #include "common.h"
 
 #define DISCOVERY_PORT 3000
-#define DISCOVERY_MESSAGE "Hello there"
+#define DISCOVERY_MESSAGE "DISCOVERY"
 #define DISCOVERY_ACK "ACK"
 
+#define PACKETTYPE_DATA            ((char)0x01)
+#define PACKETTYPE_ERROR_BROADCAST ((char)0x02)
+#define PACKETTYPE_ERROR_ACK       ((char)0x03)
+#define PACKETTYPE_ERROR_QUENCH    ((char)0x04)
+#define PACKETTYPE_ERROR_NOQUENCH  ((char)0x05)
+#define PACKETTYPE_DISCOVERY       ((char)0x06)
+#define PACKETTYPE_DISCOVERY_ACK   ((char)0x07)
+#define PACKETTYPE_SOURCE_QUENCH   ((char)0x08)
+#define PACKETTYPE_REBOOT          ((char)0x09)
+
+
 /* How long to wait before repinging each nut */
-#define DISCOVERY_INTERVAL 10
+#define DISCOVERY_INTERVAL 5 
 
 /* How long to wait before not having gotten a response from a ping */
-#define DISCOVERY_MAXWAIT 10
+#define DISCOVERY_MAXWAIT 5
 
 typedef struct nut {
 	//unsigned int ip;
