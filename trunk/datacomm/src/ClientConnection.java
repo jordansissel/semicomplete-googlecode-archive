@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.6  2004/01/19 05:13:39  tristan
+ *   added send and receive msg commands
+ *
  *   Revision 1.5  2004/01/13 18:03:32  tristan
  *   began adding constants for message identifiers
  *
@@ -108,5 +111,7 @@ public abstract class ClientConnection extends Thread {
     // abstract methods
     public abstract boolean connect();
     public abstract void disconnect();
+    public abstract void sendMessage( Message var );
+    public abstract Message receiveMessage();
 
 }   // ClientConnection
