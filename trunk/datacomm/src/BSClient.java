@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.5  2004/01/19 20:48:20  tristan
+ *   changes due to refactoring
+ *
  *   Revision 1.4  2004/01/19 05:33:46  tristan
  *   switched to use boolean for client turn
  *
@@ -26,7 +29,7 @@
  * @author tristan
  */
 public abstract class BSClient extends Thread {
-    private ClientConnection connection;
+    private Client connection;
     private String yourName;
     private String otherName;
     private BSGame game;
@@ -35,7 +38,7 @@ public abstract class BSClient extends Thread {
     /**
      * Initializes the battle ship client
      */
-    public BSClient( ClientConnection connection,
+    public BSClient( Client connection,
                      String yourName,
                      String otherName ) {
         this.connection = connection;
@@ -65,7 +68,7 @@ public abstract class BSClient extends Thread {
      * Returns the client connection for this player.
      * @return The player's connection to the server.
      */
-    public ClientConnection getConnection() {
+    public Client getConnection() {
         return connection;
     }
 
@@ -73,7 +76,7 @@ public abstract class BSClient extends Thread {
      * Sets the connection for the server.
      * @param connection Changes the connection for the client.
      */
-    public void setConnection( ClientConnection connection ) {
+    public void setConnection( Client connection ) {
         this.connection = connection;
     }
 

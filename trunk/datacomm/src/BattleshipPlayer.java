@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.7  2004/01/19 20:48:08  tristan
+ *   changes due to refactoring
+ *
  *   Revision 1.6  2004/01/19 02:34:42  tristan
  *   refactored to a text client
  *
@@ -43,14 +46,14 @@ public class BattleshipPlayer {
         if ( args.length == 5 ) {
             try {
                 InetAddress host = InetAddress.getByName( args[ 0 ] );
-                ClientConnection connection = null;
+                Client connection = null;
                 int port = Integer.parseInt( args[ 2 ] );
 
                 // figure out the protocol
                 if ( args[ 1 ].equals( "TCP" ) ) {
-                    connection = new TCPClientConnection( host, port );
+                    connection = new TCPClient( host, port );
                 } else if ( args[ 1 ].equals( "UDP" ) ) {
-                    connection = new UDPClientConnection( host, port );
+                    connection = new UDPClient( host, port );
                 } else {
                     System.err.println( "Protocol must be UDP or TCP" );
                     System.exit( 3 );

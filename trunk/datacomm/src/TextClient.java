@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.5  2004/01/19 20:48:32  tristan
+ *   changes due to refactoring
+ *
  *   Revision 1.4  2004/01/19 05:35:38  tristan
  *   added print opponent's move function
  *
@@ -32,7 +35,7 @@ public class TextClient extends BSClient {
      * @param yourName This player's name.
      * @param otherName The opponent's name
      */
-    public TextClient( ClientConnection connection,
+    public TextClient( Client connection,
                        String yourName,
                        String otherName ) {
         super( connection, yourName, otherName );
