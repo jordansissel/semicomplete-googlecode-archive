@@ -17,28 +17,6 @@
 char *encstring;
 int offset = 0;
 
-int fatal(Display *d, XErrorEvent *e) {
-	char error[120];
-	XGetErrorText(d, e->error_code, error, 120);
-
-	fprintf(stderr, "Error: [%d] %s\n", e->error_code, error);
-
-	exit(1);
-
-	return 0;
-}
-
-int fatal2(Display *d, int e, const char *name) {
-	char error[120];
-	XGetErrorText(d, e, error, 120);
-
-	fprintf(stderr, "Error: (%s) %s [Code %d]\n", name, error, e);
-
-	exit(1);
-
-	return 0;
-}
-
 int main(int argc, char **argv) {
 	Display *dpy;
 	char *pcdisplay;
