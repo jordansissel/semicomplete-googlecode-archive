@@ -49,6 +49,12 @@ sub prettyprint {
 	my ($state, $type, $data) = @_;
 	my $output;
 
+	if ($type eq "help") {
+		out();
+		real_out($data->{"help"} . "\n");
+		return;
+	}
+
 	if (($state->{"timestamp"}) || (select() ne "main::STDOUT")) {
 		my $timestamp;
 		if (select() eq 'main::STDOUT') {
@@ -64,15 +70,18 @@ sub prettyprint {
 	$output .= $state->{"config"}->{"$type"};
 
 	# What are the escapes?
-	# %s - Screen name of target (or who is messaging you)
-	# %m - Message being sent
-	# %g - Group user belongs to
-	# %c - chatroom related to this message
-	# %w - warning level
-	# %i - idle time of user 
-	# %e - error message
-	# %S - your own screen name
 	# %% - literal %
+	# %S - your own screen name
+	# %a - alias name
+	# %c - chatroom related to this message
+	# %e - error message
+	# %g - Group user belongs to
+	# %h - help topic
+	# %i - idle time of user 
+	# %m - Message being sent
+	# %s - Screen name of target (or who is messaging you)
+	# %v - alias value
+	# %w - warning level
 
 	$data->{"sn"} = getrealsn($state, $data->{"sn"});
 
@@ -84,6 +93,9 @@ sub prettyprint {
 		$output =~ s/%w/$data->{"warn"}/g if (defined($data->{"warn"}));
 		$output =~ s/%i/$data->{"idle"}/g if (defined($data->{"idle"}));
 		$output =~ s/%e/$data->{"error"}/g if (defined($data->{"error"}));
+		$output =~ s/%h/$data->{"subject"}/g if (defined($data->{"subject"}));
+		$output =~ s/%a/$data->{"alias"}/g if (defined($data->{"alias"}));
+		$output =~ s/%v/$data->{"value"}/g if (defined($data->{"value"}));
 		$output =~ s/%S/$state->{"sn"}/g;
 		$output =~ s/%%/%/g;
 	}
@@ -91,7 +103,7 @@ sub prettyprint {
 	if ($type =~ m/^error/) {
 		error($output);
 	} else {
-		out($output);
+		out("< $type > $output");
 	}
 }
 
