@@ -603,6 +603,7 @@ sub delete_word_backward {
 
 	$bword = $self->find_word_bound($line, $pos, WORD_BEGINNING | WORD_ONLY);
 
+	#$self->error("Testing $bword $pos");
 	# Delete whatever word we just found.
 	substr($line, $bword, $pos - $bword) = '';
 
@@ -965,7 +966,7 @@ sub find_word_bound ($$$;$) {
 	my $self = shift;
 	my $line = shift;
 	my $pos = shift;
-	my $opts = shift; $opts |= 0;
+	my $opts = shift || 0;
 	my $regex = "[A-Za-z0-9]";
 	my $bword;
 
@@ -985,12 +986,11 @@ sub find_word_bound ($$$;$) {
 	
 	$bword = $pos;# - 1;
 
-	# Ignore trailing whitespace.
-	$bword += $mod while (substr($line,$bword,1) =~ m/^\s/);
-
 	# Back up if we're past the end of the string (cursor at end of line)
-	$bword -- if ($bword == $pos + $self->{"leftcol"});
+	$bword-- if ($pos == $self->{"input_position"});
 
+	# Ignore trailing whitespace.
+	#$bword += $mod while (substr($line,$bword,1) =~ m/^\s/);
 
 	# If we're not on an ALPHANUM, then we want to reverse the match.
 	# that is, if we are:
@@ -1001,6 +1001,9 @@ sub find_word_bound ($$$;$) {
 
 	# Back up until we hit the bound of our "word"
 	$bword += $mod while (substr($line,$bword,1) =~ m/$regex/ && $bword >= 0);
+
+	# Keep going while there's whitespace...
+	$bword += $mod while (substr($line,$bword,1) =~ m/\s/ && $bword >= 0);
 
 	# Whoops, one too far...
 	$bword -= $mod;
