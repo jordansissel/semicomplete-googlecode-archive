@@ -152,7 +152,8 @@ void addxbox(u_char *macaddr, proxy_t *ppt) {
 		newbox->lastseen = time(NULL);
 		newbox->proxy = ppt;
 		hash_alloc_insert(xboxen, macaddr, newbox);
-		hash_alloc_insert(ppt->xboxen, macaddr, newbox);
+		if (ppt != NULL) 
+			hash_alloc_insert(ppt->xboxen, macaddr, newbox);
 	}
 }
 
