@@ -19,7 +19,7 @@ all: $(OBJS)
 	$(CC) $(LDFLAGS) $(LIBS) $(OBJS) /usr/local/lib/libnet.a -o proxy
 
 clean:
-	rm $(OBJS) >/dev/null 2>&1 || true;
+	rm -f $(OBJS) proxy *.core >/dev/null 2>&1 || true;
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
