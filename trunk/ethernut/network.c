@@ -236,7 +236,9 @@ THREAD(network_pingthread, args) {
 	for (;;) {
 		/* Check the list of known ethernuts, and ping them if we haven't in DISCOVERY_INTERVAL */
 		log(100, "ping - checking if I need to ping anyone");
-		network_tcpbroadcast("testing", 8);
+
+		/* DEBUG */ network_tcpbroadcast("test", 4);
+
 		for (c = 0; c < nut_count; c++) {
 			time_t t = time(NULL);
 			log(20, "%s lastseen: %d ago", inet_ntoa(nuts[c].ip), t - nuts[c].lastseen);
