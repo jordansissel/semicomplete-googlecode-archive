@@ -19,7 +19,8 @@ use MP3::Tag;
 use Socket;
 use POSIX;
 
-use constant ERR_DECODE => "-1";
+use constant ERR_DECODE => 1;
+use constant ERR_EOF => 2;
 
 $SIG{INT} = \&do_shutdown;
 $SIG{__DIE__} = \&do_shutdown;
@@ -65,13 +66,13 @@ while (1) {
 	foreach my $socket ($select->can_read(.01)) {
 		my $data;
 		my $recv = $socket->recv($data, POSIX::BUFSIZ, 0);
-		$buffer .= $data;
+		$pimp->{"server_buffer"} .= $data;
 
 		unless (defined($recv) && length($data)) {
 			die("Connection to server was lost!? - $!\n");
 		}
 
-		while ($buffer =~ s/(.*\n)//) {
+		while ($pimp->{"server_buffer"} =~ s/(.*\n)//) {
 			handle_command($1);
 		}
 	}
@@ -79,9 +80,7 @@ while (1) {
 	play_loop();
 }
 
-close_ao($device);
-shutdown_ao;
-do_shutdown("INT");
+# We shouldn't ever get here.
 
 sub signal_event {
 	my $event = shift;
@@ -100,6 +99,7 @@ sub play_loop {
 	if ($pimp->{"state"} eq "playing") {
 		if ($pimp->{"sound_state"} == 0) {
 			$device = open_live(default_driver_id(), 16, 44100, 2, is_big_endian(), {});
+			die ("Unable to open sound device.\n") unless defined($device);
 			$pimp->{"sound_state"} = 1;
 		}
 		my $pcm;
@@ -107,47 +107,40 @@ sub play_loop {
 			$pcm = decode_current_mp3();
 			if (defined($pcm) && $pcm ne '') {
 				play($device, $pcm, length($pcm));
-			} elsif ($pcm ne ERR_DECODE) {
-				# End of song or something broke.
-				next_song();
+			} elsif ($pcm != ERR_DECODE) {
+				# End of song or something broke. (Non-decoding error)
+				$pimp->{"state"} = "stopped";
+				signal_event("end_of_song");
 			}
 		}
 	}
 }
 
+# Decode a frame of our happy MP3
 sub decode_current_mp3 {
 	if ($frame->decode($stream) == -1) {
-
 		if ($stream->error() == MAD_ERROR_BUFLEN || 
 			 $stream->error == MAD_ERROR_BUFPTR) {
-			#print STDERR "Reading new chunk at " . $stream->next_frame() . "\n";
 			my $buffer = substr($pimp->{"current_buffer"}, $stream->next_frame());
-			return if (sysread($pimp->{"current_fd"}, $buffer, $BUFSIZE - length($buffer), length($buffer)) == 0);
+			return ERR_EOF if (sysread($pimp->{"current_fd"}, $buffer, $BUFSIZE - length($buffer), length($buffer)) == 0);
 
 			$stream->buffer($buffer);
 			$pimp->{"current_buffer"} = $buffer;
 			return ERR_DECODE;
-		} else {
-			warn "decoding error: " . $stream->error();
-			#print $player "BROADCAST Error in decoding of " . $pimp->{"current_song"}->{"file"} . "\n";
-			return ERR_DECODE;
 		}
 
 		unless ($stream->err_ok()) {
-			$pimp->{"state"} = "stopped";
-			signal_event("end_of_song");
-			return '';
+			return ERR_EOF;
 		}
 	}
 	$synth->synth($frame);
-	#my $pcm = $dither->dither($resample->resample($synth->samples()));
 	return $dither->dither($synth->samples());
 }
 
 sub handle_command {
 	my $line = shift;
 	my ($who, $cmd, $args) = split(/\s+/,$line,3);
-	print "Command: $cmd FROM $who\n";
+	#print "Command: $cmd FROM $who\n";
 	$cmd = lc($cmd);
 
 	if ($cmd eq 'pause') {
@@ -214,7 +207,8 @@ sub handle_command {
 sub display_song {
 	# ($album) $artist - $title
 	my $foo = shift;
-	return sprintf("(%s) %s - %s", $foo->{"album"}, $foo->{"artist"}, 
+	$0 = "PiMP: ";
+	$0 .= sprintf("(%s) %s - %s", $foo->{"album"}, $foo->{"artist"}, 
 						                $foo->{"title"});
 }
 
@@ -247,7 +241,7 @@ sub play_song {
 			warn("Failed reading from $file\n");
 			next_song();
 		}
-		print "BUFFER LENGTH: " . length($buffer) . "\n";
+		#print "BUFFER LENGTH: " . length($buffer) . "\n";
 		#close(MP3);
 		$stream->buffer($buffer);
 
@@ -298,10 +292,6 @@ sub run_server {
 				$clients->{"$client"} = $client;
 				#nonblock($client);
 			} else {
-				if ($socket == $pimp->{"current_fd"}) {
-					print "Uh oh\n";
-				}
-
 				my $data;
 				my $recv = $socket->recv($data, POSIX::BUFSIZ, 0);
 
@@ -350,7 +340,7 @@ sub handle {
 			}
 		}
 	} else {
-		#print "Client: $client ($serv)\n";
+		print "Client: $client ($serv)\n";
 		map { print $serv "$client $_" } @{$lines};
 	}
 }
@@ -370,6 +360,8 @@ sub do_shutdown {
 	if ($error ne 'INT' ) {
 		print STDERR "Fatal Error: $error\n";
 	}
+	close_ao($device);
+	shutdown_ao;
 	print STDERR "Dying...\n";
 	kill("KILL", $spid);
 	while ((my $child = waitpid(-1,WNOHANG)) > 0) {
