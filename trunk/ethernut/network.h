@@ -7,6 +7,7 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
+#include <netinet/in.h>
 #include "common.h"
 
 #define DISCOVERY_PORT 3000
@@ -24,10 +25,6 @@ typedef struct nut {
 	struct in_addr ip;
 	time_t lastseen;
 } nut_t;
-
-/* List of known nuts */
-nut_t *nuts = NULL;
-unsigned int nut_count = 0;
 
 /* network_init
  * Initialize the network bits. This includes running DHCP and setting up a

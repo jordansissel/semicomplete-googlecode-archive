@@ -26,7 +26,14 @@
 #include "log.h"
 #include "common.h"
 
+
+/* List of known nuts */
+static nut_t *nuts = NULL;
+static unsigned int nut_count = 0;
+
+/* nuts mutex locker */
 static MUTEX nut_mutex;
+
 
 /* 
  * Initialize network and discovery hijinks

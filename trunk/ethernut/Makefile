@@ -4,13 +4,13 @@
 
 CC=gcc
 CFLAGS+=-fno-builtin-log -Wall -g 
-#-O2
 
 # For solaris
-#LDFLAGS+=-lpthread -lsocket -lnsl
+LDFLAGS+=-lpthread -lsocket -lnsl
+CFLAGS+=-D_POSIX_PTHREAD_SEMANTICS
 
 # For Linux and FreeBSD
-LDFLAGS+=-pthread
+#LDFLAGS+=-pthread
 
 OBJECTS=main.o busmaster.o log.o network.o i2c.o
 

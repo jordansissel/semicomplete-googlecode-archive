@@ -32,7 +32,7 @@
 #define THREAD_CREATE(thread, attr, func, args) pthread_create(thread, attr, func, args)
 #define THREAD(func, args) void func(void *args)
 #define THREAD_EXIT() pthread_exit(NULL)
-typedef pthread_mutex_t MUTEX;
+#define MUTEX pthread_mutex_t
 #endif
 
 #endif
