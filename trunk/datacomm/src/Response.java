@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.4  2004/01/19 20:36:58  tristan
+ *   implemented validate arguments method.
+ *
  *   Revision 1.3  2004/01/19 05:44:43  tristan
  *   added to byte array function.
  *
@@ -141,5 +144,14 @@ public class Response implements Message {
         }
 
         return out.toByteArray();
+    }
+
+    /**
+     * Default impelementation for validate arguments
+     * @return
+     * @throws InvalidCommandArgumentsException
+     */
+    public boolean validateArguments() throws InvalidCommandArgumentsException {
+        return true;
     }
 }   // Response
