@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.4  2004/01/26 20:30:25  psionic
+ *   - Added addPlayer()
+ *
  *   Revision 1.3  2004/01/26 20:29:34  psionic
  *   - Added new methods getGame and addGame
  *
@@ -97,6 +100,10 @@ public class BSServer {
             shutdown();
         }
     }
+
+	 public void addPlayer(Player p) {
+		 players.add(p);
+	 }
 
 	 public ServerGame getGame(Player p) {
 		 Iterator i = games.iterator();
