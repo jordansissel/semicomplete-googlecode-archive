@@ -1,3 +1,4 @@
+# $Id$
 package Tic::Bindings;
 
 use strict;
