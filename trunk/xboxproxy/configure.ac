@@ -58,7 +58,7 @@ PCAP_FOUND=0
 for for_prefix in $PCAP_PREFIX /usr /opt; do
 
 AC_CHECK_FILE([$for_prefix/lib/libpcap.a],
-				  [LDFLAGS="$LDFLAGS -L${for_prefix}/lib"
+				  [LIBS="$LIBS -L${for_prefix}/lib"
 				  CFLAGS="$CFLAGS -I${for_prefix}/include"
 				  PCAP_PREFIX=$for_prefix
 				  PCAP_FOUND=1
@@ -70,10 +70,9 @@ if test $PCAP_FOUND -eq 0; then
 	AC_MSG_ERROR([pcap not found in $PCAP_PREFIX. Specify path with --with-pcap=/path/to/pcap/dir])
 fi
 
-AC_CHECK_HEADERS(pcap.h)
-AC_CHECK_LIB(pcap, pcap_lib_version, [LDFLAGS="$LDFLAGS -lpcap"], 
+AC_CHECK_HEADERS(pcap.h,,AC_MSG_ERROR([pcap.h not found]))
+AC_CHECK_LIB(pcap, pcap_lib_version, [LIBS="$LIBS -lpcap"], 
 				 [AC_MSG_ERROR([libpcap was not found])])
-
 
 # Check for libnet
 AC_ARG_WITH([libnet],
@@ -88,6 +87,7 @@ for for_prefix in $LIBNET_PREFIX /usr /opt; do
 AC_CHECK_FILE([${for_prefix}/lib/libnet.a],
 				  [LDFLAGS="$LDFLAGS -L${for_prefix}/lib"
 				  CFLAGS="$CFLAGS -I${for_prefix}/include"
+				  LIBS="$LIBS -lnet -L${for_prefix}/lib"
 				  LIBNET_PREFIX=$for_prefix
 				  LIBNET_FOUND=1
 				  break])
