@@ -6,9 +6,12 @@
  *
  * Revisions:
  * 	$Log$
+ * 	Revision 1.8  2004/01/13 03:46:49  tristan
+ * 	removed useless import
+ *
  * 	Revision 1.7  2004/01/13 02:34:33  tristan
  * 	fixed up to string with string buffer.
- *
+ * 	
  * 	Revision 1.6  2004/01/13 02:14:23  njohnson
  * 	I finished the BSGrid's generateGrid() method which is now quite huge.
  * 	It might be better with some AI( or worse ) since it just tries to throw
@@ -30,8 +33,6 @@
  * 	initial commit
  *
  */
-
-import java.lang.Math;
 
 /**
  * The grid objects to represent oceans for each player in BattleShip
