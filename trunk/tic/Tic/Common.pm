@@ -218,7 +218,9 @@ sub expand_aliases {
 			return expand_aliases($cmd,$args);
 			$state->{"recursion_check"}--;
 		}
-	} 
+	}
+
+	return $string;
 }
 
 sub next_arg ($) {
