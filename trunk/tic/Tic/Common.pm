@@ -142,7 +142,6 @@ sub login {
 	} else {
 		$sh->prompt("Login: ");
 		$sh->{"readline_callback"} = \&get_username;
-		$sh->fix_inputline();
 	}
 
 }
@@ -152,8 +151,8 @@ sub get_username {
 
 	unless (defined($state->{"login_password"})) {
 		$sh->prompt("Password: ");
-		$sh->echo(0);
 		$sh->{"readline_callback"} = \&get_password;
+		$sh->echo(0);
 	} else {
 		get_password($state->{"login_password"});
 	}
@@ -180,7 +179,7 @@ sub do_login {
 	$hash{"port"} = $state->{"settings"}->{"port"} || "5190";
 	$hash{"host"} = $state->{"settings"}->{"host"} || "login.oscar.aol.com";
 
-	$sh->out("Connecting to " . $hash{"host"} . ":" . $hash{"port"} . " as " . $hash{"screenname"} . " {$pass}");
+	$sh->out("Connecting to " . $hash{"host"} . ":" . $hash{"port"} . " as " . $hash{"screenname"});
 	$state->{"aim"}->signon(%hash);
 
 	$sh->{"readline_callback"} = $state->{"command_callback"};

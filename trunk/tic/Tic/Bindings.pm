@@ -77,7 +77,15 @@ sub completer {
 		my $word = substr($curword, 1);
 		@matches = map { "/$_" } grep (m/^\Q$word\E/i, @coms);
 	} else {
-		if ($line =~ m!^/(m(?:sg)?\s+)!) {
+
+		# Complete screennames for certain commands
+		if ($line =~ m!^/(?:
+								(?:m(?:sg)?)|        # /m or /msg
+								(?:delbuddy)|        # /delbuddy
+								(?:default)|         # /default
+								(?:i(?:nfo)?)|       # /i or /info
+								(?:log)              # /log
+							  )\s+!x) {
 			@matches = match_buddies($curword);
 		}
 	}
