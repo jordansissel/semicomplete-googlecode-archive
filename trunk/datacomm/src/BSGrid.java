@@ -6,9 +6,9 @@
  *
  * Revisions:
  *     $Log$
- *     Revision 1.12  2004/01/19 00:35:46  njohnson
- *     Committing Compilable code. Added a getGridArray() funtion for grids
- *     which allows the array to be accessed directly for game grids.
+ *     Revision 1.13  2004/01/19 01:12:12  njohnson
+ *     added a method to get a ship from the fleet on a grid. This will
+ *     make it easier to write a method to test for ship sunkedness :) Booyah!
  *
  *     Revision 1.11  2004/01/18 23:02:48  njohnson
  *     added some important stubs that need to be implemented.
@@ -262,13 +262,31 @@ public class BSGrid {
     }
 
     /**
+     * Returns the array of the grid.
      *
-     *
-     *
+     * @return grid
      */
     public byte[][] getGridArray() {
 	return grid;
     } //getGridArray()
+
+    /**
+     * Returns a particular ship from the grid.
+     *
+     * @arg i - the number of the corresponding ship
+     *          Destroyer - 1
+     *          Submarine - 2 
+     *          Cruiser - 3
+     *          Battleship - 4
+     *          Carrier - 5
+     */
+    public BSShip getShip( int i ) {
+	
+	//return the ship
+	return fleet[ i - 1 ];
+
+    } //getShip()
+
 
     /**
      * Creates a string that is the BattleShip grid in
