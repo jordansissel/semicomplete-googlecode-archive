@@ -9,11 +9,12 @@ use vars qw(@ISA @EXPORT);
 use Exporter;
 
 @ISA = qw(Exporter);
-@EXPORT = qw(create_alias remove_alias command_msg command_alias
-					  command_unalias command_echo command_info command_login
-					  command_quit command_buddylist command_default
-					  command_undefault command_log command_timestamp command_who
-					  command_timestamp command_getaway command_help command_date);
+@EXPORT = qw(create_alias remove_alias command_addbuddy command_msg
+				 command_alias command_unalias command_echo command_info
+				 command_login command_quit command_buddylist command_default
+				 command_undefault command_log command_timestamp command_who
+				 command_timestamp command_getaway command_help command_date
+				 command_delbuddy command_away);
 
 my $state;
 
@@ -67,7 +68,7 @@ HELP
 	error("Message who?") and return unless defined($sn);
 	error("You didn't tell me what to say!") and return unless defined($msg);
 	
-	$aim->send_im($sn, $msg);
+	$aim->send_im($sn, $msg, (defined($state->{"away"}) ? 1 : undef));
 	my $wholog = get_config("who_log");
 	if ((get_config("logging") eq "all" || ((ref($wholog) eq 'HASH' && $wholog->{"$sn"} == 1)))) {
 		prettylog($state,"out_msg", { sn => $sn, msg => $msg } );
@@ -480,6 +481,102 @@ HELP
 		getopt('awoim', \%opts);
 
 		error("No buddies matching your query, '$args'") if ($count == 0);
+	}
+}
+
+sub command_addbuddy {
+	return "" if ($_[0] eq 'completion');
+	return << "HELP" if ($_[0] eq "help");
+Syntax: /addbuddy <buddy name> [group]
+Adds a buddy to your buddy list. Put quotes around the name if there are spaces
+in it. If you want to add them to a particular group, then specify that too.
+Again, as with buddies, if you have spaces in your group name enclose it in
+quotes.
+HELP
+	$state = shift;
+
+	my ($args) = @_;
+	my $aim = $state->{"aim"};
+
+	my ($sn, $group);
+	if ($args =~ m/^"([^"]+)"\s+(.*$)/) {
+		($sn, $args) = ($1, $2);
+	} else {
+		($sn, $args) = split(/\s/, $args, 2);
+	}
+
+	if ($args =~ m/^"([^"]+)"(.*$)/) {
+		($group, $args) = ($1, $2);
+	} else {
+		($group, $args) = split(/\s/, $args, 2);
+	}
+
+	error("No buddy specified to add :(") and return unless length($sn) > 0;
+
+	$group = "Buddies" if (length($group) == 0);
+	$aim->add_buddy($group, $sn);
+	$aim->commit_buddylist();
+}
+
+sub command_delbuddy {
+	return "%s" if ($_[0] eq 'completion');
+	return << "HELP" if ($_[0] eq "help");
+Syntax: /delbuddy <buddy name>
+Deletes a buddy from your buddy list. Put quotes around the name if there are spaces in it. 
+HELP
+	$state = shift;
+
+	my ($args) = @_;
+	my $aim = $state->{"aim"};
+
+	my ($sn, $group);
+	if ($args =~ m/^"([^"]+)"\s+(.*$)/) {
+		($sn, $args) = ($1, $2);
+	} else {
+		($sn, $args) = split(/\s/, $args, 2);
+	}
+
+	if (length($sn) == 0) {
+		error("No buddy specified to delete :(");
+		return;
+	}
+
+	my $buddy = $state->{"aim"}->buddy($sn);
+	$group = $aim->findbuddy($buddy->{"screenname"});
+	if (defined($group)) {
+		$aim->remove_buddy($group, $buddy);
+		$aim->commit_buddylist();
+	} else {
+		error("No such buddy, '$sn' found in your buddy list.");
+	}
+
+}
+
+sub command_away {
+	return "%s" if ($_[0] eq 'completion');
+	return << "HELP" if ($_[0] eq "help");
+Syntax: /delbuddy <buddy name>
+Deletes a buddy from your buddy list. Put quotes around the name if there are spaces in it. 
+HELP
+	$state = shift;
+
+	my ($args) = @_;
+	my $aim = $state->{"aim"};
+
+	my $msg = $args;
+
+	if (length($msg) == 0) {
+		if (defined($state->{"away"})) {
+			out("You are no longer away...");
+			$aim->set_away("");
+			delete $state->{"away"};
+		} else {
+			error("Go away with what message?");
+		}
+	} else {
+		$aim->set_away($args);
+		$state->{"away"} = $args;
+		out("You have gone away: $args");
 	}
 }
 
