@@ -8,9 +8,24 @@ use Term::Shelly;
 use Term::ReadKey;
 use POSIX qw(strftime);
 
+BEGIN {
+	# beware, hackish!
+	
+	sub load {
+		my $module = shift;
+		my ($caller) = caller();
+		eval("use $module");
+		return (wantarray() ? (0, $@) : 0) if ($@);
+		import $module @_;
+		return 1;
+	}
+
+}
+
+
 @ISA = qw(Exporter);
 @EXPORT = qw(debug deep_copy prettyprint prettylog login set_config get_config
-				 expand_aliases next_arg);
+				 expand_aliases next_arg load feature prompter);
 
 my $state;
 my $sh;
@@ -71,18 +86,18 @@ sub prettyprint {
 		 $data->{"sn"} = getrealsn($state, $data->{"sn"});
 
 		 if (ref($data) eq "HASH") {
-		 $output =~ s/%s/$data->{"sn"}/g if (defined($data->{"sn"}));
-		 $output =~ s/%m/$data->{"msg"}/g if (defined($data->{"msg"}));
-		 $output =~ s/%g/$data->{"group"}/g if (defined($data->{"group"}));
-		 $output =~ s/%c/$data->{"chat"}/g if (defined($data->{"chat"}));
-		 $output =~ s/%w/$data->{"warn"}/g if (defined($data->{"warn"}));
-		 $output =~ s/%i/$data->{"idle"}/g if (defined($data->{"idle"}));
-		 $output =~ s/%e/$data->{"error"}/g if (defined($data->{"error"}));
-		 $output =~ s/%h/$data->{"subject"}/g if (defined($data->{"subject"}));
-		 $output =~ s/%a/$data->{"alias"}/g if (defined($data->{"alias"}));
-		 $output =~ s/%v/$data->{"value"}/g if (defined($data->{"value"}));
-		 $output =~ s/%S/$state->{"sn"}/g;
-		 $output =~ s/%%/%/g;
+			 $output =~ s/%s/$data->{"sn"}/g if (defined($data->{"sn"}));
+			 $output =~ s/%m/$data->{"msg"}/g if (defined($data->{"msg"}));
+			 $output =~ s/%g/$data->{"group"}/g if (defined($data->{"group"}));
+			 $output =~ s/%c/$data->{"chat"}/g if (defined($data->{"chat"}));
+			 $output =~ s/%w/$data->{"warn"}/g if (defined($data->{"warn"}));
+			 $output =~ s/%i/$data->{"idle"}/g if (defined($data->{"idle"}));
+			 $output =~ s/%e/$data->{"error"}/g if (defined($data->{"error"}));
+			 $output =~ s/%h/$data->{"subject"}/g if (defined($data->{"subject"}));
+			 $output =~ s/%a/$data->{"alias"}/g if (defined($data->{"alias"}));
+			 $output =~ s/%v/$data->{"value"}/g if (defined($data->{"value"}));
+			 $output =~ s/%S/$state->{"sn"}/g;
+			 $output =~ s/%%/%/g;
 		 }
 	}
 
@@ -231,7 +246,7 @@ sub next_arg ($) {
 
 	# The following is a use of (?(cond)yespattern|nopattern)
 	# See perldoc perlre, look for "Conditional expressions"
-  	my $ok = $line =~ s!^(
+  	my $ok = $line =~ s!^\s*(
 								 (^")?        # Is there a doublequote at beginning?
 								 (?(2)        # If regex $2 matched: Find the rest of
 								              # string ending at another doublequote.
@@ -239,13 +254,39 @@ sub next_arg ($) {
 								  |           # else
 								  \S+         # Match a word bounded by whitespace.
 								 )
-								)\s*!!x;
+								)!!x;
 	$string = $1;
 	$string =~ s/^"(.*)"$/$1/;
 
 	${$ref} = $line;
 
 	return $string;
+}
+
+sub feature {
+	my $feature = shift;
+
+	return exists $INC{"Tic/Feature/$feature.pm"};
+}
+
+sub prompter($;$) {
+   # Set/get certain parts of the prompt, and.. stuff
+   # This could be putting AWAY in the prompt, showing message target, etc
+   my $type = shift;
+   my $value = shift || $state->{"prompter"}->{$type};
+   
+   #$sh->out("$type = $value");
+   $state->{"target"} = $value if ($type eq 'TARGET');
+   
+   my $prompt = '';
+   $prompt .= $value if ($type eq 'TARGET');
+   if ($prompt) {
+      $sh->prompt($prompt . '> ');
+   } else {
+      $sh->prompt("");
+   }
+
+   return $value;
 }
 
 1;
