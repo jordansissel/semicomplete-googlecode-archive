@@ -1,4 +1,10 @@
 
+Project 1 - DataComm and Networking I - Professor Leon Reznik
+
+Group Members:
+
+Nicholas R. Johnson, Tristan O'Tierney, Jordan Sissel
+
 
 ------------------------------------
 Executive Summary
@@ -11,14 +17,19 @@ Executive Summary
 Requirements
 ------------------------------------
 
-For this project, we were required to implement the game Battleship
-over a network using a client-server model. The rules for the game
-are as defined in http://www.centralconnector.com/GAMES/battleship.html.
-The program will have a centralized server that takes multiple connections.
-A connection from a client includes the name of the partner to be 
-associated with. Therefore, every game operating on the server has two 
-clients.
+For this project we were required to implement the game Battleship
 
+over a network using a client-server model. The rules for the game
+
+are as defined in http://www.centralconnector.com/GAMES/battleship.html.
+
+The program will have a centralized server that takes multiple connections.
+
+A connection from a client includes the name of the partner to be 
+
+associated with. Therefore, every game operating on the server has two 
+
+clients.
 
 
 ------------------------------------
@@ -29,7 +40,18 @@ Specification
 Feasibility Study
 ------------------------------------
 
-* Possible Solutions and Methods
+
+We must use a client and server model with multiple connections by
+clients. Clients must contain information about the games they are 
+running and pass it through the server. Each client is a process, and
+one server is a process. The server runs both a UDP and TCP protocol.
+
+Each client must be run as a thread for use with TCP. Since the server
+will be awaiting new connections along with attempting to pass messages 
+between clients of games that are already connected, concurrency would
+more than likely be necessary.
+
+
 
 
 ------------------------------------
@@ -37,14 +59,87 @@ Implementation
 ------------------------------------
 
 The BSGame class contains all the information for a game for one player.
+
 The BSClient class is instantiated by the BattleShipPlayer class and may
+
 be a UDP connection to the server or a TCP connection connection to the 
-server.
+
+server. Each BSClient contains a BSGame object. Since each player must
+
+know complete information about their grid and hit/miss information
+
+about the target grid, the BSGame class has two BSGrid members, one
+
+representing each respective "ocean" grid.
+
+Information is exchanged between each player using a client/server model.
+
+The client and server use a Command/Response communication method.
+
+The server accepts multiple games and each game is run as a thread.
+
 
 
 ------------------------------------
 Product Testing
 ------------------------------------
 
+Time of Final Compilation:
+
+Hardware used in Final Compilation:
+
+Software used in Final Compilation:
+
+    -Java 2 Runtime Environment, Standard Edition (build 1.4.2-b28)
+    -Java SDK 1.4.2
+    -Sun OS 5.9
+
+
+Test Cases:
+
+    -Case 1: 
+        Simply Construct a BSGame.
+
+        Results:
+            The BSGrid's for each game were constructed adequately.
+
+    -Case 2:
+
+        Results:
+
+    -Case 3:
+
+        Results:
+
+    -Case 4:
+
+        Results:
+
+    -Case 5:
+
+        Results:
+
+    -Case 6:
+
+        Results:
+
+    -Case 7:
+
+        Results:
+
+    -Case 8:
+
+        Results:
+
+    -Case 9:
+   
+        Results:
+
+    -Case 10:
+
+        Results:
+
+
+    Evaluation of Product Performance:
 
 
