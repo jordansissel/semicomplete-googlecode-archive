@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.4  2004/01/13 14:43:27  tristan
+ *   added connection status information
+ *
  *   Revision 1.3  2004/01/13 02:27:13  tristan
  *   added accessors and mutators.
  *
@@ -25,8 +28,9 @@ import java.net.InetAddress;
  * @author tristan
  */
 public abstract class ClientConnection extends Thread {
-    protected InetAddress serverHost;
-    protected int serverPort;
+    private InetAddress serverHost;
+    private int serverPort;
+    private boolean connected;
 
     /**
      * Initializes the server's inet address.
@@ -35,13 +39,14 @@ public abstract class ClientConnection extends Thread {
     public ClientConnection( InetAddress serverHost, int serverPort ) {
         this.serverHost = serverHost;
         this.serverPort = serverPort;
+        connected = false;
     }
 
     /**
      * Returns the server's inet address.
      * @return The current server's inet address.
      */
-    public InetAddress getServerHost() {
+    public synchronized InetAddress getServerHost() {
         return serverHost;
     }
 
@@ -49,7 +54,7 @@ public abstract class ClientConnection extends Thread {
      * Sets the server's inet address.
      * @param serverHost The new server inet address.
      */
-    public void setServerHost( InetAddress serverHost ) {
+    public synchronized void setServerHost( InetAddress serverHost ) {
         this.serverHost = serverHost;
     }
 
@@ -57,7 +62,7 @@ public abstract class ClientConnection extends Thread {
      * Returns the server's port.
      * @return The server's port.
      */
-    public int getServerPort() {
+    public synchronized int getServerPort() {
         return serverPort;
     }
 
@@ -70,6 +75,22 @@ public abstract class ClientConnection extends Thread {
     }
 
     /**
+     * Sets the connected variable
+     * @param connected Sets whether or not the client is connected.
+     */
+    public synchronized void setConnected( boolean connected ) {
+        this.connected = connected;
+    }
+
+    /**
+     * Returns whether or not the client is connected.
+     * @return If the client is connected.
+     */
+    public synchronized boolean isConnected() {
+        return connected;
+    }
+
+    /**
      * Disconnects the connection from the server
      */
     public void finalize() {
@@ -77,7 +98,7 @@ public abstract class ClientConnection extends Thread {
     }
 
     // abstract methods
-    public abstract void connect();
+    public abstract boolean connect();
     public abstract void disconnect();
 
 }   // ClientConnection
