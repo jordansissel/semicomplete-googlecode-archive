@@ -12,7 +12,7 @@ use warnings;
 use Audio::Ao qw(:all);
 use Audio::Mad qw(:all);
 use Audio::Mixer;
-use File::Glob qw(:glob);
+#use File::Glob qw(:glob);
 use IO::Handle;
 use IO::Select;
 use IO::Socket;
@@ -193,8 +193,8 @@ sub decode_current_mp3 {
 
 	my @samples = $synth->samples();
 
-	map {
-		print $_ substr($pimp->{"old_buffer"}, $stream->this_frame(), $stream->next_frame() - $stream->this_frame());
+	map { 
+		syswrite($_, $pimp->{"old_buffer"}, $stream->next_frame() - $stream->this_frame(), $stream->this_frame);
 	} values(%{$pimp->{"HTTP_CLIENTS"}});
 
 	# $frame->samplerate() shows us the bitrate.
@@ -205,7 +205,8 @@ sub decode_current_mp3 {
 
 		# if @samples has 2 items, this is a stereo stream
 		# if not, this is a mono stream
-		if (scalar(@samples) != 2) {
+		#if (scalar(@samples) != 2) {
+		if ($frame->NCHANNELS == 1) {
 			$resample->init($frame->samplerate() / 2, 44100);
 		} else {
 			$resample->init($frame->samplerate(), 44100);
@@ -244,9 +245,7 @@ sub handle_command {
 			} elsif ($args =~ m/^all$/i) {
 				play_song(@files);
 			}
-			delete $pimp->{"jump_lists"}->{"$who"};
-			#eval "\@slice = \$files[$args]\n";
-			#play_song(@slice);
+			#delete $pimp->{"jump_lists"}->{"$who"};
 		} else {	
 			play_song($pimp->{"current_song"}->{"file"})
 				if ($pimp->{"state"} =~ m/(?:playing|stop)/);
@@ -273,7 +272,7 @@ sub handle_command {
 			map { my $a = $_; $a =~ s!^.*/!!g; print $player "$who $a\n" } @{$pimp->{"song_queue"}};
 		}
 
-		delete $pimp->{"jump_lists"}->{"$who"};
+		#delete $pimp->{"jump_lists"}->{"$who"};
 
 	} elsif ('stop' =~ m/^\Q$cmd\E/) {
 		$pimp->{"state"} = 'stop';
@@ -342,10 +341,12 @@ sub handle_command {
 
 	} elsif ('volume' =~ m/^\Q$cmd\E/) {
 		if (length($args) > 0) {
-			Audio::Mixer::set_cval('vol', $args, $args);
-			print $player "BROADCAST Volume set to: $args\n";
+			if ($args =~ m/^\d+$/) {
+				print $player "BROADCAST Volume set to: $args\n";
+				Audio::Mixer::set_cval('vol', $args, $args);
+			}
 		} else {
-			print $player "$who Volume is currently " . Audio::Mixer->get_cval('vol') . "%\n";
+			print $player "$who Volume is currently " . (Audio::Mixer::get_cval('vol'))[0] . "%\n";
 		}
 	}
 }
@@ -445,6 +446,8 @@ sub play_song {
 
 	$pimp->{"state"} ||= "playing";
 	$pimp->{"state"} = "playing" if ($pimp->{"state"} eq "pause");
+
+	$pimp->{"current_timer"} = new Audio::Mad::Timer();
 	signal_event("new_song");
 
 
