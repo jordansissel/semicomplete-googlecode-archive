@@ -9,10 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <signal.h>
-
-#define _GNU_SOURCE
-#include <string.h>
+#include <unistd.h>
 
 #include "busmaster.h"
 #include "network.h"
@@ -31,24 +28,6 @@ void addthread(pthread_t thread) {
 	threadcount++;
 	threads = realloc(threads, sizeof(pthread_t) * threadcount);
 	threads[threadcount - 1] = thread;
-}
-
-void cleanup(int sig) { 
-	int i = 0;
-
-	done = 1; 
-
-	if (pthread_self() != mainthread)
-		return; 
-
-	log(0, "%s received - Cleaning up...", strsignal(sig));
-
-	for (; i < threadcount; i++) {
-		log(0, "Waiting on thread #%d to finish", i);
-		pthread_join(threads[i], NULL);
-	}
-
-	exit(0);
 }
 
 int main(int argc, char **argv) {
