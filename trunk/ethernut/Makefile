@@ -2,11 +2,16 @@
 #
 # $Id$
 
+CC=gcc
+CFLAGS+=-fno-builtin-log -Wall -O2
+
+# For Linux and FreeBSD
+#LDFLAGS+=-pthread
+
+# For solaris
+LDFLAGS+=-lpthread -lsocket -lnsl
+
 OBJECTS=main.o busmaster.o log.o network.o i2c.o
-
-CFLAGS+=-fno-builtin-log -Wall
-
-LDFLAGS+=-pthread
 
 all: ethernut
 
