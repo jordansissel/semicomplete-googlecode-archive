@@ -451,6 +451,7 @@ int recv_from_proxy(proxy_t *ppt) {
 void distribute_packet(proxy_t *ppt, char *packet, int pktlen) {
 	struct ether_header *eptr;
 	u_short ether_type;
+	int bytes = 0;
 
 	eptr = (struct ether_header *)packet;
 	ether_type = ntohs(eptr->ether_type);
@@ -458,7 +459,16 @@ void distribute_packet(proxy_t *ppt, char *packet, int pktlen) {
 	debuglog(3, "REMOTE PACKET From: %s", ether_ntoa((struct ether_addr *)eptr->ether_shost));
 	debuglog(3, "REMOTE PACKET To: %s", ether_ntoa((struct ether_addr *)eptr->ether_dhost));
 
-	libnet_write_link_layer(libnet, pcapdev, packet, pktlen);
+	bytes = libnet_write_link_layer(libnet, pcapdev, packet, pktlen);
+
+	if (bytes < 0) {
+		debuglog(0, "FATAL ERROR WRITING RAW PACKET TO DEVICE");
+		debuglog(0, "FATAL ERROR WRITING RAW PACKET TO DEVICE");
+		debuglog(0, "FATAL ERROR WRITING RAW PACKET TO DEVICE");
+		debuglog(0, "FATAL ERROR WRITING RAW PACKET TO DEVICE");
+	} else {
+		debuglog(0, "Packet dumped on local net, bytes vs length = %d vs %d", bytes, eptr->pktlen);
+	}
 
 	if (get_log_level() > 10)
 		hexdump(packet, pktlen);
