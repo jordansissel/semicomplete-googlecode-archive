@@ -26,7 +26,6 @@ my $settings = { };
 my $state = undef;     # State information
 $state->{"config"} = $config;
 $state->{"settings"} = $settings;
-read_config($ENV{HOME}."/.ticrc");
 
 my $aim = Net::OSCAR->new(capabilities => [ "typing_status" ]);
 #$aim->timeout(1);
@@ -47,6 +46,7 @@ Tic::Commands->set_state($state);
 #Tic::Common->set_state($state);
 Tic::Bindings->set_state($state);
 
+read_config($ENV{HOME}."/.ticrc");
 setup_enviroment();
 
 load("Tic::Feature::X11Idle");
@@ -208,6 +208,9 @@ sub read_config {
 								  )(?:\s|=)/ix) {
 				if ($line =~ m/(\S+)\s*=\s*(.+)$/) {
 					$state->{"settings"}->{lc($1)} = $2;
+					if ($1 eq 'log') {
+						command_log($state,$2);
+					}
 				} else {
 					print STDERR "Syntax error on line $c of $file:\n$line\n";
 				}
