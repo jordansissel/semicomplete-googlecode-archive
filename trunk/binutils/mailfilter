@@ -9,28 +9,97 @@
 #
 
 use strict;
-#use MIME::Parser;
-#MIME::Parser sucks, mhstore rocks.
 
-# Basic settings {{{
-my $TMP = "/u9/psionic/tmp";
-my $BROWSER = 'w3m -title -T text/html';
-#my $BROWSER = "cat";
+#open(STDERR,">> /u9/psionic/mail/mflog") or die(":( $!");
+
+# Basic setup and shenanigans! {{{
+my $TMP = `grep ^nmh-storage: $ENV{HOME}/.mh_profile`;
+if ($TMP) {
+   chomp($TMP);
+   $TMP =~ s/^nmh-storage:\s+//;
+} else {
+   $TMP = "/tmp";
+}
+my %viewers = (
+   # Web Browsers
+   'browsers'   => ['w3m', 'links', 'lynx'],
+   'lynx' 	=> "lynx -force_html -vikeys",
+   'links' 	=> "links",
+   'w3m' 	=> "| w3m -title -T text/html",
+
+   # Pagers
+   'pagers'	=> ['envpager', 'less', 'pg', 'more'],
+   'less' 	=> "| less",
+   'more' 	=> "| more",
+   'pg' 	=> "| pg",
+   'envpager'	=> "| " .$ENV{'PAGER'},
+
+   # Editors
+   'editors'	=> ['enveditor', 'vi', 'pico', 'joe', 'emacs'],
+   'vi'		=> "vi",
+   'emacs'	=> "emacs",
+   'pico'	=> "pico",
+   'joe'	=> "joe",
+   'enveditor'	=> $ENV{'EDITOR'},
+
+   # A last resort.
+   'lastresort' => ['cat'],
+   'cat' 	=> "| cat -v",
+
+   # Debug
+   'debug'	=> ['devnull'],
+   'devnull'	=> '> /dev/null'
+);
+my $VBROWSER;
+my (@v); 
+
+# UNCOMMENT TO SEND MAIL TO /dev/null, DEBUGGING
+#push(@v,@{$viewers{debug}});
+#push(@v, @{$viewers{lastresort}});
+
+push(@v, @{$viewers{browsers}}); 
+push(@v, @{$viewers{pagers}}); 
+push(@v, @{$viewers{editors}}); 
+push(@v, @{$viewers{lastresort}});
+
+foreach my $viewer (@v) {
+   my $rview = $viewers{"$viewer"};
+   if ($rview =~ m/^\s*>/) {
+      $VBROWSER = $viewers{$viewer};
+      last;
+   }
+   $rview =~ s/^(\|?\s+)?([^\s]+)(\s?.*)$/$2/;
+   foreach (split(":",$ENV{PATH})) {
+      $VBROWSER = $viewers{$viewer} if (-x "$_/$rview");
+   }
+   last if ($VBROWSER);
+}
+print "Using this viewer: $VBROWSER\n";
+#exit;
+my $BROWSER = $VBROWSER;;
+if ($VBROWSER !~ /^\|/) {
+   $BROWSER = "> /tmp/" . mktemp();
+}
+
+my $HTML_ENABLE;
+$HTML_ENABLE = 1 if ($VBROWSER =~ /(w3m|links|lynx)/);
 my $MHL_PROG = "/usr/local/libexec/nmh/mhl";
 my $MHL_HTML_OPTS = "-form mhl.html";
 my $MHL_PLAIN_OPTS = "-form mhl.plaintext";
+my $MHL_OPTS = ($HTML_ENABLE) ? $MHL_HTML_OPTS : $MHL_PLAIN_OPTS;
 
 # This was stolen from my .muttrc - I'll need to come up with a decent
 # parser for these lines eventually.
 my %pgp = (
 pgp_verify_command => "gpg --no-secmem-warning --quiet --no-verbose --batch --output - --verify %s %f"
 	 );
-#}}}
-
 # Plain-text types to be displayed normally without filtration:
 my @plaintext_types = ( 
-   'text/.*', 'message/delivery-status' 
+   'text/.*', 
+   'message/delivery-status', 
    );
+
+#}}}
 
 # Set $mail, $folder, $base, other useful variables. {{{
 my ($mail) = $ARGV[0];
@@ -44,6 +113,7 @@ if ($folder !~ m,^/,) {
 my ($file) = "$base/$folder/$mail";
 
 my $browser_content_type;
+my $browser_done_headers;
 #}}}
 
 # Read in the mail headers {{{
@@ -130,53 +200,57 @@ if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
    my %parts;
 
    my $partlist = `mhlist -noheaders`;
+   my @fileparts;
    foreach (split("\n",$partlist)) {
       next if (m,multipart,i);
       chomp(); s/^\s+//;
       my ($part,$type,$size,$desc) = split(/\s+/,$_,4);
       $parts{$part} = { 'type' => $type, 'size' => $size, 
                         'desc' => $desc, 'part' => $part };
-      #print "Parts: " . $parts{$part} . "\n";
-      system("mhstore -part $part > /dev/null 2>&1");
+      my $storefile = `mhstore -part $part 2>&1`;
+      $storefile =~ s/^.*as file //; chomp($storefile);
+      $parts{$part}->{'file'} = $storefile;
+      push(@fileparts,$storefile);
    }
 
    #system("mhstore");
-
-   #print `ls $TMP/$template*`;
-   opendir(DIR,"$TMP");
-   my @fileparts = grep { m,$templatereg, } readdir(DIR);
-   closedir(DIR);
 
    #print "Files: " . join(" | ", @fileparts) . "\n";
 
    # If part 2 is html, then open it first assuming that this email was dually
    # sent as text/plain and text/html.
    my $mailpart;
-   if ( ($parts{2}{type} =~ m/\.html$/ && ($mailpart = $parts{2})) || 
+   if ( ($HTML_ENABLE) &&
+        ($parts{2}{type} =~ m/\.html$/ && ($mailpart = $parts{2})) || 
 	($parts{1}{type} =~ m/\.html$/ && ($mailpart = $parts{1})) ) {
       my $tmpfile = "$TMP/.headers.$fr.$mail";
-      print STDERR "Starting browser\n";
+      print STDERR "Starting browser (Probably HTML Mail)\n";
 
-      open(BROWSER, "| $BROWSER");
-      browser_set_content_type("text/html");
+      open(BROWSER, "$BROWSER");
+      browser_set_content_type("text/plain") unless ($HTML_ENABLE);
+      browser_set_content_type("text/html") if ($HTML_ENABLE);;
 
       mhl_write_headers($tmpfile);
-      browser_print("< $tmpfile","text/plain");
+      browser_print("< $tmpfile","text/mail_header");
       browser_print("< $TMP/$mailpart");
 
       close(BROWSER);
+      check_open_browser();
 
       #system("rm $tmpfile");
    } else {
       # This doesn't appear to be an html mail, let's deduce what it is...
 
-      print STDERR "Starting browser...\n";
-      open(BROWSER, "| $BROWSER");
-      #open(BROWSER, "> /dev/null");
-      browser_set_content_type("text/html");
+      print STDERR "Starting browser (Multipart mail)\n";
+
+      open(BROWSER, "$BROWSER");
+      browser_set_content_type("text/plain") unless ($HTML_ENABLE);
+      browser_set_content_type("text/html") if ($HTML_ENABLE);;
+
+      print STDERR "> Writing mail header\n";
       my $tmpfile = "$TMP/.headers.$fr.$mail";
       mhl_write_headers($tmpfile);
-      browser_print($tmpfile,"text/html");
+      browser_print("< $tmpfile","text/mail_header");
 
       # Do PGP stuff first?
       if (scalar(grep(/application\/pgp-signature/,@part_types)) > 0) { 
@@ -198,17 +272,12 @@ if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
 	    } 
 	    $count++;
 	 }
-	 #print "Plain: $plain\n";
-	 #print "sig: $sig\n";
 
-	 #print "text/plain part: $plain\n";
-	 #print "pgp-sig part: $sig\n";
 	 my $pgp_verify = $pgp{'pgp_verify_command'};
-	 $pgp_verify =~ s,%s,$TMP/$sig,;
-	 $pgp_verify =~ s,%f,$TMP/$plain,;
+	 $pgp_verify =~ s,%s,$sig,;
+	 $pgp_verify =~ s,%f,$plain,;
 
-	 browser_print("$pgp_verify 2>&1 |", "text/plain",1);
-         #browser_print("$TMP/$plain","$plaintype");
+	 browser_print("$pgp_verify 2>&1 |", "text/plain",2);
 
 	 undef($parts{$sidx});
 	 print STDERR "done.\n"
@@ -216,33 +285,40 @@ if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
 	 #}}}
       }
 
-      browser_print("< $TMP/" . $fileparts[0], $parts{1}{'type'}, 1);
+      print STDERR "Writing first part\n";
+      browser_print("< " . $fileparts[0], $parts{1}{'type'});
 
       undef($parts{1});
 
       mime_for_you(\%parts,@fileparts);
 
       close(BROWSER);
+      check_open_browser();
+
       system("rm $tmpfile");
    }
 
    foreach (@fileparts) {
-      system("rm $TMP/$_");
+      system("rm $_");
    }
 #}}}
-} else { # {{{ Not multipart mail.
+} else { # Not multipart mail. {{{
 
-   print "Starting browser...\n";
-   open(BROWSER,"| $BROWSER") or die(":( $!");
-   browser_print("$MHL_PROG $MHL_PLAIN_OPTS $mail |","$ctype");
+   print STDERR "Starting browser... (Plain ordinary mail)\n";
+   open(BROWSER,"$BROWSER") or die(":( $!");
+   browser_set_content_type("text/plain") unless ($HTML_ENABLE);
+   browser_set_content_type("text/html") if ($HTML_ENABLE);;
+
+   browser_print("$MHL_PROG $MHL_OPTS $mail |","$ctype");
    close(BROWSER);
+   check_open_browser();
 
 } # }}}
 
 sub mhl_write_headers { #{{{
    my ($out) = shift;
 
-   open(MHLWRITE, "| $MHL_PROG $MHL_HTML_OPTS > $out") or
+   open(MHLWRITE, "| $MHL_PROG $MHL_OPTS > $out") or
       die("Failed trying to pipe to $MHL_PROG\n$!\n"); 
 
    print MHLWRITE "$from_line\n";
@@ -266,22 +342,76 @@ sub browser_print { #{{{
 	 or die("Unable to open $what for reading.\nreason> $!\n");
    }
 
-   my $not_real_html = 0;
-   if ( ($browser_content_type eq 'text/html') && 
-	($browser_content_type ne $type) ) {
-      $not_real_html = 1;
-   }
-			
-   while (<$contents>) { 
-      if ($not_real_html) {
-	 s/</&lt;/g; s/>/&gt;/g;
-         print BROWSER $_ . "<br>";
+   my ($not_real_html);
+   if ($browser_done_headers) {
+      if ($browser_content_type eq 'text/html')  {
+	 if ($browser_content_type ne $type) {
+	    if ($type eq 'text/mail_header') {
+	       $not_real_html = 2;
+	    } else {
+	       $not_real_html = 1;
+	    }
+	 }
       } else {
-	 print BROWSER $_;
+	 if ($type eq 'text/mail_header') {
+	    $not_real_html = 2;
+	 } else {
+	    $not_real_html = 1;
+	 }
+      }
+   } else {
+      $not_real_html = 2;
+   }
+
+   if ($splitter == 1) {
+      if ($HTML_ENABLE) { 
+	 print BROWSER "<hr>";
+      } else {
+         print "\033[1m;--------\033[0m;";
       }
    }
 
-   print BROWSER "<hr>" if ($splitter);
+   my $header_cc_kludge = 0;
+   while (<$contents>) { 
+      if ( ($not_real_html) && ($HTML_ENABLE) ) {
+	 if ($not_real_html == 1) {;
+	    s/</&lt;/g; 
+	    s/>/&gt;/g 
+	 }
+	 if ($not_real_html == 2) {
+	    s,<([^(html|head|title|body|br|hr|>)]*)>,TEST $1 TEST,g 
+	 }
+
+	 # Lame kludge :(
+	 if (!$browser_done_headers) {
+	    print BROWSER "<br>\n" if (($header_cc_kludge) && (m/^Subject:/));
+	    $header_cc_kludge = 1 if ((!$header_cc_kludge) && (m/^cc:/));
+	 }
+
+         print BROWSER $_;
+	 print BROWSER "<br>\n" if ($not_real_html != 2);
+
+	 if ((!$browser_done_headers) && (m/^(\n|<hr>)$/)) {
+	    $browser_done_headers = 1;
+	    if ($browser_content_type eq 'text/html')  {
+	       $not_real_html = 1 if ($browser_content_type ne $type);
+	    } else {
+	       $not_real_html = 1;
+	    }
+	 }
+      } else {
+	 print BROWSER $_;
+      }
+
+   }
+
+   if ($splitter == 2) {
+      if ($HTML_ENABLE) { 
+	 print BROWSER "<hr>";
+      } else {
+         print "\033[1m;--------\033[0m;";
+      }
+   }
 
    close($contents) if (ref($what) ne 'GLOB');
 } #}}}
@@ -296,22 +426,29 @@ sub handle_mime_attachment { #{{{
    my ($part,$file,$defer) = @_;
 
    my $yep;
-   foreach (@plaintext_types) {
-      if ($part->{type} =~ m/$_/i) {
-	 print BROWSER "[ Part " . $part->{'part'} . " - " . 
-	                $part->{'desc'} . ", type=" . 
-			$part->{'type'} . " ]<br>\n";
-
-         browser_print("< $TMP/$file", $part->{type}, 1);
+   my $spl = 0;
+   foreach my $pt (@plaintext_types) {
+      #print STDERR "$file> ". $part->{type}. ": $pt\n";
+      if ($part->{type} =~ m/^$pt$/i) {
+	 if ($part->{type} =~ m,text/html,) {
+	    print BROWSER "[ Part " . $part->{'part'} . " - " . 
+			   $part->{'desc'} . ", type=" . 
+			   $part->{'type'} . " ]<br>\n";
+	    $spl = 2;
+	 } else {
+	    print BROWSER "<br>";
+	 }
+         browser_print("< $file", $part->{type}, $spl);
 	 $yep = 1;
 	 last;
       }
    }
    push(@{$defer}, [ $part, $file ]) unless ($yep);
+   #print STDERR "\n";
 
 } #}}}
 
-sub mime_for_you {
+sub mime_for_you { #{{{
    my ($parts,@fileparts) = @_;
 
    my @justlink;
@@ -322,14 +459,40 @@ sub mime_for_you {
 
    # These next files weren't plaintext-printed, so link them.
    if (scalar(@justlink) > 0) {
+      print BROWSER "<hr>";
       print BROWSER "Download Attachments:<br>\n";
       foreach (@justlink) {
 	 my ($part,$file) = @{$_};
-	 print BROWSER "&nbsp;&nbsp;&nbsp;<a href=\"file://$TMP/$file\">";
+	 print BROWSER "&nbsp;&nbsp;&nbsp;<a href=\"file://$file\">";
 	 print BROWSER $part->{'desc'} . " - ";
-	 print BROWSER "$file (".$part->{'type'}.")</a><br>\n";
+	 $file =~ s,^.*/,,;
+	 print BROWSER "$file (".$part->{'type'}.") [" . $part->{'size'} . "]</a><br>\n";
       }
    }
-}
+} #}}}
 
+sub mktemp { #{{{
+   my $str;
+   
+   do {
+      $str ="mail.out.";
+      for (my $x = 0; $x < 5; $x++) {
+	 $str .= int(rand(10));
+      }
+   } while (-e "/tmp/$str");
 
+   return $str;
+} #}}}
+
+sub check_open_browser { #{{{
+   if ($VBROWSER !~ m/^[\|>]/) {
+      print STERR "Now running browser!\n";
+      $BROWSER =~ s/>\s+//;
+      if ($VBROWSER =~ /^links/) {
+	 system("mv $BROWSER $BROWSER.html");
+	 $BROWSER .=".html";
+      } 
+      system("$VBROWSER $BROWSER");
+      system("rm $BROWSER");
+   }
+} #}}}
