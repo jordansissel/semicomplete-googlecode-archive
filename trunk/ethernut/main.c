@@ -18,14 +18,14 @@ extern busmaster_t *busmaster;
 
 int main(int argc, char **argv) {
 
-	set_log_level(1);
+	set_log_level(100);
 
 	busmaster_init();
 	network_init();
 	i2c_init();
 
 	for (;;) {
-		log(0, "main says hi");
+		//log(0, "main says hi");
 		sleep(10);
 	}
 	return 0;
