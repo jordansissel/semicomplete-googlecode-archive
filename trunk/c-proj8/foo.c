@@ -18,9 +18,7 @@ char **do_opts(int argc, char **argv, char *control,
 			for (c = control; *c != '\0' && !found; c++) {
 				if (**pt == *c) {
 					found = 1;
-					//printf("Processing %c\n", *c);
 					if (*(c + 1) == '+') {
-						//printf("\nExpecting an argument\n");
 						if (*(*pt + 1) != '\0') {
 							do_opt(*c, (*pt + 1));
 						} else {
