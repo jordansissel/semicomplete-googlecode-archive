@@ -54,6 +54,7 @@ my $bindings = {
 	"BACKSPACE"   => "delete-char-backward",
 	"^H"          => "delete-char-backward",
 	"^?"          => "delete-char-backward",
+	"^W"          => "delete-word-backward",
 	
 	"^U"          => "kill-line",
 	
@@ -80,6 +81,7 @@ my $mappings = {
 	"redraw"                 => \&fix_inputline,
 	"beginning-of-line"      => \&beginning_of_line,
 	"end-of-line"            => \&end_of_line,
+	"delete-word-backward"   => \&delete_word_backward,
 
 	#"complete-word"          => \&complete_word,
 	#"expand-line"            => \&expand_line,
@@ -238,13 +240,14 @@ sub newline {
 	real_out("\n");
 	print "You wrote: " . $state->{"input_line"} . "\n";
 
-	$state->{"input_line"} = undef;
+	$state->{"input_line"} = "";
 	$state->{"input_position"} = 0;
 }
 
 sub kill_line {
 	$state->{"input_line"} = undef;
 	$state->{"input_position"} = 0;
+	$state->{"leftcol"} = 0;
 
 	real_out("\r\e[2K");
 
@@ -292,6 +295,54 @@ sub end_of_line {
 	$state->{"input_position"} = length($state->{"input_line"});
 	fix_inputline();
 }
+
+sub delete_word_backward {
+	my $pos = $state->{"input_position"};
+	my $line = $state->{"input_line"};
+	my $bword;
+	my $regex = "[A-Za-z0-9]";
+
+	# If we're in a word, delete to the beginning
+	# If we're on a nonword, delete to end of previous word.
+	#
+	
+	#out("Char at: $pos");
+
+	$bword = $pos - 1;
+
+	if ($bword + 1 == $pos) {
+		while (substr($line,$bword,1) =~ m/^\s$/) {
+			#out("SPACE: '".substr($line,$bword,1) =~ m/^\s$/ ."'");
+			$bword--;
+		}
+	}
+
+	substr($regex, 1, 0) = "^" if (substr($line,$bword,1) !~ m/$regex/);
+
+	#out("Regex: $regex");
+	while (substr($line,$bword,1) =~ m/$regex/ && $bword >= 0) {
+		#out("ALNUM: '".substr($line,$bword,1)."'");
+		$bword--;
+	}
+
+	$bword++;
+
+	#out("Word: $pos / $bword");
+
+	substr($line, $bword, $pos - $bword) = '';
+
+	$state->{"input_line"} = $line;
+	$state->{"input_position"} -= ($pos - $bword);
+
+	if ($state->{"input_position"} - $state->{"leftcol"} <= 0) {
+		$state->{"leftcol"} -= 30;
+		$state->{"leftcol"} = 0 if ($state->{"leftcol"} < 0);
+	}
+
+	fix_inputline();
+
+}
+
 # Test method...
 init;
 
