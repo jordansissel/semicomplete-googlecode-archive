@@ -6,13 +6,16 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.2  2004/01/18 23:49:26  tristan
+ *   updated comments
+ *
  *   Revision 1.1  2004/01/18 23:39:05  tristan
  *   initial
  *
  */
 
 /**
- * Manages a client's connection with the server.
+ * Manages a server's connection with the client
  *
  * @author tristan
  */
