@@ -15,9 +15,9 @@ typedef struct i2cnode {
 	byte status; /* Bit array....ish thing */
 } i2cnode_t;
 	
-#define I2C_DROPBIT 001
-#define I2C_QUENCHBIT 002
-#define I2C_RESPOND 004
+#define I2C_DROPBIT 0x01
+#define I2C_QUENCHBIT 0x02
+#define I2C_RESPOND 0x04
 
 #define I2C_DATA_PING ((u_char)0x00)
 #define I2C_DATA_LENGTH 2
