@@ -24,7 +24,6 @@ my $commands = undef;  # Commands
 my $bindings = DEFAULT_BINDINGS; 
 my $mappings = DEFAULT_MAPPINGS;
 my $config = DEFAULT_OUTPUT;
-
 my $settings = read_config($ENV{HOME}."/.ticrc");
 
 my $state = undef;     # State information
@@ -48,6 +47,10 @@ Tic::Commands->set_state($state);
 Tic::Bindings->set_state($state);
 Tic::Common->set_state($state);
 
+setup_enviroment();
+
+$SIG{WINCH} = sub { ($state->{"termcols"}) = GetTerminalSize(); };
+
 prepare_completion($commands);
 
 # Autoflush stdout.
@@ -55,7 +58,7 @@ $| = 1;
 
 login($settings->{"screenname"}, $settings->{"password"});
 
-# What is this?!
+# What is this?! ($state->{"aimok"})
 # - When we call check_readline() and there's nothing to read, we want
 #   to allow parsing of aim events.
 # 
@@ -63,7 +66,8 @@ login($settings->{"screenname"}, $settings->{"password"});
 # Without using an "aimok" state (telling when it's ok to process
 # aim events), we will process aim event all the time. This becomes
 # very time consuming; that is, pasting things takes a while.
-# This new state solves it
+# This new state solves it, now pasting things takes no time to process.
+#
 
 $state->{"aimok"} = 1;
 
@@ -77,7 +81,6 @@ $state->{"aimok"} = 1;
 while (1) {
 	$aim->do_one_loop() if ($state->{"aimok"});
 	check_readline();
-	#$state->{"aimok"} = 1 if ($state->{"is_typing"} < time());
 }
 
 # init functions
@@ -111,6 +114,7 @@ sub setup_commands {
 		"buddylist"               => \&command_buddylist,
 		"default"                 => \&command_default,
 		"echo"                    => \&command_echo,
+		"date"                    => \&command_date,
 		"getaway"                 => \&command_getaway,
 		"info"                    => \&command_info,
 		"help"                    => \&command_help,
@@ -135,6 +139,25 @@ sub setup_commands {
 	$state->{"commands"} = $commands;
 }
 
+sub setup_enviroment {
+	foreach my $key (keys(%{$settings})) {
+		out("$key: " . $settings->{$key});
+		if ($key =~ m/^log\.([^\.]+)$/) {
+			set_config("logging","only specified users");
+			get_config("who_log")->{"$1"} = 1;
+			#$state->{"logging"}->{"who_log"}->{"$1"} = $settings->{"$key"};
+		} elsif ($key =~ m/^log$/) {
+			set_config("logging", $settings->{"$key"});
+		} elsif ($key =~ m/^timestamp$/) {
+			command_timestamp($state,$settings->{"$key"});
+		} elsif ($key =~ m/^timestamp_fmt$/) {
+			set_config("timestamp",$settings->{"$key"});
+		}
+	}
+	get_config("logging");
+	get_config("who_log");
+}
+
 # Nonblocking readline
 sub check_readline { 
 	my $char;
@@ -143,6 +166,7 @@ sub check_readline {
 	$char = ReadKey(-1);
 	if (defined($char)) {
 		if ($char eq "\n") {
+			get_config("logging");
 			# 
 			my $line = $state->{"input_line"};
 			real_out("\n");
@@ -173,16 +197,22 @@ sub check_readline {
 			}
 			if ($state->{"termcols"} < length($ret)) {
 				my $left = length($ret) - $state->{"termcols"};
-				$state->{"leftcol"} = $left + 1;
+				$state->{"leftcol"} = $left;
 			}
-			#print STDERR $state->{"leftcol"} . " / " . $state->{"termcols"} . " - " . substr($ret,$state->{"leftcol"} ,$state->{"termcols"}) . "\n";
 
 			# Determine what the leftmost pos is:
 			my $l = ($state->{"leftcol"} < $state->{"input_position"}) ? 
 				      $state->{"leftcol"} : $state->{"input_position"};
 			real_out("\r\e[2K" . substr($ret,$l, $state->{"termcols"}));
-			#real_out("\r\e[2K" . substr($ret,$state->{"leftcol"},$state->{"termcols"}));
 			real_out("\e[".$back."D") if ($back > 0);
+
+			# Parse line for who this is going to -
+			$state->{"recursion_check"} = 0;
+			my $foo = expand_aliases($state->{"input_line"});
+			if ($foo =~ m!^/msg\s+(\S+)\s!) {
+				$state->{"who_to"} = $1;
+			}
+
 			$state->{"input_line"} = $ret;
 		} else {
 			if (defined($extra->{"-print"})) {
@@ -195,19 +225,6 @@ sub check_readline {
 	} else {
 		$state->{"aimok"} = 1;
 	}
-}
-
-# blocking readline
-sub readline {
-   my ($hide) = shift;
-   my ($char, $line);
-   while (1) {
-      $char = getc();
-      last if ($char eq "\n");
-      $line = handle_keys($line, length($line), $char);
-   }
-
-   return $line;
 }
 
 # Handle keys... and strife!
@@ -248,9 +265,17 @@ sub handle_keys {
 
 
 	if ((defined($char)) && (ord($char) >= 32)) {
-		$line = substr($line,0,$state->{"input_position"}) . $char . 
-			     substr($line,$state->{"input_position"});
-		$state->{"input_position"}++;
+		map { delete($state->{"$_"}) } grep(/^complete_/, keys(%{$state}));
+		if ( ($pos == 0) && ($char eq ';') && ($state->{"last_from"} ne '') ) {
+			my $str =  "/msg \"" . $state->{"last_from"} . "\" ";
+			$line =  $str . substr($line,1);
+			$char = '';
+			$state->{"input_position"} += length($str);
+		} else {
+			$line = substr($line,0,$state->{"input_position"}) . $char . 
+					  substr($line,$state->{"input_position"});
+			$state->{"input_position"}++;
+		}
 		#print STDERR "Position: " . $state->{"input_position"} . "\n";
 	}
 
@@ -264,12 +289,6 @@ sub command {
 		#out("<$cmd>");
 		if (defined($commands->{$cmd})) { 
 			&{$commands->{$cmd}}($state, $args);
-			#my $whattodo = &{$commands->{$cmd}}($state, $args);
-			#if (defined($whattodo)) {
-				#out "Doing: $whattodo\n";
-				#eval $whattodo;
-				#warn($@) if $@;
-			#}
 		} elsif (defined($aliases->{$cmd})) {
 			$state->{"recursion_check"}++;
 			if ($state->{"recursion_check"} > 10) {
@@ -304,7 +323,9 @@ sub execute_binding {
 	$key = prettify_key($key);
 	#print "Prettified key: $key\n";
 	if (defined($bindings->{$key})) {
-		#print STDERR "Key: $key\n";
+		if ($bindings->{$key} !~ m!^complete-!) {
+			map { delete($state->{"$_"}) } grep(/^complete_/, keys(%{$state}));
+		}
 		if (ref($mappings->{$bindings->{$key}}) eq 'CODE') {
 			return &{$mappings->{$bindings->{$key}}}($state);
 		} else {
@@ -349,9 +370,11 @@ sub read_config {
 			next if ($line =~ m/^(?:#|\s*$)/);
 			chomp($line);
 			$line =~ s/#.*$//;
-			if ($line =~ m/^(screenname|password|server|port)(?:\s|=)/i) {
+			if ($line =~ m/^(
+								  screenname|password|server|port|log|log\.[^\.]+|
+								  timestamp|timestamp_fmt
+								  )(?:\s|=)/ix) {
 				if ($line =~ m/(\S+)\s*=\s*(.+)$/) {
-					print "$1 => $2\n";
 					$conf->{lc($1)} = $2;
 				} else {
 					print STDERR "Syntax error on line $c of $file:\n$line\n";

@@ -9,7 +9,7 @@ use POSIX qw(strftime);
 
 @ISA = qw(Exporter);
 @EXPORT = qw(out real_out error debug query deep_copy prettyprint prettylog
-             login set_config get_config);
+             login set_config get_config expand_aliases);
 
 my $state;
 
@@ -106,8 +106,9 @@ sub prettyprint {
 		 }
 	}
 
-	$output =~ s!<(?:(?:(?:html|body|font|b|i|u)(?:\s[^>]+)?)|(?:/(?:font|b|i|u)))>!!gi;
+	$output =~ s!<(?:(?:(?:html|body|font|b|i|u)(?:\s[^>]+)?)|(?:/(?:html|body|font|b|i|u)))>!!gi;
 	$output =~ s!<br>!\n!gi;
+	$output =~ s![[:cntrl:]]!!g;
 
 	if ($type =~ m/^error/) {
 		error($output);
@@ -194,6 +195,28 @@ sub set_config {
 	my ($a,$b) = @_;
 	#out("$state | set_config($a,$b)");
 	$state->{"config"}->{$a} = $b;
+}
+
+sub expand_aliases {
+	my ($string) = shift;
+	my ($cmd,$args) = split(/\s+/, $string, 2);
+	my ($commands, $aliases) = ($state->{"commands"}, $state->{"aliases"});
+
+	if ($cmd =~ s!^/!!) {
+		if (defined($commands->{$cmd})) {
+			return "/$cmd $args";
+			#&{$commands->{$cmd}}($state, $args);
+		} elsif (defined($aliases->{$cmd})) {
+			$state->{"recursion_check"}++;
+			if ($state->{"recursion_check"} > 10) {
+				out("Too much recursion in this alias. Aborting execution");
+				return;
+			}  
+			($cmd, $args) = $aliases->{$cmd} . " " . $args;
+			return expand_aliases($cmd,$args);
+			$state->{"recursion_check"}--;
+		}
+	} 
 }
 
 1;

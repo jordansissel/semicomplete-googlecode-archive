@@ -14,13 +14,15 @@ use constant DEFAULT_BINDINGS => {
 	"LEFT"        =>    "backward-char",
 	"RIGHT"       =>    "forward-char",
 
-	"^I"          =>    "complete-word",
-	"TAB"         =>    "complete-word",
+	#"^I"          =>    "complete-word",
+	#"TAB"         =>    "complete-word",
 
 	"BACKSPACE"   =>    "delete-char-backward",
 	"^H"          =>    "delete-char-backward",
 	"^?"          =>    "delete-char-backward",
 	"^U"          =>    "kill-line",
+
+	"^T"          =>    "expand-line",
 };
 
 # Default "string" -> sub binding.
@@ -30,7 +32,7 @@ use constant DEFAULT_MAPPINGS => {
 	"complete-word"           => \&complete_word,
 	"delete-char-backward"    => \&delete_char_backward,
 	"kill-line"               => \&kill_line,
-
+	"expand-line"             => \&expand_line
 };
 
 my $state;
@@ -68,7 +70,6 @@ sub forward_char {
 		$ret->{-print} = "\e[C";
 	}
 
-
 	return ($state->{"input_line"}, undef, $ret);
 }
 
@@ -77,12 +78,12 @@ sub backward_char {
 	my $ret;
 	if ($state->{"input_position"} > 0) {
 		$state->{"input_position"}--;
-		if ($state->{"input_position"} <= $state->{"leftcol"}) {
+		if (($state->{"input_position"} <= $state->{"leftcol"}) && ($state->{"input_position"} != 0)) {
 			$state->{"leftcol"}--;
 		}
 		$ret->{-print} = "\e[D";
 	} 
-
+	print STDERR "Back: " . $state->{"leftcol"} . " / " . $state->{"input_position"} . "\n";
 
 	return ($state->{"input_line"}, undef, $ret);
 }
@@ -94,8 +95,18 @@ sub kill_line {
 	my ($line) = $state->{"input_line"};
 	$line = ""; # not undef...
 	$state->{"input_position"} = 0;
+	$state->{"leftcol"} = 0;
 	$state->{"input_line"} = undef;
 	return (undef, undef, { -print => "\r\e[2K" } );  # Not undef!
+}
+
+sub expand_line {
+	my $state = shift;
+	my $line = $state->{"input_line"};
+	$line = expand_aliases($line);
+	$state->{"input_position"} = length($line);
+
+	return ($line,undef,undef);
 }
 
 sub complete_word {
@@ -104,38 +115,47 @@ sub complete_word {
 	my $pos = $state->{"input_position"};
 	my $ret;
 	my $string;
-	#print STDERR "bind_complete called.\n";
+
+	$pos = $state->{"complete_position"} if (defined($state->{"complete_position"}));
+	$line = $state->{"complete_oldline"} if (defined($state->{"complete_oldline"}));
 
 	# Try completing a command.
 	# Find the word the cursor is on.
 	my ($b,$e); # beginning and end
-	$pos-- if (substr($line,$pos,1) eq ' ');
 
-	for (my $x = 0; $x < length($line); $x++) {
-		unless (defined($b)) { # Look for the beginning of the word
-			my $p = $pos - $x;
-			#print STDERR "B: $p / '" . substr($line,$p,1) . "'\n";
-			$b = $p if (($p <= 0) || (substr($line,$p,1) =~ m/^\s/));
-			$b++ if ($b > 0);
+	#if (!defined($state->{"complete_position"})) {
+		$pos-- if (substr($line,$pos,1) eq ' ');
+
+		for (my $x = 0; $x < length($line); $x++) {
+			unless (defined($b)) { # Look for the beginning of the word
+				my $p = $pos - $x;
+				$b = $p if (($p <= 0) || (substr($line,$p,1) =~ m/^\s/));
+				$b++ if ($b > 0);
+			}
+			unless (defined($e)) { # Look for the end of the word
+				my $p = $pos + $x;
+				$e = $p if (($p >= length($line)) || (substr($line,$p,1) =~ m/^\s/));
+			}
+			last if (defined($b) && defined($e));
 		}
-		unless (defined($e)) { # Look for the end of the word
-			my $p = $pos + $x;
-			#print STDERR "F: $p / '" . substr($line,$p,1) . "'\n";
-			$e = $p if (($p >= length($line)) || (substr($line,$p,1) =~ m/^\s/));
-		}
-		last if (defined($b) && defined($e));
-	}
-	$b ||= 0;
-	$e ||= length($line);
+		$b ||= 0;
+		$e ||= length($line);
+		$string = substr($line,$b,($e - $b));
+	#} else {
+		$string = $state->{"complete_partial"} if (defined($state->{"complete_partial"}));;
+	#}
 
-	#print STDERR "Init: $pos / Beginning: $b / End: $e == '" . substr($line,$b,$e) . "'\n";
+	print STDERR "$b:$e - [$string] $line\n";
 
-	$string = substr($line,$b,($e - $b));
+	my $movepos = $state->{"complete_beginpos"} || -1;
 	my $comp = do_complete($state, $string, $b, $e);
 	if ($comp ne $string) {
 		substr($line,$b,($e - $b)) = $comp;
-		$state->{"input_position"} += length($comp) - length($string);
-
+		#$state->{"input_position"} -= ($e - $b);
+		$state->{"input_position"} = $b;
+		$state->{"input_position"} += length($comp);
+		#$state->{"complete_lastcomp"} = $comp;
+		#$state->{"input_position"} += length($comp) - length($string);
 	}
 
 	#print STDERR "Line: $line\n";
@@ -145,9 +165,15 @@ sub complete_word {
 
 sub do_complete {
 	my ($state,$string,$b,$e) = @_;
+	my $orig = $string;
+	my $matches;
+
+	$state->{"complete_oldline"} = $state->{"input_line"} 
+		unless defined($state->{"complete_oldline"});
+
 	if ($b eq '0') {
 		if ($string =~ m!^/(.*)$!) {
-			$string = do_complete_command($state,$1);
+			($string, $matches) = do_complete_command($state,$1);
 		}
 	} else {
 		# This isn't the first word, and maybe isn't a command.
@@ -166,8 +192,6 @@ sub do_complete {
 		}
 
 		my $how = $compl[$index - 1];
-		#print STDERR join(" / ", @compl). "\n";
-		#print STDERR "How: $how / $index / $string / $cmd / " . $state->{"completion"}->{$cmd} . "\n";
 
 		FOO:
 		$state->{"recursion_check"}++;
@@ -176,11 +200,11 @@ sub do_complete {
 			return $string;
 		}
 		if ($how eq "%a") {
-			$string = do_complete_alias($state,$string);
+			($string, $matches) = do_complete_alias($state,$string);
 		} elsif ($how eq "%c") {
-			$string = do_complete_command($state,substr($string,1)) if ($string =~ m!^/!);
+			($string, $matches) = do_complete_command($state,substr($string,1)) if ($string =~ m!^/!);
 		} elsif ($how eq "%s") {
-			$string = do_complete_buddy($state,$string);
+			($string, $matches) = do_complete_buddy($state,$string);
 		} elsif ($how eq "%ca") {
 			# look back, find the command.
 			#print STDERR "Looking back ($index)\n";
@@ -192,10 +216,6 @@ sub do_complete {
 					if (defined($state->{"commands"}->{$c})) {
 						my @compl = split(" ",$state->{"completion"}->{$c});
 						$how = $compl[$index - $i - 1];
-						#print STDERR "----\n";
-						#print STDERR "%CA: $c : $how / $index - $i\n";
-						#print STDERR join(" / ", @compl) . "\n";
-						#print STDERR "----\n";
 						goto FOO;
 					}
 				}
@@ -203,6 +223,17 @@ sub do_complete {
 		}
 	}
 
+	if ($string ne $orig) {
+		print STDERR "Orig: $orig / New: $string\n";
+		print STDERR "--> " . $state->{"complete_index"} . "\n";
+		print STDERR "--> " . $state->{"input_position"} . "\n";
+		$state->{"complete_position"} = $state->{"input_position"};
+		$state->{"complete_partial"} = $orig;
+		$state->{"complete_index"} = (($state->{"complete_index"} + 1) % 
+												scalar(@{$matches}));
+		$state->{"complete_beginpos"} = $b;
+		$state->{"complete_endpos"} = $e;
+	}
 	$state->{"recursion_check"} = 0;
 	return $string;
 }
@@ -212,8 +243,8 @@ sub do_complete_command {
 	my @coms = grep(m/^$partial/,keys(%{$state->{"commands"}}));
 	push(@coms,grep(m/^$partial/,keys(%{$state->{"aliases"}})));
 	@coms = sort(@coms);
-	$partial  = $coms[0] . " " if (scalar(@coms) > 0);
-	return "/$partial";
+	$partial  = $coms[$state->{"complete_index"}] . " " if (scalar(@coms) >= 0);
+	return "/$partial", \@coms;
 }
 
 sub do_complete_alias {
@@ -221,8 +252,8 @@ sub do_complete_alias {
 	#print STDERR "alias completion, $partial\n";
 	my @coms = grep(m/^$partial/,keys(%{$state->{"aliases"}}));
 	@coms = sort(@coms);
-	$partial  = $coms[0] . " " if (scalar(@coms) > 0);
-	return $partial;
+	$partial  = $coms[$state->{"complete_index"}] . " " if (scalar(@coms) > 0);
+	return $partial, \@coms;
 }
 
 sub do_complete_buddy {
@@ -235,9 +266,9 @@ sub do_complete_buddy {
 		push(@matches, grep(m/^$partial/i,@buddies));
 	}
 
-	$partial = $matches[0] . " " if (scalar(@matches) > 0);
+	$partial = $matches[$state->{"complete_index"}] . " " if (scalar(@matches) > 0);
 
-	return $partial;
+	return $partial, \@matches;
 }
 
 sub delete_char_backward {

@@ -45,7 +45,6 @@ use constant DEFAULT_OUTPUT => {
 
 	"error_generic"    => "Error: %e",
 	"error_unknown_command" => "Unknown command, '%k'",
-	
 
 };
 

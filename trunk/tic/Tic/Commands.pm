@@ -3,6 +3,7 @@ package Tic::Commands;
 
 use strict;
 use Tic::Common;
+use Getopt::Std;
 use POSIX qw(strftime);
 use vars qw(@ISA @EXPORT);
 use Exporter;
@@ -55,7 +56,11 @@ HELP
 	my ($sn, $msg);
   
 	if (scalar(@_) == 1) {
-		($sn, $msg) = split(/\s/, $args, 2);
+		if ($args =~ m/^"([^"]+)"\s+(.*$)/) {
+			($sn, $msg) = ($1, $2);
+		} else {
+			($sn, $msg) = split(/\s/, $args, 2);
+		}
 	} else {
 		($sn, $msg) = @_;
 	} 
@@ -447,6 +452,7 @@ HELP
 		out($g);
 		my @buddies = $aim->buddies($g);
 		my $count = 0;
+		my %results;
 		foreach my $b (sort(compare($a,$b),@buddies)) {
 			my $bud = $aim->buddy($b,$g);
 			next unless (defined($bud));
@@ -456,34 +462,23 @@ HELP
 			$e .= "away, " if ($bud->{"away"});
 			$e .= "idle, " if ($bud->{"idle"});
 			$e =~ s/, $//;
-
-			if ($args eq '-active') {
-				if ($e eq "online") {
-					out("   $b ($e)");
-					$count++;
-				}
-			} elsif ($args eq '-idle') {
-				if ($e =~ m/idle/) {
-					out("   $b ($e)");
-				  	$count++;
-				}
-			} elsif ($args eq '-away') {
-				if ($e =~ m/away/) {
-					out("   $b ($e)");
-				  	$count++;
-				}
-			} elsif ($args eq '') {
-				out("   $b ($e)");
-				$count++;
-			} else {
-				if ($b =~ m/$args/i) {
-					out("   $b ($e)");
-					$count++;
-				}
-			}
-
-			#if (($args =~ m/\b$type\b/) && ($e =~ m/\b$type\b/));
+			push($results{"offline"}, $bud) unless ($bud->{"online"});
+			push($results{"online"}, $bud) if ($bud->{"online"});
+			push($results{"away"}, $bud) if ($bud->{"away"});
+			push($results{"idle"}, $bud) if ($bud->{"idle"});
+			push($results{"mobile"}, $bud) if ($bud->{"mobile"});
 		}
+		# TODO: Only display all matches to their query?
+		# -a    active
+		# -w    away
+		# -o    offline
+		# -i    idle
+		# -m    idle
+		my %opts;
+		my @budmatches;
+		@ARGV = split(/\s+/, $args);
+		getopt('awoim', \%opts);
+
 		error("No buddies matching your query, '$args'") if ($count == 0);
 	}
 }
