@@ -58,15 +58,15 @@ int main(int argc, char **argv) {
 
 	root = DefaultRootWindow(dpy);
 
-	{/* 
+	{ /*
 		Window retroot, child;
 		int xc, yc, winx, winy, maskret;
 		XQueryPointer(dpy, root, &retroot, &child, &xc, &yc, &winx, &winy, &maskret);
 		printf("Query: (%d,%d)\n", xc, yc);
-	*/}
+	*/ }
 
+	//ret = XAllowEvents(dpy, AsyncBoth, CurrentTime);
 	/*
-	ret = XAllowEvents(dpy, AsyncBoth, CurrentTime);
 	if (ret) {
 		fatal2(dpy, ret, "XAllowEvents");
 	}
@@ -80,34 +80,39 @@ int main(int argc, char **argv) {
 
 	for (;;) {
 		XEvent e;
+		XKeyEvent ke;
 		if (XPending(dpy)) {
 			char *kp;
+			XKeyEvent ke = e.xkey;
 			int keysym;
 				
 			XNextEvent(dpy, &e);
-			XKeyEvent ke = e.xkey;
+			ke = e.xkey;
 
-			keysym = XKeycodeToKeysym(dpy, ke.keycode, 0);
-			kp = XKeysymToString(keysym);
-			//strcpy(keyname, XKeysymToString(XKeycodeToKeysym(dpy, ke.keycode, 0)));
-			printf("Sym: %d / %d\n", keysym, XK_F10);
+			if (ke.type == KeyPress) {
+				keysym = XKeycodeToKeysym(dpy, ke.keycode, 0);
+				kp = XKeysymToString(keysym);
+				//strcpy(keyname, XKeysymToString(XKeycodeToKeysym(dpy, ke.keycode, 0)));
+				printf("[%d] Sym: %d / %d\n", ke.type, keysym, XK_F10);
+				if (kp != NULL) {
+					printf("Name: %s\n", kp);
+				}
 
-			//if (!strcmp(keyname, "F10")) {
-			if (keysym == XK_F10) {
-				XGrabKeyboard(dpy, root, True, GrabModeSync, GrabModeSync, CurrentTime);
-				inputoffset = 0;
-				memset(input, 0, inputlen);
-			//} else if (!strcmp(keyname, "Return")) {
-			} else if (keysym == XK_Return) {
-				printf("Input: '%s'\n", input);
-				XUngrabKeyboard(dpy, CurrentTime);
-			} else {
-				if (strlen(keyname) == 1) {
-					*(input + inputoffset++) = keyname[0];
+				//if (!strcmp(keyname, "F10")) {
+				if (keysym == XK_F10) {
+					XGrabKeyboard(dpy, root, True, GrabModeAsync, GrabModeAsync, CurrentTime);
+					inputoffset = 0;
+					memset(input, 0, inputlen);
+					//} else if (!strcmp(keyname, "Return")) {
+				} else if (keysym == XK_Return) {
+					printf("Input: '%s'\n", input);
+					XUngrabKeyboard(dpy, CurrentTime);
+				} else {
+					if ((kp != NULL) && (strlen(kp) == 1)) {
+						*(input + inputoffset++) = kp[0];
+					}
 				}
 			}
-
-
 		}
 	}
 
