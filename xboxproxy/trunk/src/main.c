@@ -60,6 +60,12 @@ static char broadcastmac[ETHER_ADDR_LEN] = {
 	0xFF, 0xFF, 0xFF
 };
 
+/* multicast mac address is 01:00:5E:XX:XX:XX */
+static char multicastmac[ETHER_ADDR_LEN] = {
+	0x01, 0x00, 0x5E,
+	0x00, 0x00, 0x00, /* Last 3 octets are unknown and don't matter */
+};
+
 struct proxy;
 
 typedef struct xbox {
@@ -84,6 +90,7 @@ static fd_set proxysocks;
 static char *pcapdev = NULL;
 static char *proxyserver = NULL;
 static int use_udp = 0;
+static int forwardmulticast = 0;
 static int serverport = SERVER_PORT;
 
 #ifdef LIBNET_VERSION_1_0
@@ -193,9 +200,10 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 	}
 
 	/*
-	 * If this is broadcast, send it to all known proxies
+	 * If this is broadcast or multicast, send it to all known proxies
 	 */
-	if (memcmp(ETHERCONV(eptr->ether_dhost), broadcastmac, ETHER_ADDR_LEN) == 0) {
+	if ((memcmp(ETHERCONV(eptr->ether_dhost), broadcastmac, ETHER_ADDR_LEN) == 0) ||
+		 (forwardmulticast && (memcmp(ETHERCONV(eptr->ether_dhost), multicastmac, 3) == 0))) {
 		hscan_t hs;
 		hnode_t *node;
 
@@ -723,8 +731,12 @@ int main(int argc, char **argv) {
 	pthread_t pcapthread, proxythread;
 
 	/* Argument Processing */
-	while ((ch = getopt(argc, argv, "us:i:d:h?p:")) != -1) {
+	while ((ch = getopt(argc, argv, "mus:i:d:h?p:")) != -1) {
 		switch (ch) {
+			case 'm':
+				debuglog(10, "-m flag, enabling multicast forwarding");
+				forwardmulticast = 1;
+				break;
 			case 'd':
 				set_log_level(atoi(optarg));
 				break;
