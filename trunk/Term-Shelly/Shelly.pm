@@ -31,6 +31,9 @@ package Term::Shelly;
 use strict;
 use warnings;
 
+use vars qw($VERSION);
+$VERSION = '0.01';
+
 # Default perl modules...
 use IO::Handle; # I need flush()... or do i?;
 
