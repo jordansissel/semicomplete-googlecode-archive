@@ -3,11 +3,9 @@
 use strict;
 use IO::Select;
 use IO::Stty;
-use Net::OSCAR; # oscar has a bug that makes finding away messages annoying.
-use IPC::Open2;
-use overload "cmp" => \&compare;
-#use Data::Dumper;
+use Net::OSCAR;
 
+stty("-echo");
 
 #use Net::AIM; # This module sucks ass.
 #use Net::AIMTOC
@@ -20,20 +18,20 @@ my $state = undef;     # State information
 my @commands = sort qw( );
 my $aim = Net::OSCAR->new();
 #my $term = Term::ReadLine->new("tic");
-$aim->timeout(1);
+#$aim->timeout(1);
 
 setup_readline();
 setup_callbacks();
 setup_commands();
 setup_aim();
 
-login();
+#login();
 
 select STDOUT; $| = 1;
 
 while (1) {
 	#out("Signon: " . $state->{"signon"} . " / $aim");
-	$aim->do_one_loop() if (($aim->is_on()) || ($state->{"signon"}));
+	#$aim->do_one_loop();# if (($aim->is_on()) || ($state->{"signon"}));
 	check_readline();
 }
 
@@ -50,9 +48,9 @@ sub login {
 sub query {
 	my ($q, $hide) = @_;
 	real_out("$q");
-	stty("-echo") if ($hide);
+	stty("echo") unless ($hide);
 	chomp($q = <STDIN>);
-	stty("echo") if ($hide);
+	stty("-echo") if ($hide);
 	out() if ($hide);
 	return $q;
 }
@@ -281,7 +279,49 @@ sub add_hook {
 	push(@{$state->{"hooks"}->{$hook}}, $data);
 }
 
+# Nonblocking readline
 sub check_readline {
+   my $char;
+   my ($ready) = $state->{"input"}->can_read();
+   if (defined($ready)) {
+      $char = getc();
+		print "Read: $char\n";
+      if ($char eq "\n") {
+         command($state->{"frag"});
+         $state->{"frag"} = undef;
+         return;    
+      } else {
+         $state->{"frag"} .= complete($state->{"frag"},
+                                      length($state->{"frag"}), $char);
+      }
+   }
+}
+
+# blocking readline
+sub readline {
+   my ($hide) = shift;
+   my ($char, $line);
+   while (1) {
+      $char = getc();
+      last if ($char eq "\n");
+      $line .= complete($line, length($line), $char);
+   }
+
+   return $line;
+}
+
+# Completion!
+sub complete {
+   my ($line, $pos, $char) = @_;
+
+   if ($char eq "\t") {
+      out("Tab pressed!");
+   }
+
+   return $char;
+}
+
+sub _check_readline {
 	my $line;
 	if ($state->{"frag"}) {
 		$line = $state->{"frag"};
