@@ -24,20 +24,20 @@
 #include "network.h"
 #include "log.h"
 
-/* discovery listener socket */
-static int discovery;
-
+/* 
+ * Initialize network and discovery hijinks
+ */
 void network_init() {
 	log(1, "network_init()");
 
 	//NutRegisterDevice
 	//NutDhcpIfconfig
 	
-	network_start_thread();
-	
 	if (network_send_discover() < 0) {
 		/* Something failed trying to send a discover packet */
 	}
+
+	network_start_thread();
 }
 
 /* 
@@ -94,9 +94,11 @@ void network_start_thread() {
 
 void network_thread(void *args) {
 	int sockopt = 1; 
+	int discovery = -1;
 	struct sockaddr_in listenaddr;
 	struct sockaddr_in srcaddr;
 
+	/* Is this necessary? Meh.. can't hurt */
 	memset(&srcaddr, '\0', sizeof(srcaddr));
 
 	if ((discovery = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
