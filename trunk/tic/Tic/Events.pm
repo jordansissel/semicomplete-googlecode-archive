@@ -19,6 +19,7 @@ use Exporter;
 						event_chat_buddy_out       event_signon_done );
 
 my $state;
+my $sh;
 
 sub import {
 	#debug("Importing from Tic::Events");
@@ -29,6 +30,7 @@ sub set_state {
 	my $self = shift;
 	$state = shift;
 	Tic::Common->set_state($state);
+	$sh = $state->{"sh"};
 }
 
 sub event_admin_error {
@@ -76,17 +78,17 @@ sub event_buddy_info {
 	}
 
 	if ($data->{"profile"}) {
-		out("Buddy info for $sn");
-		out("------------------");
+		$sh->out("Buddy info for $sn");
+		$sh->out("------------------");
 		if (1) { # If they have w3m...
 			my $prof = $data->{"profile"};
-			out(`echo "$prof" | lynx -dump -stdin | grep -v '^\$'`);
+			$sh->out(`echo "$prof" | lynx -dump -stdin | grep -v '^\$'`);
 		}
 	}
    if ($data->{"awaymsg"}) {
 		my $away = $data->{"awaymsg"};
-		out("Away message for $sn:");
-		out(`echo "$away" | lynx -dump -stdin | grep -v '^\$'`); 
+		$sh->out("Away message for $sn:");
+		$sh->out(`echo "$away" | lynx -dump -stdin | grep -v '^\$'`); 
 	}
 
 }
@@ -99,13 +101,13 @@ sub event_buddy_out {
 
 sub event_buddylist_error {
 	my ($aim, $error, $what) = @_;
-	error("An error occurred while updating your buddylist.");
-	error("($error) $what");
+	$sh->error("An error occurred while updating your buddylist.");
+	$sh->error("($error) $what");
 }
 
 sub event_buddylist_ok {
 	my ($aim) = @_;
-	out("Buddy list updated :)");
+	$sh->out("Buddy list updated :)");
 }
 
 sub event_chat_buddy_in {
@@ -134,9 +136,9 @@ sub event_connection_changed {
 
 sub event_error {
 	my ($aim, $conn, $err, $desc, $fatal) = @_;
-	error("[#$err] $desc");
+	$sh->error("[#$err] $desc");
 	if ($fatal) {
-		error("This error was fatal and you have been disconnected. :(") ;
+		$sh->error("This error was fatal and you have been disconnected. :(") ;
 		$state->{"aimok"} = 0;
 	}
 }
