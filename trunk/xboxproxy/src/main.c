@@ -66,6 +66,7 @@ static fd_set proxysocks;
 
 static char *pcapdev = NULL;
 static char *proxyserver = NULL;
+static int use_udp = 0;
 //static int clientfd = 0;
 
 void addxbox(u_char *macaddr, int proxyip);
@@ -74,6 +75,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 void remove_proxy(proxy_t *ppt);
 void connect_to_proxy();
 int recv_from_proxy(proxy_t *ppt);
+void distribute_packet(proxy_t *ppt, char *packet, int pktlen);
 
 int comparemac(const void *k1, const void *k2) {
 	return memcmp(k1, k2, ETHER_ADDR_LEN);
@@ -115,8 +117,19 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 		while ((node = hash_scan_next(&hs))) {
 			proxy_t *p = (proxy_t *)(node->hash_data);
 			debuglog(3, "Sending ethernet packet to %s", inet_ntoa(p->addr));
-			write(p->fd, &(head->caplen), 4); /* First 4 bytes is the size */
-			write(p->fd, packet, head->caplen);
+
+			if (use_udp) {
+				struct sockaddr_in to;
+				to.sin_addr = p->addr;
+				to.sin_port = htons(SERVER_PORT);
+				to.sin_family = PF_INET;
+
+				sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
+				sendto(p->fd, packet, head->caplen, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
+			} else {
+				write(p->fd, &(head->caplen), 4); /* First 4 bytes is the size */
+				write(p->fd, packet, head->caplen);
+			}
 		}
 	}
 
@@ -169,11 +182,16 @@ void proxy(void *args) {
 
 	FD_ZERO(&proxysocks);
 
-	server = socket(PF_INET, SOCK_STREAM, 0);
+	if (use_udp) {
+		server = socket(PF_INET, SOCK_DGRAM, 0);
+	} else {
+		server = socket(PF_INET, SOCK_STREAM, 0);
+	}
 	serveraddr.sin_family = PF_INET;
 	serveraddr.sin_addr.s_addr = INADDR_ANY;
 	serveraddr.sin_port = htons(SERVER_PORT);
 	
+	debuglog(5, "Binding to any on port %d", SERVER_PORT);
 	if (bind(server, (struct sockaddr *)&serveraddr, sizeof(struct sockaddr)) == -1) {
 		debuglog(0, "bind() failed: %s", strerror(errno));
 		pthread_exit(NULL);
@@ -268,9 +286,16 @@ void connect_to_proxy() {
 
 	proxy_t *newproxy;
 
-	if ((sock = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
-		debuglog(0, "socket() failed: %s", strerror(errno));
-		pthread_exit(NULL);
+	if (use_udp) {
+		if ((sock = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
+			debuglog(0, "socket() failed: %s", strerror(errno));
+			pthread_exit(NULL);
+		}
+	} else {
+		if ((sock = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+			debuglog(0, "socket() failed: %s", strerror(errno));
+			pthread_exit(NULL);
+		}
 	}
 
 	if ((hostdata = gethostbyname(proxyserver))== NULL) {
@@ -287,9 +312,11 @@ void connect_to_proxy() {
 	destaddr.sin_addr = in;
 	destaddr.sin_port = htons(SERVER_PORT);
 
-	if (connect(sock, (struct sockaddr *)&destaddr, sizeof(struct sockaddr))) {
-		debuglog(0, "connect() failed: %s", strerror(errno));
-		pthread_exit(NULL);
+	if (!use_udp) {
+		if (connect(sock, (struct sockaddr *)&destaddr, sizeof(struct sockaddr))) {
+			debuglog(0, "connect() failed: %s", strerror(errno));
+			pthread_exit(NULL);
+		}
 	}
 
 
@@ -309,14 +336,18 @@ void connect_to_proxy() {
 }
 
 int recv_from_proxy(proxy_t *ppt) {
-	int bytes;
+	int bytes = 0;
 	int pktlen = 0;
 
 	char *packet;
 
 	packet = malloc(1024);
 
-	bytes = recv(ppt->fd, &pktlen, 4, 0);
+	if (use_udp) {
+		//bytes = recvfrom(ppt->fd, &pktlen, 4, 0, 
+	} else {
+		bytes = recv(ppt->fd, &pktlen, 4, 0);
+	}
 	debuglog(1, "[%d] %d", bytes, pktlen);
 
 	/* if bytes read is 0, then the connection was closed. */
@@ -334,7 +365,20 @@ int recv_from_proxy(proxy_t *ppt) {
 
 	debuglog(1, "Packet received from %s. Length: %d vs %d", inet_ntoa(ppt->addr), bytes, pktlen);
 
+	distribute_packet(ppt, packet, pktlen);
+
 	return bytes;
+}
+
+void distribute_packet(proxy_t *ppt, char *packet, int pktlen) {
+	struct ether_header *eptr;
+	u_short ether_type;
+
+	eptr = (struct ether_header *)packet;
+	ether_type = ntohs(eptr->ether_type);
+
+	debuglog(3, "REMOTE PACKET From: %s", ether_ntoa((struct ether_addr *)eptr->ether_shost));
+	debuglog(3, "REMOTE PACKET To: %s", ether_ntoa((struct ether_addr *)eptr->ether_dhost));
 }
 
 void remove_proxy(proxy_t *ppt) {
@@ -367,8 +411,12 @@ int main(int argc, char **argv) {
 	pthread_t pcapthread, proxythread;
 
 	/* Argument Processing */
-	while ((ch = getopt(argc, argv, "s:i:")) != -1) {
+	while ((ch = getopt(argc, argv, "us:i:")) != -1) {
 		switch (ch) {
+			case 'u':
+				debuglog(10, "-u flag, enabling udp");
+				use_udp = 1;
+				break;
 			case 'i':
 				pcapdev = malloc(strlen(optarg) + 1);
 				strlcpy(pcapdev,optarg,strlen(optarg) + 1);
