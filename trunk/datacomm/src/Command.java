@@ -6,9 +6,12 @@
  *
  * Revisions:
  *	$Log$
+ *	Revision 1.10  2004/01/19 16:58:32  tristan
+ *	changed two methods to static
+ *
  *	Revision 1.9  2004/01/19 16:17:42  tristan
  *	added char in tobytearray
- *
+ *	
  *	Revision 1.8  2004/01/19 06:13:02  tristan
  *	write toByteArray
  *	
@@ -168,7 +171,7 @@ public class Command implements Message {
 	 * Sets the command args and parses them.
 	 * @param unparsedArgs The unparsed arguments.
 	 */
-	public List parseArgs( String unparsedArgs ) 
+	public static List parseArgs( String unparsedArgs )
 	       throws InvalidCommandArgumentsException {
 		List retVal = new ArrayList();
 		int cur = 0;
@@ -197,9 +200,9 @@ public class Command implements Message {
 			retVal.add( unparsedArgs );
 		}
 
-		if ( ! this.validateArguments() ) {
+		/*if ( ! this.validateArguments() ) {
 			throw new InvalidCommandArgumentsException();
-		}
+		}*/
 
 		return retVal;
 	}
@@ -208,7 +211,7 @@ public class Command implements Message {
 	 * Parses a command and it's arguments.
 	 * @param unparsedCommand The command to parse.
 	 */
-	public Command parseCommand( String unparsedCommand ) 
+	public static Command parseCommand( String unparsedCommand )
 	       throws InvalidCommandArgumentsException {
 		String[] items = unparsedCommand.split( "\\s", 2 );
 		Command retVal = new Command();
