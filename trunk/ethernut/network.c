@@ -74,7 +74,7 @@ int network_send_discover() {
 
 	if (bytes < 0) {
 		log(0, "discovery sendto() failed: %s", strerror(errno));
-		pthread_exit(NULL);
+		//pthread_exit(NULL);
 	}
 
 	close(sock);
@@ -109,7 +109,7 @@ void network_thread(void *args) {
 
 	listenaddr.sin_family = PF_INET;
 	listenaddr.sin_port = htons(DISCOVERY_PORT);
-	listenaddr.sin_addr.s_addr = INADDR_ANY;
+	listenaddr.sin_addr.s_addr = INADDR_BROADCAST;
 	memset(&(listenaddr.sin_zero), '\0', 8);
 
 	if (bind(discovery, (struct sockaddr *)&listenaddr, sizeof(struct sockaddr)) == -1) {
@@ -119,6 +119,7 @@ void network_thread(void *args) {
 
 	for (;;) {
 		int fromlen;
+		int bytes;
 		char buf[1024];
 
 		if (recvfrom(discovery, buf, 1024, 0, (struct sockaddr *)&srcaddr, &fromlen) < 0) {
@@ -126,6 +127,19 @@ void network_thread(void *args) {
 			pthread_exit(NULL);
 		}
 
-		log(0, "Packet from %s: %s", inet_ntoa(srcaddr.sin_addr), buf);
+		log(5, "Packet from 0x%08x %s: %s", srcaddr.sin_addr, inet_ntoa(srcaddr.sin_addr), buf);
+
+		if (strcmp(buf,"Hello!") == 0) {
+			log(20, "Packet is a discovery broadcast");
+		}
+
+		/* Respond to this discovery with an ack to the DISCOVERY_PORT */
+		srcaddr.sin_port = htons(DISCOVERY_PORT);
+		log(10, "Sending 'ACK' to %s", inet_ntoa(srcaddr.sin_addr));
+		if ((bytes = sendto(discovery, "ACK", strlen("ACK"), 0, 
+								(struct sockaddr *)&srcaddr, sizeof(struct sockaddr))) < 0) {
+			log(0, "network_thread sendto() ack failed: %s", strerror(errno));
+			pthread_exit(NULL);
+		}
 	}
 }
