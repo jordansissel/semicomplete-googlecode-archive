@@ -41,14 +41,21 @@ Feasibility Study
 ------------------------------------
 
 
-We must use a client and server model with multiple connections by
+    We must use a client and server model with multiple connections by
+
 clients. Clients must contain information about the games they are 
+
 running and pass it through the server. Each client is a process, and
+
 one server is a process. The server runs both a UDP and TCP protocol.
 
-Each client must be run as a thread for use with TCP. Since the server
+
+    Each client must be run as a thread for use with TCP. Since the server
+
 will be awaiting new connections along with attempting to pass messages 
+
 between clients of games that are already connected, concurrency would
+
 more than likely be necessary.
 
 
@@ -96,46 +103,75 @@ Software used in Final Compilation:
 
 
 Test Cases:
+    For each case, test for both UDP and TCP protocols.
+
 
     -Case 1: 
         Simply Construct a BSGame.
+        Print out statements in Grid construction for ship placement.
+
 
         Results:
             The BSGrid's for each game were constructed adequately.
 
     -Case 2:
+        Connect Client with Server.
+        later: connected multiple clients for games
 
         Results:
+            Client connected.
 
     -Case 3:
+        Send a few messages of to the Server from a client. 
 
         Results:
+           Messages sent adaquately.
 
     -Case 4:
+        Send message from client1 to server to client2. 
 
         Results:
+            Message received on other side.
 
     -Case 5:
+        Begin a game with new names. Then attempt to begin a game with
+        same names.
 
         Results:
+            First Game created. Second game received error message.
 
     -Case 6:
+        With a game, send a shot to other player.
+        Receive results of a shot. 
 
         Results:
+            Correct information received about the shot.
 
     -Case 7:
+        With a game, send multiple shots back and forth. Make sure
+        the game abides by the rules and that the grids are altered
+        correctly.
 
         Results:
+            The shots were recieved by each player. The grids 
+            were correctly altered and printed out in a readable
+            form.
 
     -Case 8:
+        Play a game through. Await correct win/lose response from
+        the server.
 
         Results:
 
     -Case 9:
-   
+        Connect Multiple games to the server from two client computers
+        on the server host. Play them out.
+
         Results:
 
     -Case 10:
+        Connect Multiple games to the server from many client computers
+        on the server host with multiple protocols. Play them out.
 
         Results:
 
