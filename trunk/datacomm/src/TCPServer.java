@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.7  2004/01/20 04:31:19  tristan
+ *   fixed commenting.
+ *
  *   Revision 1.6  2004/01/20 04:30:25  tristan
  *   fixed syntax errors.
  *
@@ -54,6 +57,10 @@ public class TCPServer extends Thread {
 		server = serv;
 	}
 
+    /**
+     * Sets the game for this tcp server.
+     * @param g The game shared by the clients.
+     */
 	public void setGame(ServerGame g) {
 		game = g;
 	}
