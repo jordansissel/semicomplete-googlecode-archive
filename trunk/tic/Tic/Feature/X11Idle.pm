@@ -73,7 +73,7 @@ sub X11IdleCheck() {
 				$state->{"last_x11_idle_check"} = time();
 				$sh->out("Idle: " . $state->{"idle"});
 
-				if ($state->{"idle"} == time() && $state->{"is_idle"} == 1) {                           
+				if ($state->{"idle"} == time() && $state->{"is_idle"} == 1) {
 					$sh->out("Setting not-idle");
 					$aim->set_idle(0);
 					$state->{"is_idle"} = 0;

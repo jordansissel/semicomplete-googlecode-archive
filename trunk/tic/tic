@@ -49,7 +49,7 @@ Tic::Bindings->set_state($state);
 read_config($ENV{HOME}."/.ticrc");
 setup_enviroment();
 
-load("Tic::Feature::X11Idle");
+#load("Tic::Feature::X11Idle");
 
 login(get_config("screenname"), get_config("password"));
 $sh->{"supress_newline_echo"} = 1;

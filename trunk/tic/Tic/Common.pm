@@ -130,7 +130,7 @@ sub prettyprint {
 	}
 
 	$output =~ s![\r]!!g;
-	$output =~ s!<br>!\n!gis;
+	$output =~ s!<br(?: ?/)?>!\n!gis;
 	$output =~ s!<(?:(?:(?:html|body|font|b|i|u)(?:\s[^>]+)?)|(?:/(?:html|body|font|b|i|u)))>!!gi;
 
 	if ($type =~ m/^error/) {
