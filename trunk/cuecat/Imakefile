@@ -1,0 +1,9 @@
+DEPLIBS = $(DEPXTESTLIB) $(DEPEXTENSIONLIB) $(DEPXLIB)
+LOCAL_LIBRARIES = $(XTESTLIB) $(EXTENSIONLIB) $(XLIB)
+
+SRCS = cuecat.c
+OBJS = cuecat.o
+
+CC = gcc
+
+ComplexProgramTarget(cuecat)
