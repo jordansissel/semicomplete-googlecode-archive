@@ -347,6 +347,7 @@ sub fix_inputline {
 	print "\r\e[2K";
 
 	if ($self->{"echo"} == 0) {
+		#print "Echo is off...\n";
 		print $self->{"input_prompt"};
 		return;
 	}
@@ -387,15 +388,17 @@ sub newline {
 	# Process the input line.
 
 	$self->real_out("\n");
+	my $line = $self->{"input_line"};
 	#print "You wrote: " . $self->{"input_line"} . "\n";
+
+	$self->{"input_line"} = "";
+	$self->{"input_position"} = 0;
+	$self->{"leftcol"} = 0;
 
 	if (ref($self->{"readline_callback"}) eq 'CODE') {
 		&{$self->{"readline_callback"}}($self->{"input_line"});
 	}
 
-	$self->{"input_line"} = "";
-	$self->{"input_position"} = 0;
-	$self->{"leftcol"} = 0;
 	$self->fix_inputline();
 }
 
@@ -574,7 +577,6 @@ sub echo ($;$) {
 
 	if (@_) {
 		$self->{"echo"} = shift;;
-		$self->fix_inputline();
 	} 
 	return $self->{"echo"};
 }
