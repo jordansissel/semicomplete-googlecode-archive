@@ -35,6 +35,13 @@
 
 /*
  * $Log$
+ * Revision 1.2  2004/12/29 07:28:56  psionic
+ * - Added basic twif "substitute" implementation for unix-side testing of
+ *   i2c stuff. Don't expect sending or receiving data to actually work.
+ *
+ *   This exists solely for logging purposes, however TwIOCtl properly
+ *   supports setting/getting of speed and addres.
+ *
  * Revision 1.1  2004/12/29 06:51:48  psionic
  * - twif.h stolen from the projects twif implementation, used for stubs
  *
@@ -76,15 +83,15 @@
 #define TWSLA_HOST		16	/*!< \brief Host slave address. */
 #define TWSLA_DEFAULT		193	/*!< \brief Default slave address. */
 
-extern int TwInit(u_char sla);
-extern int TwIOCtl(int req, void *conf);
+int TwInit(u_char sla);
+int TwIOCtl(int req, void *conf);
 
-extern int TwMasterTransact(u_char sla, void *txdata, u_short txlen, void *rxdata, u_short rxsiz, u_long tmo);
-extern int TwMasterError(void);
+int TwMasterTransact(u_char sla, void *txdata, u_short txlen, void *rxdata, u_short rxsiz, u_long tmo);
+int TwMasterError(void);
 
-extern int TwSlaveListen(u_char *sla, void *rxdata, u_short rxsiz, u_long tmo);
-extern int TwSlaveRespond(void *txdata, u_short txlen, u_long tmo);
-extern int TwSlaveError(void);
+int TwSlaveListen(u_char *sla, void *rxdata, u_short rxsiz, u_long tmo);
+int TwSlaveRespond(void *txdata, u_short txlen, u_long tmo);
+int TwSlaveError(void);
 
 
 #endif
