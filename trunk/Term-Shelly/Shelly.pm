@@ -4,6 +4,10 @@
 
 Term::Shelly - Yet Another Shell Kit for Perl
 
+=head1 VERSION
+
+$Id$
+
 =head1 GOAL
 
 I needed a shell kit for an aim client I was writing. All of the Term::ReadLine modules are do blocking reads in doing their readline() functions, and as such are entirely unacceptable. This module is an effort on my part to provide the advanced functionality of great ReadLine modules like Zoid into a package that's more flexible, extendable, and most importantly, allows nonblocking reads to allow other things to happen at the same time.
