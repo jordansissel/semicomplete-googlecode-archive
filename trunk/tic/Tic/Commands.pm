@@ -3,6 +3,7 @@ package Tic::Commands;
 
 use strict;
 use Tic::Common;
+use POSIX qw(strftime);
 use vars qw(@ISA @EXPORT);
 use Exporter;
 
@@ -11,7 +12,7 @@ use Exporter;
 					  command_unalias command_echo command_info command_login
 					  command_quit command_buddylist command_default
 					  command_undefault command_log command_timestamp command_who
-					  command_timestamp command_getaway command_help);
+					  command_timestamp command_getaway command_help command_date);
 
 my $state;
 
@@ -24,6 +25,7 @@ sub set_state {
 	my $self = shift;
 	#debug("Setting state for ::Commands");
 	$state = shift;
+	Tic::Common->set_state($state);
 }
 
 sub create_alias {
@@ -37,16 +39,6 @@ sub remove_alias {
 	my ($alias) = @_;
 
 	undef($state->{"aliases"}->{$alias});
-}
-
-sub get_config { 
-	my ($a) = @_;
-  	return $state->{"config"}->{$a};
-}
-
-sub set_config { 
-	my ($a,$b) = @_; 
-	$state->{"config"}->{$a} = $b;
 }
 
 sub command_msg {
@@ -71,9 +63,11 @@ HELP
 	error("You didn't tell me what to say!") and return unless defined($msg);
 	
 	$aim->send_im($sn, $msg);
-	if (($state->{"logging"}->{"who_log"}->{$sn} == 1) || ($state->{"config"}->{"logging"} eq "all")) {
+	my $wholog = get_config("who_log");
+	if ((get_config("logging") eq "all" || ((ref($wholog) eq 'HASH' && $wholog->{"$sn"} == 1)))) {
 		prettylog($state,"out_msg", { sn => $sn, msg => $msg } );
 	}
+	prettyprint($state,"out_msg", { sn => $sn, msg => $msg } );
 }
 
 sub command_help {
@@ -412,6 +406,7 @@ HELP
 
 	$state = shift;
 	my ($args) = @_;
+	out("command_timestamp($state,$args)");
 
 	if ($args =~ m/^(yes|on|plz)$/i) {
 		$state->{"timestamp"} = 1;
@@ -425,6 +420,16 @@ HELP
 	} else {
 		prettyprint($state, "error_generic", "Invalid parameter to /timestamp");
 	}
+}
+
+sub command_date {
+	return "" if ($_[0] eq 'completion');
+	return << "HELP" if ($_[0] eq "help");
+Syntax: /date
+Display's a timestamp.
+HELP
+	out("Time: " . strftime(get_config("timestamp"),localtime(time)));
+
 }
 
 sub command_who {
