@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.6  2004/01/20 00:05:21  psionic
+ *   - Fixed missing default constructor.
+ *
  *   Revision 1.5  2004/01/19 23:48:52  psionic
  *   - Bulk commit: Command infrastructure improved. New commands can be added
  *     dynamically now.
@@ -44,6 +47,15 @@ public class Response implements Message {
     // member vars
     private int id;
     private String message;
+
+	 /**
+	  * Default Constructor
+	  *
+	  */
+	 public Response() {
+		 this.id = 0;
+		 this.message = new String();
+	 }
 
     /**
      * Creates a new response with an id and message
