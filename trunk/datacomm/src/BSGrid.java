@@ -6,8 +6,8 @@
  *
  * Revisions:
  *     $Log$
- *     Revision 1.14  2004/01/19 02:06:04  njohnson
- *     fixed some javadoc mistakes
+ *     Revision 1.15  2004/01/19 02:24:09  njohnson
+ *     Names of players for the game are now in the hands of the client.
  *
  *     Revision 1.11  2004/01/18 23:02:48  njohnson
  *     added some important stubs that need to be implemented.
@@ -51,14 +51,12 @@
 public class BSGrid {
     private BSShip[] fleet;
     private byte[][] grid;
-    private String name;
 
     /**
      *
      * @param id
      */
-    public BSGrid( String id ) {
-        name = id;
+    public BSGrid() {
         fleet = new BSShip[ 4 ];
         generateGrid();
     } // constructor
@@ -272,7 +270,7 @@ public class BSGrid {
     /**
      * Returns a particular ship from the grid.
      *
-     * @arg i - the number of the corresponding ship
+     * @param i - the number of the corresponding ship
      *          Destroyer - 1
      *          Submarine - 2 
      *          Cruiser - 3

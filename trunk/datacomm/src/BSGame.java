@@ -6,6 +6,9 @@
  * 
  * Revisions:
  *   $Log$
+ *   Revision 1.11  2004/01/19 02:24:09  njohnson
+ *   Names of players for the game are now in the hands of the client.
+ *
  *   Revision 1.10  2004/01/19 02:14:39  njohnson
  *   the constructor redone. BSGame does not keep track of names[
  *
@@ -48,8 +51,6 @@ import java.util.*;
  * @author Nicholas Johnson - nrj7064
  */
 public class BSGame {
-    private String ownName;
-    private String targetName;
     private BSGrid ownGrid;
     private BSGrid targetGrid;
     private boolean[] shipSunk; //true if the ship is sunk.
@@ -66,13 +67,11 @@ public class BSGame {
      * Constructor of BSGame.
      *
      */
-    public BSGame(); 
-        ownName = new String();
-        targetName = new String();
+    public BSGame() {
         ownGrid = new BSGrid();
-        this.initializeGrid(); 
+        this.initializeGrid( ownGrid ); 
         targetGrid = new BSGrid();
-        targetGrid.clearGrid();       
+	this.clearGrid( targetGrid );
         shipSunk = new boolean[ 5 ];
         for( int i = 0; i < shipSunk.length; i++ ) {
             shipSunk[ i ] = false;
@@ -204,8 +203,7 @@ public class BSGame {
 	    int Y; //the number coord
 
             //get the ship from the fleet
-	    the_ship ownGrid.getShip( i );
-            
+	    the_ship = ownGrid.getShip( i );
 
         }
 
