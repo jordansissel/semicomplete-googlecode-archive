@@ -72,7 +72,7 @@ int network_send_discover() {
 
 	bytes = 1;
 	bytes = sendto(sock, DISCOVERY_MESSAGE, strlen(DISCOVERY_MESSAGE), 0, 
-						(struct sockaddr *)&destaddr, sizeof(struct sockaddr));
+						(struct sockaddr *)&destaddr, sizeof(destaddr));
 
 	if (bytes < 0) {
 		log(0, "discovery sendto() failed: %s", strerror(errno));
