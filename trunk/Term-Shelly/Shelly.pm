@@ -75,7 +75,9 @@ sub new ($) {
 	my $self = {
 		"input_line" => "",
 		"input_position" => 0,
+		"input_prompt" => "",
 		"leftcol" => 0,
+		"echo" => 1,
 	};
 
 	bless $self, $class;
@@ -144,8 +146,8 @@ sub do_one_loop ($) {
 	my $self = shift;
 	my $char;
 
-	# ReadKey(.1) means no timeout waiting for data, thus is nonblocking
-	while (defined($char = ReadKey(.1))) {
+	# ReadKey(-1) means no timeout waiting for data, thus is nonblocking
+	while (defined($char = ReadKey(-1))) {
 		$self->handle_key($char);
 	}
 	
@@ -334,6 +336,11 @@ sub fix_inputline {
 
 	print "\r\e[2K";
 
+	if ($self->{"echo"} == 0) {
+		print $self->{"input_prompt"};
+		return;
+	}
+
 	# If we're past the end of the terminal line, shuffle back!
 	if ($self->{"input_position"} - $self->{"leftcol"} <= 0) {
 		$self->{"leftcol"} -= 30;
@@ -351,10 +358,17 @@ sub fix_inputline {
 	}
 
 	# only print as much as we can in this one line.
-	print substr($self->{"input_line"}, $self->{"leftcol"}, $self->{"termcols"});
+	my $prompt = $self->{"input_prompt"};
+	my $offset = 0;
+	if ($self->{"leftcol"} < length($self->{"input_prompt"})) {
+		print substr($prompt,$self->{"leftcol"});
+		$offset = length(substr($prompt,$self->{"leftcol"}));
+	}
+
+	print substr($self->{"input_line"}, $self->{"leftcol"}, $self->{"termcols"} - $offset);
 	print "\r";
-	print "\e[" . ($self->{"input_position"} - $self->{"leftcol"}) . 
-	      "C" if ($self->{"input_position"} > 0);
+	print "\e[" . ($self->{"input_position"} - $self->{"leftcol"} + $offset) . 
+	      "C" if (($self->{"input_position"} + $offset) > 0);
 	STDOUT->flush();
 }
 
@@ -365,8 +379,14 @@ sub newline {
 	$self->real_out("\n");
 	print "You wrote: " . $self->{"input_line"} . "\n";
 
+	if (ref($self->{"readline_callback"}) eq 'CODE') {
+		&{$self->{"readline_callback"}}($self->{"input_line"});
+	}
+
 	$self->{"input_line"} = "";
 	$self->{"input_position"} = 0;
+	$self->{"leftcol"} = 0;
+	$self->fix_inputline();
 }
 
 sub kill_line {
@@ -429,7 +449,7 @@ sub delete_word_backward {
 	my $regex = "[A-Za-z0-9]";
 	my $bword;
 
-	$bword = $self->find_word_bound($line, $pos, WORD_BEGINNING);
+	$bword = $self->find_word_bound($line, $pos, WORD_BEGINNING | WORD_ONLY);
 
 	# Delete whatever word we just found.
 	substr($line, $bword, $pos - $bword) = '';
@@ -516,6 +536,38 @@ RECHECK:
 	}
 }
 
+=pod
+
+=item $sh->prompt([$prompt])
+
+Get or set the prompt
+
+=cut
+
+sub prompt ($;$) {
+	my $self = shift;
+	my $p = shift;
+
+	if (defined($p)) {
+		$self->{"input_prompt"} = $p;
+		$self->{"input_prompt_length"} = $p;
+		$self->fix_inputline();
+	} else {
+		return $self->{"input_prompt"};
+	}
+}
+
+sub echo ($;$) {
+	my $self = shift;
+	my $e = shift;
+
+	if (defined($e)) {
+		$self->{"echo"} = $e;
+		$self->fix_inputline();
+	} else {
+		return $self->{"echo"};
+	}
+}
 
 # --------------------------------------------------------------------
 # Helper functions
@@ -525,7 +577,7 @@ sub find_word_bound ($$$;$) {
 	my $self = shift;
 	my $line = shift;
 	my $pos = shift;
-	my $opts = shift || 0;
+	my $opts = shift; $opts |= 0;
 	my $regex = "[A-Za-z0-9]";
 	my $bword;
 
@@ -545,10 +597,10 @@ sub find_word_bound ($$$;$) {
 
 	# If we're at the end of the string, ignore all trailing whitespace.
 	# unless WORD_ONLY is set.
-	#out("
-	if (($bword + 1 == $pos) && (! $opts & WORD_ONLY)) {
+	#if (($bword + 1 == $pos) && ($opts & WORD_ONLY)) {
+		#$self->out("Word only");
 		$bword += $mod while (substr($line,$bword,1) =~ m/^\s$/);
-	}
+	#}
 
 	# If we're not on an ALPHANUM, then we want to reverse the match.
 	# that is, if we are:
