@@ -6,6 +6,9 @@
  *
  * Revisions:
  *    $Log$
+ *    Revision 1.4  2004/01/20 09:09:40  tristan
+ *    fixed compile errors.
+ *
  *    Revision 1.3  2004/01/20 04:23:33  tristan
  *    updated comments for everything.
  *
@@ -18,7 +21,6 @@
  *
  */
 
-import java.net.*;
 
 /**
  * Creates a game and associates two clients.
@@ -28,22 +30,32 @@ import java.net.*;
  * @author Nick Johnson
  */
 public class ServerGame {
-	private String gameName;
-	private Player player1;
-	private Player player2;
+    private String gameName;
+    private Player player1;
+    private Player player2;
 
-	public void setPlayer1(String name) {
-		player1 = new Player();
-
-	}
-
-	public void setPlayer2(String name) {
-
-	}
-
-	public ServerGame() {
-		player1 = null;
-		player2 = null;
+    /**
+     * Default values.
+     */
+    public ServerGame() {
+        player1 = null;
+        player2 = null;
     }
-}
+
+    /**
+     * Initializes player 1.
+     * @param name Player one's name.
+     */
+    public void setPlayer1( String name ) {
+        player1 = new Player( name );
+    }
+
+    /**
+     * Initializes player 2.
+     * @param name Player 2's name.
+     */
+    public void setPlayer2( String name ) {
+        player2 = new Player( name );
+    }
+}   // ServerGame
 
