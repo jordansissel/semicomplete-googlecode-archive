@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.9  2004/01/20 02:40:44  tristan
+ *   wrote part of send call function.
+ *
  *   Revision 1.8  2004/01/20 02:33:23  tristan
  *   finished init game
  *
@@ -218,7 +221,40 @@ public abstract class BSClient extends Thread implements ProtocolConstants {
      * @param col Which column to hit.
      */
     public void sendCall( char row, int col ) {
+        Command fire = new Command( FIRE );
 
+        // build args
+        List args = new ArrayList();
+        args.add( new Character( row ) );
+        args.add( new Integer( col ) );
+
+        // build command
+        try {
+            fire.setArgs( args );
+        } catch ( Exception e ) {
+        }
+        connection.sendMessage( fire );
+
+        // get response
+        Response response = null;
+        boolean done = false;
+        boolean hit = false;
+
+        do {
+            response = connection.receiveResponse();
+
+            if ( response != null ) {
+                if ( response.getId() == FIRE_RESPONSE_HIT ) {
+                    hit = true;
+                    done = true;
+                } else if ( response.getId() == FIRE_RESPONSE_MISS ) {
+                    done = true;
+                }
+            }
+        } while ( !done && connection.isConnected() );
+
+        // do stuff based on hit/miss
+        // bsgame manipulation goes here
     }
 
     /**
