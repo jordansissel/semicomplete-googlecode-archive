@@ -18,4 +18,6 @@ void set_log_level(int level);
 /* Will log whatever if loglevel >= level */
 void debuglog(int level, const char *format, ...);
 
+void hexdump(char *buf, unsigned int len);
+
 #endif

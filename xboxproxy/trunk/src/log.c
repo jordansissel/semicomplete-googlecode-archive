@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <ctype.h>
 
 #include "log.h"
 
@@ -48,3 +49,41 @@ void debuglog(int level, const char *format, ...) {
 	fprintf(logfile, "%s", string);
 	fflush(logfile);
 }
+
+void hexdump(char *buf, unsigned int len) {
+	int c;
+	char *p, *l, *dump, dumpbuf[40];
+
+	l = &(buf[len-1]);
+	dump = dumpbuf;
+	putchar('\n');
+
+	printf("[Hexdump]\n");
+	for (p = buf; p <= l; p++)
+	{   
+		*(dump++) = (isprint((int)*p) ? *p : '.');
+		putchar((c = (*p & 0xF0) >> 4) < 10 ? c + '0' : c + '7');
+		putchar((c = *p & 0x0F) < 10 ? c + '0' : c + '7');
+		if (!(((p-buf)+1) % 16) || (p == l))
+		{   
+			if(p == l) // pad last line
+			{   
+				while(((((p++)-buf)+1) % 16))
+				{   
+					putchar(' ');
+					putchar(' ');
+					putchar(' ');
+				}
+			}
+			*dump = 0;
+			putchar(' ');
+			putchar(' ');
+			puts(dumpbuf);
+			dump = dumpbuf;
+		}
+		else
+			putchar(' ');
+	}
+	putchar('\n');
+}
+
