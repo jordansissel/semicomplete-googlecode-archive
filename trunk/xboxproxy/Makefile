@@ -2,12 +2,12 @@
 LIBS=-L/usr/lib -lpcap -L/usr/local/lib -pthread
 INCLUDE=-I/usr/local/include
 
-BUILDY=gcc -g ${INCS} ${LIBS} -o proxy
+BUILDY=gcc -ansi -g ${INCS} ${LIBS} -o proxy
 
 SRCS=main.c log.c hash.c
 OBJS=main.o log.o hash.o
 
-CFLAGS+=-g
+CFLAGS+=-g -Wall
 
 CFLAGS+=$(INCLUDE)
 
