@@ -255,7 +255,8 @@ void pcap(void *args) {
 	}
 #else
 #	ifdef LIBNET_VERSION_1_1
-	libnet = libnet_init(LIBNET_LINK, pcapdev, errbuf);
+	//libnet = libnet_init(LIBNET_LINK, pcapdev, errbuf);
+	libnet = libnet_init(LIBNET_LINK_ADV, pcapdev, errbuf);
 	if (libnet == NULL) {
 		debuglog(0, "libnet_init() failed: %s", errbuf);
 		pthread_exit(NULL);
