@@ -1,5 +1,5 @@
 bin_PROGRAMS = xboxproxy
-xboxproxy_SOURCES= main.c hash.c log.c
+xboxproxy_SOURCES= main.c hash.c log.c hash.h log.h
 
 CC = @CC@
 CFLAGS = -I. @CFLAGS@ @LIBNET_CFLAGS@
