@@ -52,7 +52,7 @@ sigalarm(int sig) {
 			if ((d > 0) && (d < 255) && *this > 0) {
 
 				sprintf(file, "/mnt/129.21.%d.%d.rrd\0", c, d);
-				sprintf(data, "N:%d\0", *this);
+				sprintf(data, "%d:%d\0", time(NULL), *this);
 
 				argv[argc++] = "update";
 				argv[argc++] = file;
