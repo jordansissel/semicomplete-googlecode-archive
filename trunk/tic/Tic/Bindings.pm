@@ -54,7 +54,7 @@ sub complete_lastfrom {
       # We just hit the ';' key, and we're at the beginning of the line.
 
       if (defined($state->{"last_from"})) {
-         $sh->insert_at_cursor("/msg " . $state->{"last_from"} . " ");
+         $sh->insert_at_cursor("/msg \"" . $state->{"last_from"} . "\" ");
       } else {
          $sh->error("No one's messaged you yet :(");
       }
@@ -84,7 +84,8 @@ sub completer {
 								(?:delbuddy)|        # /delbuddy
 								(?:default)|         # /default
 								(?:i(?:nfo)?)|       # /i or /info
-								(?:log)              # /log
+								(?:log)|              # /log
+								(?:getaway)|
 							  )\s+!x) {
 			@matches = match_buddies($curword);
 		}
@@ -95,6 +96,8 @@ sub completer {
 
 sub match_buddies {
 	my $word = shift;
+
+	$word =~ s/^"(.*)"?$/$1/;
 
 	return map { '"' . ($state->{"buddylist"}->{"$_"}->{"sn"} || $_) . '"' } grep(m/^\Q$word\E/i, keys(%{$state->{"buddylist"}}));
 }
