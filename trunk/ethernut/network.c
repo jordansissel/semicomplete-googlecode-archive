@@ -122,7 +122,7 @@ void network_thread(void *args) {
 	}
 
 	for (;;) {
-		int fromlen = 0;
+		int fromlen = sizeof(srcaddr);
 		int bytes = 0;
 		char buf[1024];
 		memset(buf, 0, 1024);
