@@ -10,39 +10,39 @@ use strict;
 my $DRINKHOST = "drink.csh.rit.edu";
 my $DRINKPORT = 4242;
 
+my ($STATUS);
+
 my %session;
 my ($aim,$conn);
 my $s = IO::Select->new();
 
-$aim = new Net::AIM;
-#$aim->newconn(Screenname => 'CSH Drink', Password => 'cshdrink123');
-$aim->newconn(Screenname => 'CSH Drink2', Password => 'cshdrink123');
-#$aim->newconn(Screenname => 'mobilesoutherner', Password => 'carleneway');
+include("userdata.pl");
 
-$aim->debug(1);
+$aim = new Net::AIM;
+$aim->newconn(Screenname => 'CSH Drink', Password => 'cshdrink123');
+#$aim->newconn(Screenname => 'CSH Drink2', Password => 'cshdrink123');
+#$aim->newconn(Screenname => 'mobilesoutherner', Password => 'carleneway');
 
 #Handlers
 $conn = $aim->getconn();
 $conn->set_handler("im_in", \&on_im);
 $conn->set_handler("error", \&on_error);
+$conn->set_handler("eviled", \&on_warn);
 
-my $c = 0;
+my $c = -5;
 while (1) {
    $aim->do_one_loop();
    read_from_sessions();
 
-   if ($c == 0) {
-      get_drink_stats();
-      $c = ($c + 1) % 10;
-   }
+   get_drink_stats() if ($c == 0);
+   $c = ($c + 1) % 1800;
 }
 
-my $frag;
+my $frag = "";
 sub read_from_sessions {
    my ($sock,@ready,$line);
 
    foreach $sock ( $s->can_read(1) ) {
-      #print "Ready: " . $sock . "\n";
 
       my ($key);
       foreach (keys(%session)) {
@@ -51,13 +51,12 @@ sub read_from_sessions {
 	 }
       }
 
-
       my $brec = recv($sock,$line,8192,0);
       my $data;
       if (defined($brec)) {
 	 if (length($line) == 0) { 
 	    print "Socket dead, removing...";
-	    $aim->send_im($key,"Socket dead.");
+	    sendim($key,"Socket dead.");
 	    undef $session{$key};
 	    $s->remove($sock); 
 	    next;
@@ -70,11 +69,16 @@ sub read_from_sessions {
       }
 
       print "Drink> $data\n";
-      $aim->send_im("$key","Drink> $data");
+      sendim("$key","Drink> $data");
    }
 
 }
 
+sub sendim {
+   my ($from,$msg) = @_;
+   $aim->send_im($from,$msg);
+   print "--> $from: $msg\n";
+}
 
 sub on_im {
    my ($hash,$event,$from) = @_;
@@ -95,14 +99,13 @@ sub on_im {
 sub on_error {
    my ($hash,$event,$from,$to) = @_;
    print STDERR "$from sent error code #".$event->{'args'}->[0] . "\n";
-   print STDERR "REF: " . $event->{'args'}."\n";
-   print STDERR "--> ";
-   my (@b) = @{$event->{'args'}};
+   print STDERR $aim->trans($event->{'args'}->[0]) . "\n";
+}
 
-   foreach (@b) {
-      print "$_ ";
-   }
-   print STDERR "\n";
+sub on_warn {
+   my ($hash,$event,$from) = @_;
+
+   $aim->evil($from);
 }
 
 sub handle_message {
@@ -111,12 +114,25 @@ sub handle_message {
    #Strip HTML:
    $msg =~ s/\<.*?\>//g;
 
-   #print "$from: $msg\n";
-
+   print "$from: $msg\n";
    if (defined($session{$from})) {
-      send($session{$from}{'socket'},$msg . "\n",0);
+      if ($msg =~ /^h(e(l(p)?)?)?$/) {
+	 sendim($from, "This is the AIM Drink Client. The following commands are available: \n     Status\n     Drop\nAlso feel free to type 'help <command>'");
+      } elsif ($msg =~ /^help (.*)$/i) {
+	 if ($1 =~ m/^s(t(a(t(u(s)?)?)?)?)?$/i) {
+	    sendim($from,"<b>STATUS</b> - Display the contents of Drink: Available drinks, price, and inventory.");
+	 } elsif ($1 =~ m/^d(r(o(p?)?)?)?$/i) {
+	    sendim($from,"<b>DROP <NUM></b> - Drop a drink from the specified slot number.");
+	 }
+      } elsif ($msg =~ /^s(t(a(t(u(s)?)?)?)?)?$/i) {
+	get_drink_stats($session{$from}{'socket'});
+	sendim($from,$STATUS);
+      }
+      
+      #send($session{$from}{'socket'},$msg . "\n",0);
    }
    else {
+      print "-> Creating new session for $from\n";
       #New session
       my ($sock, $dconn);
 
@@ -130,7 +146,7 @@ sub handle_message {
 
       #Selection adding
       $s->add($sock);
-      $aim->send_im($from,"Hello new user!");
+      sendim($from,"\nHello, $from!\nType 'help' for help.");
    }
 
 }
@@ -139,49 +155,72 @@ sub handle_error {
    my ($error,$errno,$from) = @_;
 
    print STDERR "$error";
-   if (defined($from)) { $aim->send_im($from,"$error"); }
+   if (defined($from)) { sendim($from,"$error"); }
 }
 
 sub get_drink_stats {
+   my ($sock) = @_;
    
-   print "Fetching stats\n";
-   my $sock = Symbol::gensym();
+   print "Fetching stats.\n";
 
    my $sel = new IO::Select();
+   
+   my $usesession = 0;
+   if (defined($sock)) { $usesession = 1; }
+   else { 
+      $sock = Symbol::gensym(); 
 
-   socket($sock,PF_INET,SOCK_STREAM,getprotobyname('tcp')) 
-     or handle_error("Unable to create new socket: $!",1);
-   connect($sock,sockaddr_in($DRINKPORT, inet_aton($DRINKHOST)))
-     or return;
-
+      socket($sock,PF_INET,SOCK_STREAM,getprotobyname('tcp')) 
+	or handle_error("Unable to create new socket: $!",1);
+      connect($sock,sockaddr_in($DRINKPORT, inet_aton($DRINKHOST)))
+	or return;
+   }
    $sel->add($sock);
 
-   print "Connected to $DRINKHOST:$DRINKPORT.\n";
    send($sock,"stat\n",0);
-   print "> $!\n";
+   send($sock,"quit\n",0) if ($usesession != 1);
+   #print "> $!\n";
 
    my ($ready,$line,$frag);
    my $info;
-   print "Fetching...";
+   #print "Fetching...";
+   my ($brec,$data);
    while (1) {
       ($ready) = $sel->can_read(1);
       last unless (defined($ready));
-      my $brec = recv($ready,$line,8192,0);
-      my $data;
-      print "Line: (".length($line).")" . $line;
+      $brec = recv($ready,$line,8192,0);
+      next if ($line =~ m/^OK/);
       last if (length($line) == 0);
-      if (defined($brec)) {
-
-	 $data = $frag . $line;
-	 my @lines = split(/\n/,$data);
-	 chomp($data);
-	 $frag = (substr($data,-1) ne "\n" ? pop(@lines) : "");
-      }
-      $info .= $data . "\n";
+      $data = $frag . $line;
+      my @lines = split(/\n/,$data);
+      $frag = (substr($data,-1) ne "\n" ? pop(@lines) : "");
+      $info .= $data;
    }
-   print "\n";
+   close($sock) if ($usesession == 1);
 
-   print "DONE FETCHING DATA\n";
+   #$info =~ s/(\r)?\n/<br>/g;
+
+   #Prettify it.
+   my @slots = split("\n",$info);
+   $info = '';
+   foreach (@slots) {
+     my @word = split(" ",$_);
+     $info .= '<b>'.$word[1].'</b>: $0.'.$word[2].' - '.$word[3].' left.<br>';
+   }
+
+   $STATUS = $info;
    $aim->set_info($info);
-   print $aim->get_info("CSH Drink");
+}
+
+
+###
+
+sub include {
+   my ($file) = @_;
+
+   local $/ = undef;
+   open(SRC,$file) or die("Unable to open $file.\n$!\n");
+   eval(<SRC>);
+   close(SRC);
+
 }
