@@ -1,0 +1,29 @@
+#!/usr/bin/perl
+
+use MP3::Tag;
+
+my %hashy;
+my $id = 0;
+open(FILES, "< $ENV{HOME}/foo.m3u") or die ($!);
+
+my @foo = <FILES>;
+foreach (@foo) {
+	next if (m/^#/);
+	chomp;
+
+	printf("[%.3f%%] %s\n", $id / @foo, substr($_,0,70));
+	my $tag = MP3::Tag->new($_);
+	my ($title, $track, $artist, $album, $comment, $year, $genre) = $tag->autoinfo();
+
+	#print "\t$artist\n";
+	#print "\t$album\n";
+	#print "\t$title\n";
+	$hashy->{$id} = {
+		title => $title,
+		artist => $artist,
+		album => $album
+	};
+
+	$id++;
+}
+
