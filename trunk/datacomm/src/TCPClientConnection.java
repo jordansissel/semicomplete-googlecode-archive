@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.3  2004/01/13 14:44:08  tristan
+ *   updated connect and disconnect methods with status.
+ *
  *   Revision 1.2  2004/01/13 02:26:36  tristan
  *   added some basic stuff to connect method
  *
@@ -42,7 +45,11 @@ public class TCPClientConnection extends ClientConnection {
      */
     public void run() {
         try {
+            String input = null;
 
+            while ( ( input = in.readLine() ) != null ) {
+                System.out.println( input );
+            }
         } catch ( Exception e ) {
             System.err.println( e.getMessage() );
             e.printStackTrace();
@@ -52,27 +59,38 @@ public class TCPClientConnection extends ClientConnection {
     /**
      * Starts a tcp connection with the server.
      */
-    public void connect() {
+    public synchronized boolean connect() {
+        boolean retVal = false;
+
         try {
             socket = new Socket( getServerHost(), getServerPort() );
             out = new PrintWriter( socket.getOutputStream(), true );
             in = new BufferedReader( new InputStreamReader(
                                      socket.getInputStream() ) );
+            retVal = true;
         } catch ( Exception e ) {
             System.err.println( e.getMessage() );
             e.printStackTrace();
         }
+
+        // change status var
+        setConnected( retVal );
+
+        return retVal;
     }
 
     /**
      * Disconnects from the server.
      */
-    public void disconnect() {
+    public synchronized void disconnect() {
         try {
             socket.close();
         } catch ( Exception e ) {
             System.err.println( e.getMessage() );
             e.printStackTrace();
         }
+
+        // update status
+        setConnected( false );
     }
 }   // TCPClientConnection
