@@ -1,4 +1,8 @@
 #!/bin/sh
+# I hate autoconf. Furthermore, it's overhead for this project when all
+# I require is that you have libnet and libpcap
+#
+# $Id$
 
 LIBNET_VERSION=
 INCLUDES=-I/usr/local/include
@@ -40,6 +44,6 @@ LIBNET_CODE
 	return $ERR
 }
 
-rm Makefile.inc
+rm Makefile.inc >/dev/null 2>&1
 
 libnet_check || exit 1
