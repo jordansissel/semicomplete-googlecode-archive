@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.3  2004/01/18 23:10:31  tristan
+ *   fixed count
+ *
  *   Revision 1.2  2004/01/10 23:22:20  tristan
  *   finished basic template for starting up server
  *
@@ -32,7 +35,7 @@ public class BattleshipServer {
      */
     public static void main( String[] args ) {
         // make battleship server
-        if ( args.length != 3 ) {
+        if ( args.length == 3 ) {
             try {
                 // initialize the host
                 InetAddress host = InetAddress.getByName( args[ 0 ] );
