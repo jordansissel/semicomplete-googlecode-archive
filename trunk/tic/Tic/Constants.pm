@@ -8,7 +8,7 @@ use constant KEY_CONSTANTS => {
 		"\e[B"    => "DOWN",
 		"\e[C"    => "RIGHT",
 		"\e[D"    => "LEFT",
-	};
+};
 
 use constant DEFAULT_OUTPUT => {
 	"timestamp"        => "(%H:%M:%S)",
@@ -43,7 +43,7 @@ use constant DEFAULT_OUTPUT => {
 	"error_unknown_command" => "Unknown command, '%k'",
 	
 
-	};
+};
 
 @ISA = qw(Exporter);
 @EXPORT = qw(KEY_CONSTANTS DEFAULT_OUTPUT);
