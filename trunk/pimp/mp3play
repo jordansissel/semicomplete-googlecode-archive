@@ -7,25 +7,26 @@ use Audio::Mad qw(:all);
 use Audio::Ao qw(:all);
 use IO::Socket;
 use IO::Select;
+use IO::Handle;
 use Socket;
 use Fcntl;
 use POSIX;
 
+$SIG{INT} = \&shutdown;
+$SIG{__DIE__} = \&shutdown;
+
+my ($server, $player) = IO::Socket->socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC);
+
+# MP3 Player writes to $server, reads from $player
+# Server writes to $server, reads from CHILD
+
 my $spid = fork();
-
-# IPC
-socketpair(CHILD, PARENT, AF_UNIX, SOCK_STREAM, PF_UNSPEC);
-
 if ($spid == 0) {
 	run_server();
 	
 	print STDERR "Server died!\n";
 	exit(1);
 }
-
-# More IPC...
-my $select = IO::Select->new(\*PARENT);
-$select->add(\*CHILD);
 
 my $stream   = new Audio::Mad::Stream();
 my $frame    = new Audio::Mad::Frame();
@@ -34,42 +35,72 @@ my $timer    = new Audio::Mad::Timer();
 my $resample = new Audio::Mad::Resample(44100, 22050);
 my $dither   = new Audio::Mad::Dither();
 
-my $buffer = join('', <STDIN>);
-$stream->buffer($buffer);
+{
+	local $/ = undef;
+	open(MP3, $ARGV[0]);
+	my $buffer = <MP3>;
+	close(MP3);
+	$stream->buffer($buffer);
+}
 
 #print Dumper($stream->options());
 
 initialize_ao;
 my $device = open_live(default_driver_id(), 16, 22050, 2, is_big_endian(), {});
 
+my $select = IO::Select->new($player);
+
+my $buffer = ""; # IPC buffer
+my $state = "playing"; # Player State
 while (1) {
-	# IPC stuff
-	#print "OK!\n";
-	
-	print $select->can_read(.001) . "\n" if ($select->can_read(.01));
-	#foreach my $foo ($select->can_read(.001)) {
-		#print "$foo READY\n";
-	#}
+	foreach my $socket ($select->can_read(.01)) {
+		my $data;
+		my $recv = $socket->recv($data, POSIX::BUFSIZ, 0);
+		$buffer .= $data;
 
-	# Audio Stuff
-	if ($frame->decode($stream) == -1) {
-		print "Done\n";
-		last unless ($stream->err_ok());
+		unless (defined($recv) && length($data)) {
+			die("Connection to server was lost!? - $!\n");
+		}
 
-		warn "decoding error: " . $stream->error();
-		next;
+		while ($buffer =~ s/(.*\n)//) {
+			handle_command($1);
+		}
 	}
 
-	$synth->synth($frame);
-	my $pcm = $dither->dither($resample->resample($synth->samples()));
+	# Audio Stuff
+	if ($state eq "playing") {
+		if ($frame->decode($stream) == -1) {
+			print "Done\n";
+			last unless ($stream->err_ok());
 
-	play($device, $pcm, length($pcm));
-	#print $pcm;
+			warn "decoding error: " . $stream->error();
+			next;
+		}
+
+		$synth->synth($frame);
+		my $pcm = $dither->dither($resample->resample($synth->samples()));
+
+		play($device, $pcm, length($pcm));
+		#print $pcm;
+	}
 }
 
 close_ao($device);
 shutdown_ao;
 
+sub handle_command {
+	my $line = shift;
+	my ($who, $cmd, $args) = split(/\s+/,$line,3);
+	print "Command: $cmd FROM $who\n";
+	$cmd = lc($cmd);
+
+	if ($cmd eq 'pause') {
+		$state = ($state eq "pause") ? "playing" : "pause";
+	}
+}
+
+
+# SERVER STUFF
 
 sub run_server {
 	close(STDIN);
@@ -81,8 +112,9 @@ sub run_server {
 										  Listen => SOMAXCONN,
 										  Reuse => 1);
 	$select->add($server);
-	nonblock($server);
+	#nonblock($server);
 
+	my $clients = {};
 	while (1) {
 		my $socket;
 
@@ -90,7 +122,8 @@ sub run_server {
 			if ($socket == $server) {
 				my $client = $server->accept();
 				$select->add($client);
-				nonblock($client);
+				$clients->{"$client"} = $client;
+				#nonblock($client);
 			} else {
 				my $data;
 				my $recv = $socket->recv($data, POSIX::BUFSIZ, 0);
@@ -122,20 +155,8 @@ sub run_server {
 sub handle {
 	my $client = shift;
 	my $lines = shift;
-
-	print "Client: $client\n";
-
-	foreach my $line (@{$lines}) {
-		chomp($line);
-		my ($cmd, $args) = split(/\s+/,$line,2);
-		$cmd = lc($cmd);
-		print "\t$cmd - $args\n";
-
-		send(PARENT,"$cmd $args\n",0) or die("$!");
-		send(CHILD,"$cmd $args\n",0) or die("$!");
-	}
-
-	$client->send("Hello!\n") or die("$!");
+	#print "Client: $client\n";
+	map { print $server "$client $_" } @{$lines};
 }
 
 sub nonblock {
@@ -146,4 +167,13 @@ sub nonblock {
 		or die "Can't get flags for socket: $!\n";
 	fcntl($socket, F_SETFL, $flags | O_NONBLOCK)
 		or die "Can't make socket nonblocking: $!\n";
+}
+
+sub shutdown {
+	print STDERR "Dying...\n";
+	kill("KILL", $spid);
+	while ((my $child = waitpid(-1,WNOHANG)) > 0) {
+		# foo? meh :(
+	}
+	exit;
 }
