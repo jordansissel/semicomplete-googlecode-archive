@@ -92,7 +92,7 @@ sub new ($) {
 		"input_prompt" => "",
 		"leftcol" => 0,
 		"echo" => 1,
-		"vi_mode" => 1,
+		"vi_mode" => 0,
 		"mode" => "insert",
 	};
 
