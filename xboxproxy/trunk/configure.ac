@@ -18,7 +18,7 @@ LIBNET_CFLAGS="`libnet-config --defines` -D__GLIBC__"
 AC_HEADER_STDC
 AC_CHECK_HEADERS([arpa/inet.h limits.h netdb.h netinet/in.h stddef.h stdlib.h string.h sys/socket.h sys/time.h unistd.h])
 
-AC_CHECK_HEADERS(netinet/if_ether.h, , , [#include <sys/types.h>
+AC_CHECK_HEADERS([netinet/if_ether.h net/ethernet.h], , , [#include <sys/types.h>
 #include <sys/socket.h>
 #include <net/if.h>])
 
@@ -33,10 +33,6 @@ AC_FUNC_REALLOC
 AC_FUNC_SELECT_ARGTYPES
 #AC_CHECK_FUNCS([gethostbyname inet_ntoa select socket strerror])
 
-# Check for pcap
-AC_CHECK_HEADERS(pcap.h)
-AC_CHECK_LIB(pcap, pcap_lib_version)
-
 AC_CANONICAL_HOST
 
 # pthreads...
@@ -44,12 +40,31 @@ echo "Host: $host"
 case $host in
 *solaris*)
 	CFLAGS="$CFLAGS -D_POSIX_PTHREAD_SEMANTICS"
-	LDFLAGS="$LDFLAGS -lpthread" ;;
+	LDFLAGS="$LDFLAGS -lpthread -lnsl -lsocket" ;;
 *freebsd*)
 	LDFLAGS="-pthread" ;;
 esac
 
 AC_CHECK_LIB(pthread,pthread_create,LD_FLAGS="$LDFLAGS -lpthread")
+
+# Check for pcap
+AC_ARG_WITH([pcap],
+            AC_HELP_STRING([--with-pcap=DIR], 
+									[search for pcap in DIR/include and DIR/lib]),
+				[ PCAP_PREFIX=$withval ],
+				[ PCAP_PREFIX=/usr/local ])
+
+AC_CHECK_FILE([$PCAP_PREFIX/lib/libpcap.a],
+				  [LDFLAGS="$LDFLAGS -L$PCAP_PREFIX/lib"
+				  CFLAGS="$CFLAGS -I$PCAP_PREFIX/include" ],
+				  AC_MSG_ERROR([
+pcap not found in $PCAP_PREFIX. Specify path with --with-pcap=/path/to/pcap/dir
+]))
+
+AC_CHECK_HEADERS(pcap.h)
+AC_CHECK_LIB(pcap, pcap_lib_version, [LDFLAGS="$LDFLAGS -lpcap"], 
+				 [AC_MSG_ERROR([libpcap was not found])])
+
 
 # Check for libnet
 AC_ARG_WITH([libnet],
@@ -71,6 +86,8 @@ AC_CHECK_LIB(net, libnet_write_link_layer,
 				 AC_CHECK_LIB(net, libnet_adv_write_link,
 								  AC_DEFINE([HAVE_LIBNET_1_1], [], [libnet 1.1.x]),
 								  AC_MSG_ERROR([Libnet library not found in $LIBNET_PREFIX])))
+
+AC_CHECK_TYPE(u_char, unsigned char)
 
 AC_SUBST(LIBNET_PREFIX)
 AC_SUBST(LIBNET_LDFLAGS)
