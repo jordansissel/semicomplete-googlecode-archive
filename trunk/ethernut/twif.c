@@ -63,7 +63,7 @@ int TwMasterTransact(u_char sla, void *txdata, u_short txlen, void *rxdata, u_sh
 		log(10, "TwMasterTransact(%d, %08x, %d, %08x, %d, NUT_WAIT_INFINITE)", 
 			 sla, txdata, txlen, rxdata, rxsiz);
 	else
-		log(10, "TwMasterTransact(%d, %08x, %d, %08x, %d, %l)", 
+		log(10, "TwMasterTransact(%d, 0x%08x, %d, 0x%08x, %d, %d)", 
 			 sla, txdata, txlen, rxdata, rxsiz, tmo);
 
 	return 0;
