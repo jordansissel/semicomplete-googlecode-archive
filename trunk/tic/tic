@@ -15,6 +15,8 @@ use Tic::Events;
 
 ReadMode(3);
 
+mkdir($ENV{HOME}."/.tic") unless (-d $ENV{HOME} . "/.tic");
+
 my $aliases = undef;   # Aliases
 my $commands = undef;  # Commands
 my $bindings = DEFAULT_BINDINGS; 
