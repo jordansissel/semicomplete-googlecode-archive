@@ -1,3 +1,6 @@
+
+-- Insert or Update depending on whether or not this article is already
+-- found in the database.
 CREATE OR REPLACE FUNCTION insert_or_update(TEXT, TEXT, TEXT, INTEGER)
 	RETURNS BOOLEAN AS '
 DECLARE
@@ -10,18 +13,37 @@ BEGIN
 	SELECT INTO dupid id FROM articles WHERE (title = mytitle OR url = myurl) 
 	                                         AND sourceid = mysid;
 	IF NOT FOUND THEN
-		RAISE NOTICE ''New article found - Adding...'';
-		INSERT INTO articles (title, url, descr, sourceid) VALUES 
-			(mytitle, myurl, mydesc, mysid);
+		RAISE NOTICE ''New article found - %'', mytitle;
+		INSERT INTO articles (title, url, descr, sourceid, lastupdate) VALUES 
+			(mytitle, myurl, mydesc, mysid, ''now'');
 		RETURN FALSE;
 	ELSE
-		RAISE NOTICE ''Old article found - Updating...%'';
-		UPDATE articles SET title = mytitle, url = myurl, descr = mydesc WHERE id = dupid;
+		RAISE NOTICE ''Old article found - %'', mytitle;
+		UPDATE articles SET title = mytitle, url = myurl, descr = mydesc, lastupdate = ''now'' WHERE id = dupid;
 		RETURN TRUE;
 	END IF;
-
-	RETURN 0;
 END;
 ' LANGUAGE plpgsql;
 	
-SELECT insert_or_update('Hello', 'http://www.foo.com', '', 10);
+--SELECT insert_or_update('Hello', 'http://www.foo.com', '', 10);
+
+-- Store the "latest" articles in latest_articles
+---
+
+CREATE OR REPLACE FUNCTION store_latest_articles(NUMBER, NUMBER)
+   RETURNS BOOLEAN AS '
+DECLARE
+	article ALIAS FOR $1;
+	source ALIAS FOR $1;
+BEGIN
+
+	-- Delete older articles 30+ deep 
+	INSERT INTO latest_articles (articleid) VALUES (article);
+	DELETE FROM latest_articles WHERE articleid IN 
+		(SELECT id FROM articles WHERE sourceid = source
+												 ORDER BY lastupdate OFFSET 30);
+
+	RETURN TRUE;
+
+END;
+' LANGUAGE plpgsql;
