@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.10  2004/01/19 23:19:47  tristan
+ *   switched back and wrote getter/setters
+ *
  *   Revision 1.9  2004/01/19 21:49:05  tristan
  *   converted to row/col/length
  *
@@ -47,9 +50,10 @@
  * @author Nicholas R. Johnson
  */
 public class BSShip {
-    private byte row;
-    private byte col;
-    private byte length;
+    private byte startX;
+    private byte startY;
+    private byte endX;
+    private byte endY;
 
     /**
      *  A default constructor that makes a ship at A, 1.
@@ -57,70 +61,64 @@ public class BSShip {
      *
      */
     public BSShip() {
-        row = 0;
-        col = 0;
-        length = 0;
+        startX = 0;
+        startY = 0;
+        endX = 0;
+        endY = 0;
     } // constructor
 
-    /**
-     *
-     * @param row
-     * @param col
-     * @param length
-     */
-    public BSShip( byte row, byte col, byte length ) {
-        this.row = row;
-        this.col = col;
-        this.length = length;
-    } // constructor
-
-    /**
-     *
-     * @return
-     */
-    public byte getRow() {
-        return row;
+    public BSShip( byte startX, byte startY, byte endX, byte endY ) {
+        this.startX = startX;
+        this.startY = startY;
+        this.endX = endX;
+        this.endY = endY;
     }
 
-    /**
-     *
-     * @param row
-     */
-    public void setRow( byte row ) {
-        this.row = row;
-    }
-
-    /**
-     *
-     * @return
-     */
-    public byte getCol() {
-        return col;
-    }
-
-    /**
-     *
-     * @param col
-     */
-    public void setCol( byte col ) {
-        this.col = col;
-    }
-
-    /**
-     *
-     * @return
-     */
     public byte getLength() {
-        return length;
+        byte retVal = 0;
+
+        if ( startX == endX ) {
+            retVal = ( byte )
+                     ( Math.max( startY, endY ) - Math.min( startY, endY ) );
+        } else {
+           retVal = ( byte )
+                     ( Math.max( startX, endX ) - Math.min( startX, endX ) );
+        }
+
+        return retVal;
     }
 
-    /**
-     *
-     * @param length
-     */
-    public void setLength( byte length ) {
-        this.length = length;
+    public byte getStartX() {
+        return startX;
     }
-} //BSShip
+
+    public void setStartX( byte startX ) {
+        this.startX = startX;
+    }
+
+    public byte getStartY() {
+        return startY;
+    }
+
+    public void setStartY( byte startY ) {
+        this.startY = startY;
+    }
+
+    public byte getEndX() {
+        return endX;
+    }
+
+    public void setEndX( byte endX ) {
+        this.endX = endX;
+    }
+
+    public byte getEndY() {
+        return endY;
+    }
+
+    public void setEndY( byte endY ) {
+        this.endY = endY;
+    }
+} // BSShip
 
 
