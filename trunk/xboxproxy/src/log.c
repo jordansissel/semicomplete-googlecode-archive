@@ -31,8 +31,8 @@ void debuglog(int level, const char *format, ...) {
 
 	char string[1024];
 	char msg_string[1024];
-	char date_string[64];
-	time_t ttime;
+	//char date_string[64];
+	//time_t ttime;
 
 	if (level > loglevel)
 		return;
@@ -42,9 +42,9 @@ void debuglog(int level, const char *format, ...) {
 		logfile = stdout;
 	}
 
-	ttime = time(NULL);
-	ctime_r(&ttime, date_string);
-	date_string[strlen(date_string) - 1] = 0;
+	//ttime = time(NULL);
+	//ctime_r(&ttime, date_string);
+	//date_string[strlen(date_string) - 1] = 0;
 	va_start(args, format);
 	vsnprintf(msg_string, 1024, format, args);
 	va_end(args);
