@@ -6,9 +6,12 @@
  *
  * Revisions:
  *	$Log$
+ *	Revision 1.8  2004/01/19 06:13:02  tristan
+ *	write toByteArray
+ *
  *	Revision 1.7  2004/01/19 05:36:49  psionic
  *	- initial
- *
+ *	
  *	Revision 1.6  2004/01/19 04:53:51  psionic
  *	- Added framework for generic syntax checking
  *	
@@ -35,6 +38,8 @@ import java.util.Iterator;
 import java.util.ArrayList;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 
 /**
  * Command sent to a client from the server.
@@ -106,7 +111,7 @@ public class Command implements Message {
 	 * @param args The command args.
 	 */
 	public void setArgs( List args ) throws InvalidCommandArgumentsException {
-		if ( ! this.validateArguments(args) ) {
+		if ( ! this.validateArguments() ) {
 			throw new InvalidCommandArgumentsException();
 		}
 
@@ -189,7 +194,7 @@ public class Command implements Message {
 			retVal.add( unparsedArgs );
 		}
 
-		if ( ! this.validateArguments(retVal) ) {
+		if ( ! this.validateArguments() ) {
 			throw new InvalidCommandArgumentsException();
 		}
 
@@ -226,4 +231,44 @@ public class Command implements Message {
 	        throws InvalidCommandArgumentsException {
 		return true;
 	}
+
+    /**
+     * Returns the command as a byte array.
+     * @return The command in byte array form.
+     */
+    public byte[] toByteArray() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        DataOutputStream data = new DataOutputStream( out );
+
+        try {
+            Iterator i = args.iterator();
+            data.writeUTF( command );
+
+            while ( i.hasNext() ) {
+                Object item = i.next();
+
+                if ( item instanceof Integer ) {
+                    data.writeInt( ( ( Integer ) item ).intValue() );
+                } else if ( item instanceof Byte ) {
+                    data.writeByte( ( ( Byte ) item ).byteValue() );
+                } else if ( item instanceof Double ) {
+                    data.writeDouble( ( ( Double ) item ).doubleValue() );
+                } else if ( item instanceof Float ) {
+                    data.writeFloat( ( ( Float ) item ).floatValue() );
+                } else if ( item instanceof Boolean ) {
+                    data.writeBoolean( ( ( Boolean ) item ).booleanValue() );
+                } else if ( item instanceof Short ) {
+                    data.writeShort( ( ( Short ) item ).shortValue() );
+                } else if ( item instanceof Long ) {
+                    data.writeLong( ( ( Long ) item ).longValue() );
+                } else {
+                    data.writeUTF( item.toString() );
+                }
+
+            }
+        } catch ( Exception e ) {
+        }
+
+        return out.toByteArray();
+    }
 }	// Command.java
