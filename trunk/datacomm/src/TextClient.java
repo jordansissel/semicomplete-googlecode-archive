@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.7  2004/01/20 03:31:13  tristan
+ *   uncommented block.
+ *
  *   Revision 1.6  2004/01/19 23:23:19  tristan
  *   included init game
  *
@@ -124,8 +127,7 @@ public class TextClient extends BSClient {
         } while ( !validInput );
 
         // send a message to the server
-        sendCall( row, col );
-        setClientTurn( false );
+        sendFire( row, col );
     }
 
     /**
