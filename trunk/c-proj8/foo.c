@@ -1,11 +1,11 @@
-#include <stdio.h>
+#define NULL 0
 
 char **do_opts(int argc, char **argv, char *control,
 					void (*do_opt)(int ch, char *value),
 					void (*illegal_opt)(int ch)) {
+	unsigned char offset;
 	char **pt = argv;
 	char *c;
-	char found;
 	char done;
 
 	/* Skip the 0th argument, the program name */
@@ -13,11 +13,11 @@ char **do_opts(int argc, char **argv, char *control,
 
 	while (*pt != NULL && **pt == '-') {
 		done = 0;
-		while (!done && *(++*pt) != '\0') {
-			found = 0;
-			for (c = control; *c != '\0' && !found; c++) {
+		offset = 0;
+		while (!done && *(*pt + offset) != '\0') {
+			char *foo = *pt + offset
+			for (c = control; *c != '\0'; c++) {
 				if (**pt == *c) {
-					found = 1;
 					if (*(c + 1) == '+') {
 						if (*(*pt + 1) != '\0') {
 							do_opt(*c, (*pt + 1));
@@ -33,9 +33,10 @@ char **do_opts(int argc, char **argv, char *control,
 					} else {
 						do_opt(*c, NULL);
 					}
+					break;
 				}
 			}
-			if (found == 0) {
+			if (*c == '\0') {
 				illegal_opt(**pt);
 			}
 		}
