@@ -1,0 +1,21 @@
+#!/usr/bin/perl
+
+use strict;
+use RRDs;
+
+my $hits;
+
+chdir("/u9/psionic/Mail");
+
+while (<>) {
+   next unless (m/^X-Spam-Status: .*?hits=(\S+)/);
+   $hits = $1;
+   last;
+}
+
+print STDERR "Hits: $hits\n";
+#exit if ($hits <= 0);
+
+open(HITS,">> spampoints.hits");
+print HITS "$hits\n";
+close(HITS);

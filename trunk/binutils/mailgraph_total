@@ -1,0 +1,31 @@
+#!/usr/bin/perl
+
+use strict;
+use RRDs;
+
+chdir("/u9/psionic/Mail");
+my $starttime = `cat spampoints.rrd.creation`;
+
+if ( ! -f "spampoints.hits" ) {
+   # We still need to update!
+   RRDs::update("spampoints.rrd", "N:0");
+} else {
+
+   my $totalhits = 0;
+   my ($notspam,$spam) = (0.001,0.001);
+
+   open(HITS,"< spampoints.hits");
+   while (<HITS>) {
+      chomp();
+      $totalhits += $_ if ($_ > 0);
+      $notspam++ if ($_ <= 5);
+      $spam++ if ($_ > 5);
+   }
+   close(HITS);
+
+   RRDs::update("spampoints.rrd", "N:$totalhits");
+   RRDs::update("spamornot.rrd", "N:$notspam:$spam");
+   #print STDERR "Total hits: $totalhits\n";
+   #print STDERR "Spamornot: $notspam / $spam\n";
+   system("rm spampoints.hits");
+}

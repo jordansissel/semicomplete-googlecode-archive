@@ -1,0 +1,127 @@
+#!/bin/ksh
+# Requires perl module, Term::Size.
+
+ECHO=/usr/ucb/echo
+
+SIGN=
+NUM=
+
+IGNORE_MAILBOXES=".archive .locks jason outbox"
+
+function showmail { #{{{
+   FOLDER=+`folder -fast`
+
+   MAX=`perl -MTerm::Size -e 'print join(".",Term::Size::chars())'`
+   MAXCOLS=`echo "${MAX}" | sed -e 's/\..*//'`
+   MAXROWS=`echo "${MAX}" | sed -e 's/.*\.//'`
+   MAXROWS=$(($MAXROWS - 1))
+
+   pick > /dev/null 2>&1
+   if [ $? -eq 1 ]; then
+      echo "There is no mail in +"`folder -fast`
+      exit
+   fi
+
+   ${ECHO} -n "Sorting messages, please wait."
+
+   case $FOLDER in
+      +lists/*)
+	 mhthread -fast "${FOLDER}"
+	 ;;
+   esac
+
+   #thread;
+   #sortm -textfield Subject 2> /dev/null
+
+   LESS="less -~ -F"
+
+   #${ECHO} -n "[30D[2Ayes"
+
+   TITLE=`${ECHO} "Current Folder: ${FOLDER}"; perl -e "print '=' x $MAXCOLS"`
+   (echo "$TITLE"; scan) | ${LESS}
+} #}}}
+
+while [ $# != 0 ]; do
+   case $1 in
+      ++([0123456789]))
+	 SIGN=+
+	 NUM=${1#+}
+	 break
+      ;;
+      -+([0123456789]))
+         SIGN=-
+	 NUM=${1#-}
+	 break
+      ;; 
+      +([0123456789]))
+         SIGN=+
+	 NUM=${1}
+	 break
+      ;;
+      -s)
+         showmail
+	 exit
+      ;;
+      *)
+	 SEARCH="$*"
+	 break
+      ;;
+   esac
+   if [ "${SEARCH}" ]; then
+      break
+   fi
+
+   shift
+done
+
+MAIL=
+MBOX_IGNORE=`echo $IGNORE_MAILBOXES | sed -e 's/ /|/g'`
+if [ -z "${SEARCH}" ]; then
+   MAIL=`folders -recurse -noheader -nototal | ggrep -Ev "(no messages|$MBOX_IGNORE)"`
+else
+   MAIL=`folders -recurse -noheader -nototal | ggrep -Ev "(no messages|$MBOX_IGNORE)" | ggrep -E "${SEARCH}"`
+
+   if [ -z "${MAIL}" ]; then
+      echo "No folders found matching your query."
+      exit
+   fi
+fi
+
+
+if [ -z "${MAIL}" ]; then
+   ${ECHO} "No new mail. :("
+else 
+   folders -recurse -nototal | head -n 1
+   ${ECHO} "${MAIL}"
+
+   if [ "${SIGN}" ]; then
+      if [ "${SIGN}" = "+" ]; then
+         FOLDER=`${ECHO} -n +; ${ECHO} "${MAIL}" | awk '{print $1}' \
+	         | head -n ${NUM} | tail -1`
+      else
+         FOLDER=`${ECHO} -n +; ${ECHO} "${MAIL}" | awk '{print $1}' \
+	         | tail -${NUM} | head -n 1`
+      fi
+   fi
+
+   if [ "${SEARCH}" ]; then
+      MATCHES=`echo "${MAIL}" | wc -l | awk '{print $1}'`
+
+      if [ "${MATCHES}" -eq 1 ]; then
+	 FOLDER=+`echo "${MAIL}" | awk '{print $1}'`
+      fi
+   fi
+
+   if [ "${FOLDER}" ]; then
+      SEL=`${ECHO} "${FOLDER}" | grep '\+$'`
+
+      if [ "${SEL}" ]; then
+	 ${ECHO} "Your current folder is already ${FOLDER}"
+      else
+	 folder ${FOLDER}
+	 showmail
+      fi
+   fi
+
+fi
+

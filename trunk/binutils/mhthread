@@ -1,0 +1,939 @@
+#!/usr/bin/perl -w
+=head1 NAME
+
+mhthread - sort an MH folder into 'threaded' order
+
+=head1 SYNOPSIS
+
+	mhthread [options] +folder
+	mhthread [options] /path/to/folder
+
+options accepted: [-debug] [-no-write] [-fast] [-lock]
+
+=head1 DESCRIPTION
+
+This will thread an MH folder.  It re-orders the messages (as sortm(1) would
+do), and annotates each one with a new header, "X-MH-Thread-Markup", which can
+be displayed by scan(1).
+
+Together, this results in the messages being displayed in "threaded" order, as
+in trn(1) or mutt(1).
+
+Sequences will be rewritten appropriately.   The folder will also be "packed",
+as if 'folder -pack' had been run; see folder(1).
+
+=head1 RESULTS
+
+Here's some sample output from scan(1), after threading the folder:
+
+  430  03/23 mathew              3  [Asrg] Re: [OffTopic - NNTP]
+  431  03/23 Kee Hinckley        5  |- [Asrg] Re: [OffTopic - NNTP]
+  432 -03/23 Chuq Von Rospach   11  | |- Parameters for success? (was Re: [A
+  433  03/23 To:Chuq Von Rospa   4  | | \- Re: Parameters for success? (was 
+  434  03/23 Matt Sergeant       3  | \- Re: [Asrg] Re: [OffTopic - NNTP]
+  435  03/23 Chuq Von Rospach    7  \- Re: [Asrg] Re: [OffTopic - NNTP]
+
+=head1 OPTIONS
+
+=over 4
+
+=item -fast
+
+Use an on-disk cache to speed up operation.
+
+=item -lock
+
+Use a folder-wide lock-file to synchronize access to folders, so that multiple
+processes will not stomp on each other's changes or cause folder corruption.
+If you use this, you should ensure that you also use a locking version of other
+tools, such as the C<lockedrcvstore> script that comes with ExMH (typical
+location: C</usr/lib/exmh*/misc/lockedrcvstore>).
+
+=item -no-write
+
+Do not rewrite the messages; instead, output a line for each message
+noting the actions that would be taken.
+
+=item -debug
+
+Output debugging info to stderr.
+
+=back
+
+Note that options will also be read from the C<mhthread> entry in
+your C<.mh_profile> file, in traditional MH style.
+
+=head1 INSTALLATION FOR SCAN
+
+To display the results in scan(1) output, use something like the following
+for the subject-display part of the scan.form file:
+
+  %(decode{x-mh-thread-markup})%(decode{subject})
+
+If you do not have a "scan.form" file of your own, you will need to set it up.
+This functionality is accessed using the -form or -format switches to the
+scan(1) command.  To use this, copy the /etc/nmh/scan.default file to your
+~/Mail dir and modify it with the above line, then add 
+
+  scan: -form scan.form
+
+to your ~/.mh_profile.
+
+Copy this script to somewhere in your path, called C<mhthread>.  Then run
+that whenever you want to re-thread the folder, in the same way you would
+C<folder -pack>, C<sortm> or similar.
+
+=head1 INSTALLATION FOR EXMH
+
+Copy this script to somewhere in your path, called C<mhthread>.
+
+Add the following function to your C<~/.tk/exmh/user.tcl> file:
+
+  proc Folder_Thread {} {
+    global exmh
+    Background_Wait
+    Exmh_Status "Threading folder..." blue
+    if {[Ftoc_Changes "Thread"] == 0} then {
+      if {[catch {MhExec mhthread +$exmh(folder)} err]} {
+	  Exmh_Status $err error
+      } else {
+	# finish off by using the ExMH packing logic to redisplay folder
+	Folder_Pack
+	# then show the first unseen message
+	Msg_ShowUnseen
+      }
+    }
+  }
+
+Next, you need to rebuild the C<tclIndex> file.  Run C<tclsh> and type:
+
+  auto_mkindex ~/.tk/exmh *.tcl
+
+Now add a button to run this function.  To do this, you must exit ExMH
+first, then edit the C<~/.exmh/exmh-defaults> file and add these
+files at the top of the file:
+
+  *Fops.ubuttonlist: thread
+  *Fops.thread.text: Thread
+  *Fops.thread.command: Folder_Thread
+
+Restart ExMH, and there should be a new button marked B<Thread> on the
+folder button-bar.  Press this to re-thread the current folder.
+
+=head1 NOTES
+
+The threading algorithm uses the In-Reply-To, Message-Id and References
+headers.  Thanks to JWZ for guidance, in the form of his page on threading at
+C<http://www.jwz.org/doc/threading.html>.
+
+The 'X-MH-Thread-Markup' headers are encoded using RFC-2047 encoding, using
+'no-break space' characters for whitespace, as otherwise MH's scan(1) format
+code will strip them.  Here's an example of the results:
+
+  X-MH-Thread-Markup: =?US-ASCII?Q?=a0=a0=a0=a0=5c=2d=a0?=
+
+=head1 TODO
+
+dealing with private sequences (stored in .mh_profile); limiting displayed
+thread-depth to keep UI readable (so far has not been a problem).
+
+=head1 BUGS
+
+duplicate messages will always be shuffled in order each time C<mhthread> is
+run, due to handling of identical Message-Ids.
+
+=head1 DOWNLOAD
+
+Latest version can be found at http://jmason.org/software/mhthread/ .
+
+=head1 AUTHOR
+
+Justin Mason, C<jm dash mhthread dash nospam at jmason dot org>
+
+=head1 VERSION
+
+version = 1.6, Jul 11 2003 jm
+
+=cut
+
+sub usage {
+  die "
+usage: mhthread [options] +folder
+       mhthread [options] /path/to/folder
+
+options accepted: [-debug] [-no-write] [-fast] [-lock]
+";
+}
+
+use vars qw(
+  $mh_sequences_file_name $mhthread_options
+);
+
+read_mh_profile_data ();
+if (defined $mhthread_options) {
+  unshift (@ARGV, split(' ', $mhthread_options));
+}
+
+my $folder = '';
+my $no_write = 0;
+my $fast = 0;
+my $lock = 0;
+my $dbg = 0;
+
+use Getopt::Long qw(:config no_ignore_case prefix_pattern=(--|-));
+GetOptions(
+	"debug" => \$dbg,
+	"fast" => \$fast,
+	"lock" => \$lock,
+	"no-write" => \$no_write,
+	'<>' => sub { $folder = $_[0]; }
+);
+usage unless ($folder =~ /\S/);
+
+###########################################################################
+
+use vars qw(
+  %TZ %MONTH $locked_folder_lockfile
+);
+
+use strict;
+use Time::Local;
+
+if (!-d $folder) {
+  chomp ($folder = `mhpath $folder`);
+  if (!-d $folder) {
+    usage();
+  }
+}
+
+init_tz();
+
+if ($lock) {
+  $SIG{INT} = $SIG{TERM} = \&unlock_and_die;
+  mh_lock_folder ($folder);
+}
+
+# trap die()s
+eval {
+  my $ctx = thread_folder ($folder);
+  mh_rewrite_folder ($folder, $ctx);
+};
+my $err = $@;
+
+# always unlock, even if we died
+if ($lock) {
+  mh_unlock_folder ($folder);
+}
+
+# and finally, propagate the death exception
+if ($err) {
+  die $err;
+}
+
+# otherwise we're fine, exit 0
+exit;
+
+###########################################################################
+
+sub mh_lock_folder {
+  $locked_folder_lockfile = $folder."/.lock";
+  system ("lockfile", $locked_folder_lockfile);
+  if ($? >> 8 != 0) {
+    die "failed to lock folder $folder (lockfile $locked_folder_lockfile)\n";
+    # $locked_folder_lockfile = undef;		# not needed, we're dead ;)
+  }
+}
+
+sub mh_unlock_folder {
+  if (defined $locked_folder_lockfile) {
+    unlink $locked_folder_lockfile;
+    $locked_folder_lockfile = undef;
+  }
+}
+
+sub unlock_and_die {
+  mh_unlock_folder();
+  die "killed by signal\n";
+}
+
+###########################################################################
+
+use vars qw(@to_unlink @to_rename %num2seq %newseqs);
+
+sub mh_rewrite_folder {
+  my ($folder, $ctx) = @_;
+
+  my $newnum = 0;
+  my %msg_rewritten = ();
+
+  foreach my $num (@{$ctx->{all_message_locs}}) {
+    $msg_rewritten{$num} = 0;
+  }
+
+  # read the mh_sequences file, and create the map of sequences in this
+  # folder...  cf. man mh-sequence, man mark.
+  %num2seq = ();
+  %newseqs = ();
+  if (open (IN, "<".$folder."/".$mh_sequences_file_name)) {
+    while (<IN>) {
+      /^([^:]+): (.+)$/ or next;
+      my $seq = $1; my $msgs = $2;
+      $newseqs{$seq} ||= [];
+
+      foreach my $spec (split (' ', $msgs)) {
+	if ($spec =~ /(\d*)\-(\d*)/)
+	{
+	  my $start = $1; $start ||= 1;
+
+	  my $end = $2;
+	  if (!$end) {	# not supposed to happen with nmh at least
+	    warn "oops! no end for sequence: '$_'"; $end = 9999;
+	  }
+
+	  my $i; for ($i = $start; $i <= $end; $i++) {
+	    $num2seq{$i} ||= []; push (@{$num2seq{$i}}, $seq);
+	  }
+	} else {
+	  $num2seq{$spec} ||= []; push (@{$num2seq{$spec}}, $seq);
+	}
+      }
+    }
+    close IN;
+  }
+
+  my $changed = 0;
+  foreach my $line (@{$ctx->{sorted}}) {
+    $newnum++;
+    my $oldnum = $line->{num};
+    my $oldprefix = $line->{existing_prefix} || '';
+    my $newprefix = $line->{prefix} || '';
+
+    $msg_rewritten{$oldnum} = 1;
+    if (mh_rewrite_reorder_message ($ctx, $folder, $oldnum, $newnum,
+			$oldprefix, $newprefix))
+    {
+      $changed = 1;
+    }
+  }
+
+  if ($changed) {
+    # now if we missed any messages we read to start with, something's wrong
+    # in the algorithm, and we could lose mail.  Don't modify anything; just
+    # die instead.
+    my $failures = 0;
+    foreach my $num (@{$ctx->{all_message_locs}}) {
+      if (!$msg_rewritten{$num}) {
+	warn "mhthread: message not threaded, adding to end: $num\n";
+
+	$newnum++;
+	if (!mh_rewrite_reorder_message ($ctx, $folder, $num, $newnum, '', ''))
+	{
+	  $failures++; warn "mhthread: oops! failed to recover: $num\n";
+	}
+      }
+    }
+
+    if ($failures) { die "mhthread: not modifying old messages due to errors.\n"; }
+
+    # otherwise, go right ahead and unlink/rename...
+    foreach my $name (@to_unlink) {
+      unlink $name or warn "unlink $name failed: $!";
+    }
+    foreach my $name (@to_rename) {
+      rename $name.".new", $name or warn "rename $name.new -> $name failed: $@";
+    }
+
+    # now mark the sequences with the new message numbering
+    foreach my $seq (keys %newseqs)
+    {
+      my @messages = @{$newseqs{$seq}};
+      next unless (scalar @messages > 0);
+
+      my @cmd = ('mark', '+'.$folder, @messages,
+				'-sequence', $seq, '-add', '-zero');
+      system @cmd;
+      if ($? >> 8 != 0) {
+	warn "'".join (' ',@cmd)."' failed\n";
+      }
+    }
+  }
+}
+
+sub mh_rewrite_reorder_message {
+  my ($ctx, $folder, $oldnum, $newnum, $oldprefix, $newprefix) = @_;
+
+  my $oldname = $folder."/".$oldnum;
+  my $newname = $folder."/".$newnum;
+
+  if ($oldnum eq $newnum && $oldprefix eq $newprefix) {
+    if ($no_write) { 
+      print "no move for $oldnum; subj-pfx '$newprefix'\n";
+    }
+    $dbg and warn "debug: $oldnum: no differences, skipping move/rewrite";
+    return 0;
+  }
+
+  if ($no_write) { 
+    print "mv $oldnum $newnum; subj-pfx '$newprefix'\n";
+    return 0;
+  }
+
+  $dbg and warn "debug: $oldnum->$newnum: move/rewrite";
+  if (!open (IN, "<".$oldname)) {
+    warn "cannot read $oldname: $@";
+    return 0;
+  }
+
+  open (OUT, ">".$newname.".new") or die "write to $newname.new failed: $@";
+
+  while (<IN>) {
+    # remove an old thread-subject
+    /^X-MH-Thread-Markup: / and next;
+    /^$/ and last;	# end of headers
+    print OUT;
+  }
+
+  print OUT "X-MH-Thread-Markup: ".$newprefix."\n\n";
+
+  # dump the body
+  # TODO: use read()/syswrite()
+  while (<IN>) { print OUT; }
+  close IN;
+  close OUT or die "write to $newname.new failed: $@";
+
+  push (@to_unlink, $oldname);
+  push (@to_rename, $newname);
+
+  foreach my $seq (@{$num2seq{$oldnum}}) {
+    push (@{$newseqs{$seq}}, $newnum);
+  }
+  return 1;
+}
+
+###########################################################################
+
+# note: these global vars are ONLY used inside thread_folder (and
+# inside functions called by that fn).  They are undef'd at the end
+# of that function's scope.
+#
+use vars qw(%mid2msg %tree %toplevel %subjtop %subjsets %subjearliest $uniqid
+	);
+
+sub thread_folder {
+  local ($_);
+
+  %mid2msg = ( );	# message-id to msg object
+  %tree = ( );		# the threaded tree
+  %toplevel = ( );	# top-level nodes of the tree
+  %subjtop = ( );	# top-level nodes for a given subject string
+  %subjsets = ( );	# top-level nodes with the same subject
+  %subjearliest = ( );	# date of earliest message with that subject
+  $uniqid = 1;		# used to "unique-ify" duplicate message-Ids
+
+  # %dupmessages = ();
+
+  my $ctx = {
+    sorted => [ ],
+    all_message_locs => [ ],
+    done => { }
+  };
+
+  if ($fast) {
+    eval {
+      use Storable;
+      $ctx->{fcache} = retrieve ($folder."/.thread.tmp");
+    };
+    if ($@) { $ctx->{fcache} = { }; }	# kill it if it's corrupt
+  }
+
+  opendir(DIR, $folder) or warn "cannot opendir $folder: $!\n";
+  my $num;
+  while (defined ($num = readdir(DIR))) {
+    next unless ($num =~ /^(\d+)$/);
+    my $msgpath = $folder."/".$num;
+
+    my $stat_details;
+    my $cachedmsg;
+    if (defined $ctx->{fcache}) {
+      my @st = stat($msgpath);
+      if (!defined $st[7]) {
+	warn "cannot stat, skipped: $msgpath\n"; next;
+      }
+
+      $stat_details = join('|', @st[0 .. 5], $st[7], $st[9], $st[10]);
+
+      $cachedmsg = $ctx->{fcache}->{$num};
+      my $cstat = (defined($cachedmsg) ? $cachedmsg->{stat_details} : '');
+
+      if ($cstat eq $stat_details) {
+	$dbg and warn "debug: $num cached message matches";
+      } else {
+	$dbg and warn "debug: $num cached message no match ".
+				"($stat_details vs $cstat)";
+	undef $cachedmsg;
+      }
+    }
+
+    my $msg;
+    if (defined ($cachedmsg)) {
+      $msg = $cachedmsg;
+    } else {
+      my $hdrs = mh_read_message_headers ($ctx, $num, $msgpath);
+      next unless defined($hdrs);
+      $msg = parse_message_headers ($ctx, $num, $hdrs, $stat_details);
+    }
+
+    my ($subj, $sortsubj, $intdate, $irt, $re_in_subj, $mid);
+
+    $subj = $msg->{subj};
+    $sortsubj = $msg->{sortsubj};
+    $intdate = $msg->{intdate};
+    $irt = $msg->{irt};
+    $re_in_subj = $msg->{re_in_subj};
+    $mid = $msg->{mid};
+
+    push (@{$ctx->{all_message_locs}}, $num);
+
+    $mid2msg{$mid} = $msg;
+
+    # create the node for that mid, if not already existing
+    if (!exists $tree{$mid}) { $tree{$mid} = { }; }
+
+    if (!defined $irt) {
+      $dbg and warn "debug: $msg->{num} no IRT ($msg->{mid} $msg->{intdate})";
+      add_to_top_level ($msg);
+
+    } else {
+      my %seen = ();
+      {
+	next if ($seen{$irt}); $seen{$irt} = 1;
+	if (!exists $tree{$irt}) { $tree{$irt} = { }; }
+	$dbg and warn "debug: $msg->{num} IRT $irt ($mid $msg->{intdate})";
+	$tree{$irt}->{$mid} = $msg;
+      }
+    }
+  }
+  closedir DIR;
+
+  # store it here.  we don't care if we rewrite the order later on,
+  # we just want to cache the least-changing messages in the folder.
+  # Doing caching post-writes will require more logic in the threading
+  # part to update this cache, and let's not bother with that!
+  if ($fast && !$no_write) {
+    eval {
+      use Storable;
+      store ($ctx->{fcache}, $folder."/.thread.tmp");
+    };
+    if ($@) { warn "failed to cache folder data: $@"; }
+  }
+
+  # now find "orphaned" message trees, and put them into the top level
+  foreach my $mid (keys %tree) {
+    next if (defined $mid2msg{$mid});	# it has a parent
+
+    # OK, this is a message-id used in an In-Reply-To header, but we
+    # don't have the msg.  Reparent all its children down to the top-level
+    # instead.
+    foreach my $kid (keys %{$tree{$mid}}) {
+      my $msg = $mid2msg{$kid};
+
+      # if it's already in the top-level, ignore it
+      next if (defined $toplevel{$msg->{mid}});
+
+      if (!defined $msg) { warn "oops! nonexistent kid for $mid"; }
+      $dbg and warn "debug: $msg->{num} orphaned ($msg->{mid})";
+      add_to_top_level ($msg);
+    }
+  }
+
+  sub add_to_top_level {
+    my ($msg) = @_;
+
+    my $sortsubj = $msg->{sortsubj};
+    my $intdate = $msg->{intdate};
+    $toplevel{$msg->{mid}} = $msg;
+
+    # if there was no re: tag, add it to the 'top' set for that subject line
+    if (!$msg->{re_in_subj}) {
+      $subjtop{$sortsubj} = $msg;
+    }
+    $subjsets{$sortsubj} ||= [ ];
+    push (@{$subjsets{$sortsubj}}, $msg);
+
+    if (!exists ($subjearliest{$sortsubj}) ||
+		$subjearliest{$sortsubj} > $intdate)
+    {
+      $subjearliest{$sortsubj} = $intdate;
+    }
+  }
+
+  # ok; try to figure out a rudimentary tree from the Subject line alone,
+  # for messages that did not use 'In-Reply-To'.
+  foreach my $subj (keys %subjsets) {
+    # is there a suitable candidate for a 'parent' message?
+    my $parent = $subjtop{$subj};
+    if (!defined $parent) { next; }
+
+    foreach my $msg (@{$subjsets{$subj}}) {
+      if ($msg->{re_in_subj} != 0) {
+	# this msg has "Re:", but has no In-Reply-To.  reparent it
+	$tree{$parent->{mid}}->{$msg->{mid}} = $msg;
+	delete $toplevel{$msg->{mid}};
+      }
+    }
+  }
+
+  # now recursively display the tree.  Sort by the date of the earliest message
+  # with that subject line, and by existing number if there's a dup.
+  foreach my $top (sort {
+	$subjearliest{$toplevel{$a}->{sortsubj}} 
+				<=> $subjearliest{$toplevel{$b}->{sortsubj}}
+	or $toplevel{$a}->{intdate}
+				<=> $toplevel{$b}->{intdate}
+	or $toplevel{$b}->{num}
+				cmp $toplevel{$a}->{num}
+		  } keys %toplevel)
+  {
+    dig_thru_tree ($ctx, 0, $top, $toplevel{$top});
+  }
+
+  foreach my $mid (keys %mid2msg) {
+    if (!$ctx->{done}->{$mid}) {
+      my $msg = $mid2msg{$mid};
+      $dbg and warn "debug: $msg->{num} missed ($msg->{mid})";
+      push (@{$ctx->{sorted}}, {
+	num => $msg->{num},
+	existing_prefix => $msg->{existing_prefix},
+	prefix => '',
+	subject => $msg->{subj}
+      });
+    }
+  }
+
+  # delete these state arrays, they're unnecessary now
+  undef %mid2msg;
+  undef %tree;
+  undef %toplevel;
+  undef %subjtop;
+  undef %subjsets;
+  undef %subjearliest;
+
+  return $ctx;
+}
+
+sub dig_thru_tree {
+  my ($ctx, $level, $mid, $msg) = @_;
+
+  my $num = $msg->{num};
+  my $subj = $msg->{subj};
+
+  # OK, we want a result like this:
+  # X-MH-Thread-Markup: =?US-ASCII?Q?=a0=a0=a0=a0=5c=2d=a0?=
+  # just use the encoded string directly, it's quicker and simpler.
+
+  my $MARKUP_START =			'=?US-ASCII?Q?';
+  my $MARKUP_NODE_LAST_CHILD =		'=5c=2d=a0';	# "\- "
+  my $MARKUP_NODE_CHILD_W_SIBLINGS =	'=7c=2d=a0';	# "|- "
+  my $MARKUP_TREE_EMPTY =		'=a0=a0';	# "  "
+  my $MARKUP_TREE_BRANCH =		'=7c=a0';	# "| "
+  my $MARKUP_END =			'?=';
+
+  # TODO: limit levels to 3 for UI reasons
+
+  my $levelstr = $MARKUP_END;
+  my $iterlev = $level;
+  my $itermsg = $msg;
+  while ($iterlev > 0)
+  {
+    if ($iterlev == $level) {
+      if (!defined $itermsg || $itermsg->{last_in_level}) {
+	$levelstr = $MARKUP_NODE_LAST_CHILD.$levelstr;
+      } else {
+	$levelstr = $MARKUP_NODE_CHILD_W_SIBLINGS.$levelstr;
+      }
+    } else {
+      if (!defined $itermsg || $itermsg->{last_in_level}) {
+	$levelstr = $MARKUP_TREE_EMPTY.$levelstr;
+      } else {
+	$levelstr = $MARKUP_TREE_BRANCH.$levelstr;
+      }
+    }
+
+    # get the msg object for the parent message
+    my $irt = $itermsg->{irt};
+    if (defined $irt) { $itermsg = $mid2msg{$irt}; }
+
+    $iterlev--;
+  }
+  $levelstr = $MARKUP_START.$levelstr;
+
+  # printf ("%4d %s%s\n", $num, $levelstr, $subj);
+  push (@{$ctx->{sorted}}, {
+    num => $num,
+    prefix => $levelstr,
+    existing_prefix => $msg->{existing_prefix},
+    subject => $levelstr.$subj
+  });
+  $ctx->{done}->{$mid} = 1;
+
+  # within the tree, just sort by post date (or by number if there's
+  # a duplicate).
+  my $kids = $tree{$mid};
+  my @sorted = (sort {
+	$kids->{$b}->{intdate}
+				<=> $kids->{$a}->{intdate}
+	or $kids->{$b}->{num}
+				cmp $kids->{$a}->{num}
+      } keys %{$kids});
+
+  if (scalar @sorted > 0) {
+    # mark the last one in this level, so it can be displayed with "\-",
+    # instead of "|-"
+    $kids->{$sorted[$#sorted]}->{last_in_level} = 1;
+
+    # and recurse
+    foreach my $kid (@sorted) {
+      dig_thru_tree ($ctx, $level+1, $kid, $kids->{$kid});
+    }
+  }
+}
+
+###########################################################################
+
+sub mh_read_message_headers {
+  my ($ctx, $num, $msgpath) = @_;
+
+  if (!open (IN, "<".$msgpath)) {
+    warn "cannot open, skipped: $msgpath\n";
+    return undef;
+  }
+
+  my $hdrs = "\n";
+  while (<IN>) { $hdrs .= $_; /^$/ and last; }
+  close IN;
+
+  return $hdrs;
+}
+
+###########################################################################
+
+sub parse_message_headers {
+  my ($ctx, $num, $hdrs, $stat_details) = @_;
+
+  my $mid = '';
+  my $subj = '';
+
+  # these are not stored in the public "msg" object after parsing
+  my $date = '';
+  my $pfx = '';
+
+  # remove newlines from headers; makes them easier to parse
+  $hdrs =~ s/\n[ \t]+/ /gs;
+  $hdrs =~ /\nMessage-I[dD]: <([^\n]+)>/ and $mid = $1;
+  $hdrs =~ /\nSubject: ([^\n]+)/ and $subj = $1;
+  $hdrs =~ /\nDate: ([^\n]+)/ and $date = $1;
+  $hdrs =~ /\nX-MH-Thread-Markup: ([^\n]+)\n/ and $pfx = $1;
+
+  my $intdate = parse_rfc822_date ($date); $intdate ||= 0;
+
+  # ensure the message-id is unique; if it already exists (a dup msg) then add
+  # some extra bits until it's unique.  TODO: figure out a workaround to avoid
+  # the ensuing shuffling of messages; with this algo, if messages 4 and 5 are
+  # identical, then they'll always be swapped each time this is run.
+
+  if (exists $mid2msg{$mid}) {
+    my $origmid = $mid;
+    while (exists $mid2msg{$mid}) {
+      $uniqid++; $mid .= "|".$uniqid;
+    }
+    # $dupmessages{$origmid} ||= [ ];
+    # push (@{$dupmessages{$origmid}}, {
+    # 'mid' => $mid,
+    # 'num' => $num
+    # });
+  }
+
+  # figure out which message this was a child of.  Some In-Reply-To hdrs
+  # contain the email addr of the parent's sender, so add all mid-like
+  # ids; no messages will be found with mid == emailaddr, so it doesn't
+  # matter.  For the References hdr, just take the last one.
+  my @irtsary = ($hdrs =~ /\nIn-Reply-To: (?:[^<\n]*<([^\n>]+)>)+/);
+  my @refs = ($hdrs =~ /\nReferences: (?:[^<\n]*<([^\n>]+)>)+/);
+  if (scalar @refs != 0) {
+    unshift (@irtsary, pop @refs); @refs = ();
+  }
+
+  # In-Reply-To = last of ( reference1, reference2, in-rep-to1, in-rep-to2 )
+  my $irt = pop @irtsary;
+
+  # now clean up the subject for sorting, and determine if we have a "Re:" tag
+  my $sortsubj = $subj;
+  my $re_in_subj = 0;
+  while (1) {
+    my $was = $sortsubj;
+    $sortsubj =~ s/^re\[\d+\][:;]\s*//ig and $re_in_subj = 1;
+    $sortsubj =~ s/^re[:;]\s*//ig and $re_in_subj = 1;
+    $sortsubj =~ s/^\s*//ig;
+    ($was eq $sortsubj) and last;
+  }
+
+  my $msg = {
+    num => $num,
+    subj => $subj,
+    sortsubj => $sortsubj,
+    intdate => $intdate,
+    irt => $irt,
+    re_in_subj => $re_in_subj,
+    existing_prefix => $pfx,
+    mid => $mid
+  };
+
+  # cache if we're in "fast" mode
+  if (defined $ctx->{fcache}) {
+    $msg->{stat_details} = $stat_details;
+    $ctx->{fcache}->{$num} = $msg;
+  }
+
+  return $msg;
+}
+
+###########################################################################
+# Parse RFC-822-format dates.
+
+sub init_tz {
+  # timezone mappings: in case of conflicts, use RFC 2822, then most
+  # common and least conflicting mapping
+  %TZ = (
+	# standard
+	'UT'   => '+0000',
+	'UTC'  => '+0000',
+	# US and Canada
+	'AST'  => '-0400',
+	'ADT'  => '-0300',
+	'EST'  => '-0500',
+	'EDT'  => '-0400',
+	'CST'  => '-0600',
+	'CDT'  => '-0500',
+	'MST'  => '-0700',
+	'MDT'  => '-0600',
+	'PST'  => '-0800',
+	'PDT'  => '-0700',
+	'HST'  => '-1000',
+	'AKST' => '-0900',
+	'AKDT' => '-0800',
+	# European
+	'GMT'  => '+0000',
+	'BST'  => '+0100',
+	'IST'  => '+0100',
+	'WET'  => '+0000',
+	'WEST' => '+0100',
+	'CET'  => '+0100',
+	'CEST' => '+0200',
+	'EET'  => '+0200',
+	'EEST' => '+0300',
+	'MSK'  => '+0300',
+	'MSD'  => '+0400',
+	# Australian
+	'AEST' => '+1000',
+	'AEDT' => '+1100',
+	'ACST' => '+0930',
+	'ACDT' => '+1030',
+	'AWST' => '+0800',
+	);
+
+  # month mappings
+  %MONTH = (jan => 1, feb => 2, mar => 3, apr => 4, may => 5, jun => 6,
+	     jul => 7, aug => 8, sep => 9, oct => 10, nov => 11, dec => 12);
+}
+
+sub parse_rfc822_date {
+  my ($date) = @_;
+  local ($_);
+  my ($yyyy, $mmm, $dd, $hh, $mm, $ss, $mon, $tzoff);
+
+  # make it a bit easier to match
+  $_ = " $date "; s/, */ /gs; s/\s+/ /gs;
+
+  # now match it in parts.  Date part first:
+  if (s/ (\d+) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4}) / /i) {
+    $dd = $1; $mon = lc($2); $yyyy = $3;
+  } elsif (s/ (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) +(\d+) \d+:\d+:\d+ (\d{4}) / /i) {
+    $dd = $2; $mon = lc($1); $yyyy = $3;
+  } elsif (s/ (\d+) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{2,3}) / /i) {
+    $dd = $1; $mon = lc($2); $yyyy = $3;
+  } else {
+    return undef;
+  }
+
+  # handle two and three digit dates as specified by RFC 2822
+  if (defined $yyyy) {
+    if (length($yyyy) == 2 && $yyyy < 50) {
+      $yyyy += 2000;
+    }
+    elsif (length($yyyy) != 4) {
+      # three digit years and two digit years with values between 50 and 99
+      $yyyy += 1900;
+    }
+  }
+
+  # hh:mm:ss
+  if (s/ (\d?\d):(\d\d)(:(\d\d))? / /) {
+    $hh = $1; $mm = $2; $ss = $4 || 0;
+  }
+
+  # numeric timezones
+  if (s/ ([-+]\d{4}) / /) {
+    $tzoff = $1;
+  }
+  # UT, GMT, and North American timezones
+  elsif (s/\b([A-Z]{2,4})\b/ / && exists $TZ{$1}) {
+    $tzoff = $TZ{$1};
+  }
+  # all other timezones are considered equivalent to "-0000"
+  $tzoff ||= '-0000';
+
+  # months
+  if (exists $MONTH{$mon}) {
+    $mmm = $MONTH{$mon};
+  }
+
+  $hh ||= 0; $mm ||= 0; $ss ||= 0; $dd ||= 0; $mmm ||= 0; $yyyy ||= 0;
+
+  my $time;
+  eval {		# could croak
+    $time = timegm ($ss, $mm, $hh, $dd, $mmm-1, $yyyy);
+  };
+
+  if ($@) {
+    return undef;
+  }
+
+  if ($tzoff =~ /([-+])(\d\d)(\d\d)$/)	# convert to seconds difference
+  {
+    $tzoff = (($2 * 60) + $3) * 60;
+    if ($1 eq '-') {
+      $time += $tzoff;
+    } else {
+      $time -= $tzoff;
+    }
+  }
+
+  return $time;
+}
+
+sub read_mh_profile_data {
+  my $mhprof = $ENV{HOME}."/.mh_profile";
+  if (defined $ENV{MH}) { $mhprof = $ENV{MH}; }
+
+  $mh_sequences_file_name = '.mh_sequences';
+  $mhthread_options = undef;
+
+  if (open (IN, "<".$mhprof)) {
+    while (<IN>) {
+      if (/^mh-sequences: (.+)$/) { $mh_sequences_file_name = $1; next; }
+      if (/^mhthread: (.+)$/) { $mhthread_options = $1; next; }
+    }
+    close IN;
+  }
+}
+

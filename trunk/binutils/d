@@ -1,0 +1,38 @@
+#!/bin/ksh
+
+ECHO=/usr/ucb/echo
+
+if [ -z "$*" ]; then
+   RM=`pick`
+   CODE=$?
+elif [ "$*" = "all" ]; then
+   RM=`pick`
+   CODE=$?
+else 
+   RM=`pick $*`
+   CODE=$?
+fi
+
+if [ $CODE -eq 0 ]; then
+   ${ECHO} "You selected to remove the following from mailbox: "`folder -fast`
+   scan -form scan.default ${RM}
+   ${ECHO}
+   ${ECHO} -n "Is this correct? [y/N] "
+   read Y
+
+   case $Y in 
+      !([yY]?([eE][sS])))
+         ${ECHO} "Canceled."
+	 exit
+	 ;;
+   esac
+
+   #cd `mhpath`
+   #rm -f ${RM}
+   /usr/local/bin/rmm ${RM}
+
+   ${ECHO} "Done."
+
+#else
+   #${ECHO} "An error occurred, exiting."
+fi

@@ -1,0 +1,119 @@
+#!/usr/bin/perl
+# Originally written by petef@freebsd.org
+# Modified by psionic@csh.rit.edu
+
+use strict;
+
+my($SCAN_OPTIONS) = "-form scan.default";
+
+my($progname, $mailpath, $mailbox, $statefile, $active, $thread);
+my(@msgs, %threads, $subj, @threadorder, $msgnum, $cmd);
+my($x, $ret, $undef);
+
+# What are we being called as?
+$progname = $0;
+$progname =~ s,.*/,,;
+
+# Get the user's mail path.
+open(MH_PROFILE, $ENV{HOME} . "/.mh_profile");
+while(<MH_PROFILE>) {
+	next unless /^Path: (.*)$/;
+	$mailpath = $1;
+	last;
+}
+close(MH_PROFILE);
+$mailpath = $ENV{HOME} . "/" . $mailpath if ($mailpath !~ m,^/,);
+die "can't find your mh mailpath" unless -d "$mailpath";
+
+$mailbox = `folder -fast`;
+chomp($mailbox);
+chdir "$mailpath/$mailbox/" || die "can't find mailbox $mailbox\n";
+$statefile = $mailpath . "/." . $mailbox . ".threads";
+$statefile =~ s!/!.!g;
+
+&read_state;
+
+# we'll rebuild our statefile if the mail directory is newer than statefile
+# or we have no active threads
+&rebuild_threads if ((stat("$mailpath/$mailbox"))[9] > (stat("$statefile"))[9] || ! $active);
+
+# Now figure out what we were called as.
+if ($progname eq 'dp') {
+	system "rmm 2>/dev/null";
+	if (system "show t:next") { # ret code means no t:next
+		&rebuild_threads;
+		system "show t:first";
+	}
+} elsif ($progname eq 'tscan') {
+	foreach $subj (@threadorder) {
+		system("pick -nozero -seq tscan " . join(' ', @{$threads{"$subj"}}) . " >/dev/null 2>/dev/null");
+		system("scan $SCAN_OPTIONS " . join(' ', @{$threads{"$subj"}}));
+	}
+} elsif ($progname eq 'tnext') {
+	if (system "show t:next") { # ret code means no t:next
+		&rebuild_threads;
+		system "show t:first";
+        }
+} else {
+	 # we're just being called as "thread" -- go back into thread mode,
+	 # first message of the current thread
+	 system "folder t:first 2>/dev/null >/dev/null";
+}
+
+&write_state;
+
+sub rebuild_threads {
+	@msgs = glob("[0-9]*");
+	%threads = ();
+	@threadorder = ();
+	foreach $msgnum (sort {$a <=> $b} @msgs) {
+		# grab the subject.
+		open(MSG, "$msgnum") || die;
+		while(<MSG>)  {
+			next unless /^Subject: (.*)$/;
+			$subj = $1;
+			last;
+		}
+		close(MSG);
+		next unless $subj;
+
+		$subj =~ s/^(re|aw):[ 	]*//i;
+		push(@threadorder, $subj) unless $threads{"$subj"};
+		push(@{$threads{"$subj"}}, $msgnum);
+	}
+
+	# If we rebuilt the threads, we need to make sure the "t" seq is up
+	# to date.
+	$subj = @threadorder[0];
+	if ($threads{"$subj"} == 0) {
+		print "No messages.\n";
+		&write_state;
+		exit;
+	} else {
+		system "pick +$mailbox " . join(' ', @{$threads{"$subj"}}) . " -seq t >/dev/null";
+	}
+}
+
+sub read_state {
+	# read our statefile into memory.
+	$active = 0;
+	%threads = ();
+	@threadorder = ();
+	open(MHSTATE, "$statefile");
+	while (chomp($subj = <MHSTATE>)) {
+		chomp($thread = <MHSTATE>);
+		$active = 1 if $thread;
+		@{$threads{"$subj"}} = split(' ', $thread);
+		push(@threadorder, $subj);
+	}
+	close(MHSTATE);
+}
+
+sub write_state {
+	open(MHSTATE, "> $statefile") || die "can't open statefile";
+	foreach (@threadorder) {
+		print MHSTATE $_ . "\n";
+		print MHSTATE join(' ', @{$threads{"$_"}}) . "\n";
+	}
+	close(MHSTATE);
+}

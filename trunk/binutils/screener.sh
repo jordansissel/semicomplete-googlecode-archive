@@ -1,0 +1,1 @@
+$SHELL; screen -X remove

@@ -1,0 +1,6 @@
+#!/bin/ksh
+
+/u9/psionic/bin/mailfilter $1 
+#/usr/local/libexec/nmh/mhl $1 | less -c -~
+#mark $1 -sequence read -add
+less-custom

@@ -1,0 +1,48 @@
+#!/usr/bin/perl
+
+use Getopt::Std;
+
+my %opts;
+getopts('lfnX',\%opts);
+
+my $nocmd;
+
+if ($opts{f}) {  #-f flag, hostfile specified
+   $hosts = pop(@ARGV);
+   if (!-f $hosts) {
+      die "The file $hosts does not exist.";
+   }
+} else {
+   $hosts = "/usr/home/psionic/UserCenter/hostlist";
+}
+$cmd = pop(@ARGV);
+
+if ($opts{l}) {  #-l flag, no command.
+   $nocmd = 1;
+}
+
+my $SSH = "/usr/bin/ssh";
+if ($opts{X}) {
+#  $SSH .= " -X"
+}
+
+#print $ENV{DISPLAY}."\n";
+
+$ENV{DISPLAY} = "whack:0.0";
+
+#print "SSH: $SSH\n";
+open( HOSTS, "< $hosts" );
+while( chomp( $host = <HOSTS> ) ) {
+    print "$host";
+
+    if ($opts{n}) { print "\n"; } else { print " - "; }
+
+    if ($nocmd == 1) {
+       system "$SSH " . ( ($opts{X}) ? "-X" : "" ) . " root\@$host";
+    } else {
+       system "$SSH " . ( ($opts{X}) ? "-X" : "" ) . " root\@$host '$cmd'";
+    }
+
+    #unless ($opts{n}) { print "\n"; }
+}
+close( HOSTS );

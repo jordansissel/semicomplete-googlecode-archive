@@ -1,0 +1,33 @@
+#!/bin/ksh
+
+ECHO=/usr/ucb/echo
+
+${ECHO} -n "Username: "
+read USER
+${ECHO} -n "Password: [8m"
+read PASSWORD
+${ECHO} -n "[0m"
+${ECHO} -n "Confirm Password: [8m"
+read CONFIRM
+${ECHO} -n "[0m"
+
+if [ "${PASSWORD}" != "${CONFIRM}" ]; then
+   ${ECHO} "Learn to type, jackass."
+   exit
+fi
+
+${ECHO} -n "Database: "
+read DB
+
+echo "grant all on ${DB}.* to ${USER} identified by '${PASSWORD}';
+grant all on ${DB}.* to ${USER}@localhost;
+flush privileges;" | \
+mysql -u root -p -h db mysql
+
+${ECHO} "User added, checking..."
+
+mysql -u ${USER} --password="${PASSWORD}" -h db -e "quit" ${DB}
+
+if [ $? -eq 0 ]; then
+   ${ECHO} "Login successful"
+fi

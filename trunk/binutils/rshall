@@ -1,0 +1,34 @@
+#!/usr/bin/perl
+
+use Getopt::Std;
+
+my %opts;
+getopts('fn',\%opts);
+
+my $nocmd;
+
+if ($opts{f}) {  #-f flag, hostfile specified
+   $hosts = pop(@ARGV);
+   if (!-f $hosts) {
+      die "The file $hosts does not exist.";
+   }
+} else {
+   $hosts = "/u9/psionic/bin/hostlist";
+}
+$cmd = pop(@ARGV);
+
+my $SSH = "/bin/rsh";
+
+#print $ENV{DISPLAY}."\n";
+
+$ENV{DISPLAY} = "whack:0.0";
+
+open( HOSTS, "< $hosts" ) or die "Nope :(\n";
+while( chomp( $host = <HOSTS> ) ) {
+    print "$host";
+
+    if ($opts{n}) { print "\n"; } else { print " - "; }
+    system "rsh -l root $host '$cmd'";
+
+}
+close( HOSTS );

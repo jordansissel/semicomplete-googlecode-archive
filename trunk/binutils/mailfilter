@@ -1,0 +1,264 @@
+#!/usr/bin/perl
+#
+# Filter mail output from mhl (which should basically be the entire mail)
+# 
+#  Features:
+#    - Automatically open html mail in w3m (see $BROWSER)
+#    - Automagically verify pgp signatures
+
+use strict;
+use MIME::Parser;
+
+my $TMP = "/u9/psionic/tmp";
+my $BROWSER = 'w3m -title -T text/html';
+#my $BROWSER = "cat";
+my $MHL_PROG = "/usr/local/libexec/nmh/mhl";
+my $MHL_HTML_OPTS = "-form mhl.html";
+my $MHL_PLAIN_OPTS = "";
+my %pgp = (
+pgp_verify_command => "gpg --no-secmem-warning --quiet --no-verbose --batch --output - --verify %s %f"
+	 );
+
+my ($mail) = $ARGV[0];
+my ($folder) = `folder -fast`; chomp($folder);
+my $base;
+if ($folder !~ m,^/,) {
+   ($base) = `grep '^Path:' $ENV{HOME}/.mh_profile`;
+   chomp($base);
+   $base =~ s/^Path:\s+(.*)\/?$/$1/;
+}
+my ($file) = "$base/$folder/$mail";
+
+################################################################################
+# Read in the mail headers
+
+my %headers;
+my @order;
+my ($is_html,$done_headers) = (0,0);
+my $header;
+my $from_line;
+
+print STDERR "Reading mail headers\n";
+open(MAIL, "< $file") or die("Unable to open $file.\n$!\n");
+
+$from_line = <MAIL>; chomp($from_line);
+
+my $boundary;
+my $rcv = 0; my $dto = 0;
+my $lookforctype = 0;
+my @part_types;
+while (<MAIL>) {
+   chomp();
+
+   if ($done_headers == 0) {
+      if (m/^$/) {
+	 $done_headers = 1;
+	 next;
+      }
+
+      if (s/^([A-Za-z-]+):\s+//) {
+	 my $a = $1;
+	 if ($a eq 'Received') {
+	    $a = $a . "_$rcv";
+	    $rcv++;
+	 } elsif ($a eq 'Delivered-To') {
+	    $a = $a . "_$dto";
+	    $dto++;
+	 }
+	 $header = $a;
+	 push(@order,$header);
+      }
+      if (defined($headers{$header})) {
+	 $headers{$header} .= "\n" . $_;
+      } else {
+	 $headers{$header} .= $_;
+      }
+
+   } else {
+      chomp();
+      unless ($boundary) {
+	 ($boundary) = grep(/^content-type$/i,keys(%headers)); 
+	 $boundary = $headers{$boundary};
+	 $boundary =~ m/boundary="([^"]+)"/; $boundary = $1;
+      }
+
+      #print $_ . "\n";
+      if ($_ eq "--$boundary") {
+	 $lookforctype = 1;
+	 next;
+      }
+
+      if ($lookforctype == 1) {
+	 if (m,^Content-Type: ([a-z-]+/[a-z-]+),i) {
+	    #print "Part " . (scalar(@part_types) + 1) . ": $1\n";
+	    push(@part_types,$1);
+	    $lookforctype = 0;
+	 }
+      }
+
+   }
+} # We're done reading the headers
+
+################################################################################
+# Now split up multipart mail
+
+# If it's a multipart mail, unglue it.
+my ($multipart) = 0;
+my ($ctype) = grep(/^content-type$/i,keys(%headers)); 
+$ctype = $headers{$ctype};
+my $fr = $folder; $fr =~ s,^.*/([^/]+)$,$1,;
+my $template = "$TMP/msg.$fr.$mail";
+if ($ctype =~ m,^multipart/,i) {
+   print STDERR "Parsing multipart mail ($ctype)\n";
+   system("rm $template* > /dev/null 2>&1");
+
+   my $parser = new MIME::Parser;
+   $parser->output_dir($TMP);
+   $parser->filer->output_prefix("msg.$fr.$mail");
+   $parser->parse_in($file);
+
+   $multipart = 1;
+} 
+
+if ($multipart) {
+   #print `ls $TMP/msg.$fr.$mail*`;
+   opendir(DIR,"$TMP");
+   my @parts = grep { m,^msg\.$fr\.$mail, } readdir(DIR);
+   closedir(DIR);
+
+   # If part 2 is html, then open it first assuming that this email was dually
+   # sent as text/plain and text/html.
+   my $mailpart;
+   if ( ($parts[1] =~ m/\.html$/ && ($mailpart = $parts[1])) || 
+	($parts[0] =~ m/\.html$/ && ($mailpart = $parts[0])) ) {
+      my $tmpfile = "$TMP/.headers.$fr.$mail";
+      print STDERR "Starting browser\n";
+      open(BROWSER, "| $BROWSER");
+
+      mhl_write_headers($tmpfile);
+
+      mhl_read_header
+
+      open(HEADERS,"< $tmpfile");
+      while (<HEADERS>) { 
+	 print BROWSER $_;
+      }
+
+      open(MAIL, "< $TMP/".$mailpart) or 
+	 die("Failed trying to read $TMP/".$mailpart."\n$!\n");
+
+      while (<MAIL>) {
+	 print BROWSER $_;
+      }
+      close(MAIL);
+
+      close(BROWSER);
+
+      system("rm $tmpfile");
+   } else {
+      # This doesn't appear to be an html mail, let's deduce what it is...
+
+      #print scalar(grep(/application\/pgp-signature/,@part_types)) . "\n";
+      #print scalar(@part_types) . "\n";
+      #if ($ctype =~ m,multipart/(signed|mixed|alternative),) {
+      if (scalar(grep(/application\/pgp-signature/,@part_types)) > 0) {
+	 # This is pgp signed mail.
+	 my ($plain, $sig, $plaintype);
+	 my $count = 0;
+	 foreach my $part (@parts) {
+	    my $type = $part_types[$count];
+	    if ($type =~ m,text/(plain|html),) {
+	       $plain = $part;
+	       $plaintype = $type;
+	    }
+	    $sig = $part if ($type eq 'application/pgp-signature');
+	    $count++;
+	 }
+	 print "Plain: $plain\n";
+	 print "sig: $sig\n";
+
+	 #print "text/plain part: $plain\n";
+	 #print "pgp-sig part: $sig\n";
+	 my $pgp_verify = $pgp{'pgp_verify_command'};
+	 $pgp_verify =~ s,%s,$TMP/$sig,;
+	 $pgp_verify =~ s,%f,$TMP/$plain,;
+
+         print STDERR "Starting browser...\n";
+	 open(BROWSER, "| $BROWSER");
+	 #open(BROWSER, "> /dev/null");
+
+	 my $tmpfile = "$TMP/.headers.$fr.$mail";
+
+	 mhl_write_headers($tmpfile);
+
+         browser_print_from_file("$tmpfile");
+
+
+	 open(PGP_VERIFY,"$pgp_verify 2>&1 |");
+	 while (<PGP_VERIFY>) {
+	    s/</&lt;/g; s/>/&gt;/g;
+	    print BROWSER $_;
+	    print BROWSER "<br>";
+	 }
+	 print BROWSER "<hr>\n";
+
+	 open(MAIL, "< $TMP/".$plain) or 
+	    die("Failed trying to read $TMP/".$plain."\n$!\n");
+
+	 while (<MAIL>) {
+	    print BROWSER $_;
+	    print BROWSER "<br>" if ($plaintype eq 'text/plain');
+	 }
+	 close(MAIL);
+
+	 close(BROWSER);
+
+	 #system("$MHL_PROG $MHL_PLAIN_OPTS $mail | " . $ENV{'PAGER'});
+      } else {
+	 my $UNKNOWN_FORMAT = "*** Unknown Mail footprint!!!\n*** Could not figure out what kind of mail this is.\n*** Number of parts: " . scalar(@parts) . "\n*** Content-Type: $ctype\n";
+	 system("(echo '$UNKNOWN_FORMAT' && $MHL_PROG $MHL_PLAIN_OPTS $mail) | " . $ENV{'PAGER'});
+      }
+
+   }
+
+   foreach (@parts) {
+      #system("rm $TMP/$_");
+   }
+} else {
+   print "Mail content type: " . $ctype . "\n";
+
+   if ($ctype =~ m,^text/html,) {
+      print "Starting browser...\n";
+      system("$MHL_PROG $MHL_HTML_OPTS $mail | $BROWSER");
+   } elsif ($ctype =~ m,^text/plain,) {
+      print "Starting browser...\n";
+      system("$MHL_PROG $MHL_PLAIN_OPTS $mail | " . $ENV{'PAGER'});
+   }
+}
+
+
+sub mhl_write_headers {
+   my ($tmpfile) = shift;
+
+   open(MHLWRITE, "| $MHL_PROG $MHL_HTML_OPTS > $tmpfile")
+      die("Failed trying to pipe to $MHL_PROG\n$!\n"); 
+
+   print MHLWRITE "$from_line\n";
+   foreach (@order) {
+      my $a = $_;
+      $a =~ s/^(Received|Delivered-To)_[0-9]+$/(Received|Delivered-To)/;
+
+      print MHLWRITE "$a:  $headers{$_}\n";
+   }
+   close(MHLWRITE);
+}
+
+sub browser_print_from_file {
+   my $file = shift;
+
+   open(HEADERS,"< $file") 
+	   or die("Unable to open $tmpfile for reading.\n> $!\n");
+   while (<HEADERS>) { 
+      print BROWSER $_;
+   }
+}

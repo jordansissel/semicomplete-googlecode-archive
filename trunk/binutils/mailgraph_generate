@@ -1,0 +1,52 @@
+#!/bin/ksh
+
+SPAMPOINTS_OPTS="DEF:avg=spampoints.rrd:spampoints:AVERAGE DEF:max=spampoints.rrd:spampoints:MAX LINE2:avg#3355CC:Avg LINE1:max#00AA44:Max --imginfo"
+
+#Oops, somehow i got the numbers backwards?
+SPAMCOUNT_OPTS="DEF:spam=spamornot.rrd:spam:MAX DEF:notspam=spamornot.rrd:notspam:MAX LINE2:notspam#3355CC:Spam LINE2:spam#00AA44:Ham --imginfo"
+
+IMGINFO='<img src="/~psionic/%s">'
+
+cd /u9/psionic/Mail/
+
+PATH=/usr/local/rrdtool-1.0.39/bin:/bin:/usr/bin:/usr/local/bin
+HTML=/u9/psionic/public_html/spam.php
+
+echo '<? include("header.php"); ?>' > $HTML
+echo >> $HTML
+echo '<br>' >> $HTML
+echo '<table border="0">' >> $HTML
+echo '<tr><td>' >> $HTML
+
+
+rrdtool graph ../public_html/spam-all.png --start `cat spampoints.rrd.creation` --title "Spam Points - Since Beginning" ${SPAMPOINTS_OPTS} "${IMGINFO}" | grep -v '^495' >> $HTML
+
+echo '</td><td>&nbsp;&nbsp;&nbsp;</td><td valign="top">Spam Points - These are totals of how many points spamassassin accumulates per mail over 5 minute intervals. </td></tr>' >> $HTML
+echo '<tr><td>' >> $HTML
+
+rrdtool graph ../public_html/spam-daily.png --title "Spam Points / Past 24 Hours" ${SPAMPOINTS_OPTS} "${IMGINFO}" | grep -v '^495' >> $HTML
+
+echo '</td></tr>' >> $HTML
+echo '<tr><td>' >> $HTML
+
+rrdtool graph ../public_html/spam-counts.png --start `cat spamornot.rrd.creation` --title "Spam vs Ham / Since Beginning" ${SPAMCOUNT_OPTS} "${IMGINFO}" | grep -v '^495' >> $HTML
+
+echo '</td><td>&nbsp;&nbsp;&nbsp;</td><td valign="top">Spam vs NotSpam - Totals oof spam and not spam. Currently, spam is defined as having 5 or more points.</td></tr>' >> $HTML
+echo '<tr><td>' >> $HTML
+
+rrdtool graph ../public_html/spam-counts-daily.png --title "Spam vs Ham / Past 24 Hours" ${SPAMCOUNT_OPTS} "${IMGINFO}" | grep -v '^495' >> $HTML
+
+echo '</td></tr>' >> $HTML
+echo '</table>' >> $HTML
+echo >> $HTML
+
+echo '<br>
+
+This page was produced by a silly little shell script called <a href="/~psionic/
+projects/mailgraph_generate">mailgraph_generate</a> and a cronjob.
+
+<br>
+<br>' >> $HTML
+
+
+echo '<? include("footer.php"); ?>' >> $HTML

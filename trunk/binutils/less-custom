@@ -1,0 +1,39 @@
+#!/bin/ksh
+
+ECHO=/usr/ucb/echo 
+
+if [ "$*" ]; then
+   /usr/local/libexec/nmh/mhl -form mhl.format $* | less -c -~
+   mark $* -sequence read -add
+fi
+
+${ECHO}
+
+#NEXTEMAILS=`scan | ggrep -A 10 -E "^.*?[0-9]+\+" | ggrep -vE "^.*?[0-9]\+"`
+NEXTEMAILS=`scan -form scan.default | ggrep -A 10 "^>" | ggrep -v "^>"`
+if [ "${NEXTEMAILS}" ]; then
+   COUNT=`${ECHO} "${NEXTEMAILS}" | wc -l | awk '{print $1}'`
+else 
+   COUNT=0
+fi
+
+MSG=
+if [ ${COUNT} -eq 0 ]; then
+   MSG="[ No remaining mail ]"
+elif [ ${COUNT} -eq 1 ]; then
+   MSG="[ Next mail ]"
+elif [ ${COUNT} -lt 10 ]; then
+   MSG="[ Next ${COUNT} mails ]"
+else
+   MSG="[ Next 10 mails ]"
+fi
+
+# Yes, I'm sad... but here we go.
+
+${ECHO} -n "[1m"
+${ECHO} "================================================================================"
+${ECHO} -n "[0m"
+${ECHO} -n "[0A[3C${MSG}"
+${ECHO} -n "${MSG}" | perl -MTerm::Size -e '($r,$c) = Term::Size::chars(*STDOUT{IO}); $b = `folder -fast`; chomp($b); $msg = "[ Folder: +$b ]"; print "[" . ($r - 3 - length(<>) - length($msg) - 3) . "C$msg\n";'
+
+[ "${NEXTEMAILS}" ] && ${ECHO} "${NEXTEMAILS}"

@@ -1,0 +1,2729 @@
+#! /usr/bin/perl -w
+
+use 5.0;
+
+use strict 'vars';
+
+use Getopt::Long;
+
+# Patched to pass through envelope "From_" - 11/14/2000 tneff
+
+$::PRESERVE_UNIX_FROM_LINE = 1;
+# $::MAJIC_PIPE_PREFIX_CHAR = '==';
+$::MAJIC_PIPE_PREFIX_CHAR = '|';
+$::junkmail_file = "/u9/psionic/mh_mail/junk";
+$::debug = 0;
+$::debuginput = "";
+$::quiet = 0;
+# Following configuration variable controls whether plain
+# text sections are scanned for typical advertising footers.
+$::AD_REMOVE = 1;
+
+# Following controls whether only 7 bit output
+# from message body sections should be done.
+$::SEVEN_BIT_ONLY = 1;
+
+# Following configuration variable controls whether a message/rfc822
+# in a multipart/mixed main segment is rendered or elided.
+$::EXPAND_MULTIPART_RFC822_SECTION = 1;
+$::eliderfc822 = ! $::EXPAND_MULTIPART_RFC822_SECTION;
+
+$::relayto = '';
+
+$::WARNINGS_TO_SYSLOG = -1;
+
+# The following error output controls what happens to "no displayable section" errors.
+$::RETURN_ERRORS_TO_ORIGIN = 0;
+
+if(defined &Getopt::Long::Configure) {
+  Getopt::Long::Configure('gnu_compat');
+  #Getopt::Long::Configure('debug');
+  Getopt::Long::Configure('pass_through');
+
+
+    $::goresult = 
+	GetOptions(
+		   '' => sub {
+		       if($::relayto ne '') 
+		       { die "output target '-' specified after $::relayto already specified";};
+		       $::relayto = '-' },
+		   'preservefrom!' => \$::PRESERVE_UNIX_FROM_LINE,
+		   'p' => \$::PRESERVE_UNIX_FROM_LINE,
+		   'x|prefixchar=s' => \$::MAJIC_PIPE_PREFIX_CHAR,
+		   'd|debug+' => \$::debug,
+		   'f|forwarderror!' => \$::RETURN_ERRORS_TO_ORIGIN,
+		   'i|debuginput=s' => sub { shift; 
+					     $::debuginput = shift;
+					     $::debug ++; },
+		   'j|junkmail_file=s' => sub { shift;
+						$::junkmail_file = shift;
+						$::AD_REMOVE = 1; },
+		   'adremove!' => \$::AD_REMOVE,
+		   'a' => \$::AD_REMOVE, 
+		   '7bit!' => \$::SEVEN_BIT_ONLY,
+		   'quiet!' => \$::quiet,
+		   '7' => \$::SEVEN_BIT_ONLY,
+		   'uselynx' => \$::uselynx,
+		   '8|8bit' => sub { $::SEVEN_BIT_ONLY = 0 },
+		   'eliderfc822!' => \$::eliderfc822,
+		   'w|warnings_to_syslog:i' => \$::WARNINGS_TO_SYSLOG,
+		   '<>' => sub { my $arg = shift; if ($::relayto ne '') { die "positional parameter $arg specified after $::relayto already specified"; }; $::relayto = $arg;}  );
+} else {
+    $::goresult = 
+	GetOptions(
+		   '' => sub {
+		       if($::relayto ne '') 
+		       { die "output target '-' specified after $::relayto already specified";};
+		       $::relayto = '-' },
+		   'preservefrom!' => \$::PRESERVE_UNIX_FROM_LINE,
+		   'p' => \$::PRESERVE_UNIX_FROM_LINE,
+		   'x|prefixchar=s' => \$::MAJIC_PIPE_PREFIX_CHAR,
+		   'd|debug' => \$::debug,
+		   'f|forwarderror!' => \$::RETURN_ERRORS_TO_ORIGIN,
+		   'i|debuginput=s' => sub { shift; 
+					     $::debuginput = shift;
+					     $::debug ++; },
+		   'j|junkmail_file=s' => sub { shift;
+						$::junkmail_file = shift;
+						$::AD_REMOVE = 1; },
+		   'adremove!' => \$::AD_REMOVE,
+		   'a' => \$::AD_REMOVE, 
+		   '7bit!' => \$::SEVEN_BIT_ONLY,
+		   'quiet!' => \$::quiet,
+		   '7' => \$::SEVEN_BIT_ONLY,
+		   'uselynx' => \$::uselynx,
+		   '8|8bit' => sub { $::SEVEN_BIT_ONLY = 0 },
+		   'eliderfc822!' => \$::eliderfc822,
+		   'w|warnings_to_syslog:i' => \$::WARNINGS_TO_SYSLOG,
+		   '<>' => sub { my $arg = shift; if ($::relayto ne '') { die "positional parameter $arg specified after $::relayto already specified"; }; $::relayto = $arg;}  );
+}
+if($::quiet) { 
+    $main::nowarn = 1;
+}
+
+$::EXPAND_MULTIPART_RFC822_SECTION = !$::eliderfc822;
+		       
+# $WARNINGS_TO_SYSLOG = value 0 -> Skip special warning processing.
+#                       value 1 -> Warnings go to syslog if STDERR is 
+#                                  not a tty.
+#                       value 2 -> All warnings go to syslog.
+
+if($::WARNINGS_TO_SYSLOG == -1) {
+    $::WARNINGS_TO_SYSLOG = $::debug?0:1;
+}
+
+if($::WARNINGS_TO_SYSLOG != 0 && $::WARNINGS_TO_SYSLOG != 1 && 
+   $::WARNINGS_TO_SYSLOG != 2) {
+    warn "-w or --warnings_to_sylog must be set to 0, 1, or 2 - forcing to ".$::debug?0:1;
+   $::WARNINGS_TO_SYSLOG = $::debug?0:1;
+}
+
+$::RETURN_ERRORS_TO_ORIGIN = ! $::RETURN_ERRORS_TO_ORIGIN;
+
+no strict 'vars';
+
+$ENV{'PATH'} = '/bin:/usr/bin:/sbin:/usr/sbin';
+delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};   # Make %ENV safer
+
+sub BEGIN {
+    $SIG{'__WARN__'} = 
+	sub {
+	    return if $_[0] =~ /^\QConstant subroutine __need___va_list undefined\E/;
+	    warn $_[0];
+	};
+}
+
+eval {
+    require "sysexits.ph";		# Values to return to sendmail with.
+};
+if ($@) {
+    sub EX_OK { return 0; }; # successful termination;
+sub EX__BASE { return 64; }; # base value for error messages
+
+sub EX_USAGE { return 64; }; # command line usage error
+sub EX_DATAERR { return 65; }; # data format error
+sub EX_NOINPUT { return 66; }; # cannot open input
+sub EX_NOUSER { return 67; }; # addressee unknown
+sub EX_NOHOST { return 68; }; # host name unknown
+sub EX_UNAVAILABLE { return 69; }; # service unavailable
+sub EX_SOFTWARE { return 70; }; # internal software error
+sub EX_OSERR { return 71; }; # system error (e.g., can't fork)
+sub EX_OSFILE { return 72; }; # critical OS file missing
+sub EX_CANTCREAT { return 73; }; # can't create (user) output file
+sub EX_IOERR { return 74; }; # input/output error
+sub EX_TEMPFAIL { return 75; }; # temp failure; user is invited to retry
+sub EX_PROTOCOL { return 76; }; # remote error in protocol
+sub EX_NOPERM { return 77; }; # permission denied
+sub EX_CONFIG { return 78; }; # configuration error
+}
+
+if(!$::goresult) {
+    print "Remaining args are @ARGV\n";
+
+    exit &EX_TEMPFAIL; # option processing failed.
+}
+
+#print STDERR "Relayto is $::relayto, Remaining args are @ARGV ",0+@ARGV,"\n";
+
+$demime_version = "demime 1.01c";
+
+sub my_setsyslog ($) {
+    my ($WARNINGS_TO_SYSLOG) = shift;
+
+    if($WARNINGS_TO_SYSLOG == 2 or ($WARNINGS_TO_SYSLOG == 1 and not -t STDERR)) {
+	use Sys::Syslog qw(:DEFAULT);
+	if ($] > 5.00402) {
+	    if(defined Sys::Syslog::_PATH_LOG and -p Sys::Syslog::_PATH_LOG) {
+	      Sys::Syslog::setlogsock('unix') if defined Sys::Syslog::setlogsock;
+	    }
+	}
+	openlog("demime", "pid", "mail");
+	$SIG{"__WARN__"} = 
+	    sub {
+		unless (defined $^S) { # Special startup processing.
+		    warn $_[0];
+		    return;
+		}
+		syslog('mail|warning', "%s", $_[0]);
+	    };
+        $SIG{"__DIE__"} = 
+            sub {
+		if ((defined $^S) and not $^S) { # Not beginning and not
+		    # Inside an eval....log the message.
+		    syslog("mail|err", "%s", $_[0]); # Report top level dies.
+		}
+		die $_[0];		# You meant to die, right?
+	    };
+   } else {
+        $SIG{"__WARN__"} = 'DEFAULT';
+        $SIG{"__DIE__"} = 'DEFAULT';
+   }
+}
+
+# The following variable controls the header printing --- set off if
+# demime is currently parsing a multipart/related.
+
+$::print_extra_headers = 1;
+
+
+my_setsyslog($::WARNINGS_TO_SYSLOG);
+
+if(! $::uselynx) {
+
+    eval {
+    
+    require HTML::FormatText;
+
+    package HTML::myFormatText;
+
+# This is a subclass of the HTML::FormatText object.  See the man page
+# for credit and attribution.  
+# This subclassing is done solely to change the margins so that the HTML
+# text won't be indented when formatted.
+
+    @ISA = qw(HTML::FormatText);
+
+    use strict;
+
+    sub begin {
+        my $self = shift;
+        $self->HTML::FormatText::begin;
+        $self->{lm} = 0;
+        $self->{rm} = 72;
+    }
+
+    };
+
+    if($@) {
+        $::uselynx =1;
+    } else {
+        $::uselynx = 0;
+    }
+}
+
+package main;
+
+no strict;
+
+# Lookahead subroutine declarations - put them all here.
+
+sub mail_print (@);
+sub mail_body_print (@);
+sub mail_body_flush ();
+sub parse822(\@$$);		# Required to force reference construction.
+sub decode_base64(\@);
+sub linepush ($\$$);
+
+# MAINLINE logic restarts here.
+
+if ($::relayto eq '') {
+    $::relayto = shift;
+}
+
+unless (defined $::relayto and $::relayto ne '') {	# Check argument
+    warn "One argument required - the relay to address.\n";
+    exit &EX_USAGE;
+}
+$| = 1; select STDERR; $| = 1; select STDOUT; # Unbuffered - mostly for debuggery.
+
+# Read the whole mail message in, in one fell swoop.  This could be
+# problematic if the message is really huge.
+
+if(defined $debuginput and $debuginput ne '') {
+    open(DEBUGIN, $debuginput) or die "Could not open $debuginput: $!";
+    @mail = <DEBUGIN>;
+    close(DEBUGIN);
+} else {
+    @mail = <STDIN>;
+}
+
+#$debugfile = "/tmp/demime-debug.".$$;
+
+#open(DEB, ">$debugfile");
+#print DEB @mail;
+#close DEB;
+#
+#sub END {
+#    unlink $debugfile if defined $debugfile;
+#}
+
+$mail_opened = 0;
+$mail_listsize = 0;
+
+$fromhead = "";
+
+$rc = parse822(@mail, undef, 1);
+
+# decode_base64(@mail);
+
+# mail_print "\n","Thank you for using demime!","\n";
+
+if($mail_opened) {
+    my($x) = 0;
+    my($xa) = 0;
+    my($xq) = 0;
+    my ($return_key) = -999;
+    foreach $i (0..$mail_listsize) {
+	no strict;
+	if($::key_pipe == $i) {
+	    close ("MAIL".($i>0?"$i":"")) or warn (($x = $!) ? "error closing pipe to \"$::key_pipe_string\": $!": "\"$::key_pipe_string\" ended with code $?");
+	    $return_key = $?;
+	} else {
+	    close ("MAIL".($i>0?"$i":"")) or warn (($x = $!) ? "error closing pipe to sendmail: $!": "Sendmail ended with code $?");
+	    use strict;
+	}
+	$xa = $x if $x != 0;	# If errno was set in any of the above
+	$xq = $? if $? != 0;
+    }
+    # $xa = "$!";
+    # print "\$? = $?, \$! = $xa/",$x+0,"\n";
+    if ($return_key != -999) {	# The key pipe has priority...
+	exit &EX_TEMPFAIL if $return_key&0xff; # child died from signal
+	exit $return_key>>8;	# Faithfully copy its return code.
+    }
+    # in any other think failed, tell the MTA to requeue
+    exit &EX_TEMPFAIL if $xq != 0 or $xa != 0;
+}
+# and in any othr case, use the return code from the parser.
+exit $rc;
+
+
+#subroutines start here....
+
+sub openmail () {		# Uniform routine to open the pipe to sendmail,
+				# or, alternatively, to open stdout.
+    use strict;
+    return if $main::mail_opened;
+    $::key_pipe = -1;
+    my($fromhead) = $main::fromhead;
+    my($relayto);
+    my(@relays) = split(/;/, $main::relayto);
+    my $i = 0;
+    $::MAJIC_PIPE_PREFIX_CHAR = quotemeta $::MAJIC_PIPE_PREFIX_CHAR;
+    foreach $relayto (@relays) {
+	$relayto =~ s/^$::MAJIC_PIPE_PREFIX_CHAR/\|/;
+	if ($relayto ne '-' and $relayto !~ /^\>\&\=\d+$|^\|/) {
+	    no strict;
+	    open("MAIL".($i>0?"$i":""), "|-") || 
+		# print "exec \"/usr/sbin/sendmail\", \"-bm\", \"-i\", \"-v\", '-f', $fromhead, $relayto\n";
+		exec "/usr/sbin/sendmail", "-bm", "-i", '-f', $fromhead, $relayto;
+	    use strict;
+	} else {
+	    no strict;
+	    if($relayto eq '-') {
+		open("MAIL".($i>0?"$i":""), ">&STDOUT") || die "Can't dup stdout to MAIL$i: $!";
+	    } else {
+		if($relayto =~ /^\>\&\=\d+$/) {
+		    open("MAIL".($i>0?"$i":""), $relayto) || die "Can't dup stdout from $relayto to MAIL$i: $!";
+		} else {
+		    $relayto =~ /^(.*)$/;
+		    if ($::key_pipe == -1) {
+			open("MAIL".($i>0?"$i":""), $1) || die "Can't fork $relayto off of MAIL$i: $!";
+			$::key_pipe = $i;
+			$::key_pipe_string = $relayto;
+		    } else {
+			warn "You can have only one key pipe - opening but not resetting key.";
+			open("MAIL".($i>0?"$i":""), $1) || die "Can't fork $relayto off of MAIL$i: $!";
+		    }
+		}
+	    }
+	    use strict;
+	}
+	$i++;
+    }
+    $main::mail_listsize = $i-1;
+    $main::mail_opened = 1;
+}
+
+sub mail_print (@) {
+    use strict;
+    openmail unless $main::mail_opened;
+    my $p;
+    my $i;
+    foreach $p (@_) {
+	foreach $i (0..$main::mail_listsize) {
+	    no strict;
+	    print {"MAIL".($i>0?"$i":"")} $p;
+	    use strict;
+	}
+    }
+}
+# The Evil package allows us to encapsulate and provide syntactic
+# sugar around a very complex data structure and a set of complex
+# rules involving pulling hunks out of files.  I don't expect to 
+# reuse it, but the ability to not have to completely resolve the 
+# triplets makes the main line code easier to read. 
+package Evil;
+#require Exporter;
+#@ISA = qw(Exporter);
+use strict;
+$Evil::VERSION = 1.0;
+#possible states - should be inlined.
+sub About () {
+    "Evil - a place to keep evil stuff - $Evil::VERSION";
+}
+sub UNMATCHED {0;}
+sub PREFIX_MATCHED {1;}
+sub CENTER_MATCHED {2;}
+sub SUFFIX_MATCHED {3;}
+sub FINAL_MATCHED {4;}
+#@Evil::EXPORT = qw(UNMATCHED PREFIX_MATCHED CENTER_MATCHED SUFFIX_MATCHED FINAL_MATCHED);
+sub run_regexp_list (\$\@\@);
+sub new {
+    my $this = shift;
+    my $class = ref($this) || $this;
+    my $self = { prefix => [],
+		 psub => [],
+		 center => [],
+		 csub => [],
+		 suffix => [],
+		 ssub => [],
+		 state => UNMATCHED,
+		 hotpos => undef,
+	     };
+    bless $self, $class;
+    return $self;
+}
+sub has_a_center {
+    my $this = shift;
+    return 1 if 0 < @{$this->{'center'}};
+    return undef;
+}
+sub has_a_prefix {
+    my $this = shift;
+    return 1 if 0 < @{$this->{'prefix'}};
+    return undef;
+}
+sub has_a_suffix {
+    my $this = shift;
+    return 1 if 0 < @{$this->{'suffix'}};
+    return undef;
+}
+sub match_state {
+    my $this = shift;
+    my $oldstate = $this->{'state'};
+    $this->{'state'} = shift if @_;
+    return $oldstate;
+}
+sub match_position {
+    my $this = shift;
+    my $oldposition = $this->{'hotpos'};
+    $this->{'hotpos'} = shift if @_;
+    return $oldposition;
+}
+sub process_line {
+    my $this = shift;
+    unless(@_) {		# Empty line means reset state;
+	$this->{'state'} = UNMATCHED;
+	$this->{'hotpos'} = undef;
+	return undef;
+    }
+    my $line = shift;
+    if($this->{'state'} == UNMATCHED) {
+	# If we are being asked to match an unmatched evil, we need to look
+	# over prefixes to see if they match.
+	if(run_regexp_list($line, @{$this->{'prefix'}},@{$this->{'psub'}})) {
+	    $this->{'state'} = PREFIX_MATCHED;
+	    return PREFIX_MATCHED;
+	}
+	return UNMATCHED;
+    } 
+    if ($this->{'state'} == PREFIX_MATCHED) {
+	# If the prefix has matched, 
+	if($this->has_a_center()) {
+	    if(run_regexp_list($line, @{$this->{'center'}},@{$this->{'csub'}})) {
+		$this->{'state'} = CENTER_MATCHED;
+		return CENTER_MATCHED;
+	    }
+	    # For centered lists, a failure to match is not a problem,
+	    # unless the suffix matches.
+	    if(run_regexp_list($line, @{$this->{'suffix'}},@{$this->{'ssub'}})) {
+		$this->{'state'} = UNMATCHED;
+		return UNMATCHED;
+	    }
+	    # state unchanged.
+	    return $this->{'state'};
+	} elsif (not $this->has_a_suffix) {
+	    # If no suffix, delete anything that matches prefix
+	    if(run_regexp_list($line, @{$this->{'prefix'}},@{$this->{'psub'}})) {
+		$this->{'state'} = SUFFIX_MATCHED;
+		return SUFFIX_MATCHED;
+	    }
+	    # No match?  Shift directly to final to elide start to
+	    # current_line -1 (with no center);
+	    $this->{'state'} = FINAL_MATCHED;
+	    return FINAL_MATCHED;
+	} else {
+	    if(run_regexp_list($line, @{$this->{'suffix'}},@{$this->{'ssub'}})) {
+		$this->{'state'} = SUFFIX_MATCHED;
+		return SUFFIX_MATCHED;
+	    }
+	    # If we had matched a prefix and were looking for a suffix,
+	    # and we have not found even one, the prefix match was a bogey.
+	    $this->{'state'} = UNMATCHED;
+	    return UNMATCHED;
+	}
+    }
+    if ($this->{'state'} == CENTER_MATCHED) {
+	# If we have matched a center line, we are now looking for a
+	# suffix line.  If we get it, we now want to return an indication
+	# that we are ready to close.
+	if(run_regexp_list($line, @{$this->{'suffix'}},@{$this->{'ssub'}})) {
+	    $this->{'state'} = FINAL_MATCHED;
+	    return FINAL_MATCHED;
+	}
+	# State unchanged.
+	return $this->{'state'};
+    }
+    if ($this->{'state'} == SUFFIX_MATCHED) {
+	if($this->has_a_suffix) {
+	    if(run_regexp_list($line, @{$this->{'suffix'}},@{$this->{'ssub'}})) {
+		return SUFFIX_MATCHED; # Still matched
+	    }
+	    return FINAL_MATCHED;	# One past 
+	}  else {
+	    if(run_regexp_list($line, @{$this->{'prefix'}},@{$this->{'psub'}})) {
+		return SUFFIX_MATCHED; # Still matched
+	    }
+	    return FINAL_MATCHED;	# One past 
+	}
+    }
+    die "State error in process_line.\n";
+}
+	
+sub add_to_prefix {
+    my $self = shift;
+    push @{$self->{'prefix'}}, @_;
+}
+sub add_to_center {
+    my $self = shift;
+    push @{$self->{'center'}}, @_;
+}
+sub add_to_suffix {
+    my $self = shift;
+    push @{$self->{'suffix'}}, @_;
+}
+sub check_prefix {
+    my $this = shift;
+    unless (@_) {
+	return undef;
+    }
+    my($line) = shift;
+    return run_regexp_list($line, @{$this->{'prefix'}},@{$this->{'psub'}});
+}
+# A private subroutine in the Evil package.
+
+sub run_regexp_list (\$\@\@) {
+    my($l, $list,$pslst) = @_;
+    my($e, $t);
+    my($i);
+    my(@r) = ();
+    for($i = 0; $i < @$list; $i ++ ) {
+	unless(defined $$pslst[$i]) {
+	    $e = $$list[$i];
+	    eval "\$pslst->[\$i] =
+		    sub {
+			my(\$l) = shift;
+			\$\$l =~ /$e/;
+		    };";
+            if($@) {
+	       warn $@;
+               $$pslst[$i] = undef;
+	       next;
+	    }
+        }
+        if(defined $pslst->[$i]) {
+	    $t = &{$pslst->[$i]}($l);
+        } else {
+	    print "Whoops! ";
+	    $e = $$list[$i];
+            print $e,"\n";
+#            1 while $e =~ s <([^\\]|^)/> <$1\\/>;
+	    $t = eval "\$\$l =~ /$e/";
+	    if($@) {
+	        warn $@;
+	        next;
+	    }
+        }
+	if($t) {
+	    return 1;
+	}
+    }
+    return undef;
+}
+1;
+package main;
+%main::evil = ();
+$main::evil_suffix_expressions_filled = 0;
+sub fill_suffix () {
+    return if $main::evil_suffix_expressions_filled;
+    if($::AD_REMOVE) {
+	eval {
+	    # my($_);
+	    my($type, $tree);
+	    open(JUNK, $::junkmail_file) || die "Can't open junkmail file:$!";
+	    topjunk: while (<JUNK>) {
+		next if /^\s*$|^\s*(\#|\;|\/\/..)/; # comment syntax
+		chomp;
+		unless (/^\s*\[(prefix_match|suffix_match|center_match)(_.[^\]]+)?\]\s*$/) {
+		    warn "Bad format line in $::junkmail_file: $_\n";
+		    next;
+		}
+		$type = $1;
+		if(defined $2 and $2 ne '') {
+		    $tree = $2;
+		} else {
+		    $tree = '_';
+		}
+		$main::evil{$tree} = Evil->new()
+		    unless defined $main::evil{$tree};
+		while (<JUNK>) {
+		    next if /^\s*$|^\s(\#|\;|\/\/..)/;
+		    chomp;
+		    if(/^\s*\/(.*)\/\s*$/) {
+			my($e) = $1;
+			1 while $e =~ s <([^\\]|^)/> <$1\\/>;
+			if($type eq 'prefix_match') {
+			    $main::evil{$tree}->add_to_prefix($e);
+			} elsif ($type eq 'suffix_match') {
+			    $main::evil{$tree}->add_to_suffix($e);
+			} elsif ($type eq 'center_match') {
+			    $main::evil{$tree}->add_to_center($e);
+			} else {
+			    warn "regular expression ignored - not in section in $::junkmail_file: $_\n";
+			}
+		    } else {
+			redo topjunk;
+		    }
+		}
+	    }
+	    close(JUNK);
+	};
+	warn $@ if($@);		# Why eval?  Eventually, this will go to 
+				# syslog, probably through a switch and
+				# the __WARN__ pseudo-signal.
+    }
+    $main::evil_suffix_expressions_filled = 1;
+}
+
+@main::mail_body_text = ();
+sub mail_body_print (@) {
+    push (@main::mail_body_text, @_);
+}
+sub is_blankline ($) {
+    return 1 if ($_[0] =~ /^[\s>]*$/);
+    return undef;
+}
+# The following regular expression broke perl.  Running
+# it enough times allowed Perl to end up in a tight loop.
+# if($q[$i] =~ /^((\s+>*\s*)|(\s*>+\s*)|(\s*>*\s+))*$/) { 
+
+sub clear_all_evil {
+    use strict;
+    my($ev);
+    foreach $ev (keys %main::evil) {
+	$main::evil{$ev}->process_line;
+    }
+}
+sub mail_body_flush () {
+    use strict;
+    return if @main::mail_body_text == 0;
+    openmail unless $main::mail_opened;
+    my $p;my @q;
+    $p = join('',@main::mail_body_text);
+    @q = split(/\n/, $p);
+    return if @q == 0;
+    if($main::AD_REMOVE) {
+	fill_suffix;
+	# BEGIN { Evil->import;};
+	my($i, $e, $ev);
+	my($t);
+	my($at_beginning) = 1;	# Delete blank lines at beginning, if any.
+	my $blankline;
+	my $last_nonblank_line = $[;
+	my(@in_prefix_match) = (); # list of evil keys... 
+	my(@in_center_match) = (); # List of evil keys with 
+				   # prefix-center-suffix - they take
+				   # precedence over simple matches.
+	my(@new_match_list);	# The ones that matched this cycle
+	my(@kill_line_pairs) = (); 
+	# loop_state = 0 - no matches current --- UNMATCHED
+	#              1 - non-center matchs current --- PREFIX_MATCHED
+	#              2 - center matches current. CENTER_MATCHED
+	my $loop_state;
+	my(@potential_kill_line_pairs);
+	@potential_kill_line_pairs = ();
+
+	next_i: foreach $i ($[ .. $#q) {
+	    #print "line $i: $q[$i]\n";
+	    #if($q[$i] =~ /\Q_______________________________\E/i) {
+	    #	print "juno break.\n";
+	    #}
+	    # 1.  Delete blank lines at beginning.
+	    # 2.  Never match against a blank line.
+	    # 3.  Blank lines preceedng an elided section will be elided.
+	    # 4.  Blank lines at the end will be elided.
+	    if(is_blankline($q[$i])) { 
+		if ($at_beginning) {
+		    unless(defined $kill_line_pairs[0]) {
+			$kill_line_pairs[0] = [$[, $i];
+		    } less {
+			$kill_line_pairs[0]->[1] = $i;
+		    }
+		    next;
+		}
+		$blankline = 1;
+		next;
+	    }
+	    $blankline = 0;
+	    $at_beginning = 0 if $at_beginning;
+
+	    # @Evil::EXPORT = qw(UNMATCHED PREFIX_MATCHED 
+	    # CENTER_MATCHED SUFFIX_MATCHED FINAL_MATCHED);
+	    $loop_state = @in_center_match?2:@in_prefix_match?1:0;
+	    @new_match_list = ();
+	    
+           foreach $ev ((@in_center_match?@in_center_match:()),
+                        (@in_prefix_match?@in_prefix_match:()),
+                        ((@in_center_match == 0 and @in_prefix_match == 0)?
+                        keys %main::evil:())) {
+		$t = $main::evil{$ev}->process_line($q[$i]);
+		next if not defined $t or $t == Evil::UNMATCHED;
+		if($t == Evil::PREFIX_MATCHED) {
+		    if($loop_state == 2) {
+			push @new_match_list, $ev; # Still a candidate.
+		    } elsif ($loop_state == 1) {
+			# This is essentially a PREFIX_MATCH followed by a
+			# PREFIX_MATCH.  We save the state, and leave the 
+			# old location.  But we still need a FINAL_MATCHED.
+			push @new_match_list, $ev;
+		    } elsif ($loop_state == 0) {
+			# This is where the brand new match list gets built.
+			# this can only happen when the suffix match lists 
+			# are the same, so theoretically all of the 
+			# $ev->match_position values should be the same.
+			$main::evil{$ev}->
+			    match_position($last_nonblank_line+1);
+			if($main::evil{$ev}->has_a_center) {
+			    push @in_center_match, $ev;
+			} else {
+			    push @in_prefix_match, $ev;
+			}
+		    }
+		} elsif ($t == Evil::CENTER_MATCHED) {
+		    if($loop_state == 2) {
+			push @new_match_list, $ev;
+		    } else {
+			warn "$t (center matched) when loop state $loop_state (must be 2).\n";
+			clear_all_evil;
+			@in_prefix_match = ();
+			@in_center_match = ();
+			@new_match_list = ();
+			@potential_kill_line_pairs = ();
+			if($loop_state != 0) {
+			    redo next_i;
+			} else {
+			    next next_i;
+			}
+		    }
+		} elsif ($t == Evil::SUFFIX_MATCHED) {
+		    if($loop_state == 1 or $loop_state == 2) {
+			push @new_match_list, $ev;
+		    } else {
+			warn "Funky state - got $t with state $loop_state";
+			next;
+		    }
+		} elsif ($t == Evil::FINAL_MATCHED) {
+		    if($loop_state == 2) {
+			# We elide the *first* center match we see.
+			push @kill_line_pairs, 
+			[ $main::evil{$ev}->match_position, $i ];
+			clear_all_evil;
+			@in_prefix_match = ();
+			@in_center_match = ();
+			@new_match_list = ();
+			next next_i;
+		    } elsif ($loop_state == 1) {
+			# We elide the *last* simple prefix match we see.
+			push @potential_kill_line_pairs, 
+			[ $main::evil{$ev}->match_position, $i-1 ];
+			next;
+		    } else {
+			warn "loop state $loop_state but got $t (FINAL_MATCHED) - ignoring match, resetting.\n";
+		    }
+		    clear_all_evil;
+		    @in_prefix_match = ();
+		    @in_center_match = ();
+		    @new_match_list = ();
+		    @potential_kill_line_pairs = ();
+		    if($loop_state == 1) {
+			redo next_i;
+		    } else {
+			next next_i;
+		    }
+		} else {
+		    warn "Unknown value for t - $t.\n";
+		}
+	    }			# Matches the main trip through evil.
+		
+	    if($loop_state == 2) {
+		# Special termination circumstance - to avoid runaway
+		# center matches.  If any non-center-match prefix matches
+		# any line that is in the middle of a center match,
+		# We give up.
+		# We can do this because terminations for centers with
+		# FINAL_MATCHED are processed above.
+		foreach $ev (keys %main::evil) {
+		    next if $main::evil{$ev}->has_a_center;
+		    if($main::evil{$ev}->check_prefix($q[$i])) {
+			clear_all_evil;
+			@in_prefix_match = ();
+			@in_center_match = ();
+			@new_match_list = ();
+			@potential_kill_line_pairs = ();
+			# Recycle the current line.
+			# never do a redo if the match state is zero.
+			redo next_i;
+		    }
+		}
+	    }
+	    if(@new_match_list > 0) {
+		if($loop_state == 1) {
+		    @in_prefix_match = @new_match_list;
+		} elsif ($loop_state == 2) {
+		    @in_center_match = @new_match_list;
+		} else {
+		    warn "new_match_list has @new_match_list, but loop state is $loop_state, killing all matches.";
+		    clear_all_evil;
+		    @in_prefix_match = ();
+		    @in_center_match = ();
+		    @new_match_list = ();
+		}
+	    } elsif($loop_state > 0) {
+		# We have nothing in the @new_match_list
+		# if we have had any @potential_kill_line_pairs, we now
+		# build a @kill_line_pair based on that.
+		if(@potential_kill_line_pairs) {
+		    @potential_kill_line_pairs =
+ 			sort { $$a[0] <=> $$b[0] or $$a[1] <=> $$b[1] }
+			    @potential_kill_line_pairs;
+		    push @kill_line_pairs, 
+		    [ $potential_kill_line_pairs[$[]->[0],
+		      $potential_kill_line_pairs[$#potential_kill_line_pairs]->[1] ];
+		}
+		# all matches went away, clear all state.
+		clear_all_evil;
+		@in_prefix_match = ();
+		@in_center_match = ();
+		@new_match_list = ();
+		@potential_kill_line_pairs = ();
+		redo next_i;
+	    }
+	} continue {
+	    $last_nonblank_line = $i unless $blankline;
+	}
+	if (@in_prefix_match > 0) {
+	    foreach $ev (@in_prefix_match) {
+		if($main::evil{$ev}->match_state == Evil::SUFFIX_MATCHED) {
+		    push @kill_line_pairs, 
+		    [ $main::evil{$ev}->match_position, $#q ];
+		    $blankline = 0;
+		    @potential_kill_line_pairs = ();
+		    last;
+		}
+	    }
+	} 
+	if(@potential_kill_line_pairs) {
+	    @potential_kill_line_pairs =
+		sort { $a->[0] <=> $b->[0] or $a->[1] <=> $b->[1] } 
+		    @potential_kill_line_pairs;
+	    push @kill_line_pairs, 
+	    [ $potential_kill_line_pairs[$[]->[0],
+	      $potential_kill_line_pairs[$#potential_kill_line_pairs]->[1] ];
+	    $blankline = 0;
+	}
+	
+	if($blankline and $last_nonblank_line < $#q) {
+	    push @kill_line_pairs, [ $last_nonblank_line+1, $#q ];
+	}
+	# Elide the array here based on kill_line_pairs.
+	while ($ev = pop @kill_line_pairs) {
+	    ($i, $e) = @$ev;
+	    splice(@q, $i, ($e - $i) + 1);
+	}
+    }
+    foreach $p (@q) {
+	($p =~ tr [\200-\377] [\000-\177]) if $main::SEVEN_BIT_ONLY ;
+	$p =~ s/\000//g;
+	mail_print ($p,"\n");
+    }
+    @main::mail_body_text = ();
+}
+sub END {
+    mail_body_flush;
+    # $SIG{"__DIE__"};
+}
+# much faster than the commented out version below.
+
+sub decode_base64 (\@) {
+    use strict;
+    my $decode = shift;
+    my $dstr = join("",@$decode);
+    my $i;
+    my $ll;
+    my $out = "";
+    # First remove all non base64 characters
+    $dstr =~ tr {A-Za-z0-9+/=}{}cd;
+    if(length($dstr) % 4) {
+	mail_print "base64 encoded Mime section invalid - length (",length($dstr),") was wrong.\n";
+	return undef;
+    }
+    $dstr =~ s/={1,3}$//;	# Delete trailing pad characters
+    if(($i = index($dstr, "=")) != ($[ - 1)) {
+	mail_print "base64 encoded Mime section invalid - extra = in body at character $i.\n";
+	return undef;
+    }
+    # Translate from base64 coding alphabet to
+    # uuencode alphabet
+    $dstr =~ tr [A-Za-z0-9+/] [ -_]; # This line is ascii dependent
+    # Break into groups of 60 characters -
+    # apply a length byte to the front of each group.
+    # pass to unpack to decode, line by line.
+    for($i = 0; $i < length($dstr); $i += 60) {
+	$ll = substr($dstr, $i, 60);
+	$out .= unpack('u', chr(32 + length($ll)*3/4).$ll);
+    }
+    # Now break into lines and convert the canonical form crlf
+    # into the local form lf
+    my @plug = ();
+    my $lagi = $[;
+    while($lagi >= $[) {
+	$i = index("\r\n", $out, $lagi);
+	if($i < $[) {
+	    push(@plug,substr($out, $lagi));
+	    $out = "";
+	} else {
+	    $i += 2;
+	    $ll = substr($out, $lagi, ($i+2)-$lagi);
+	    $ll =~ s/\r\n/\n/;
+	    push @plug, $ll;
+	}
+	$lagi = $i;
+    }
+    return \@plug;
+}
+
+#sub decode_base64 (\@) {
+#    # Given a set of lines that is coded in base64, 
+#    # return a reference to a array of lines which contains the translated thing.
+#    use strict;
+#    my $out = "";
+#    my %base64 = ('A' => 0, 'R' => 17, 'i' => 34, 'z' => 51,
+#		  'B' => 1, 'S' => 18, 'j' => 35, '0' => 52, 
+#		  'C' => 2, 'T' => 19, 'k' => 36, '1' => 53, 
+#		  'D' => 3, 'U' => 20, 'l' => 37, '2' => 54, 
+#		  'E' => 4, 'V' => 21, 'm' => 38, '3' => 55, 
+#		  'F' => 5, 'W' => 22, 'n' => 39, '4' => 56, 
+#		  'G' => 6, 'X' => 23, 'o' => 40, '5' => 57, 
+#		  'H' => 7, 'Y' => 24, 'p' => 41, '6' => 58, 
+#		  'I' => 8, 'Z' => 25, 'q' => 42, '7' => 59, 
+#		  'J' => 9, 'a' => 26, 'r' => 43, '8' => 60, 
+#		  'K' => 10, 'b' => 27, 's' => 44, '9' => 61, 
+#		  'L' => 11, 'c' => 28, 't' => 45, '+' => 62,
+#		  'M' => 12, 'd' => 29, 'u' => 46, '/' => 63,
+#		  'N' => 13, 'e' => 30, 'v' => 47, 
+#		  'O' => 14, 'f' => 31, 'w' => 48, 
+#		  'P' => 15, 'g' => 32, 'x' => 49, 
+#		  'Q' => 16, 'h' => 33, 'y' => 50,
+#		  '=' => -1);
+#    my $dec = shift;
+#    my $myline;
+#    my @line;
+#    my @plug;
+#    my $pp = 0;
+#    my $ppout;
+#    my $i;
+#    # print "last line is ",$dec->[$#{$dec}];
+#    decode_base64_line: foreach $myline (@$dec) {
+#	@line = split(//,$myline);
+#	for($i = 0; $i < @line; $i++) { # char by char
+#	    next unless defined $base64{$line[$i]};
+#	    if($base64{$line[$i]} == -1) {
+#		#closure 
+#		if ($pp == 1) {
+#		    warn "One character in stack at = - illegal";
+#		    $out .= pack('NXXX', ($plug[0]<<26));
+#		} elsif ($pp == 2) {
+#		    # print "ended with 2 equals\n";
+#		    $out .= pack('NXXX', ($plug[0]<<26)+($plug[1]<<20));
+#		} elsif ($pp == 3) {
+#		    # print "ended with 1 equal\n";
+#		    $out .= pack('NXX', ($plug[0]<<26)+($plug[1]<<20)+($plug[2]<<14));
+#		}
+#		last decode_base64_line;
+#	    }
+#	    $plug[$pp++] = $base64{$line[$i]};
+#	    next if($pp < 4);
+#
+#	    $out .= pack('NX', ($plug[0]<<26)+($plug[1]<<20)+($plug[2]<<14)+($plug[3]<<8));
+#	    
+#	    $pp = 0;
+#	}
+#    }
+#    # print $out;
+#    @plug = ();
+#    while(length($out) > 0) {
+#	$i = index("\r\n", $out);
+#	if($i < $[) {
+#	    push(@plug,$out);
+#	    $out = "";
+#	} else {
+#	    $myline = substr($out, $[, $i+2);
+#	    substr($out, $[, $i+2) = "";
+#	    $myline =~ s/\r\n/\n/;
+#	    push @plug, $myline;
+#	}
+#    }
+#    return \@plug;
+#}
+
+
+sub unquote_line(\$) {
+    use strict;
+    my $lineref = shift;
+#    while ($$lineref =~ /(.*?)=([0-9A-Fa-f]{2})(.*)/s) {
+#	$$lineref = $1.chr(eval('0x'.$2)).$3;
+#    }
+    return unless defined $$lineref;    
+    $$lineref =~ s/=([0-9A-Fa-f]{2})/chr(eval('0x'.$1))/egs;
+    no strict;
+}
+sub decode_quoted_printable (\@) {
+    use strict;
+    my $dec = shift;
+    my @out = ();
+    # linepush(0, $out, $word);
+    my $line;
+    my $lagline = "";
+    my $dolag = 0;
+    my $i;
+    foreach $line (@$dec) {
+	chomp $line;
+	if($dolag) {
+	    $line = $lagline . $line;
+	    $dolag = 0;
+	    $lagline = "";
+	}
+	if ($line =~ /(.*?)=\s*$/) { # Soft crlf processing...
+				     # Also deletes trailing spaces.
+	    $lagline = $1;
+	    $dolag = 1;
+	    next;
+	}
+	$line =~ s/\s+$//g;	# Trailing space deletion required here.
+	# $line =~ s/[\n\r]//g;	# Take out all "extra" newlines.
+	unquote_line($line);
+	pos($line) = 0;
+	# Segment 1 of the regex matches the *Shortest* line it can,
+	# when this is the end of the line.  Trailing space is eliminated,
+	# Because the ? makes the pattern non-greedy, so that the space,
+	# if any, can match outside of the pattern.
+	# Segment 2 of the regex matches the longest line segment it
+	# can where there is a nonspace followed by some space.  This
+	# is used to re-wrap the line at a natural division.
+	# Segment 3 matches at least 1 and at most 77 characters.
+	# We should only get to this if there is a long line with no
+	# spaces and segments 1 and 2 don't match.
+	if($line =~ /^\s*$/) {	# Completely blank line requires special
+				# processing.  
+	    push(@out, "\n");
+	} else {
+	    while ($line =~ /\G ( .{1,77}? ) \s* $ | 
+		             \G ( .{0,77}\S ) \s+ |
+		             \G ( .{1,77} ) /sgx) {
+		if(defined $1) {
+		    push(@out, $1."\n");
+		    last;
+		} elsif (defined $2) {
+		    push(@out, $2."\n");
+		} else {
+		    if(defined $3 and $3 ne '') {
+			push(@out, $3,"\n");
+		    } else {
+			push(@out, "\n");
+		    }
+		}
+	    }
+	}
+    }
+    if($dolag) {
+	unquote_line($line);
+	pos($line) = 0 if defined $line;
+	if((not defined $line) || $line =~ /^\s*$/) {
+	    push(@out, "\n");
+	} else {
+	    while ($line =~ /\G ( .{1,77}? ) \s* $ | 
+		             \G ( .{0,77}\S ) \s+ |
+		             \G ( .{1,77} ) /sgx) {
+		if(defined $1) {
+		    push(@out, $1."\n");
+		    last;
+		} elsif (defined $2) {
+		    push(@out, $2."\n");
+		} else {
+		    if(defined $3 and $3 ne '') {
+			push(@out, $3,"\n");
+		    } else {
+			push(@out, "\n");
+		    }
+		}
+	    }
+	}
+    }
+    return \@out;
+}
+
+
+sub parsehead (\@\$\$\%\@\%\@\$) { # Parse header producing keyed list of headers and other ### tneff
+				# indexes to headers.  Also folds lines to single line.
+				# Used on main header and section headers in mime sections.
+    use strict;
+    # die "Wrong number of args to parsehead." if (@_ != 8);	### tneff
+    my ($mail, $endhead, $fromhead, $headtypes, $headarr, $head, $headkey, $envfrom) = @_;	### tneff
+    my $line;
+    my $l;
+    my $lag = "";
+    my $i;
+    foreach $line (@$mail) {
+	$$endhead ++;
+	if ($line =~ /^$/) {
+	    next if $lag eq "";	# Might be a blank first line
+	    last;
+	}
+	if($line =~ /^([^\s:]+):\s+(.*)$/) {
+	    $l = lc $1;
+	    $headtypes->{$l} = $l;
+	    $i = 0;
+	    if(defined $head->{$l,0}) {
+		# Stack these puppies up
+		$i++;
+		while(defined $head->{$l,$i}) { $i++ ;}
+	    }
+	    push(@{$headkey},$l,$i, $1);
+	    $lag = $l;
+	    $head->{$l, $i} = $2;
+	    push(@{$headarr}, $1, $2);
+	} elsif ($line =~ /^\s+(.*)$/) {
+	    $head->{$lag, $i} .= (" ".$1);
+	    # The following test makes the program tolerant of a totally
+	    # malformed fiirst header line.   Blech.
+	    $headarr->[$#{$headarr}>= $[?$#{$headarr}:$[] = $head->{$lag, $i}; # Replace last array element with continuation
+	} elsif ($line=~ /^from\s([^ ]*)/i) {
+	    $$fromhead = $1;
+	    $$envfrom = $line;
+	}
+    }
+    while (defined $mail->[$$endhead] and $mail->[$$endhead] =~ /^$/) {
+	$$endhead ++;
+    } # Skip blank lines.....
+    no strict;
+}
+
+sub delhead ($$\@) {			# Headkey is used to print headers,
+				# either debugging or on working output.
+				# Remove element from headkey so that
+				# header will not print, effectively
+				# deleting it.
+    use strict;
+    # die "Wrong number of args to delhead." if (@_ != 3);
+    my ($head, $pos, $headkey)  = @_;
+    my $i;
+    for($i = $[; $i < @$headkey; $i += 3) {
+	next unless defined $headkey->[$i] and $headkey->[$i] eq $head;
+	if($pos == -1) {
+	    splice(@$headkey, $i, 3);
+	    redo;
+	}
+	next unless $pos == $headkey->[$i+1];
+	splice(@$headkey, $i, 3);
+	return;
+    }
+    no strict;
+}
+
+sub headout (\@\%$$) {		# Headout prints a structured, reformatted header 	### tneff
+    use strict;
+    my ($headkey, $head, $deferred_message, $envfrom) = @_;	### tneff
+    my $line;
+    my $tline;
+    my @line;
+    my ($i, $j, $k, $hkl);
+    mail_print ($envfrom) if $envfrom and $::PRESERVE_UNIX_FROM_LINE; ### tneff/njs
+    for($i = 0; $i < @$headkey; $i += 3) {
+	# print "$i $headkey->[$i+2]: $headkey->[$i+1]\n";
+	$j = 0;
+	$line = $head->{$headkey->[$i],$headkey->[$i+1]};
+	while (length($line) > 0) {
+	    $hkl = $j > 0?2:length($headkey->[$i+2])+2;
+	    if ($hkl + length($line) > 72) {
+		for($k = 72 -($hkl); $k > 0 and not (substr($line,$k,1) =~ /^\s$/); $k--) {}
+		if($k <= 0) {
+		    # We must break on a space - or not break
+		    for($k = 72 -($hkl); $k < length($line) and not (substr($line,$k,1) =~ /^\s$/); $k++) {}
+		    if($k < length($line)) {
+			$tline = substr($line, $[, $k);
+			$line = substr($line, $k+1);
+		    } else {
+			$tline = substr($line, $[, $k);
+			$line = $k < length($line)?substr($line, $k+1):'';
+		    }
+		    #$tline = substr($line, $[, 72-$hkl);
+		    #$line = substr($line, 72-$hkl);
+		} else {
+		    $tline = substr($line, $[, $k);
+		    $line = substr($line, $k+1);
+		}
+	    } else {
+		$tline = $line;
+		$line = "";
+	    }
+	    mail_print (($j==0?"$headkey->[$i+2]: ":"  "),$tline,"\n");
+	    $j++;
+	}
+    }
+    if(defined $deferred_message and $deferred_message ne "") {
+	mail_print $deferred_message;
+    }
+    no strict;
+}
+
+sub textout ($$) {
+    # The nefarious attachers (microsoft, perhaps) will sometimes attach a 
+    # uuencoded section without a separator.  The point here is to remove
+    # all steenking uuencoded attachments.
+    # We look for begin lines and remove anything between a begin and an end,
+    # including the begin and end lines.
+    # If we get a false begin line match (a begin with no end) we recover by
+    # printing every line between the false match and the end.  (If a mail
+    # were to be cut off partway through an attachment, we would restore it.
+    # If that becomes a problem, we will do momething else.
+    # This is where advertising suffixes are chopped as well.
+
+    use strict;
+    my $bodyref = shift;
+    my $encoding = shift;
+    my $line;			# What's \1?
+    my $uuencode = 0;
+    my $delete_leading_blank = 1;
+    my $jc;
+    my $filename = "";
+    my $startwhich;
+    my $linecount;
+
+    if (defined $encoding) {
+	if ("quoted-printable" eq lc $encoding) {
+	    $bodyref = decode_quoted_printable(@$bodyref);
+	} elsif ("base64" eq lc $encoding) {
+	    $bodyref = decode_base64(@$bodyref);
+	} elsif ($encoding !~ /7bit|8bit|binary/i) {
+	    mail_print "[demime could not interpret encoding $encoding - treating as plain text]\n";
+	}
+    }
+ 
+    my $whichline = $[ - 1;
+    line: foreach $line (@$bodyref) {
+	$whichline ++;
+	if($uuencode>0) {
+	    if($uuencode == 1) {
+		$linecount ++;
+		next unless $line =~ /^end$/i;
+		$uuencode = 2;
+	    } elsif ($uuencode == 2) {
+		unless (defined $main::nowarn) {
+		    mail_body_print "[demime removed a uuencoded section named $filename which was $linecount lines]\n";
+		}
+		$uuencode = 0;
+		(mail_body_print $line) unless $line =~ /^$/;
+	    }
+	} else {
+	    if($line =~ /^begin\s+[0-7]{1,3}\s+(\S+)/i) {
+		$filename = $1;
+		$linecount = 0;
+		$uuencode = 1;
+		$startwhich = $whichline;
+		next line;
+	    } 
+	    if($delete_leading_blank) {
+		if ($line !~ /^\s*$/) {
+		    mail_body_print $line;
+		    $delete_leading_blank = 0;
+		}
+	    } else {
+		mail_body_print $line;
+	    }
+	    
+	}
+    }
+    if($uuencode == 1) {	# False indication - the begin line
+				# had no end - recover by printing elided section.
+	my $i;
+	foreach $i ($startwhich..$#{$bodyref}) {
+	    mail_body_print $bodyref->[$i];
+	}
+    } elsif($uuencode == 2) {	# The last line was the 'end'
+	unless (defined $main::nowarn) {
+	    mail_body_print "[demime removed a uuencoded section named $filename which was $linecount lines]\n";
+	}
+    }
+    mail_body_flush;
+    no strict;
+}
+
+sub linepush ($\$$) {		# This routine is used by the rich
+				# text formatter to put a token into
+				# the output stream.  $excerptcount controls
+				# the indentation level.
+    use strict;
+    my ($excerptcount, $bodyout, $word) = @_;
+    if($$bodyout eq "") {
+	# Start new line
+	if ($excerptcount > 0) {
+	    $$bodyout = (">" x $excerptcount)." ";
+	}
+    }
+    if($word eq "\n") {
+	mail_body_print ($$bodyout, "\n");
+	$$bodyout = "";
+	return;
+    }
+    if((length($$bodyout) + length($word)) > 72) {
+	mail_body_print ($$bodyout,"\n");
+	if($word ne " ") {
+	    if ($excerptcount > 0) {
+		$$bodyout = (">" x $excerptcount)." ";
+	    } else {
+		$$bodyout = "";
+	    }
+	    
+	} else {
+	    $$bodyout = "";
+	    return;
+	}
+    }
+    $$bodyout .= $word;
+}
+
+
+sub adj_msgid () {			# The program always mungs the message-id
+				# to indcate when reprocessed.
+    return unless defined $::head{'message-id',0};
+
+    my $msgid = $::head{'message-id',0};
+    my $time = time;
+    $msgid =~ s/\@/.$time.$$\@/;
+    $::head{'message-id',0} = $msgid;
+}
+
+sub richout ($$) {		# This routine actually does the
+				# parsing of the rich text section.
+    use strict;
+    my $bodyref = shift;
+    my $encoding = shift;
+    #Richtext conformance:  A minimal richtext implementation  is
+    #one  that  simply  converts "<lt>" to "<", converts CRLFs to
+    #SPACE, converts <nl> to a newline according to local newline
+    #convention,  removes  everything between a <comment> command
+    #and the next balancing </comment> command, and  removes  all
+    #other  formatting  commands  (all  text  enclosed  in  angle
+    #brackets).
+    # We will also treat <PARAM> like comments, and count and 
+    # stack/unstack excerpt.  We are unsure whether we should also
+    # convert << to <, but we are doing it.
+    # print @$bodyref;
+    if (defined $encoding) {
+	if ("quoted-printable" eq lc $encoding) {
+	    $bodyref = decode_quoted_printable(@$bodyref);
+	} elsif ("base64" eq lc $encoding) {
+	    $bodyref = decode_base64(@$bodyref);
+	} elsif ($encoding !~ /7bit|8bit|binary/i) {
+	    mail_print "[demime could not interpret encoding $encoding - treating as plain text]\n";
+	}
+    }
+    chomp @$bodyref;
+    my $body = ""; my $bodylag = "\n";
+    my $i;
+    for($i = 0; $i < @$bodyref; $i ++) {
+	$bodyref->[$i] = "\n" if $bodyref->[$i] eq "";
+	if($bodylag eq "\n") {
+	    $body .= $bodyref->[$i];
+	} else {
+	    $body .= (' '.$bodyref->[$i]);
+	}
+	$bodylag = $bodyref->[$i];
+    }
+    $body =~ s/<comment>.*?<\/comment>//ig;
+    $body =~ s/<param>.*?<\/param>//ig;
+    $body =~ s/<</<lt>/ig;	# Turn << escape for < to <lt>
+    my $excerptcount = 0;
+    my $bodyout = "";
+    my @words = split(/( +)|(\n)|(<\/?[-a-z0-9]{1,40}>)/i,$body);
+    my $word;
+    foreach $word (@words) {
+	next if (not defined $word) or $word eq ""; # Skip the nulls that this produces for some reason.
+	if($word =~ /^<(\/?)([-a-z0-9]{1,40})>$/) {
+	    my $negation = $1;
+	    my $command = lc $2;
+	    if($command eq "lt") {
+		linepush($excerptcount, $bodyout, "<");
+	    } elsif($command eq "nl") {
+		linepush($excerptcount, $bodyout, "\n");
+	    } elsif($command eq "np") {
+		linepush($excerptcount, $bodyout, "\n");
+		linepush($excerptcount, $bodyout, "\n");
+	    } elsif ($command eq "excerpt") {
+		linepush($excerptcount, $bodyout, "\n") if length($bodyout) > 0;
+		if($negation eq "/") {
+		    $excerptcount = $excerptcount>=1?$excerptcount-1:0;
+		} else {
+		    $excerptcount++;
+		}
+	    } else {
+		# just ignore the command - for now.
+	    }
+	} else {
+	    linepush($excerptcount, $bodyout, $word);
+	}
+    }
+    if(length($bodyout) > 0) {
+	linepush($excerptcount, $bodyout, "\n");
+    }
+    mail_body_flush;
+    no strict;
+}
+
+sub mimesplit ($\@\@) {			# Given a delimiter, a body to split,
+				# and an anchor (ref to array) this
+				# routine will split up the mime into
+				# head and body and so forth.
+    use strict;
+    my ($delim, $bodyref, $sections) = @_;
+    my $sectnum = 0;
+    my $linepos = 0;
+    # skip through the body looking for a delimiter - up to the first one is the preamble.
+    for(;$linepos < @$bodyref; $linepos++) {
+	if ($bodyref->[$linepos] =~ /^--\Q$delim\E((--)?)$/) {
+	    # print $linepos," ",$1," ", $bodyref->[$linepos];
+	    push(@{${$sections}[$#{$sections}]}, $linepos-1) if @{$sections} > 0;
+	    
+	    last if defined $1 and $1 eq "--";	# No parts - got terminator as first section delimiter.
+	    push (@$sections, [++$linepos]);
+	}
+    }
+    # Now we need to extract a content-type subhead if any and other stuff - we want to 
+    # split the mail into pieces nicely.
+    my $subslice = 0;
+    my $subref;
+    foreach $subref (@$sections) {
+	my $origlinepos = $subref->[0];
+	for($linepos = $origlinepos; $linepos <= $subref->[1]; $linepos++) {
+	    if($bodyref->[$linepos] =~ /^content-type:\s+([^;\n \t]+)\s*(;(.*))?$/i) {
+		($subref->[2] = lc $1) unless defined $subref->[2];
+		# (print "Extra content type $2\n") if defined $2 ;
+	    } elsif($bodyref->[$linepos] =~ /^$/) {
+		($subref->[2] = "text/plain") unless defined $subref->[2];
+		$subref->[0] = $linepos + 1;
+		$subref->[1]-- if $subref->[2] ne "text/plain";
+		$subref->[3] = [@$bodyref[$subref->[0]..$subref->[1]]];
+		$subref->[4] = [@$bodyref[$origlinepos..($linepos-1)]];	# Section headers
+		last;
+	    }
+	}
+    }
+    no strict;
+}
+
+sub mimesplitprint (\@) {	# For debugging, this routine will
+				# walk the structure produced by
+				# mimesplit and print some basic info.
+    use strict;
+    my $sections = shift;
+    my $i;
+    for($i = 0; $i < @$sections; $i ++) {
+	print "minline = ",${$sections}[$i]->[0]," maxline = ",${$sections}[$i]->[1],
+	" content-type ",${$sections}[$i]->[2],"\n";
+	print "intheaders:\n";
+	print @{${$sections}[$i]->[4]};
+    }
+    no strict;
+}
+
+sub htmlout ($$) {		# This is the routine that parses and
+				# prints the HTML sections.
+    use strict;
+    my $bodyref = shift;
+    my $encoding = shift;
+    if (defined $encoding) {
+	if ("quoted-printable" eq lc $encoding) {
+	    $bodyref = decode_quoted_printable(@$bodyref);
+	} elsif ("base64" eq lc $encoding) {
+	    $bodyref = decode_base64(@$bodyref);
+	} elsif ($encoding !~ /7bit|8bit|binary/i) {
+	    mail_print "[demime could not interpret encoding $encoding - treating as plain text]\n";
+	}
+    }
+    if($::uselynx) {
+	my ($body) = ""; 
+	eval {			# Catchall for potential errors in LYNX...
+	    use IPC::Open3;
+	    my($mypid, $oldselect);
+	    $mypid = open3(\*Tolynx, \*Fromlynx, '', "/usr/local/bin/lynx --stdin --dump --force_html --hiddenlinks=ignore --localhost --image_links --nolist --noredir --noreferer --realm");
+	    $oldselect = select(Tolynx); $| = 1; select($oldselect); 
+	    my ($bodyindex) =  0 ;
+	    my($rin, $win, $ein, $wout, $rout, $eout, $nfound, $timeout, $syserr);
+	    $rin = $win = $ein = '';
+	    vec($rin, fileno(Fromlynx), 1) = 1;
+	    vec($win, fileno(Tolynx), 1) = 1;
+	    $ein = $rin | $win;
+	    $timeout = 60; # anything over a minute has got to be a bug.
+	    while (1) {
+		$nfound = select($rout=$rin, 
+				 defined $win?$wout=$win:undef, 
+				 defined $win?$eout = $ein:$eout = $rin, 
+				 $timeout);
+		if($nfound < 0) {
+		    die "demime: Select failed: $!.\n";
+		}
+		if($nfound == 0) {
+		    # this must be a timeout
+		    die "$timeout second timeout in lynx, aborting.\n";
+		}
+		if(vec($rout, fileno(Fromlynx),1)) { # time to read
+		    $syserr = sysread(Fromlynx, $body, 4096, length($body));
+		    unless(defined $syserr) {
+			die "demime: sysread from lynx failed: $!\n";
+		    }
+		    if (defined $syserr and $syserr == 0) {
+			last;	# eof
+		    }
+		    next unless --$nfound;
+		}
+		if(vec($wout,fileno(Tolynx),1)) {
+		    if($bodyindex < @$bodyref) {
+			unless(print Tolynx $bodyref->[$bodyindex++]) {
+			    die "demime: print to lynx failed: $!\n";
+			}
+		    } else {
+			close(Tolynx);
+			undef $wout;
+			undef $win;
+		    }
+		    next unless --$nfound;
+		}
+		if(vec($eout, fileno(Fromlynx),1)) {
+		    die "demime: select, Exception in file fromlynx.\n";
+		    next unless --$nfound;
+		} 
+		if(vec($eout, fileno(Tolynx),1)) {
+		    die "demime: select, Exception in file tolynx.\n";
+		    next unless --$nfound;
+		} 
+		my($msg) = sprintf("rout - %x, wout - %x, eout - %x %d, %d, %d", 
+				   $rout, $wout, 
+				   $eout, fileno(Fromlynx), 
+				   fileno(Tolynx), $nfound);
+		die "demime: select, unknown problem ($msg).\n";
+	    }
+	    waitpid($mypid,0);
+	};
+	if($@) {
+	    if(! $::RETURN_ERRORS_TO_ORIGIN) {
+		mail_body_print "\n\nLynx formatting failed - html section has not been copied to output:\n $@";
+		mail_body_flush;
+		return &EX_OK;
+	    } else {
+		print STDERR "450 Lynx formatting failed: $@";
+		return &EX_TEMPFAIL;
+	    }
+	}
+	1 while $body =~ s (\n\s*\n\s*\n) (\n\n)g;
+	mail_body_print $body;
+	mail_body_flush;
+	no strict;
+    } else {
+	no strict;
+	require HTML::TreeBuilder;
+	use strict;
+
+	my $p = HTML::TreeBuilder->new;
+	my $body;
+	foreach $body (@$bodyref) {
+	    # print "-",$body;
+	    $p->parse($body);
+	}
+	$p->eof;
+	my $formatter = new HTML::myFormatText;
+	$body = $formatter->format($p);
+	1 while $body =~ s (\n\s*\n\s*\n) (\n\n)g;
+	mail_body_print $body;
+	mail_body_flush;
+	no strict;
+    }
+}
+
+sub parse_alternative_body (\@\$\$\@) {	# Used when parsing multipart/alternative
+				        # to determine which section to print.
+    use strict;
+    my($sections, $winsect, $winval, $routine)  = @_;
+    my $i;
+    my $s;
+    @$routine = (\&main::textout, \&main::htmlout, \&main::richout);
+    my %selval = ("text/plain" => 0 , "text/html" => 1, "text/enriched" => 2,
+		  "text/rich" => 2, "message/delivery-status" => 0);
+    for($i = 0; $i < @$sections; $i ++) {
+	$s = lc ($ {$sections}[$i]->[2]);
+        if(defined $selval{$s}) {
+	    if($selval{$s} < $$winval) {
+		$$winsect = $i;
+		$$winval = $selval{$s};
+	    }
+	}
+    }
+    no strict;
+}
+
+sub altout ($$$$) {		# Used by multipart/mixed when
+				# it wants to output a multipart/alternative
+				# subsection.
+    use strict;
+    my $body = shift;
+    my $encoding = shift;
+    if (defined $encoding) {
+	if ("quoted-printable" eq lc $encoding) {
+	    $body = decode_quoted_printable(@$body);
+	} elsif ("base64" eq lc $encoding) {
+	    $body = decode_base64(@$body);
+	} elsif ($encoding !~ /7bit|8bit|binary/i) {
+	    mail_print "[demime could not interpret encoding $encoding - treating as plain text]\n";
+	}
+    }
+    my $recurdepth = shift;
+    my $inhead = shift;
+    my @routine = ();
+    my $endhead; my $fromhead; my %headtypes; my @headarr; my %head; my @headkey; my @head; my $envfrom;	### tneff
+    parsehead(@$inhead, $endhead, $fromhead, %headtypes, @head, %head, @headkey, $envfrom);
+    if(defined $head{'content-type', 0} and $head{'content-type',0} =~ /^\s*multipart\/alternative\s*;.*?(boundary)=(?:(")([^"]*?)(")|([^;]+)(?:[;]|$))/i) { # nothing #
+	
+	# print "Quote = $2, delimiter = $3, Quote = $4, 5 = $5, 6 = $6, 7 = $7\n";
+        my $delim;     
+        if (defined $3) {
+           $delim = $3;
+        } elsif (defined $5) {
+           $delim = $5;
+        } else {
+           if(! $::RETURN_ERRORS_TO_ORIGIN) {
+               mail_print "\n\nCould not parse boundary from multipart/alternative $head{'content-type', 0}\n";
+               return &EX_OK;
+           } else {
+               print STDERR "Could not parse boundary from multipart/alternative $head{'content-type', 0}\n";
+               return &EX_NOPERM;
+           }
+        }   
+
+#       $head{'content-type',0} =~ /^\s*multipart\/alternative;.*?(boundary)=(\"?)([^\2]*)(\2)/i) {
+	# print "Quote = $2, delimiter = $3, Quote = $4\n";
+	my @sections = ();
+	mimesplit($delim, @$body, @sections);
+	my $winsect = -1;
+	my $winval = 99;
+	parse_alternative_body(@sections, $winsect, $winval, @routine);
+	if($winsect == -1) {
+	    mail_print "\n\n[demime found a multipart/alternative section which it tried\nto parse but could not find any section which it could render. Please send plain text.]\n";
+	    return;
+	}
+        {
+	  my $endhead;
+	  my $fromhead ='';
+	  my %headtypes = (); 
+	  my @headarr = (); 
+	  my %head = (); 
+	  my @headkey = (); 
+	  my $envfrom = "";	### tneff
+	  parsehead(@{$sections[$winsect]->[4]},
+		    $endhead, $fromhead, %headtypes, @head, %head, @headkey, $envfrom); 	### tneff
+
+  	  &{$routine[$winval]}($sections[$winsect]->[3], 
+                               $head{'content-transfer-encoding',0});
+        }
+    } else {
+	mail_print "\n\n[$main::demime_version could not find the separator in content-type header:\n";
+	if(defined $head{'content-type', 0}) {
+	    mail_print ($head{'content-type', 0},"]\n");
+	} else {
+	    mail_print (@$inhead,"]\n");
+	}
+    }
+    no strict;
+}
+
+
+sub parse822 (\@$$) {
+    use strict;
+
+    my ($mail, $encoding, $recurdepth) = @_;
+
+    my $deferred_message = "";
+    
+    if (defined $encoding) {
+	if ("quoted-printable" eq lc $encoding) {
+	    $mail = decode_quoted_printable(@$mail);
+	} elsif ("base64" eq lc $encoding) {
+	    $mail = decode_base64(@$mail);
+	} elsif ($encoding !~ /7bit|8bit|binary/i) {
+	    if($recurdepth == 1) {
+		$deferred_message = "X-demime-error: [demime could not interpret encoding $encoding - treating as plain text]\n";
+	    } else {
+		mail_print "[demime could not interpret encoding $encoding - treating as plain text]\n";
+	    }
+	}
+    }
+
+
+
+    # These global vars are used by parsehead when parsing the header
+    # and will contain a structured version of the current level mail
+    # header when parsehead is done.
+    my @head = ();
+    my %head = ();
+    my %headtypes = ();
+    my @headkey = ();
+    my $fromhead = "";
+    my $envfrom = "";	### tneff
+    
+    my $endhead = $[;
+
+    my $i;
+    my $s;
+
+    # Parse out the mainline mail header.
+
+    parsehead(@$mail, $endhead, $fromhead, %headtypes, @head, %head, @headkey, $envfrom);	### tneff
+    
+    my $content_transfer_encoding = $head{'content-transfer-encoding', 0};
+
+
+    if($recurdepth == 1) {
+
+	$main::fromhead = $fromhead;
+
+
+	# Remove some headers that, if they are there, will screw up the mail
+	# reposting, or possibly confuse some products, 
+	# or are likely inappropriate for mailing lists, I dunno.
+
+	delhead("encoding", -1, @headkey);
+	delhead("x-ms-attachment", -1, @headkey);
+	delhead("x-uid", -1, @headkey);
+	delhead("status", -1, @headkey);
+	delhead("disposition-notification-to", -1, @headkey);
+	delhead('x-juno-line-breaks', -1, @headkey);
+	delhead('x-ms-tnef-correlator', -1, @headkey);
+	delhead('x-msmail-priority', -1, @headkey);
+	delhead('x-mimeole', -1, @headkey);
+	delhead('importance', -1, @headkey);
+	delhead('x-priority', -1, @headkey);
+	delhead('content-disposition',-1,@headkey);
+	# The following headers are removed as part of incredimail cleanup.
+	delhead('x-fid', -1, @headkey);
+	delhead('x-fver', -1, @headkey);
+	delhead('x-bg', -1, @headkey);
+	delhead('x-bgt', -1, @headkey);
+	delhead('x-bgc', -1, @headkey);
+	delhead('x-bgpx', -1, @headkey);
+	delhead('x-bgpy', -1, @headkey);
+	delhead('x-asn', -1, @headkey);
+	delhead('x-asnf', -1, @headkey);
+	delhead('x-ash', -1, @headkey);
+	delhead('x-ashf', -1, @headkey);
+	delhead('x-an', -1, @headkey);
+	delhead('x-anf', -1, @headkey);
+	delhead('x-ap', -1, @headkey);
+	delhead('x-apf', -1, @headkey);
+	delhead('x-ad', -1, @headkey);
+	delhead('x-adf', -1, @headkey);
+	delhead('x-auto', -1, @headkey);
+	delhead('x-cnt', -1, @headkey);
+# An advertising header
+	delhead('x-hotpop', -1, @headkey);
+	# the following decryption will be done in our lifetime.
+	$head{'content-transfer-encoding', 0} = 
+	    ($main::SEVEN_BIT_ONLY?"7bit":"8bit")
+		if defined $head{'content-transfer-encoding', 0};
+    }
+    
+
+    # headout(@headkey, %head); # for debuggery only.
+
+    # OK, we have a couple of alternatives:
+    # 1.  This will be a multipart/alternative. We figure out which part what is and throw away
+    #     as much as we can.  We try to leave ourselves with a text/plain (1) text/rich (2) or
+    #     text/html (3) in those three priorities.
+    # 2.  This will be a singlepart.  We will process text/html or text/rich into text/plain,
+    #     using richtext or the Volunteer HTML formatting classes - we don't want to do a 
+    #     wonderful job of formatting - we want to get it into plain text.
+    # 3.  This will not be mime at all.  Whoopie.  Just pass it all through.
+    #     (Except for uuencoded stuff.)
+    # 4.  This will be a multipart/mixed.  Each section is processed, including one level of
+    #     descending into multipart/alternative.  In a mixed, every renderable section is
+    #     rendered.  If there is more than one text/plain, or a text/plain and a text/html,
+    #     they are all rendered.
+
+    if ((not defined $head{'content-type',0}) or $head{'content-type',0} =~ /^\s*text\/plain/i
+	or ($recurdepth == 1 && $head{'content-type',0} =~ /^\s*application\/pgp/i)
+	or $head{'content-type',0} =~ /^\s*text\s*$/i) {
+	&adj_msgid if $recurdepth == 1;
+	if (defined $head{'content-type',0}) {
+	    if($recurdepth == 1 && $head{'content-type',0} =~ /^\s*application\/pgp/i) {
+		$head{'content-type',0} = "text/plain";
+	    } else {
+		$head{'content-type',0} =~ s/^\s*text\s*$/text\/plain/;
+	    }
+	}
+# Untested code.
+#	if(defined $head{'content-transfer-encoding',0} and 
+#	   $head{'content-transfer-encoding', 0} =~ /(base64)/i) {
+#	    $head{'content-transfer-encoding', 0} = '8bit';
+#	    headout(@headkey, %head);
+#	    mail_print "X-MIME-Autoconverted: from base64 to 8bit by $main::demime_version\n";
+#	    mail_print "\n\n";
+#	    my @body = @{$mail}[$endhead..$#{$mail}];
+#	    textout(@{decode_base64(@body)});
+#	    return &EX_OK;
+#	}
+# end untested code
+	if ($::print_extra_headers) {
+	    headout(@headkey, %head, $deferred_message, $envfrom); ### tneff
+	    mail_print "\n";
+	}
+	textout([ @{$mail}[$endhead..$#{$mail}] ], 
+		$content_transfer_encoding);
+	return &EX_OK;
+    }
+
+    if($head{'content-type',0} =~ /^\s*text\/(en)?rich(ed)?($|\s|\s*;)/i) {
+	my ($saverich) = split(/;/,$head{'content-type',0});
+	$head{'content-type',0} = "text/plain; charset=\"us-ascii\"";
+	adj_msgid if $recurdepth == 1;
+	if($::print_extra_headers) {
+	    headout(@headkey, %head, $deferred_message, $envfrom); ### tneff
+	    mail_print "X-Converted-To-Plain-Text: from $saverich by $main::demime_version\n\n";
+	}
+	my @body = @{$mail}[$endhead..$#{$mail}];
+	richout(\@body, $content_transfer_encoding);
+	return &EX_OK;
+    }
+
+    if($head{'content-type',0} =~ /^\s*text\/html?($|\s|\s*;)/i) {
+	my ($saverich) = split(/;/,$head{'content-type',0});
+	$head{'content-type',0} = "text/plain; charset=\"us-ascii\"";
+	
+	adj_msgid if $recurdepth == 1;
+	if($::print_extra_headers) {
+	    headout(@headkey, %head, $deferred_message, $envfrom); ### tneff
+	    mail_print "X-Converted-To-Plain-Text: from $saverich by $main::demime_version\n\n";
+	}
+	htmlout([@{$mail}[$endhead..$#{$mail}]],$content_transfer_encoding);
+	return &EX_OK;
+    }
+
+    if($head{'content-type',0} =~ /^\s*message\/(rfc822|news)?($|\s|\s*;)/i) {
+	my ($saverich) = split(/;/,$head{'content-type',0});
+	$head{'content-type',0} = "text/plain; charset=\"us-ascii\"";
+	
+	adj_msgid if $recurdepth == 1;
+	if($::print_extra_headers) {
+	    headout(@headkey, %head, $deferred_message, $envfrom); ### tneff
+	    mail_print "X-Converted-To-Plain-Text: from $saverich by $main::demime_version\n\n";
+	}
+	my @body = @{$mail}[$endhead..$#{$mail}];
+	return parse822(@body, $content_transfer_encoding, $recurdepth+1);
+    }
+    
+    my @sections = ();
+    if($head{'content-type',0} =~ /^\s*multipart\/alternative\s*;.*?(boundary)=(?:(")([^"]*?)(")|([^;]+)(?:[;]|$))/i) { # nothing #
+	
+	# print "Quote = $2, delimiter = $3, Quote = $4, 5 = $5, 6 = $6, 7 = $7\n";
+        my $delim;     
+        if (defined $3) {
+           $delim = $3;
+        } elsif (defined $5) {
+           $delim = $5;
+        } else {
+           if(!$::RETURN_ERRORS_TO_ORIGIN) {
+               if($::print_extra_headers) {
+	           $head{'content-type',0} = "text/plain; charset=\"us-ascii\"";
+	           adj_msgid if $recurdepth == 1;
+	           headout(@headkey, %head, $deferred_message, $envfrom);
+               }
+               mail_print "\n\nCould not parse boundary from multipart $head{'content-type', 0}\n";
+               return &EX_OK;
+           }
+           print STDERR "598 Could not parse boundary from multipart $head{'content-type', 0}\n";
+           return &EX_NOPERM;
+        }   
+
+#    if($head{'content-type',0} =~ /^multipart\/alternative;.*?(boundary)=(\"?)([^\2]*?)(\2)/i) {
+#	# print "Quote = $2, delimiter = $3, Quote = $4\n";
+	my @body = @{$mail}[$endhead..$#{$mail}];
+	
+	mimesplit($delim, @body, @sections);
+	# mimesplitprint(\@sections);
+	my $winsect = -1;
+	my $winval = 99;
+	my @routine = ();
+	parse_alternative_body(@sections, $winsect, $winval, @routine);
+	if($winsect == -1) {
+           if(!$::RETURN_ERRORS_TO_ORIGIN) {
+               if($::print_extra_headers) {
+	           $head{'content-type',0} = "text/plain; charset=\"us-ascii\"";
+	           adj_msgid if $recurdepth == 1;
+	           headout(@headkey, %head, $deferred_message, $envfrom);
+               }
+               mail_print "\n\n$main::demime_version can't find any section that it can interpret.  Tell sender to send plain text.\n";
+               return &EX_OK;
+           }
+	   print STDERR "500 $main::demime_version can't find any section that it can interpret.  Please send plain text.\n";
+	   return &EX_NOPERM;
+	}
+	# print "The winning section is $winsect with $winval\n";
+	my ($saverich) = split(/;/,$head{'content-type',0});
+	$head{'content-type',0} = "text/plain; charset=\"us-ascii\"";
+	adj_msgid if $recurdepth == 1;
+        if($::print_extra_headers) {
+	    headout(@headkey, %head, $deferred_message, $envfrom); ### tneff
+	    mail_print "X-Converted-To-Plain-Text: from $saverich by $main::demime_version\n";
+	    mail_print ("X-Converted-To-Plain-Text: Alternative section used was ",
+		        $sections[$winsect]->[2],"\n\n");
+        }
+	my $endhead;
+	my $fromhead ='';
+	my %headtypes = (); 
+	my @headarr = (); 
+	my %head = (); 
+	my @headkey = (); 
+	my $envfrom = "";	### tneff
+	parsehead(@{$sections[$winsect]->[4]},
+		  $endhead, $fromhead, %headtypes, @head, %head, @headkey, $envfrom); 	### tneff
+	
+	&{$routine[$winval]}($sections[$winsect]->[3],
+                             $head{'content-transfer-encoding',0});
+	return &EX_OK;
+    }
+    if($head{'content-type',0} =~ /^\s*multipart\/(?:mixed|signed|related|parallel|report)\s*;.*?(boundary)=(?:(")([^"]*?)(")|([^;]+)(?:[;]|$))/i) { # nothing #
+	
+	# print "Quote = $2, delimiter = $3, Quote = $4, 5 = $5, 6 = $6, 7 = $7\n";
+        my $delim;     
+        if (defined $3) {
+           $delim = $3;
+        } elsif (defined $5) {
+           $delim = $5;
+        } else {
+           if(!$::RETURN_ERRORS_TO_ORIGIN) {
+               if($::print_extra_headers) {
+		   $head{'content-type',0} = "text/plain; charset=\"us-ascii\"";
+		   adj_msgid if $recurdepth == 1;
+	           headout(@headkey, %head, $deferred_message, $envfrom);
+               }
+               mail_print "\n\nCould not parse boundary from multipart $head{'content-type', 0}\n";
+               return &EX_OK;
+           }
+           print STDERR "598 Could not parse boundary from multipart $head{'content-type', 0}\n";
+           return &EX_NOPERM;
+        }   
+	
+	my @body = @{$mail}[$endhead..$#{$mail}];
+	
+	mimesplit($delim,@body,@sections);
+	# mimesplitprint(\@sections);
+	my $winsect = -1;
+	my $winval = 99;
+	my %selval;
+	my @routine;
+	if($main::EXPAND_MULTIPART_RFC822_SECTION) {
+	    %selval = ("text/plain" => 0 , "text/html" => 1, "text/enriched" => 2,
+			  "text/rich" => 2, "multipart/alternative" => 3, 
+			  "message/rfc822" => 4, "message/news" => 4, "multipart/related" => 4, "message/delivery-status" => 0);
+	    @routine = (\&textout, \&htmlout, \&richout, \&altout, \&parse822);
+	} else {
+	    %selval = ("text/plain" => 0 , "text/html" => 1, "text/enriched" => 2,
+		       "text/rich" => 2, "multipart/alternative" => 3,
+		       "message/delivery-status" => 0);
+	    @routine = (\&textout, \&htmlout, \&richout, \&altout);
+	}
+	for($i = 0; $i < @sections; $i ++) {
+	    $s = lc ( $sections[$i]->[2]) ;
+	    if(defined $selval{$s}) {
+		if($selval{$s} < $winval) {
+		    $winsect = $i;
+		    $winval = $selval{$s};
+		}
+	    }
+	}
+	my ($saverich) = split(/;/,$head{'content-type',0});
+	if($winsect == -1) {
+	    if(!$::RETURN_ERRORS_TO_ORIGIN) {
+               if($::print_extra_headers) {
+		   $head{'content-type',0} = "text/plain; charset=\"us-ascii\"";
+		   adj_msgid if $recurdepth == 1;
+	           headout(@headkey, %head, $deferred_message, $envfrom);
+               }
+               mail_print "\n\n$main::demime_version can't find any section that it can interpret in the $saverich.  Tell sender to send plain text.\n";
+               return &EX_OK;
+            }
+	    print STDERR "500 $main::demime_version can't find any section that it can interpret in your $saverich.  Please send plain text.\n";
+	    return &EX_NOPERM;
+	}
+	# print "The winning section has $winval\n";
+	$head{'content-type',0} = "text/plain; charset=\"us-ascii\"";
+	adj_msgid if $recurdepth == 1;
+        if($::print_extra_headers) {
+	    headout(@headkey, %head, $deferred_message, $envfrom); ### tneff
+	    mail_print "X-Converted-To-Plain-Text: from $saverich by $main::demime_version\n";
+	    mail_print ("X-Converted-To-Plain-Text: Alternative section used was ",
+		        $sections[$winsect]->[2],"\n\n");
+	}
+	for($i = 0; $i < @sections; $i ++) {
+	    $s = lc ($sections[$i]->[2]);
+	    # if(defined $selval{$s} and $selval{$s} == $winval) {
+	    my $endhead;
+	    my $fromhead ='';
+	    my %headtypes = (); 
+	    my @headarr = (); 
+	    my %head = (); 
+	    my @headkey = (); 
+	    my $envfrom = "";	### tneff
+	    parsehead(@{$sections[$i]->[4]},
+		      $endhead, $fromhead, %headtypes, @head, %head, @headkey, $envfrom);	### tneff
+	    if(defined $selval{$s}) {
+#		if(defined $head{"content-transfer-encoding",0}) {
+#		    my $cte = lc $head{'content-transfer-encoding',0};
+#		    if($cte eq "base64") {
+#			my $decoded = decode_base64(@{$sections[$i]->[3]});
+#			&{$routine[$selval{$s}]}($decoded, $recurdepth+1, $sections[$i]->[4]);
+#		    } else {
+#			&{$routine[$selval{$s}]}($sections[$i]->[3], 
+#						 $recurdepth+1, 
+#						 $sections[$i]->[4]);
+#		    }
+#		} else {
+                    my($relatedflag) = 0;
+                    if ($s eq 'multipart/related') {
+                       $relatedflag = $::print_extra_headers;
+                       $::print_extra_headers = 0;
+                    }
+                    
+		    &{$routine[$selval{$s}]}($sections[$i]->[3], 
+                                             $head{'content-transfer-encoding',0},
+					     $recurdepth+1, 
+					     $sections[$i]->[4]);
+                   $::print_extra_headers = $relatedflag if $relatedflag;
+#		}
+	    } else {
+		if(not defined $head{'content-type', 0}) {
+		    unless (defined $main::nowarn) {
+			mail_print "\n[$main::demime_version removed a section which didn't have a content-type header]\n";
+		    }
+		} else {
+		    my $ct = $head{'content-type',0};
+                    # worked under an older version of perl
+		    # undef $1; undef $2; undef $3; undef $4; undef $5;
+		    if($ct =~ /^([-0-9a-zA-Z]+\/[-a-zA-Z0-9]+)(;.*?(name|filename)=(\"?)([^\4]*)(\4))/i) {
+			if(defined $1 and not defined $main::nowarn) {
+			    mail_print "\n[$main::demime_version removed an attachment of type $1";
+			    if(defined $3) {
+				mail_print " which had a $3 of $5";
+			    }
+			    mail_print "]\n";
+			}
+		    } elsif($ct =~ /^([-0-9a-zA-Z]+\/[-a-zA-Z0-9]+)/) {
+			unless (defined $main::nowarn) {
+			    mail_print "\n[$main::demime_version removed an attachment of type $1]\n";
+			}
+		    } else {
+			unless (defined $main::nowarn) {
+			    mail_print "\n[$main::demime_version removed an attachment with a content-type header it could not parse.]\n";
+			    mail_print "[Content-Type: $ct]\n";
+			}
+		    }
+		}
+	    }
+	}
+	
+	return &EX_OK;
+    }
+    if(!$::RETURN_ERRORS_TO_ORIGIN) {
+	if($::print_extra_headers) {
+	    $head{'content-type',0} = "text/plain; charset=\"us-ascii\"";
+	    adj_msgid if $recurdepth == 1;
+	    headout(@headkey, %head, $deferred_message, $envfrom);
+	}
+	mail_print "\n\nThis program can't yet handle mime type ", $head{'content-type',0},"\n";
+	return &EX_OK;
+    }
+    print STDERR "599 This program can't yet handle mime type ", $head{'content-type',0},"\n";
+    return &EX_NOPERM;
+    no strict;
+}
+
+# End subroutines
+
+
+# Everything else is POD...
+
+=head1 NAME
+
+demime - Removes mime attachments and other cruft from e-mail
+
+=head1 SYNOPSIS
+
+ demime [-[no]d] [--[no]debug] [--[no]quiet] [-p] [--[no]preservefrom] 
+  [-x(=| )string] [--prefixchar(=| )string] [-i(=| )/path/to/file] 
+  [--debuginput(=| )/path/to/file] [-j(=| )/path/to/file] 
+  [--junkmail_file(=| )/path/to/file] [-[no]a] [--[no]adremove]
+  [--[no]7bit] [-7] [-8] [--8bit] [--[no]eliderfc822] [--[no]forwarderror]
+  [-w(=| )(0|1|2)] [--warnings_to_syslog(=| )(0|1|2)] [--] [relay|-]
+
+=head1 DESCRIPTION
+
+There are two major features of demime - mime removal and advertising
+signature removal.
+
+=head2 Mime Removal
+
+demime reads a piece of e-mail from standard input.  It is designed to
+be invoked directly as an alias program in /etc/aliases or by using
+majordomo's wrapper program.  It attempts to remove all mime cruft
+from the piece of mail, including alternative sections and attachments
+and output simple plain text, rendered as well as it possibly can.
+
+It is meant for the mailing list manager who wants to see an end to
+attachments and unreadable cruft on their mailing list.  They can
+put it into the input stream to make their mime troubles go away.
+
+It can also be used by an individual user who wants to remove all
+attachments before they read mail.  On at least one of the mailing
+lists I read, people are constantly sending huge attachments and
+alternate sections.  I filter all those through demime using maildrop
+(although procmail can be used as well).
+
+Basically, mime is fine if you are sending to another like mailer.  If
+you are using Eudora, and another Eudora user sends you mail, you are
+likely to interpret things in exactly the same manner.  But if you are
+a Eudora 3 user and a Netscape user sends you html mail, it is likely
+that the mail will appear right justified because of some bug or
+other.  Cross-client mime is just not ready for prime time.
+
+Also, the Majordomo Mailing List Manager inserts whatever is in the
+input stream into the digest after removing most of the headers.
+Specifically, such headers as 'Content-type' are removed, leaving
+readers no way to decode those sections.  This means that digest
+readers frequently have to skip attachment after attachment and it
+becomes difficult if not impossible for them to make heads or tails
+out of what comes from the digest - they also have no visual clue,
+unless they read very carefully, as to when they are in a quoted
+message, alternative section and so forth.
+
+Finally, mime can hide trojan horses.  File attachments to messages
+can contain viruses, and some mailers have been shown to be subject to
+attack from unruly javascripts which are imbedded in html sections.
+
+Because of the above, sending mime to mailing lists is probably not a
+good thing to do.  It is quite unlikely that your recipients will
+interpret your mime attachments in the way you mean them to, unless
+they happen to have exactly the right mailer.
+
+Microsoft uses various forms of attachments to, I believe, provide
+formatting hints.  These attachments are frequently provided as
+uuencoded files right in stream, although they may be mime as well.
+Those attachments are stripped out by demime.  To folks not using
+Microsoft mailers, these attachments are useless overhead.
+
+=head2 Advertising Removal
+
+Common patterns for footers added by such as Juno and Hotmail are
+detected and those signature blocks are removed.  This behavior can be
+inhibited by setting the $AD_REMOVE variable in the demime program
+itself to 0, or by specifying -noa or --noadremove.  See also L</FILES> 
+for the location and format of the file that allows you to control 
+the matching.
+
+=head2 Parameters
+
+=item -p | --[no]preservefrom
+
+Controls whether demime passes the Unix style "From" line through, if it
+exists.  Normally defaults to true, except in special situations, should
+probably be left as true.
+
+=item -f | --[no]forwarderror
+
+Controls whether certain errors are bounced back to the origin or
+forwarded. Typically, the sort of error that is handled this way is an
+error where no section can be interpreted by demime, or when the
+format of the mime is screwed up such that the parsing simply will not
+complete.  noforwarderror is the default - demime produces an error on
+standard output, and returns a code that tells the MTA that there has
+been a failure.  forwarderror attempts to produce the output and the
+error message to standard output.  If you were using demime in a pipe,
+using the -f flag might be more appropriate.
+
+=item -x(=| )string | --prefixchar(=| )string 
+
+String, which normally defaults to '|', is used by demime to indicate that
+demime should start a pipe and pass the processed mail to the pipe.  This is
+explained under $::MAJIC_PIPE_PREFIX_CHAR in the explaination of "target 
+positional parameter", below.
+
+
+=item -d | --debug
+
+Runs demime in debugging mode.  Currently the only effect of this is
+to force things which might go to syslog to always go to stderr.
+
+=item -i(=| )/path/to/file | --debuginput(=| )/path/to/file
+
+For debugging, the input file can be specified on the command line. 
+Setting this also sets -d.
+
+=item -j(=| )/path/to/junkmail/file | --junkmail_file(=| )/path/to/junkmail/file
+
+Defaults to /usr/lib/majordomo/demime_junkmail.cf. The path to the
+file where the ad removal parameters are kept.
+
+=item -[no]a | --[no]adremove
+
+Controls whether advertising removal is attempted.  As distributed, the 
+default is to remove advertising, and it can be negated. 
+
+=item -[no]7bit | -7 | -8bit | -8
+
+Normally, demime strips output to seven bit.  If you typically use a
+character set which requires that eight bit characters be passed through,
+set -8, -no7bit or -8bit to turn off the stripping. If you are using
+plain ascii on a US English mailing list, you probably want to keep the
+default and strip body output to seven bits.
+
+=item --[no]eliderfc822
+
+When a multipart/mixed or a multipart/alternative contains a
+message/rfc822 or message/news internal section, there exists a
+question as to what to do with that contained section.  It might be
+the right thing to elide the entire contained section (if you have
+people who are web TV subscribers who can only reply by attaching the
+entire original message).  It might be the right thing to treat the
+message as an internal plain text section and to demime it.  The
+default action of the script is to demime the contained message.  The
+alternative is to elide the contained mime section.  
+
+=item -w(=| )(0|1|2) | --warnings-to-syslog(= )(0|1|2)
+
+Normally, warnings go to syslog.  If debug is set, warnings go to
+stderr. That behaviour can be overridden if you set this. 0 says that
+warnings should always go to stderr, 1 says that warnings should go
+to syslog if stderr is not a terminal and to stderr if there is a tty
+and 2 says to always send warnings to stderr. Normally defaults to 
+0 if -d is set and 1 if -d is not set.
+
+=item --uselynx
+
+This operand causes demime to use the lynx browser to interpret the html 
+sections. The default for this is nouselynx if HTML::FormatText is installed
+and yes if it is not installed.  Your version of lynx must be recent enough to
+support the --stdin command line argument.
+
+Lynx is called with these arguments:
+lynx --stdin --dump --force_html --hiddenlinks=ignore --localhost --image_links 
+--nolist --noredir --noreferer --realm
+
+It must be in your path for this to work.
+
+=item --[no]quiet
+
+This parameter, if specified, will result in some messages
+that were output to indicate where stuff was elided not being
+produced.  That is, the attachments will be deleted silently instead of
+having notations put into the message body that an attachment was 
+deleted.
+
+=item target positional parameter: relay|-|>&=d|'|pipe as argument'
+
+This required option indicates the mailing address that should get the
+reformatted message.  If you want the message on stdout, use '-' as
+the address.  The address to send to will not be read from the mail
+file, for security reasons.
+
+You may specify a list of addresses.  Simply insure that they are passed
+as one token and separated by semicolons.  If you use sendmail, an alias
+such as:
+
+ realuser: "| demime '-;\realuser;otheruser' | other_program" 
+
+may be useful.  It will deliver both to the next program in the pipe and
+to the mail file belonging to the real user that you are aliasing.
+
+Finally, specifying such as 
+
+ realuser: "| demime '-;\realuser;>&=5' 5>>/tmp/trackfile | other_program" 
+
+might be useful for debugging, although hardly as a reliable log since
+no locking against interlacing is performed.  Note that the >&=digit
+syntax is checked for specifically and that you must arrange to have
+the file descriptor opened for demime if you use this syntax.  Another
+possibility would be
+
+ realuser: "| demime '-;\realuser;>&=2' | other_program" 
+
+to put a copy of the message on standard error as well.
+
+If you specify a pipe like 
+
+ realuser: "|demime - | other_program"
+
+and there is a demime failure, other program will have been invoked.  
+It might get just a null input, in which case, it might do the wrong thing.
+Demime's return code will be ignored as well.  In other words, demime might 
+fail to decode the message and return something descriptive on stderr, or 
+might simply want the MTA to requeue, but the return code will be hidden.
+
+If this possibility bothers you, you can specify the logical equivalent of 
+the above as 
+
+ realuser: "|demime  '| other_program'"
+
+or, as a more complex example:
+
+ realuser: "|demime '-;root;| some_other_program'"|other_program
+
+Which will cause the MTA to start demime and other_program, and then, when
+output is ready, demime will send it to standard output, mail it to root, 
+and invoke the pipe and send it to that program as well.  I'm now using the 
+simpler of the above two cases to invoke the majordomo programs via wrapper 
+to preserve the demime failure codes, if any.
+
+This causes demime to simply put whatever you specify as a single token
+and open its own pipe to it.  Note that if there are any shell metacharacters
+that it will invoke a shell, as per typical perl.  You may not specify a pipe
+with a ';' in it, as the semicolon split is done earlier.  If demime fails
+before it has anything to write, the other_program will never be invoked.
+Upon normal failure, demime collects return codes from any copies of sendmail
+it involes, any pipes it invokes, (with special treatment for the first pipe
+specified) and then any internal return codes.
+
+smrsh can't deal with the | as a pipe character.  Edit the script and 
+change $MAJIC_PIPE_PREFIX_CHAR to some other leading character(s), say '==' 
+(or set it with -x above).
+
+Then you can specify the alias as
+
+ realuser: "|demime -x '==' '== other_program'"
+
+and demime will convert it internally to 
+
+ realuser: "|demime '| other_program'"
+
+and then run it as a pipe, as above.  This is only a requirement to get
+around a limitation in smrsh for sendmail.
+
+If the first pipe has died on a signal, EX_TEMPFAIL will be returned.
+
+If the first pipe has returned a return code, then that return code will be
+returned by demime.
+
+If any other program has returned a non-zero return code, that return code 
+will be returned by demime.
+
+Demime's internal return code is returned.  This may be EX_OK (0) or some
+other code that indicates a temporary or permanent failure to the MTA.
+If demime has not yet tried to produce any output, none of the other 
+possibilities will apply.
+
+
+=head2 What demime will do when faced with different types of input:
+
+=item B<text/plain or no content type in mail header>
+
+The content will be passed through without reformatting.  A scan will
+be done to determine if there are uuencoded files instream If found,
+they will be replaced by a note.  Content-type: text all by itself on
+the header line will be converted to text/plain.  Some versions of elm
+incorrectly send 'text' as a content-type.
+
+=item B<text/enriched>
+
+A very simple formatter which is built into demime will attempt to do
+the mimimum amount of formatting possible.  exerpt, lt, nl, and np
+tags will be respected (np is executed as a double nl.  Comments and
+params will be elided and all other tags will be ignored.
+
+=item B<text/html>
+
+The HTTP::FormatText class will be used to format the input into
+simple text.  No additional formatting will be done.
+
+=item B<message/rfc822>
+
+An email which is a single message/rfc822 will be expanded such that
+this piece of e-mail is interpreted as if it were at the top level.
+If the message/rfc822 has sections, they will be interpreted as if it
+were at top level.  This only is done if the message/rfc822 is the
+type of the entire body.  If there is a multipart/mixed where one of
+the sections is message/rfc822, this section will be elided, and not
+considered for interpretation.
+
+This is only done because some CCMail users produce this structure if
+they forward a message and then change content.  It does not quite
+seem that this is the right thing to do, but we are trying to be
+liberal with what we accept while eliminating as much cruft as
+possible.  In general, it seems wrong to recursively flatten included
+rfc822 sections in a multipart/mixed.  So far, the ones I've seen seem
+to be cruft.
+
+A message/rfc822 in a multipart/mixed may be flattened or elided.
+This is dependent on the setting of the
+EXPAND_MULTIPART_RFC822_SECTION configuration variable in the script
+header.  If expanded, it will be treated as a top level
+message/rfc822. This switch also determined whether a multipart/related
+will be flattened or elided.
+
+=item B<message/delivery-status>
+
+Treated as text/plain.
+
+=item B<message/news>
+
+Treated exactly like message/rfc822.
+
+=item B<multipart/alternative>
+
+If a text/plain section is available, it will be displayed.  If no
+text/plain is available, but a text/html is available, it will be
+interpreted and displayed instead.  If no text/plain or text/html is
+available, but a text/enriched is available, it will be displayed.  If
+none of these are available, a message indicating that the mail cannot
+be interpreted will be displayed and the mail will be returned to the
+sender (by returning EX_NOPERM from sysexits.h), assuming that it is
+being invoked from a sendmail alias.  The non-displayed alternetive
+sections will be silently ignored - that is, no inline message will be
+displayed.  At top level, a header will be added indicating which
+alternative section was selected.
+
+=item B<multipart/mixed> or B<multipart/parallel>
+
+Any items that are text/html, text/enriched, or text/plain will be
+interpreted inline as if they were stand-alone, one after the other in
+the order presented.  If a multipart/alternative is presented inside
+of a top level multipart/mixed, that item wll be interpreted according
+to the rules for a top level multipart/alternative (the most
+renderable section will be rendered), except that failure to find an
+interpretable section will result in an inline message being inserted
+into the output stream rather than a mailbounce, and no header
+indication will be made of which section was selected for rendering.
+
+A section of message/rfc822 may be expanded or elided, depending on
+the setting of EXPAND_MULTIPART_RFC822_SECTION.  It is likely that
+these sections should generally be elided for typical mailing list
+usage.
+
+Other mime types will be elided from the output stream and replaced by
+a message that this has been done unless demime is in quiet mode.
+
+=item B<multipart/signed or multipart/related>
+
+At top level, treated like a multipart/mixed.  Renderable sections are
+rendered, and unrenderable sections, specifically the PGP signature,
+are elided. If the switch that turns on desending into a message/rfc822
+is set, the program will descend into any multipart/related it finds, 
+rendering text sections (including one of alternates) and eliding other 
+sections.
+
+=item B<Unknown>
+
+If the program does not recognize the top level mime type of the mail
+then a message will be printed and the mail will be bounced.
+
+=head1 FILES
+
+If the installer has left $AD_REMOVE = 1 in the program header (the
+default) the program will try to read the configuration file named in 
+the variable $junkmail_file, which is set to 
+F</usr/lib/majordomo/demime_junkmail.cf> in the distribution.  This file
+contains lines in the following format:
+
+ [prefix_match]
+ /regex/
+ /regex/
+ [suffix_match]
+ /regex/
+ /regex/
+ [prefix_match_x]
+ /regex/
+ /regex/
+ [center_match_x]
+ /regex/
+ [suffix_match_x]
+ /regex/
+ /regex/
+ [prefix_match_y]
+ /regex/
+ /regex/
+ [suffix_match_y]
+ /regex/
+ /regex/
+ [prefix_match_z]
+ /regex/
+ /regex/
+
+The regular expressions must be valid perl regular expressions.  Blank 
+lines, lines starting #, ; or //.. are considered comments and ignored.
+
+Prefix_match is meant to contain regular expressions that match
+"introducers".  Many of the advertising signatures use lines of
+underscores or dashes as introducers to their automatically added
+advertising signatures.  Suffix_match lines contain lines of things
+following introducers, such as yahoo or bigfoot advertising dreck.
+The use of introducers is designed to make the possibility of a false
+match (against someone who uses a legitimate signature that uses, say,
+a yahoo address) less likely.
+
+More than one [prefix_match] and [suffix_match] section may be
+specified, so that you can logically group the sections together so as
+to show that you are eliding particular sections of .signatures.
+However, the program will mash all [prefix_match] sections and all
+[suffix_match] sections together.  If you have decided to work without
+"introducers", then specify the [prefix_match] section only.
+
+If you specify a [prefix_match_X] where X can be anything you want,
+and a [suffix_match_X], where X corresponds with the X specified for
+[prefix_match_X] this will be treated as a separate tree.  The prefix
+in this list must preceed the suffixes in this list for this group to
+work and cause the section to be elided.  There can be more than one
+group, of course, that is, you can have [prefix_match_yahoo] with
+[suffix_match_yahoo] and [prefix_match_altavista] with
+[suffix_match_altavista].
+
+The effect of this is that once a prefix matches, the next line is
+checked to see if it matches any suffix in that section.  If it does,
+then the blank lines before the prefix, the prefix, and all lines as
+long as they match any regexp in the suffix are elided.  The eliding
+happens when the first line does not match the suffix section for that
+prefix, and that line is then checked against the list of prefixes.
+
+If there is no [center_match] or [suffix_match] for a group, any line
+that matches any prefix regex is elided.
+
+If a [center_match_X] is part of a match group, then things act a
+little differently.  A pattern in [prefix_match_X] must match for
+things to kick off.  Once a section with a center is active, no
+sections without a center are looked at.  Then a pattern in
+[center_match_X] must match.  Then a pattern in [suffix_match_X] must
+match.  If all this happens, before end of file then the section will
+be elided when the B<first> suffix pattern matches.  However, while a
+prefix/center/suffix combo is active, there is the possibility of a
+runaway.  That is, because a prefix could match an unrelated line, and
+not every line in a prefix/center group must match, a false match
+againse a prefix could cause the rest of the line to not be checked.
+Until a suffix match occurs, every prefix from every match group
+without a center is checked against that line.  If any of those
+prefixes match, the program decided that this is a false indication
+and does not delete the group - it throws away its current state and
+starts over with that line, checking that line against all prefixes.
+
+If a prefix from more than one prefix match section (without a center)
+matches, the suffixes for those prefixes are all checked against the
+next lines.  If no suffix for that prefix matches, it is simply
+removed from the "check" list.  But, at this time, if any suffix
+matches, the first pattern to not match closes the match.  The last
+pattern that contains a matching suffix (that is, the last closed
+match group) defines the high limit of the group of lines to be
+elided.
+
+Similarly, if more than one prefix match/center match/suffix match
+section matches, they are put in an active list and they are all
+matched against subsequent lines.  If the suffixes match before the
+centers match, they are elided from the match list.  But when the
+first one "closes", (that is, the prefix, center, and suffix match
+cycle completes) the eliding will be done and the pending match state
+for all matches will be reset.
+
+Regular expressions must start and end with a C</> (which is actually
+parsed off so that the patterns can be run without evaling a literal.
+If you need to specify a modifier, use the (?i) extension syntax
+(where, as an example, (?i) at the beginning of the pattern makes it
+case insensitive).  See L<perlre> for details on the extension syntax.
+
+The program assembles the mail file section as an array of lines and 
+then works forward through the lines.
+
+As it marches forward, (ignoring all blank lines or lines that consist
+only of the normal quote sign, the >) it matches all lines, against
+the regular expressions in [prefix_match], and, if specified,
+[prefix_match_group1], [prefix_match_group2] etc.  If none of these
+match, it goes on to the next line.  All of the prefixes that have a
+matching regular expression are made "active".  If none are active at
+the end of the cycle, the next line is checked against the prefixes.
+
+This is important because every line, pretty much, is checked against
+all of the prefixes.  The execution speed of this process is directly
+proportional to the number of prefix regexps (and to a lesser extent,
+the number of sections in the control file).  It is assumed that
+suffixes will be matched against fewer lines than the prefixes are -
+but that is up to the user.  General enough prefixes will cause the
+suffixes to be checked a lot.
+
+If there are match sections that have 'center' sections activated on
+the same line as sections that do not have 'center' sections, the ones
+without 'center' sections are ignored.
+
+=head1 ERROR REPORTING
+
+Some errors, such as mime types that are not parsable, are reflected
+directly to the mail sender as a bounce.  This is slightly unruly, but
+seems to be the right place to vector such things.  The program will
+put descriptive messages on STDERR and return with EX_NOPERM as
+described above.
+
+Other errors, such as errors in the format of regular expressions in
+the control file should not cause mail to bounce but should be
+reported somewhere.  By default, perl's normal warn statement is used
+by the inner routines to report such problems.  This is optionally
+intercepted and converted to a syslog message.  The default behaviour
+is to report to syslog if STDERR is not a tty device, and to report to
+STDERR if it is a tty device.  This means that the following
+unexpected behaviour can occur, if the following stage is run from the 
+console:
+
+ demime < mail_input 2>&1 | less
+
+This is, of course, a syntax error.  However, the message regarding
+that is sent to syslog.  To change this behaviour, change the
+WARNINGS_TO_SYSLOG variable by editing the perl script (or set the 
+--warnings_to_syslog command line variable.  Setting it to
+0 will always send warnings to STDERR, setting it to 1, the default,
+will work as described above, and setting it to 2 will force all
+warnings to syslog, even if demime is running from a terminal.  If the
+-d flag is set, warnings always go to STDERR. 
+
+Any messages from a 'die' at top level are sent to STDERR.  If
+warnings are being sent to syslog, the error is logged to syslog as
+well.  These errors are typically errors that will not allow the
+program to continue.
+
+If you need to elide the unix "From " line for archive separation,
+edit the script and find the variable $PRESERVE_UNIX_FROM_LINE and set
+it to 0, or set the --nopreservefrom command line switch.
+
+=head1 BUGS
+
+There are clearly many more mime types and so forth than I am parsing
+or am ever likely to parse.  Nesting is an issue - I so not parse down
+into a tree except for the limited case of a multipart/alternative
+inside of a multipart/mixed or included sections inside of a top level
+message/rfc822.  I suspect that I should parse a mixed inside of a
+mixed, except that I've never been presented with a test case where a
+mailer produced a mixed in a mixed that I wanted to keep in the output
+stream. I do descend more generally into multipart/related and mixed as
+of 99c, if the user turns on the options that aggressively descend into
+message/rfc822
+
+This program should be restructured such that it is completely
+recursive such that it can parse arbitrarialy nested structures, just
+for neatness sake, even if that ends up not being a good idea.  Some
+structuring has been done, but more needs to be done.
+
+I don't deal with digests at all.  For that matter, I am not sure if I
+should.  If someone sends in a message/digest, what should I do? Try
+to flatten it and convert it to RFC 1153 format by flattening each
+message as if it were at top level, and eliding headers as
+appropriate?  Is anyone even doing message/digest from a mailing list
+manager?  If someone has a sample they could send me, I'd appreciate
+it.
+
+People keep on inventing new mime types. The message/signed type probably
+should be treated like plain text but is not.
+
+Of course, the first bug is mime itself.  Mime should have been made
+transparently downward compatible with existing plain text mail
+systems or not done at all.  That should have, for example, included
+the ability to verify receiving capability before sending such that
+only mail that could have been understood would ever be sent.
+Complex, but the alternative was to break all mail systems, which was
+the choice that was made.
+
+=head1 SEE ALSO
+
+L<HTML::FormatText>. L<mime(1)>.
+
+=head1 COPYRIGHT
+
+Copyright (c) 1998, 1999 Nick Simicich.  All Rights Reserved.
+
+This program is free software; you can redistribute it and/or
+modify it under the same terms as perl itself.  You may not, however,
+copy code from this module to your own programs without crediting the
+author. 
+
+There is no warranty on this code, nor is there an implied warranty of
+suitability for purpose.  Use at your own risk.
+
+=head1 AUTHOR
+
+Nick Simicich <njs@scifi.squawk.com>
+
+If you shoot mime, do you need to do so silently?
+
+=head1 AVAILABILITY
+
+The latest version of this package is likely to be available from
+http://scifi.squawk.com/demime.html
+
+=cut
+
