@@ -16,7 +16,10 @@ my $aliases = undef;   # Aliases
 my $commands = undef;  # Commands
 my $bindings = DEFAULT_BINDINGS; 
 my $mappings = DEFAULT_MAPPINGS;
+
 my $state = undef;     # State information
+$state->{"bindings"} = $bindings;
+$state->{"mappings"} = $mappings;
 
 my $aim = Net::OSCAR->new();
 #$aim->timeout(1);
@@ -28,7 +31,7 @@ setup_aim();
 
 #login();
 
-select STDOUT; $| = 1;
+$| = 1;
 
 while (1) {
 	#out("Signon: " . $state->{"signon"} . " / $aim");
@@ -138,6 +141,9 @@ sub setup_commands {
 		"b" => "/buddylist",
 		"w" => "/who",
 	};
+
+	$state->{"aliases"} = $aliases;
+	$state->{"commands"} = $commands;
 }
 
 # Call backs
@@ -293,18 +299,16 @@ sub check_readline {
 		if (defined($ret)) {
 			my $pos = $state->{"input_position"}; 
 			my $back = length($ret) - $pos;
-			my $shift = ( ($pos > 1) ? "\r\e[".($pos-1)."C" : "\r" );
-			real_out("\r\e[2K" . $ret);
-			#print STDERR ": $back / $pos\n";
-
-			#real_out("$shift" . substr($ret,$pos - 1));
-			real_out("\e[".$back."D") if ($back > 0);
 			if (defined($extra->{"-print"})) {
+				print STDERR "Extra!\n";
 				real_out($extra->{"-print"});
 			}
+			real_out("\r\e[2K" . $ret);
+			real_out("\e[".$back."D") if ($back > 0);
 			$state->{"input_line"} = $ret;
 		} else {
 			if (defined($extra->{"-print"})) {
+				print STDERR "Extra!\n";
 				real_out($extra->{"-print"});
 			}
 		}
