@@ -17,7 +17,14 @@
 void network_init();
 
 /* network_send_discover
- * Send a discovery packet. */
+ * Send a discovery packet.
+ */
 int network_send_discover();
+
+/* Start up the network thread */
+void network_start_thread();
+
+/* The actual network thread */
+void network_thread(void *args);
 
 #endif
