@@ -20,9 +20,10 @@ I needed a shell kit for an aim client I was writing. All of the Term::ReadLine 
 
 =head1 DONE
 
+ - Callback for 'anykey'
  - Tab completion
  - Support for window size changes (sigwinch)
- - movement in-line editing.
+ - movement/in-line editing.
  - Completion function calls
  - Settable callbacks for when we have an end-of-line (EOL binding?)
 
@@ -45,8 +46,8 @@ use Term::ReadKey;
 # Useful constants we need...
 
 # for find_word_bound()
-use constant WORD_BEGINNING => 0;     # I want the beginning of this word.
-use constant WORD_END => 1;           # I want the end of the word.
+use constant WORD_BEGINNING => 0;     # look for the beginning of this word.
+use constant WORD_END => 1;           # look for end of the word.
 use constant WORD_ONLY => 2;          # Trailing spaces are important.
 use constant WORD_REGEX => 4;         # I want to specify my own regexp
 
@@ -598,10 +599,11 @@ sub delete_word_backward {
 	my $self = shift;
 	my $pos = $self->{"input_position"};
 	my $line = $self->{"input_line"};
-	my $regex = "[A-Za-z0-9]";
+	#my $regex = '[A-Za-z0-9]';
+	my $regex = '\S';
 	my $bword;
 
-	$bword = $self->find_word_bound($line, $pos, WORD_BEGINNING | WORD_ONLY);
+	$bword = $self->find_word_bound($line, $pos, WORD_BEGINNING | WORD_REGEX, $regex);
 
 	#$self->error("Testing $bword $pos");
 	# Delete whatever word we just found.
@@ -824,7 +826,7 @@ sub vi_delete_char_backward {
 
 sub vi_delete {
 	my $self = shift;
-	my $exec = shift;
+	my $exec = shift || 0;
 
 	if ($exec == 1) {
 		my ($start, $end);
@@ -970,8 +972,6 @@ sub find_word_bound ($$$;$) {
 	my $regex = "[A-Za-z0-9]";
 	my $bword;
 
-	#$pos--;# if ($pos + $self->{"leftcol"} > length($line));
-
 	$regex = shift if ($opts & WORD_REGEX);
 
 	# Mod? This is either -1 or +1 depending on if we're looking behind or
@@ -997,13 +997,14 @@ sub find_word_bound ($$$;$) {
 	# "testing here hello .......there"
 	#                           ^-- here
 	# Then we want to delete (match) all the periods (nonalphanums)
-	substr($regex, 1, 0) = "^" if (substr($line,$bword,1) !~ m/$regex/);
-
-	# Back up until we hit the bound of our "word"
-	$bword += $mod while (substr($line,$bword,1) =~ m/$regex/ && $bword >= 0);
+	substr($regex, 1, 0) = "^" if (substr($line,$bword,1) !~ m/$regex/ &&
+											 $opts & WORD_ONLY);
 
 	# Keep going while there's whitespace...
 	$bword += $mod while (substr($line,$bword,1) =~ m/\s/ && $bword >= 0);
+
+	# Back up until we hit the bound of our "word"
+	$bword += $mod while (substr($line,$bword,1) =~ m/$regex/ && $bword >= 0);
 
 	# Whoops, one too far...
 	$bword -= $mod;
