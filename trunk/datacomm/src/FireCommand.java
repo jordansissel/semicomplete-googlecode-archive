@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.3  2004/01/19 05:36:49  psionic
+ *   - initial
+ *
  *   Revision 1.2  2004/01/19 04:54:07  psionic
  *   - Added generic framework for syntax checking
  *
@@ -32,9 +35,13 @@ public class FireCommand extends Command {
 		this.args = this.parseArgs(args);
 	}
 
-	private boolean validateArguments(List args) 
+	protected boolean validateArguments(List args) 
 	        throws InvalidCommandArgumentsException {
-		System.err.println("Validating args: " + args);
+
+		// Number of arguments
+		if (args.size() != 2) {
+			return false;
+		}
 
 		// First Argument
 		String arg = (String) args.get(0);

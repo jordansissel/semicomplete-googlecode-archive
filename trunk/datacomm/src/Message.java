@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.3  2004/01/19 05:36:49  psionic
+ *   - initial
+ *
  *   Revision 1.2  2004/01/19 05:12:55  tristan
  *   required overriding toString
  *
@@ -22,5 +25,6 @@
 public interface Message {
     public byte[] toByteArray();
     public String toString();
+	 protected boolean validateArguments();
 }   // Message
 

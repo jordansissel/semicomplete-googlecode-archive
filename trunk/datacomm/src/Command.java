@@ -6,9 +6,12 @@
  *
  * Revisions:
  *	$Log$
+ *	Revision 1.7  2004/01/19 05:36:49  psionic
+ *	- initial
+ *
  *	Revision 1.6  2004/01/19 04:53:51  psionic
  *	- Added framework for generic syntax checking
- *
+ *	
  *	Revision 1.5  2004/01/19 02:25:24  psionic
  *	- Added validateArgument method. This will use the meta syntax specified by
  *	  each command and validate that it is indeed the proper data type.
@@ -36,9 +39,9 @@ import java.util.regex.Matcher;
 /**
  * Command sent to a client from the server.
  *
- * @author tristan
+ * @author tristan, jordan
  */
-public class Command {
+public class Command implements Message {
 
 	/* Regular expression to parse a command */
 	public static final Pattern argsPattern = Pattern.compile(
@@ -219,7 +222,8 @@ public class Command {
 	 * Validate argument data type
 	 *
 	 */
-	private boolean validateArguments(List args) {
+	protected boolean validateArguments() 
+	        throws InvalidCommandArgumentsException {
 		return true;
 	}
 }	// Command.java
