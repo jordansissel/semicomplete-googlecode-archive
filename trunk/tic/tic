@@ -273,31 +273,23 @@ sub check_readline {
 	if (defined($char)) {
 		if ($char eq "\n") {
 			real_out("\n\e[2K");
-			command($state->{"frag"});
-			$state->{"frag"} = undef;
+			command($state->{"input_line"});
+			$state->{"input_line"} = undef;
+			$state->{"input_position"} = 0;
 			return;
 		}
-		$state->{"frag"} = complete($state->{"frag"},
-											 length($state->{"frag"}),
-											 $char);
-		real_out("\r" . $state->{"frag"});
+		my $ret =  complete($state->{"input_line"},
+								  $state->{"input_position"},
+								  $char);
+		if (defined($ret)) {
+			my $back = length($ret) - $state->{"input_position"};
+			real_out("\e[2K\r" . $ret);
+			real_out("\e[".$back."D") if ($back > 0);
+			$state->{"input_line"} = $ret;
+		} else {
+			#real_out("\r" . $state->{"input_line"});
+		}
 	}
-}
-
-sub __check_readline {
-   my $char;
-   my ($ready) = $state->{"input"}->can_read();
-   if (defined($ready)) {
-      $char = getc();
-      if ($char eq "\n") {
-         command($state->{"frag"});
-         $state->{"frag"} = undef;
-         return;    
-      } else {
-         $state->{"frag"} = complete($state->{"frag"},
-                                      length($state->{"frag"}), $char);
-      }
-   }
 }
 
 # blocking readline
@@ -317,37 +309,70 @@ sub readline {
 sub complete {
    my ($line, $pos, $char) = @_;
 
-   if ($char eq "\t") {
+	if ($state->{"escape"}) {
+		$state->{"escape_string"} .= $char;
+		if ($state->{"escape_expect_ansi"}) {
+			$state->{"escape_expect_ansi"} = 0 if ($char =~ m/[a-zA-Z]/);
+		}
+		$state->{"escape_expect_ansi"} = 1 if ($char eq '[');
+		$state->{"escape"} = 0 unless ($state->{"escape_expect_ansi"});
+
+		unless ($state->{"escape_expect_ansi"}) {
+			if (length($state->{"escape_string"}) > 1) {
+				print STDERR "Escape string: " . $state->{"escape_string"} . "\n";
+				my $foo = $state->{"escape_string"};
+				if ($foo =~ m/[CD]$/) {
+					print STDERR $state->{"input_position"} . " < " . length($state->{"input_line"}) if ($foo =~ m/C$/);
+					if (($foo =~ m/C$/) &&
+						($state->{"input_position"} < length($state->{"input_line"}))) {
+						$state->{"input_position"}++;
+					} else { 
+						return;
+					}
+
+					if (($foo =~ m/D$/) && ($state->{"input_position"} > 0)) {
+						$state->{"input_position"}--;
+					} else {
+						return;
+					}
+				}
+			}
+			real_out("\e" . $state->{"escape_string"});
+			$state->{"escape_string"} = undef;
+		}
+		return undef;
+	}
+
+   if ($char eq "\t") {                        # Tab
       out("Tab pressed!");
 		$char = undef;
-   }
-
-	$char = undef if (ord($char) < 32);
-
-   return $line . $char;
-}
-
-sub _check_readline {
-	my $line;
-	if ($state->{"frag"}) {
-		$line = $state->{"frag"};
-		if ($line =~ m/\n/) {
-			($line, $state->{"frag"}) = split("\n",$line,2);
-			command($line);
-			return;
+   } elsif ($char eq "\e") {                   # Escape
+		#out("Escape!");
+		$state->{"escape"} = 1;
+		$state->{"escape_string"} = undef;
+		return undef;
+	} elsif ($char eq "\x08") {                 # Backspace
+		if (length($line) > 0) {
+			$line = substr($line, 0, $state->{"input_position"} - 1) .
+				     substr($line, $state->{"input_position"} + 1);
+			$state->{"input_position"}--;
 		}
+		$char = undef;
+	} elsif ($char eq "\x15") {                 # CTRL+U
+		$line = ""; # not undef...
+		$char = undef;
+		$state->{"input_position"} = 0;
+		$state->{"input_line"} = undef;
 	}
-	my ($ready) = $state->{"input"}->can_read(.01);
-	if (defined($ready)) {
-		my $line;
-		sysread(STDIN, $line, 512);
-		if ($line =~ m/\n/) {
-			($line, $state->{"frag"}) = split("\n",$line,2);
-			command($line);
-		} else {
-			$state->{"frag"} = $line;
-		}
+
+	if ((defined($char)) && (ord($char) >= 32)) {
+		$line = substr($line,0,$state->{"input_position"}) . $char . 
+			     substr($line,$state->{"input_position"});
+		$state->{"input_position"}++;
+		print STDERR "Position: " . $state->{"input_position"} . "\n";
 	}
+
+   return $line;
 }
 
 sub command {
