@@ -133,7 +133,7 @@ sub event_connection_changed {
 
 sub event_error {
 	my ($aim, $conn, $err, $desc, $fatal) = @_;
-	error("$desc");
+	error("[#$err] $desc");
 	if ($fatal) {
 		error("This error was fatal and you have been disconnected. :(") ;
 		$state->{"aimok"} = 0;
