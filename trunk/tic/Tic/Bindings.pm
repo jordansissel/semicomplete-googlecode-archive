@@ -6,7 +6,7 @@ use vars ('@ISA', '@EXPORT');
 use Exporter;
 
 @ISA = qw(Exporter);
-@EXPORT = qw(DEFAULT_BINDINGS DEFAULT_MAPPINGS);
+@EXPORT = qw(DEFAULT_BINDINGS DEFAULT_MAPPINGS prepare_completion);
 
 # Default key -> sub bindings
 use constant DEFAULT_BINDINGS => {
@@ -40,7 +40,18 @@ sub import {
 }
 
 sub set_state {
+	my $self = shift;
 	$state = shift;
+}
+
+sub prepare_completion {
+	#my ($state,$commands) = @_;
+	my $commands = shift;
+
+	while (my ($key,$val) = each(%{$commands})) {
+		$state->{"completion"}->{$key} = &{$val}("completion");
+		out("Completion: $key = " . $state->{"completion"}->{$key});
+	}
 }
 
 sub forward_char {
@@ -124,10 +135,9 @@ sub complete_word {
 
 sub do_complete {
 	my ($state,$string,$b,$e) = @_;
-	print STDERR "To complete: '$string'\n";
 	if ($b eq '0') {
 		if ($string =~ m!^/(.*)$!) {
-			$string = do_complete_command($state,$string);
+			$string = do_complete_command($state,$1);
 		}
 	} else {
 		# This isn't the first word, and maybe isn't a command.
@@ -135,23 +145,88 @@ sub do_complete {
 		my $line = $state->{"input_line"};
 		my @words = split(/\s+/,$line);
 
-		# Complete commands for /alias
-		if ($words[0] =~ m!^/alias!) {
-			if ($string eq $words[2]) {
-				$string = do_complete_command($state,$1) if ($string =~ m!^/(.*)$!);
+		my $cmd = substr($words[0],1);
+		my @compl = split(" ",$state->{"completion"}->{$cmd});
+		my $idx = 0;
+		my $index;
+		foreach my $word (@words) {
+			$index = $idx if ($string eq $word);
+			$idx++;
+			last if ($index);
+		}
+
+		my $how = $compl[$index - 1];
+		print STDERR join(" / ", @compl). "\n";
+		print STDERR "How: $how / $index / $string / $cmd / " . $state->{"completion"}->{$cmd} . "\n";
+
+		FOO:
+		$state->{"recursion_check"}++;
+		if ($state->{"recursion_check"} > 10) {
+			$state->{"recursion_check"} = 0;
+			return $string;
+		}
+		if ($how eq "%a") {
+			$string = do_complete_alias($state,$string);
+		} elsif ($how eq "%c") {
+			$string = do_complete_command($state,substr($string,1)) if ($string =~ m!^/!);
+		} elsif ($how eq "%s") {
+			$string = do_complete_buddy($state,$string);
+		} elsif ($how eq "%ca") {
+			# look back, find the command.
+			print STDERR "Looking back ($index)\n";
+			for (my $i = $index; $i >= 0; $i--) {
+				print STDERR "$i | $words[$i]\n";
+				if ($words[$i] =~ m!^/(.*)!) {
+					print "{".$words[$i] . "} / ";
+					my $c = $1;
+					if (defined($state->{"commands"}->{$c})) {
+						my @compl = split(" ",$state->{"completion"}->{$c});
+						$how = $compl[$index - $i - 1];
+						print STDERR "----\n";
+						print STDERR "%CA: $c : $how / $index - $i\n";
+						print STDERR join(" / ", @compl) . "\n";
+						print STDERR "----\n";
+						goto FOO;
+					}
+				}
 			}
 		}
 	}
+
+	$state->{"recursion_check"} = 0;
 	return $string;
 }
 
 sub do_complete_command {
 	my ($state, $partial) = @_;
-	#$partial =~ s!^/!!;
-	my @coms = grep(m/^$1/,keys(%{$state->{"commands"}}));
-	push(@coms,grep(m/^$1/,keys(%{$state->{"aliases"}})));
+	my @coms = grep(m/^$partial/,keys(%{$state->{"commands"}}));
+	push(@coms,grep(m/^$partial/,keys(%{$state->{"aliases"}})));
 	@coms = sort(@coms);
-	$partial  = "/" . $coms[0] . " " if (scalar(@coms) > 0);
+	$partial  = $coms[0] . " " if (scalar(@coms) > 0);
+	return "/$partial";
+}
+
+sub do_complete_alias {
+	my ($state, $partial)  = @_;
+	print STDERR "alias completion, $partial\n";
+	my @coms = grep(m/^$partial/,keys(%{$state->{"aliases"}}));
+	@coms = sort(@coms);
+	$partial  = $coms[0] . " " if (scalar(@coms) > 0);
+	return $partial;
+}
+
+sub do_complete_buddy {
+	my ($state, $partial) = @_;
+
+	my @matches;
+	foreach my $group ($state->{"aim"}->groups()) {
+		my @buddies = $state->{"aim"}->buddies($group);
+		print STDERR "$group - " . scalar(@buddies) . " / " . scalar(grep(m/^$partial/,@buddies)) . " / $partial\n";
+		push(@matches, grep(m/^$partial/i,@buddies));
+	}
+
+	$partial = $matches[0] . " " if (scalar(@matches) > 0);
+
 	return $partial;
 }
 
