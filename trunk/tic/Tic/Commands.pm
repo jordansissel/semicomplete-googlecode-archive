@@ -18,6 +18,15 @@ use Exporter;
 
 my $state;
 
+my %USERFLAGS = (
+	"a" => sub { my ($b) = @_; ($b->{online} && !$b->{away} && !defined($b->{idle_since})) },
+	"w" => sub { my ($b) = @_; ($b->{online} && $b->{away}) },
+	"i" => sub { my ($b) = @_; ($b->{online} && $b->{idle}) },
+	"m" => sub { my ($b) = @_; ($b->{online} && $b->{mobile}) },
+	"o" => sub { my ($b) = @_; ($b->{online}) },
+	"f" => sub { my ($b) = @_; (!$b->{online}) },
+);
+
 sub import {
 	#debug("Importing from Tic::Commands");
 	Tic::Commands->export_to_level(1,@_);
@@ -471,14 +480,7 @@ HELP
 
 		my %opts;
 		@ARGV = split(/\s+/, $args);
-		getopts('awoim', \%opts);
-		my %USERFLAGS = (
-		  "a" => sub { my ($b) = @_; ($b->{online} && !$b->{away} && !defined($b->{idle_since})) },
-		  "w" => sub { my ($b) = @_; ($b->{online} && $b->{away}) },
-		  "i" => sub { my ($b) = @_; ($b->{online} && $b->{idle}) },
-		  "m" => sub { my ($b) = @_; ($b->{online} && $b->{mobile}) },
-		  "o" => sub { my ($b) = @_; (!$b->{online}) },
-		);
+		getopts('awoimf', \%opts);
 
 		foreach my $flag (grep($opts{$_} == 1, keys(%opts))) { 
 			my $sub = $USERFLAGS{$flag};
@@ -496,11 +498,12 @@ HELP
 		$count += scalar(@buddies);
 		foreach my $b (sort(compare($a,$b),@buddies)) {
 			next unless (ref($b) eq 'HASH');
-			my $bl = $b->{"screenname"} . "(";
+			my $bl = $b->{"screenname"} . " (";
 			$bl .= " active" if (&{$USERFLAGS{"a"}}($b));
 			$bl .= " away" if (&{$USERFLAGS{"w"}}($b));
-			$bl .= " idle" if (&{$USERFLAGS{"i"}}($b));
-			$bl .= " offline" if (&{$USERFLAGS{"o"}}($b));
+			$bl .= " idle[" if (&{$USERFLAGS{"i"}}($b));
+			$bl .= " online" if (&{$USERFLAGS{"o"}}($b));
+			$bl .= " offline" if (&{$USERFLAGS{"f"}}($b));
 			$bl .= " mobile" if (&{$USERFLAGS{"m"}}($b));
 			$bl .= " )";
 			out("\t$bl");
