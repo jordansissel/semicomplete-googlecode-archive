@@ -12,7 +12,11 @@ use constant KEY_CONSTANTS => {
 		"\e[D"    => "LEFT",
 };
 
-use constant DEFAULT_OUTPUT => {
+use constant DEFAULT_SETTINGS => {
+
+};
+
+use constant DEFAULT_CONFIG => {
 	"timestamp"        => "(%H:%M:%S)",
 	"logstamp"         => "[%m/%d/%y %H:%M:%S]",
 	"im_awaymsg"       => "[AWAY] <*%s*> %m",
@@ -49,7 +53,7 @@ use constant DEFAULT_OUTPUT => {
 };
 
 @ISA = qw(Exporter);
-@EXPORT = qw(KEY_CONSTANTS DEFAULT_OUTPUT);
+@EXPORT = qw(KEY_CONSTANTS DEFAULT_CONFIG DEFAULT_SETTINGS);
 
 sub import {
 	#debug("Importing from Tic::Constants");

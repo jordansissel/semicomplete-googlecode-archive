@@ -4,6 +4,7 @@ package Tic::Commands;
 use strict;
 use Tic::Common;
 use Getopt::Std;
+use HTML::Entities;
 use POSIX qw(strftime);
 use vars qw(@ISA @EXPORT);
 use Exporter;
@@ -83,6 +84,7 @@ HELP
 		delete($state->{"away_responding"}->{"$sn"});
 	}
 
+	$msg = encode_entities($msg);
 	$aim->send_im($sn, $msg, $away);
 	my $wholog = get_config("who_log");
 	if ((get_config("logging") eq "all" || ((ref($wholog) eq 'HASH' && $wholog->{"$sn"} == 1)))) {

@@ -86,6 +86,15 @@ sub anykey_binding {
 		"sn" => $sn,
 		"time" => time,
 	};
+
+	# Record that we've typed...
+	if ($aim->is_on) {
+		$state->{"idle"} = time();
+		if ($state->{"is_idle"} == 1) {
+			$state->{"is_idle"} = 0;
+			$aim->set_idle(0);
+		}
+	}
 }
 
 sub killline_binding {

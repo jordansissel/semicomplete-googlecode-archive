@@ -964,6 +964,8 @@ sub find_word_bound ($$$;$) {
 	my $regex = "[A-Za-z0-9]";
 	my $bword;
 
+	#$pos--;# if ($pos + $self->{"leftcol"} > length($line));
+
 	$regex = shift if ($opts & WORD_REGEX);
 
 	# Mod? This is either -1 or +1 depending on if we're looking behind or
@@ -978,12 +980,12 @@ sub find_word_bound ($$$;$) {
 	
 	$bword = $pos;# - 1;
 
-	# If we're at the end of the string, ignore all trailing whitespace.
-	# unless WORD_ONLY is set.
-	#if (($bword + 1 == $pos) && ($opts & WORD_ONLY)) {
-		#$self->out("Word only");
-		$bword += $mod while (substr($line,$bword,1) =~ m/^\s$/);
-	#}
+	# Ignore trailing whitespace.
+	$bword += $mod while (substr($line,$bword,1) =~ m/^\s/);
+
+	# Back up if we're past the end of the string (cursor at end of line)
+	$bword -- if ($bword == $pos + $self->{"leftcol"});
+
 
 	# If we're not on an ALPHANUM, then we want to reverse the match.
 	# that is, if we are:
@@ -997,6 +999,8 @@ sub find_word_bound ($$$;$) {
 
 	# Whoops, one too far...
 	$bword -= $mod;
+
+	#$self->out("find_word_bound(): $bword");
 
 	return $bword;
 }

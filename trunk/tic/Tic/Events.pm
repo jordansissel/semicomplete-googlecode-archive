@@ -2,6 +2,7 @@
 package Tic::Events;
 
 use strict;
+use HTML::Entities;
 use Tic::Common;
 use Tic::Commands;
 use vars ('@ISA', '@EXPORT');
@@ -152,6 +153,8 @@ sub event_evil {
 sub event_im_in {
 	my ($aim, $from, $msg, $away) = @_;
 	$state->{"last_from"} = $from;
+
+	$msg = decode_entities($msg);
 
 	my $wlog = get_config("who_log");
 	if ( (get_config("logging") eq 'all') || (ref($wlog) eq 'HASH' && $wlog->{$from} == 1) ) {

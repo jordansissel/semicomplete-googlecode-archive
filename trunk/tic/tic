@@ -5,7 +5,7 @@ use strict;
 use IO::Select;
 use Net::OSCAR qw/:standard/;
 use POSIX qw(strftime);
-use Term::ReadKey;  #<3 readkey
+#use Term::ReadKey;  #<3 readkey
 use Term::Shelly;
 #use Term::Size;
 
@@ -20,12 +20,11 @@ mkdir($ENV{HOME}."/.tic", "0700") unless (-d $ENV{HOME} . "/.tic");
 
 my $aliases = undef;   # Aliases
 my $commands = undef;  # Commands
-my $config = DEFAULT_OUTPUT;
-my $settings = read_config($ENV{HOME}."/.ticrc");
+my $config = DEFAULT_CONFIG;
 
 my $state = undef;     # State information
 $state->{"config"} = $config;
-$state->{"settings"} = $settings;
+read_config($ENV{HOME}."/.ticrc");
 
 my $aim = Net::OSCAR->new(capabilities => [ "typing_status" ]);
 #$aim->timeout(1);
@@ -48,14 +47,27 @@ Tic::Bindings->set_state($state);
 
 setup_enviroment();
 
-login($settings->{"screenname"}, $settings->{"password"});
+login(get_config("screenname"), get_config("password"));
+
+#$state->{"is_idle"} = 0;
+$state->{"aim_ok"} = 1;
 
 while (1) {
-	$aim->do_one_loop();
+	$aim->do_one_loop() if ($state->{"aim_ok"});
 	$sh->do_one_loop();
 
 	# Some things (like typing-checking) depends on delays
 	do_check_typing();
+
+	# Are we idle?
+	if ($aim->is_on) {
+		if (($state->{"is_idle"} != 1) && 
+			 ($state->{"idle"} + get_config("idle_timeout") < time())) {
+			$sh->out("Setting idle - " . $state->{"idle"} . " / " . get_config("idle_timeout") . " / " . time());
+			$aim->set_idle(get_config("idle_timeout"));
+			$state->{"is_idle"} = 1;
+		}
+	}
 }
 
 # init functions
@@ -118,7 +130,7 @@ sub setup_commands {
 }
 
 sub setup_enviroment {
-	foreach my $key (keys(%{$settings})) {
+	foreach my $key (keys(%{$config})) {
 		#out("$key: " . $settings->{$key});
 		if ($key =~ m/^log\.([^\.]+)$/) {
 			set_config("logging","only specified users");
@@ -132,6 +144,8 @@ sub setup_enviroment {
 			set_config("timestamp",$settings->{"$key"});
 		}
 	}
+
+	# I'm confused why I wrote these lines :(
 	get_config("logging");
 	get_config("who_log");
 }
@@ -166,7 +180,6 @@ sub read_config {
 	my ($file) = shift;
 
 	if ( -r $file ) {
-		my $conf;
 		open(FILE,"< $file") or die("Failed trying to read $file (Unexpected!).\n$!\n");
 
 		my $c = 0;
@@ -177,10 +190,10 @@ sub read_config {
 			$line =~ s/#.*$//;
 			if ($line =~ m/^(
 								  screenname|password|server|port|log|log\.[^\.]+|
-								  timestamp|timestamp_fmt
+								  timestamp|timestamp_fmt|idle_timeout
 								  )(?:\s|=)/ix) {
 				if ($line =~ m/(\S+)\s*=\s*(.+)$/) {
-					$conf->{lc($1)} = $2;
+					$state->{"settings"}->{lc($1)} = $2;
 				} else {
 					print STDERR "Syntax error on line $c of $file:\n$line\n";
 				}
@@ -189,7 +202,6 @@ sub read_config {
 			}
 		}
 		close(FILE);
-		return $conf;
 	} 
 }
 
