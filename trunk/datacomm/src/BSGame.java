@@ -6,6 +6,9 @@
  * 
  * Revisions:
  *   $Log$
+ *   Revision 1.14  2004/01/19 23:41:34  tristan
+ *   fixed references to BSGrid
+ *
  *   Revision 1.13  2004/01/19 05:47:43  njohnson
  *   fixed some NullPointerExcpeptions. fixed shipLength problem is BSGrid.java
  *
@@ -44,8 +47,6 @@
  *
  */
 
-import java.util.*;
-
 /**
  * The BattleShip game, based of the Milton Bradley Rules.
  * This will be usable with the BattleshipPlayer and 
@@ -63,9 +64,6 @@ public class BSGame {
 				// 3 - Battleship
 				// 4 - Carrier
 
-    static char[] horz_coords = 
-    { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J' };
-
     /**
      * Constructor of BSGame.
      *
@@ -74,24 +72,11 @@ public class BSGame {
         ownGrid = new BSGrid();
         ownGrid.generateGrid(); 
         targetGrid = new BSGrid();
-	this.clearGrid( targetGrid );
-        shipSunk = new boolean[ 5 ];
-        for( int i = 0; i < shipSunk.length; i++ ) {
+        shipSunk = new boolean[ BSGrid.SHIP_COUNT ];
+        for ( int i = 0; i < shipSunk.length; i++ ) {
             shipSunk[ i ] = false;
-	}
-
+        }
     } // BSGame()
-
-
-    /**
-     * Clears the bytes of a grid all to zero.
-     *
-     * @param the_grid - the grid that is cleared
-     */
-    public void clearGrid( BSGrid the_grid ) {
-        byte[][] new_grid = new byte[10][10];
-        the_grid.generateGrid( new_grid );
-    } //clearGrid()
 
     /** 
      * Alters the byte at a point on the grid given
@@ -105,27 +90,25 @@ public class BSGame {
         int j = -1;
         byte new_byte = 0;
 
-	//go from characters to numbers to work with array
-	for( int k = 0; k < horz_coords.length; k++ ) {
-            if( x == horz_coords[ k ] ) {
-                  j = k; 
-	    }
-	}
+        //go from characters to numbers to work with array
+        for ( int k = 0; k < BSGrid.ROW_COUNT; k++ ) {
+                if ( x == k + 'A' ) {
+                  j = k;
+            }
+        }
 
-	//decrement i once to work with the array
+        //decrement i once to work with the array
         i = i - 1; 
 
+        //set new_byte to the correct value
+        if ( hit ) {
+                new_byte = 4;
+        } else {
+                new_byte = 2;
+        }
 
-	//set new_byte to the correct value
-	if( hit ) {
-            new_byte = 4;
-	} else {
-            new_byte = 2;
-	}
-
-	//set the byte in the grid
-        the_grid.getGridArray()[ j ][ i ] = new_byte;
-
+        //set the byte in the grid
+        the_grid.getGrid()[ j ][ i ] = new_byte;
     } //alterGrid()
 
     /**
@@ -158,9 +141,9 @@ public class BSGame {
         boolean retVal = false;
         int j = 0;  
       
-	//go from characters to numbers to work with array
-	for( int k = 0; k < horz_coords.length; k++ ) {
-            if( x == horz_coords[ k ] ) {
+        //go from characters to numbers to work with array
+        for( int k = 0; k < BSGrid.ROW_COUNT; k++ ) {
+            if( x == k + 'A' ) {
                  j = k; 
             }
         }
@@ -168,9 +151,9 @@ public class BSGame {
         i = i - 1;
 
         //check for a hit
-        if( ownGrid.getGridArray()[ j ][ i ] == 1 ) {
+        if( ownGrid.getGrid()[ j ][ i ] == 1 ) {
             retVal = true;
-        } else if( ownGrid.getGridArray()[ j ][ i ] == 0 ) {
+        } else if( ownGrid.getGrid()[ j ][ i ] == 0 ) {
             retVal = false;
         } else {
             //throw the exception
@@ -195,122 +178,104 @@ public class BSGame {
         int dir = 0; //direction of ship
 
         //first check the shipSunk array
-	if( shipSunk[ i - 1 ] ) {
+        if( shipSunk[ i - 1 ] ) {
             retVal = true;
-	} else { //calculate whether the ship was sunk
+        } else { //calculate whether the ship was sunk
             BSShip the_ship; // the ship to test
             int startX; //the letter coord
-	    int startY; //the number coord
+            int startY; //the number coord
             int endX;
-	    int endY;
+            int endY;
 
             //get the ship from the fleet
             the_ship = ownGrid.getShip( i );
 
             int shipL = the_ship.getLength();
 
-            startX = the_ship.getStart()[ 0 ];
-	    startY = the_ship.getStart()[ 1 ];
-	    endX = the_ship.getEnd()[ 0 ];
-	    endY = the_ship.getEnd()[ 1 ];
+            startX = the_ship.getStartX();
+            startY = the_ship.getStartY();
+            endX = the_ship.getEndX();
+            endY = the_ship.getEndY();
 
-
-
-	    //set the direction
+            //set the direction
             if( startY > endY ) { 
-		dir = 1;
-	    } else if( startX > endX ) {
+                dir = 1;
+            } else if( startX > endX ) {
                 dir = 2;
-	    } else if( startX < endX ) {
-		dir = 4;
-	    } else {
+            } else if( startX < endX ) {
+                dir = 4;
+            } else {
                 dir = 3;
-	    }
+            }
 
-	    //a variable for the for loops
-	    int p = 0;
+            //a variable for the for loops
+            int p = 0;
             //variable to break out of switch
-	    //and the ship is not Sunk!
+            //and the ship is not Sunk!
             boolean notSunk = false;
 
-	    //run through test
+            //run through test
             switch( dir ) {
                 case 1:
                     for( p = 0; p < shipL; p++ ) {
-			if( ownGrid.getGridArray()[startY+p][startX] != 3 ) {
+                        if( ownGrid.getGrid()[startY+p][startX] != 3 ) {
                            notSunk = true; 
-			}
-			if( notSunk ) {
+                        }
+                        if( notSunk ) {
                             break;
-			}
+                        }
                     }
-		    if( notSunk ) {
+                    if( notSunk ) {
                         break;
-		    }
+                    }
                     retVal = true;
                     break;
                 case 2:
                     for( p = 0; p < shipL; p++ ) {
-                        if( ownGrid.getGridArray()[startY][startX-p] != 3 ) {
+                        if( ownGrid.getGrid()[startY][startX-p] != 3 ) {
                            notSunk = true;
-			}
-			if( notSunk ) {
+                        }
+                        if( notSunk ) {
                             break;
-			}
+                        }
                     }
-		    if( notSunk ) {
+                    if( notSunk ) {
                         break;
-		    }
+                    }
                     retVal = true;
                     break;
                 case 3:
                     for( p = 0; p < shipL; p++ ) {
-                        if( ownGrid.getGridArray()[startY-p][startX] != 3 ) {
+                        if( ownGrid.getGrid()[startY-p][startX] != 3 ) {
                             notSunk = true;
-			}
-			if( notSunk ) {
-			    break;
-			}
+                        }
+                        if( notSunk ) {
+                            break;
+                        }
                     }
-		    if( notSunk ) {
+                    if( notSunk ) {
                         break; 
-		    }
-		    retVal = true;
+                    }
+                    retVal = true;
                     break;
                 case 4:
                     for( p = 0; p < shipL; p++ ) {
-                        if(  ownGrid.getGridArray()[startY][startX+p] != 3 ) {
+                        if(  ownGrid.getGrid()[startY][startX+p] != 3 ) {
                             notSunk = true;
-			}
-			if( notSunk ) {
+                        }
+                        if( notSunk ) {
                             break;
-			}
+                        }
                     }
-		    if( notSunk ) {
+                    if( notSunk ) {
                         break; 
-		    }
-		    retVal = true;
-		    break;
+                    }
+                    retVal = true;
+                    break;
             } //switch
-
         }
 
         return retVal;
     } //shipSunk()
-     
-    /**
-     * The main method that tests stuff.
-     *
-     * @args - player one's name
-     *         player two's name
-     *       type of game?
-     */
-    public static void main( String[] args ) {
-        //Generate a game
-        BSGame test_game = new BSGame();
-
-
-    } //main()
-
 } // BSGame
 
