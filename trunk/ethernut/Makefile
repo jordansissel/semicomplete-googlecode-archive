@@ -3,13 +3,14 @@
 # $Id$
 
 CC=gcc
-CFLAGS+=-fno-builtin-log -Wall -O2
-
-# For Linux and FreeBSD
-#LDFLAGS+=-pthread
+CFLAGS+=-fno-builtin-log -Wall -g 
+#-O2
 
 # For solaris
-LDFLAGS+=-lpthread -lsocket -lnsl
+#LDFLAGS+=-lpthread -lsocket -lnsl
+
+# For Linux and FreeBSD
+LDFLAGS+=-pthread
 
 OBJECTS=main.o busmaster.o log.o network.o i2c.o
 
@@ -22,6 +23,11 @@ clean:
 ethernut: $(OBJECTS)
 	$(CC) $(LDFLAGS) $(OBJECTS) -o ethernut
 
-%.o: %.c
+%.o: %.c 
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# dependencies
+busmaster.o: busmaster.h
+i2c.o: i2c.h
+log.o: log.h
+network.o: network.h
