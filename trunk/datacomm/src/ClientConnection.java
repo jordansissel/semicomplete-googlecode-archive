@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.5  2004/01/13 18:03:32  tristan
+ *   began adding constants for message identifiers
+ *
  *   Revision 1.4  2004/01/13 14:43:27  tristan
  *   added connection status information
  *
@@ -28,6 +31,11 @@ import java.net.InetAddress;
  * @author tristan
  */
 public abstract class ClientConnection extends Thread {
+    // constants
+    public static final int HELLO_MSG = 101;
+    public static final int HELLO_RESPONSE = 102;
+
+    // member variables
     private InetAddress serverHost;
     private int serverPort;
     private boolean connected;
