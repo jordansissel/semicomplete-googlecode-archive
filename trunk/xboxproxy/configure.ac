@@ -57,7 +57,6 @@ AC_ARG_WITH([libnet-prefix],
 				[ LIBNET_PREFIX=$withval ],
 				[ LIBNET_PREFIX=/usr/local ])
 
-LIBNET_PREFIX=/usr/local
 
 AC_CHECK_FILE([$LIBNET_PREFIX/lib/libnet.a],
 				  [LDFLAGS="$LDFLAGS -L$LIBNET_PREFIX/lib"
