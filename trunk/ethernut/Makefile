@@ -27,7 +27,9 @@ ethernut: $(OBJECTS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # dependencies
-busmaster.o: busmaster.h
-i2c.o: i2c.h
-log.o: log.h
-network.o: network.h
+busmaster.o: busmaster.h common.h
+i2c.o: i2c.h common.h
+log.o: log.h common.h
+network.o: network.h common.h
+
+
