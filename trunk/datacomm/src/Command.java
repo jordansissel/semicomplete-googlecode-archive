@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.3  2004/01/14 06:02:14  tristan
+ *   removed unneeded var
+ *
  *   Revision 1.2  2004/01/14 05:53:33  tristan
  *   finished command parsing
  *
@@ -119,7 +122,6 @@ public class Command {
     public static Command parseCommand( String input ) {
         Command retVal = null;
         Matcher m = commandPattern.matcher( input );
-        List args = null;
 
         // command found
         if ( m.matches() ) {
@@ -128,7 +130,7 @@ public class Command {
             // args found
             if ( m.groupCount() > 1 ) {
                 String unparsedArgs = m.group( 2 );
-                args = new ArrayList();
+                List args = new ArrayList();
                 retVal.setArgs( args );
 
                 // parse each arg
