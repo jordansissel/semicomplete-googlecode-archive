@@ -1,0 +1,47 @@
+#!/usr/bin/perl
+
+use strict;
+use Net::OSCAR;
+
+my $aliases = {};   # Aliases
+my $commands = {};  # Commands
+my $state = {};     # State information
+
+my $aim = Net::OSCAR->new();
+
+set_callbacks();
+
+login();
+
+while (1) {
+	$aim->do_one_loop();
+}
+
+sub login {
+	my ($user,$pass);
+	$user = query("login: ");
+	$pass = query("password: ", 1);
+	$aim->signon($user,$pass);
+}
+
+sub query {
+	my ($q, $hide) = shift;
+	real_out("$q");
+	chomp($q = <STDIN>);
+	return $q;
+}
+
+sub out { real_out(join("\n",@_) . "\n"); }
+sub real_out { print STDOUT @_; }
+
+# Callbacks
+
+sub set_callbacks {
+	$aim->set_callback_buddy_in(\&event_buddy_in);
+}
+
+sub event_buddy_in {
+	my ($aim, $sn, $group, $data) = @_;
+	out("$sn ($group) signed on.");
+	#$state->{"buddylist"}->{
+}
