@@ -6,8 +6,8 @@
  * 
  * Revisions:
  *   $Log$
- *   Revision 1.11  2004/01/19 02:24:09  njohnson
- *   Names of players for the game are now in the hands of the client.
+ *   Revision 1.12  2004/01/19 04:27:36  njohnson
+ *   All stubs written. Time to test.
  *
  *   Revision 1.10  2004/01/19 02:14:39  njohnson
  *   the constructor redone. BSGame does not keep track of names[
@@ -69,7 +69,7 @@ public class BSGame {
      */
     public BSGame() {
         ownGrid = new BSGrid();
-        this.initializeGrid( ownGrid ); 
+        ownGrid.generateGrid(); 
         targetGrid = new BSGrid();
 	this.clearGrid( targetGrid );
         shipSunk = new boolean[ 5 ];
@@ -79,9 +79,6 @@ public class BSGame {
 
     } // BSGame()
 
-    public void initializeGrid( BSGrid the_grid ) {
-        the_grid.generateGrid();
-    } //initializeGrid()
 
     /**
      * Clears the bytes of a grid all to zero.
@@ -162,20 +159,20 @@ public class BSGame {
 	//go from characters to numbers to work with array
 	for( int k = 0; k < horz_coords.length; k++ ) {
             if( x == horz_coords[ k ] ) {
-                  j = k; 
-	    }
-	}
+                 j = k; 
+            }
+        }
 
         i = i - 1;
 
-	//check for a hit
+        //check for a hit
         if( ownGrid.getGridArray()[ j ][ i ] == 1 ) {
             retVal = true;
         } else if( ownGrid.getGridArray()[ j ][ i ] == 0 ) {
             retVal = false;
         } else {
             //throw the exception
-	}
+        }
 
         return retVal;
     } //shot()
@@ -193,17 +190,106 @@ public class BSGame {
      */
     public boolean shipSunk( int i )  {
         boolean retVal = false;
+        int dir = 0; //direction of ship
 
         //first check the shipSunk array
 	if( shipSunk[ i - 1 ] ) {
             retVal = true;
 	} else { //calculate whether the ship was sunk
             BSShip the_ship; // the ship to test
-            int X; //the letter coord
-	    int Y; //the number coord
+            int startX; //the letter coord
+	    int startY; //the number coord
+            int endX;
+	    int endY;
 
             //get the ship from the fleet
-	    the_ship = ownGrid.getShip( i );
+            the_ship = ownGrid.getShip( i );
+
+            int shipL = the_ship.getLength();
+
+            startX = the_ship.getStart()[ 0 ];
+	    startY = the_ship.getStart()[ 1 ];
+	    endX = the_ship.getEnd()[ 0 ];
+	    endY = the_ship.getEnd()[ 1 ];
+
+
+
+	    //set the direction
+            if( startY > endY ) { 
+		dir = 1;
+	    } else if( startX > endX ) {
+                dir = 2;
+	    } else if( startX < endX ) {
+		dir = 4;
+	    } else {
+                dir = 3;
+	    }
+
+	    //a variable for the for loops
+	    int p = 0;
+            //variable to break out of switch
+	    //and the ship is not Sunk!
+            boolean notSunk = false;
+
+	    //run through test
+            switch( dir ) {
+                case 1:
+                    for( p = 0; p < shipL; p++ ) {
+			if( ownGrid.getGridArray()[startY+p][startX] != 3 ) {
+                           notSunk = true; 
+			}
+			if( notSunk ) {
+                            break;
+			}
+                    }
+		    if( notSunk ) {
+                        break;
+		    }
+                    retVal = true;
+                    break;
+                case 2:
+                    for( p = 0; p < shipL; p++ ) {
+                        if( ownGrid.getGridArray()[startY][startX-p] != 3 ) {
+                           notSunk = true;
+			}
+			if( notSunk ) {
+                            break;
+			}
+                    }
+		    if( notSunk ) {
+                        break;
+		    }
+                    retVal = true;
+                    break;
+                case 3:
+                    for( p = 0; p < shipL; p++ ) {
+                        if( ownGrid.getGridArray()[startY-p][startX] != 3 ) {
+                            notSunk = true;
+			}
+			if( notSunk ) {
+			    break;
+			}
+                    }
+		    if( notSunk ) {
+                        break; 
+		    }
+		    retVal = true;
+                    break;
+                case 4:
+                    for( p = 0; p < shipL; p++ ) {
+                        if(  ownGrid.getGridArray()[startY][startX+p] != 3 ) {
+                            notSunk = true;
+			}
+			if( notSunk ) {
+                            break;
+			}
+                    }
+		    if( notSunk ) {
+                        break; 
+		    }
+		    retVal = true;
+		    break;
+            } //switch
 
         }
 

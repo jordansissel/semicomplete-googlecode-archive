@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.8  2004/01/19 04:27:36  njohnson
+ *   All stubs written. Time to test.
+ *
  *   Revision 1.7  2004/01/19 02:06:04  njohnson
  *   fixed some javadoc mistakes
  *
@@ -41,7 +44,8 @@
  * @author Nicholas R. Johnson
  */
 public class BSShip {
-    private byte[] location = new byte[4];    
+    private byte[] location;    
+    private int length;
 
     /**
      *  A default constructor that makes a ship at A, 1.
@@ -49,10 +53,8 @@ public class BSShip {
      *
      */
     public BSShip() {
-        location[ 0 ] = 0;
-        location[ 1 ] = 0;
-        location[ 2 ] = 0;
-        location[ 3 ] = 0;
+	location = new byte[4];
+	length = 0;
     } // constructor
     
     /**
@@ -68,10 +70,17 @@ public class BSShip {
             byte endPointX,
             byte endPointY ) {
 
+        location = new byte[ 4 ];
         location[ 0 ] = startPointX;
         location[ 1 ] = startPointY;
         location[ 2 ] = endPointX;
         location[ 3 ] = endPointY;
+
+        if( endPointX == startPointX ) {
+            length = Math.abs( endPointY - startPointY ); 
+	} else {
+            length = Math.abs( endPointX - startPointX );
+	}
 
     } // constructor
 
@@ -86,7 +95,7 @@ public class BSShip {
      * @return 
      */
     public byte[] getStart() {
-        byte[]    startLocation = new byte[2];    
+        byte[] startLocation = new byte[2];    
         startLocation[ 0 ] = location[ 0 ];
         startLocation[ 1 ] = location[ 1 ];
         return startLocation;
@@ -109,6 +118,13 @@ public class BSShip {
         return endLocation;
     } //getEnd()
 
+    /** 
+     *
+     *
+     */
+    public int getLength() {
+        return length;
+    }
 } //BSShip
 
 

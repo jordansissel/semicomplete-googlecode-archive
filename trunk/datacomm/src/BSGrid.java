@@ -6,8 +6,8 @@
  *
  * Revisions:
  *     $Log$
- *     Revision 1.15  2004/01/19 02:24:09  njohnson
- *     Names of players for the game are now in the hands of the client.
+ *     Revision 1.16  2004/01/19 04:27:36  njohnson
+ *     All stubs written. Time to test.
  *
  *     Revision 1.11  2004/01/18 23:02:48  njohnson
  *     added some important stubs that need to be implemented.
@@ -156,9 +156,9 @@ public class BSGrid {
 
                 //check for ship overlap again.
                 overlap = findOverlap( shipL,
-                                                       startRowValue,
-                                                       startColValue,
-                               dir );
+                                       startRowValue,
+                                       startColValue,
+                                       dir );
             }
 
             //fill in the grid with the ship
@@ -218,7 +218,7 @@ public class BSGrid {
     private boolean findOverlap( int shipLength,
                                  int startRowValue,
                                  int startColValue,
-                 int dir ) {
+                                 int dir ) {
         boolean retVal = false;
         int p = 0;
 
