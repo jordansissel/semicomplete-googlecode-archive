@@ -6,10 +6,8 @@
  *
  * Revisions:
  * 	$Log$
- * 	Revision 1.9  2004/01/13 22:56:23  njohnson
- * 	cleaned up the generateGrid code by putting the overlap finding
- * 	algorithm in another method. Will clean up tabs for Tristan soon
- * 	with a script.
+ * 	Revision 1.10  2004/01/13 23:04:20  njohnson
+ * 	fixed a couple bugs
  *
  * 	Revision 1.8  2004/01/13 03:46:49  tristan
  * 	removed useless import
@@ -130,6 +128,7 @@ public class BSGrid {
 			//fill in ships and make sure they
 			//don't overlap or go off the grid
 		 	while( overlap ) {
+				//generate the new startValues
 				startRowValue = (int)
 				( Math.ceil( Math.random()*10 ) - 1.0 );
 				startColValue = (int)
@@ -137,6 +136,7 @@ public class BSGrid {
 
 				overlap = false;
 
+				//reverse the ship if necessary
 				if( dir == 1 && ( startColValue - shipL) < 0 ) {
 					dir = 3;
 				} else if( dir == 2 &&
@@ -157,14 +157,7 @@ public class BSGrid {
 						       dir );
 			}
 
-			//make the ship!
-			fleet[ i ] = new BSShip((byte)startRowValue,
-				(byte)startColValue,
-				(byte)endRowValue,
-				(byte)endColValue );
-
 			//fill in the grid with the ship
-
 			switch( dir ) {
 				case 1:
 				for( p = 0; p < shipL; p++ ) {
@@ -195,7 +188,14 @@ public class BSGrid {
 				endColValue=startColValue+shipL;
 				break;
 			} //switch
+
+			//make the ship!
+			fleet[ i ] = new BSShip((byte)startRowValue,
+				(byte)startColValue,
+				(byte)endRowValue,
+				(byte)endColValue );
 		}
+
 
 } //generateGrid()
 
