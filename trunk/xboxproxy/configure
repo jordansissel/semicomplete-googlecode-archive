@@ -1,0 +1,45 @@
+#!/bin/sh
+
+LIBNET_VERSION=
+INCLUDES=-I/usr/local/include
+LIBS=-L/usr/local/lib
+
+
+libnet_check() {
+	echo "Checking for libnet..."
+	ERR=0
+
+	cat > /tmp/__test.c << LIBNET_CODE
+#include <sys/types.h>
+#include <stdio.h>
+#include <libnet.h>
+
+int main() { printf("%s\n", LIBNET_VERSION); return 0; }
+LIBNET_CODE
+
+	LIBNET_COMPILE=`libnet-config --cflags --defines | perl -ne 'chomp; print "$_ "'`
+	LIBNET_LDFLAGS=`libnet-config --libs | perl -ne 'chomp; print "$_ "'`
+
+	echo "CFLAGS+=${LIBNET_COMPILE}" >> Makefile.inc
+	echo "LIBS+=${LIBNET_LDFLAGS}" >> Makefile.inc
+
+	# compile and test it.
+	gcc $INCLUDES $LIBS `libnet-config --cflags --libs --defines` -o /tmp/__test /tmp/__test.c && \
+	/tmp/__test> /dev/null
+
+	if [ $? -eq 0 ]; then
+		LIBNET_VERSION=`/tmp/__test | awk -F. '{print $1"_"$2}'`
+		echo "Libnet version $LIBNET_VERSION found, ok!"
+		echo "BUILDFLAGS+=-DLIBNET_VERSION_${LIBNET_VERSION}" >> Makefile.inc
+	else
+		echo "Libnet was not found or failed for some reason"
+		ERR=1
+	fi
+
+	rm -f /tmp/__test /tmp/__test.c
+	return $ERR
+}
+
+rm Makefile.inc
+
+libnet_check || exit 1
