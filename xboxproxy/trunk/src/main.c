@@ -7,6 +7,7 @@
 #include <sys/time.h>
 
 #include <pcap.h>
+#include <libnet.h>
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -67,6 +68,7 @@ static fd_set proxysocks;
 static char *pcapdev = NULL;
 static char *proxyserver = NULL;
 static int use_udp = 0;
+static struct libnet_link_int *libnet;
 //static int clientfd = 0;
 
 void addxbox(u_char *macaddr, int proxyip);
@@ -163,6 +165,12 @@ void pcap(void *args) {
 	if (handle == NULL) {
 		debuglog(0, "Error trying to open %s: %s", pcapdev, errbuf);
 		//return 1;
+		pthread_exit(NULL);
+	}
+
+	libnet = libnet_open_link_interface(pcapdev, errbuf);
+	if (libnet == NULL) {
+		debuglog(0, "libnet_open_link_interface() failed: %s", errbuf);
 		pthread_exit(NULL);
 	}
 
@@ -341,8 +349,6 @@ int recv_from_proxy(proxy_t *ppt) {
 
 	char *packet;
 
-	packet = malloc(1024);
-
 	if (use_udp) {
 		//bytes = recvfrom(ppt->fd, &pktlen, 4, 0, 
 	} else {
@@ -351,21 +357,27 @@ int recv_from_proxy(proxy_t *ppt) {
 	debuglog(1, "[%d] %d", bytes, pktlen);
 
 	/* if bytes read is 0, then the connection was closed. */
-	if (bytes == 0) {
+	if (bytes < 0) {
+		debuglog(0, "recv_from_proxy - recv() (1) failed: %s", strerror(errno));
+		return bytes;
+	} else if (bytes == 0) {
 		remove_proxy(ppt);
 		return 0;
 	}
 
 	packet = malloc(pktlen);
 	bytes = recv(ppt->fd, packet, pktlen, 0);
-	if (bytes == 0) {
+	if (bytes < 0) {
+		debuglog(0, "recv_from_proxy - recv() (2) failed: %s", strerror(errno));
+		return bytes;
+	} if (bytes == 0) {
 		remove_proxy(ppt);
 		return 0;
 	}
 
 	debuglog(1, "Packet received from %s. Length: %d vs %d", inet_ntoa(ppt->addr), bytes, pktlen);
 
-	distribute_packet(ppt, packet, pktlen);
+	distribute_packet(ppt, packet, bytes);
 
 	return bytes;
 }
@@ -379,6 +391,10 @@ void distribute_packet(proxy_t *ppt, char *packet, int pktlen) {
 
 	debuglog(3, "REMOTE PACKET From: %s", ether_ntoa((struct ether_addr *)eptr->ether_shost));
 	debuglog(3, "REMOTE PACKET To: %s", ether_ntoa((struct ether_addr *)eptr->ether_dhost));
+
+	libnet_write_link_layer(libnet, pcapdev, packet, pktlen);
+
+	hexdump(packet, pktlen);
 }
 
 void remove_proxy(proxy_t *ppt) {
