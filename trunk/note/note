@@ -1,0 +1,65 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Curses::UI;
+
+my $cui = new Curses::UI(-color_support => 1);
+
+my $main = $cui->add('Main', 'Window', 
+							-height => 10,
+						  	-bg => 'green', -fg => 'green');
+
+$cui->set_binding(sub {exit(0)}, "\cC");
+
+my $list = list_create($main);
+my $calendar = calendar_create($main);
+
+$list->values( [1234, "hello", "rabble" ] );
+$list->add_labels( {
+					1234 => "one two three four",
+					hello => "testing",
+					rabble => "foobar",
+					});
+
+$list->focus();
+
+$cui->mainloop();
+
+## LIST
+
+sub list_create {
+	my $widget = shift;
+	my $ret;
+
+	$ret = $widget->add('list', 'Listbox');
+	$ret->onChange(\&list_item_selected);
+	#$ret->onSelectionChange(\&list_item_selected);
+}
+
+sub list_item_selected {
+	my $widget = shift;
+	
+	print STDERR $widget->id() . "\n" if (defined($widget->id()));
+}
+
+## CALENDAR
+
+sub calendar_create {
+	my $widget = shift;
+
+	$widget->add('calendar', 'Calendar', -onchange => \&calendar_date_set);
+	$widget->set_binding(\&calendar_close, "\cG");
+	return $widget;
+}
+
+sub calendar_date_set {
+	my $cal = shift;
+
+	print $cal->get();
+}
+
+sub calendar_close {
+	list_show($main);
+}
+
