@@ -1,7 +1,7 @@
 #!/usr/bin/perl
-# (?:Perl|Pretty)i? Music Player
+# (?:Perl|Pretty)i?\sMusic\xPlayer
 # or...
-# Pimp Is a Music Player (I had to!)
+# Pimp Is a Music Player
 #
 # Anyhoo... on with the perl!
 # $Id$
@@ -15,8 +15,8 @@ use File::Glob qw(:glob);
 use IO::Socket;
 use IO::Select;
 use IO::Handle;
+use MP3::Tag;
 use Socket;
-use Fcntl;
 use POSIX;
 
 $SIG{INT} = \&do_shutdown;
@@ -48,6 +48,8 @@ play_song($ARGV[0]);
 
 initialize_ao;
 my $device = open_live(default_driver_id(), 16, 44100, 2, is_big_endian(), {});
+die ("Unable to open sound device.\n") unless defined($device);
+$pimp->{"sound_state"} = 1;
 
 my $select = IO::Select->new($player);
 
@@ -82,7 +84,7 @@ sub signal_event {
 	if ($event eq 'end_of_song') {
 		next_song();
 	} elsif ($event eq 'new_song') {
-		print $player "BROADCAST randomsonginfohere\n";
+		print $player "BROADCAST " . display_song($pimp->{"current_song"}) . "\n";
 	}
 
 }
@@ -90,6 +92,10 @@ sub signal_event {
 sub play_loop {
 	# Audio Stuff
 	if ($pimp->{"state"} eq "playing") {
+		if ($pimp->{"sound_state"} == 0) {
+			$device = open_live(default_driver_id(), 16, 44100, 2, is_big_endian(), {});
+			$pimp->{"sound_state"} = 1;
+		}
 		my $pcm;
 		if ($pimp->{"current_type"} eq "mp3") {
 			$pcm = decode_current_mp3();
@@ -111,6 +117,7 @@ sub decode_current_mp3 {
 			return;
 		}
 		warn "decoding error: " . $stream->error();
+		print $player "BROADCAST Error in decoding of " . $pimp->{"current_song"}->{"file"} . "\n";
 		return;
 	}
 	$synth->synth($frame);
@@ -128,12 +135,68 @@ sub handle_command {
 		$pimp->{"state"} = ($pimp->{"state"} eq "pause") ? "playing" : "pause";
 		print $player "$who OK!\n";
 	} elsif ($cmd eq 'play') {
+		play_song($pimp->{"current_song"}->{"file"})
+			if ($pimp->{"state"} =~ m/(?:playing|stop)/);
 		$pimp->{"state"} = "playing";
+
 	} elsif ($cmd eq 'stop') {
 		$pimp->{"state"} = 'stop';
+		
+		# Shutdown sound
+		if (close_ao($device)) {
+			$pimp->{"sound_state"} = 0;
+		} else {
+			print STDERR "Unable to close sound?!\n";
+		}
 	} elsif ($cmd eq 'next') {
 		next_song();
+	} elsif ($cmd eq 'quit') {
+		print $player "$who CLOSE\n";
+	} elsif ($cmd eq 'info') {
+		my $csong = $pimp->{"current_song"};
+		print $player "$who " . display_song($csong) . "\n";
+	} elsif ($cmd eq 'set') {
+		my $file = $pimp->{"current_song"}->{"file"};
+		my ($tag,$value) = split(/\s+/,$args,2);
+		chomp($value);
+		$value =~ s/\r//;
+		$tag = lc($tag);
+		if ($tag =~ m/(title|track|album|artist)/) {
+			my $mp3 = MP3::Tag->new($file);
+			$mp3->get_tags();
+			my $id3 = $mp3->{ID3v1} || $mp3->new_tag("ID3v1");
+			print $player "$who Setting $tag to '$value'\n";
+			if ($tag eq 'title') {
+				$id3->song($value);
+			} elsif ($tag eq 'album') {
+				$id3->album($value);
+			} elsif ($tag eq 'artist') {
+				$id3->artist($value);
+			} elsif ($tag eq 'track') {
+				$id3->track($value);
+			} else {
+				print $player "$who Invalid tag name, '$tag'\n";
+				return;
+			}
+			$mp3->{ID3v1}->write_tag();
+			my ($song, $track, $artist, $album) = $mp3->autoinfo();
+			$pimp->{"playlist"}->{$file} = { title => $song, artist => $artist, 
+														track => $track, album => $album,
+														file => $file };
+			$pimp->{"current_song"} = $pimp->{"playlist"}->{$file};
+			$mp3->close();
+		} else {
+			print $player "$who Invalid tag name, '$tag'\n";
+		}
+
 	}
+}
+
+sub display_song {
+	# ($album) $artist - $title
+	my $foo = shift;
+	return sprintf("(%s) %s - %s", $foo->{"album"}, $foo->{"artist"}, 
+						                $foo->{"title"});
 }
 
 sub next_song {
@@ -156,25 +219,26 @@ sub play_song {
 		local $/ = undef;
 		open(MP3, $file) or signal_error("open_fail", $_[0]) and return;
 		my $buffer = <MP3>;
+		print "BUFFER LENGTH: " . length($buffer) . "\n";
 		close(MP3);
-
-		my $mp3 = MP3::Tag->new($file);
-		my ($song, $artist, $no, $album) = $mp3->read_filename();
-		$mp3->close();
-		$pimp->{"playlist"}->{$file} = { song => $song, artist => $artist, 
-		                                 no => $no, album => $album };
-		$pimp->{"current_song"} = $pimp->{"playlist"}->{$file};
-
 		$stream->buffer($buffer);
 		$pimp->{"current_type"} = "mp3";
-		$pimp->{"current_song"} = $file;
+
+		my $mp3 = MP3::Tag->new($file);
+		my ($song, $track, $artist, $album) = $mp3->autoinfo();
+		$pimp->{"playlist"}->{$file} = { title => $song, artist => $artist, 
+		                                 track => $track, album => $album,
+	                                    file => $file };
+		$pimp->{"current_song"} = $pimp->{"playlist"}->{$file};
+		$mp3->close();
+
 	}
 	$pimp->{"state"} ||= "playing";
 	$pimp->{"state"} = "playing" if ($pimp->{"state"} eq "pause");
 	signal_event("new_song");
 }
 
-
+###
 # SERVER STUFF
 
 sub run_server {
@@ -208,11 +272,7 @@ sub run_server {
 
 				unless (defined($recv) && length($data)) {
 					# Client disconnected, clean up.
-					delete $ready{$socket};
-					delete $buffers{$socket};
-					delete $clients->{$socket};
-					$select->remove($socket);
-					close($socket);
+					drop_client($socket, \%ready, \%buffers, $clients, $select);
 					next;
 				} 
 
@@ -225,7 +285,7 @@ sub run_server {
 		}
 
 		foreach my $client (keys(%ready)) {
-			handle($clients, $client, \@{$ready{$client}});
+			handle($clients, $client, \%ready, \%buffers, $select);
 			delete($ready{$client});
 		}
 	}
@@ -234,35 +294,40 @@ sub run_server {
 sub handle {
 	my $clients = shift;
 	my $client = shift;
-	my $lines = shift;
+	my ($ready, $buffers, $select) = @_;
+	my $lines = \@{$ready->{$client}};
 	if ($client eq $serv) {
 		foreach my $line (@{$lines}) {
-			my ($who, $resp) = split(/\s+/,$line);
+			my ($who, $resp) = split(/\s+/,$line,2);
 			if ($who eq 'BROADCAST') {
 				foreach $client (keys(%{$clients})) {
 					next if ($client eq $serv);
 					$client = $clients->{$client};
-					print $client "$resp\n";
+					print $client "$resp";
 				}
 			} else {
 				$client = $clients->{$who};
-				print $client $resp . "\n";
+				if ($resp eq "CLOSE\n") {
+					drop_client($client, $ready, $buffers, $clients, $select);
+				} else {
+					print $client "$resp";
+				}
 			}
 		}
 	} else {
-		print "Client: $client ($serv)\n";
+		#print "Client: $client ($serv)\n";
 		map { print $serv "$client $_" } @{$lines};
 	}
 }
 
-sub nonblock {
+sub drop_client {
 	my $socket = shift;
-	my $flags;
-
-	$flags = fcntl($socket, F_GETFL, 0)
-		or die "Can't get flags for socket: $!\n";
-	fcntl($socket, F_SETFL, $flags | O_NONBLOCK)
-		or die "Can't make socket nonblocking: $!\n";
+	my ($ready, $buffers, $clients, $select) = @_;
+	delete $ready->{$socket};
+	delete $buffers->{$socket};
+	delete $clients->{$socket};
+	$select->remove($socket);
+	close($socket);
 }
 
 sub do_shutdown {
