@@ -51,7 +51,7 @@ sub prepare_completion {
 
 	while (my ($key,$val) = each(%{$commands})) {
 		$state->{"completion"}->{$key} = &{$val}("completion");
-		out("Completion: $key = " . $state->{"completion"}->{$key});
+		#out("Completion: $key = " . $state->{"completion"}->{$key});
 	}
 }
 
