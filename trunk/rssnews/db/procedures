@@ -1,0 +1,27 @@
+CREATE OR REPLACE FUNCTION insert_or_update(TEXT, TEXT, TEXT, INTEGER)
+	RETURNS BOOLEAN AS '
+DECLARE
+	mytitle ALIAS FOR $1;
+	myurl ALIAS FOR $2;
+	mydesc ALIAS FOR $3;
+	mysid ALIAS FOR $4;
+	dupid	INTEGER;
+BEGIN
+	SELECT INTO dupid id FROM articles WHERE (title = mytitle OR url = myurl) 
+	                                         AND sourceid = mysid;
+	IF NOT FOUND THEN
+		RAISE NOTICE ''New article found - Adding...'';
+		INSERT INTO articles (title, url, descr, sourceid) VALUES 
+			(mytitle, myurl, mydesc, mysid);
+		RETURN FALSE;
+	ELSE
+		RAISE NOTICE ''Old article found - Updating...%'';
+		UPDATE articles SET title = mytitle, url = myurl, descr = mydesc WHERE id = dupid;
+		RETURN TRUE;
+	END IF;
+
+	RETURN 0;
+END;
+' LANGUAGE plpgsql;
+	
+SELECT insert_or_update('Hello', 'http://www.foo.com', '', 10);
