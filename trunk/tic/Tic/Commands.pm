@@ -518,7 +518,8 @@ HELP
 
 		$sh->out("$g") if scalar(@buddies);
 		$count += scalar(@buddies);
-		foreach my $b (sort(compare($a,$b),@buddies)) {
+		my @buddies = sort { lc($a->{"screenname"}) cmp lc($b->{"screenname"}) } @buddies;
+		foreach my $b (@buddies) {
 			next unless (ref($b) eq 'HASH');
 			my $bl = $b->{"screenname"} . " (";
 			$bl .= " active" if (&{$USERFLAGS{"a"}}($b));
