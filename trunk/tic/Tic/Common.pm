@@ -172,7 +172,13 @@ sub login {
 	$state->{"signon"} = 1;
 	$state->{"aimok"} = 1;
 	out("Logging in to AIM, please wait :)");
-	$state->{"aim"}->signon($user,$pass);
+	my %hash = ( screenname => $user, 
+					 password => $pass );
+	$hash{"port"} = $state->{"settings"}->{"port"} || "5190";
+	$hash{"host"} = $state->{"settings"}->{"host"} || "login.oscar.aol.com";
+
+	out("Connecting to " . $hash{"host"} . ":" . $hash{"port"} . " as " . $hash{"screenname"});
+	$state->{"aim"}->signon(%hash);
 }
 
 1;
