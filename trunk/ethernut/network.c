@@ -256,8 +256,9 @@ void network_removenut(int index) {
 	log(0, "Trying to lock nut_mutex");
 	MUTEX_LOCK(&nut_mutex);
 
-	log(0, "Haven't seen %s in a while, removing.", inet_ntoa(nuts[c].ip));
+	log(0, "ping timeout - Removing %s from nut list", inet_ntoa(nuts[index].ip));
 	for (c = index; c < nut_count - 1; c++) {
+		log(10, "c/nutcount: %d / %d", c, nut_count);
 		nuts[c] = nuts[c + 1];
 	}
 
