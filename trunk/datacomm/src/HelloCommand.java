@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.2  2004/01/20 03:57:34  psionic
+ *   *** empty log message ***
+ *
  *   Revision 1.1  2004/01/20 00:05:55  psionic
  *   - initial commit
  *
@@ -34,7 +37,7 @@ public class HelloCommand extends Command {
 		System.err.println("HelloCommand validateArguments()");
 
 		// Number of arguments
-		if ((args.size() != 1) || ( ((String)args.get(0)) == "" )) {
+		if ((args.size() != 1) || ( ((String)args.get(0)).equals("") )) {
 			System.err.println("- Failed num args ("+args+")");
 			return false;
 		}

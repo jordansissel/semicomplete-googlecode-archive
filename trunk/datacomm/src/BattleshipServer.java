@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.6  2004/01/20 03:57:34  psionic
+ *   *** empty log message ***
+ *
  *   Revision 1.5  2004/01/19 23:48:52  psionic
  *   - Bulk commit: Command infrastructure improved. New commands can be added
  *     dynamically now.
@@ -26,6 +29,7 @@
 
 import java.net.*;
 import java.io.IOException;
+import java.util.HashMap;
 
 /**
  * The main method that starts the battle ship server.
@@ -38,6 +42,8 @@ public class BattleshipServer extends Thread {
     private int udpPort;
 	 private ServerSocket tcplisten;
 	 private DatagramSocket udplisten;
+
+	 private HashMap playerwants = new HashMap();
 
     /**
      * Starts up the program.
@@ -60,7 +66,7 @@ public class BattleshipServer extends Thread {
                                                                 udp );
                 server.start();
             } catch ( NumberFormatException e ) {
-                System.err.println( "TCPprt and UDPport must be numbers" );
+                System.err.println( "TCPport and UDPport must be numbers" );
                 System.exit( 2 );
             } catch ( Exception e ) {
                 System.err.println( e.getMessage() );
@@ -130,6 +136,13 @@ public class BattleshipServer extends Thread {
     public void setUdpPort( int udpPort ) {
         this.udpPort = udpPort;
     }
+
+	 public String playerWants() {
+		 if (playerwants.containsKey(player1)) {
+			 return playerwants.get(player1);
+		 }
+		 return null;
+	 }
 
     /**
      * Starts the server's tcp and udp servers.
