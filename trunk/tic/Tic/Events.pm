@@ -43,7 +43,7 @@ sub event_buddy_in {
 		prettyprint($state, "buddy_online", { sn => $sn, group => $group } );
 	} else {
 		my $b = $state->{"buddylist"}->{$sn};
-		if ($b->{"away"} != $data->{"away"}) {
+		if ($b->{"away"} xor $data->{"away"}) {
 			if ($data->{"away"}) {
 				prettyprint($state, "buddy_away", { sn => $sn } );
 			} else {
@@ -54,7 +54,7 @@ sub event_buddy_in {
 			if ($data->{"idle"}) {
 				prettyprint($state, "buddy_idle", { sn => $sn, idle => $data->{"idle"} } );
 			} else {
-				prettyprint($state, "buddy_noidle", { sn => $sn } );
+				prettyprint($state, "buddy_notidle", { sn => $sn } );
 			}
 		}
 		#my $foo = "$sn / i(" . $b->{"idle"} . ", " . $data->{"idle"} .")";
