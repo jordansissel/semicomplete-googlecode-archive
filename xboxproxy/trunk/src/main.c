@@ -224,7 +224,7 @@ void pcap(void *args) {
 
 	debuglog(2, "Opened %s, listening for xbox traffic", pcapdev);
 
-	pcap_compile(handle, &filter, filter_app, 0, net);
+	pcap_compile(handle, &filter, filter_app, 1, net);
 	pcap_setfilter(handle, &filter);
 	pcap_loop(handle, -1, packet_handler, NULL);
 	pcap_close(handle);
@@ -395,6 +395,7 @@ void connect_to_proxy() {
 int recv_from_proxy(proxy_t *ppt) {
 	int bytes = 0;
 	int pktlen = 0;
+	int total;
 
 	char *packet;
 
@@ -428,6 +429,13 @@ int recv_from_proxy(proxy_t *ppt) {
 	addxbox(((struct ether_header *)packet)->ether_shost, ppt);
 
 	debuglog(1, "Packet received from %s. Length: %d vs %d", inet_ntoa(ppt->addr), bytes, pktlen);
+	if (bytes < pktlen) {
+		total = bytes;
+		while (total < pktlen) {
+			recv(ppt->fd, packet + total, pktlen - total, 0);
+			debuglog(1, "REASSEMBLY PROGRESS - %s. Length: %d vs %d", inet_ntoa(ppt->addr), total, pktlen);
+		}
+	}
 
 	distribute_packet(ppt, packet, bytes);
 
