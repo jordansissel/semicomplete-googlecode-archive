@@ -8,7 +8,8 @@
 #define NETWORK_H
 
 #define DISCOVERY_PORT 3000
-#define DISCOVERY_MESSAGE "Hello!"
+#define DISCOVERY_MESSAGE "Hello there"
+#define DISCOVERY_ACK "ACK"
 #define DISCOVERY_INTERVAL 10
 
 typedef struct nut {
