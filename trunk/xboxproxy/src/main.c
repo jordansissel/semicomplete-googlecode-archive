@@ -71,7 +71,6 @@ static char *pcapdev = NULL;
 static char *proxyserver = NULL;
 static int use_udp = 0;
 static struct libnet_link_int *libnet;
-//static int clientfd = 0;
 
 void addxbox(u_char *macaddr, proxy_t *ppt);
 void packet_handler(u_char *args, const struct pcap_pkthdr *head,
@@ -105,7 +104,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 	/* Try adding this xbox to the list */
 	addxbox(eptr->ether_shost, 0);
 
-	debuglog(1, "Packet!");
+	debuglog(15, "Packet!");
 	debuglog(3, "From: %s", ether_ntoa((struct ether_addr *)eptr->ether_shost));
 	debuglog(3, "To: %s", ether_ntoa((struct ether_addr *)eptr->ether_dhost));
 
@@ -116,10 +115,16 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 		hscan_t hs;
 		hnode_t *node;
 
-		debuglog(1, "BROADCAST");
+		debuglog(11, "BROADCAST");
 		hash_scan_begin(&hs, proxies);
 		while ((node = hash_scan_next(&hs))) {
 			proxy_t *p = (proxy_t *)(node->hash_data);
+
+			/* Make sure the source addr of this packet is not getting
+			 * sent this packet. Do not send! */
+			if ((hash_lookup(p->xboxen, eptr->ether_shost) != NULL))
+				continue;
+
 			debuglog(3, "Sending ethernet packet to %s", inet_ntoa(p->addr));
 
 			if (use_udp) {
@@ -135,6 +140,38 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 				write(p->fd, packet, head->caplen);
 			}
 		}
+	} else {
+		/* This packet is for a specific mac */
+		proxy_t *p;
+		hnode_t *box;
+
+		box = hash_lookup(xboxen, eptr->ether_dhost);
+		if (box == NULL) {
+			debuglog(3, "Unknown destination %s, hasn't been seen yet.", 
+						ether_ntoa((struct ether_addr *)(eptr->ether_dhost)));
+			return;
+		}
+
+		debuglog(3, "Found packet destined for %s, sending!", 
+						ether_ntoa((struct ether_addr *)(eptr->ether_dhost)));
+
+		p = ((xbox_t *)(box->hash_data))->proxy;
+
+		debuglog(3, "Proxy is: %s", inet_ntoa(p->addr));
+
+		if (use_udp) {
+			struct sockaddr_in to;
+			to.sin_addr = p->addr;
+			to.sin_port = htons(SERVER_PORT);
+			to.sin_family = PF_INET;
+
+			sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
+			sendto(p->fd, packet, head->caplen, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
+		} else {
+			write(p->fd, &(head->caplen), 4); /* First 4 bytes is the size */
+			write(p->fd, packet, head->caplen);
+		}
+
 	}
 
 }
@@ -285,7 +322,7 @@ void proxy(void *args) {
 					FD_SET(p->fd, &proxysocks);
 				}
 			}
-			debuglog(0,"Data from a connected proxy client!");
+			debuglog(14,"Data from a connected proxy client!");
 		}
 	}
 }
@@ -401,7 +438,7 @@ void distribute_packet(proxy_t *ppt, char *packet, int pktlen) {
 
 	libnet_write_link_layer(libnet, pcapdev, packet, pktlen);
 
-	hexdump(packet, pktlen);
+	//hexdump(packet, pktlen);
 }
 
 void remove_proxy(proxy_t *ppt) {
@@ -429,7 +466,7 @@ int main(int argc, char **argv) {
 	/* Initialization and Defaults */
 	xboxen = hash_create(64, comparemac, NULL);
 	proxies = hash_create(64, compareip, NULL);
-	set_log_level(15);
+	set_log_level(10);
 
 	pthread_t pcapthread, proxythread;
 
