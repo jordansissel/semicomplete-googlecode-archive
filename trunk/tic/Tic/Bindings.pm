@@ -61,10 +61,14 @@ sub forward_char {
 	if ($state->{"input_position"} < length($state->{"input_line"})) {
 		$state->{"input_position"}++;
 		#my $pos = length($state->{"input_line"});
+		if ($state->{"input_position"} > ($state->{"termcols"} + $state->{"leftcol"})) {
+			$state->{"leftcol"}++;
+		}
 		$ret->{-print} = "\e[C";
 	}
 
-	return ($state->{"input_string"}, undef, $ret);
+
+	return ($state->{"input_line"}, undef, $ret);
 }
 
 sub backward_char {
@@ -72,10 +76,14 @@ sub backward_char {
 	my $ret;
 	if ($state->{"input_position"} > 0) {
 		$state->{"input_position"}--;
+		if ($state->{"input_position"} <= $state->{"leftcol"}) {
+			$state->{"leftcol"}--;
+		}
 		$ret->{-print} = "\e[D";
-	}
+	} 
 
-	return ($state->{"input_string"}, undef, $ret);
+
+	return ($state->{"input_line"}, undef, $ret);
 }
 
 sub kill_line {
@@ -157,8 +165,8 @@ sub do_complete {
 		}
 
 		my $how = $compl[$index - 1];
-		print STDERR join(" / ", @compl). "\n";
-		print STDERR "How: $how / $index / $string / $cmd / " . $state->{"completion"}->{$cmd} . "\n";
+		#print STDERR join(" / ", @compl). "\n";
+		#print STDERR "How: $how / $index / $string / $cmd / " . $state->{"completion"}->{$cmd} . "\n";
 
 		FOO:
 		$state->{"recursion_check"}++;
@@ -174,19 +182,19 @@ sub do_complete {
 			$string = do_complete_buddy($state,$string);
 		} elsif ($how eq "%ca") {
 			# look back, find the command.
-			print STDERR "Looking back ($index)\n";
+			#print STDERR "Looking back ($index)\n";
 			for (my $i = $index; $i >= 0; $i--) {
-				print STDERR "$i | $words[$i]\n";
+				#print #STDERR "$i | $words[$i]\n";
 				if ($words[$i] =~ m!^/(.*)!) {
 					print "{".$words[$i] . "} / ";
 					my $c = $1;
 					if (defined($state->{"commands"}->{$c})) {
 						my @compl = split(" ",$state->{"completion"}->{$c});
 						$how = $compl[$index - $i - 1];
-						print STDERR "----\n";
-						print STDERR "%CA: $c : $how / $index - $i\n";
-						print STDERR join(" / ", @compl) . "\n";
-						print STDERR "----\n";
+						#print STDERR "----\n";
+						#print STDERR "%CA: $c : $how / $index - $i\n";
+						#print STDERR join(" / ", @compl) . "\n";
+						#print STDERR "----\n";
 						goto FOO;
 					}
 				}
@@ -209,7 +217,7 @@ sub do_complete_command {
 
 sub do_complete_alias {
 	my ($state, $partial)  = @_;
-	print STDERR "alias completion, $partial\n";
+	#print STDERR "alias completion, $partial\n";
 	my @coms = grep(m/^$partial/,keys(%{$state->{"aliases"}}));
 	@coms = sort(@coms);
 	$partial  = $coms[0] . " " if (scalar(@coms) > 0);
@@ -222,7 +230,7 @@ sub do_complete_buddy {
 	my @matches;
 	foreach my $group ($state->{"aim"}->groups()) {
 		my @buddies = $state->{"aim"}->buddies($group);
-		print STDERR "$group - " . scalar(@buddies) . " / " . scalar(grep(m/^$partial/,@buddies)) . " / $partial\n";
+		#print STDERR "$group - " . scalar(@buddies) . " / " . scalar(grep(m/^$partial/,@buddies)) . " / $partial\n";
 		push(@matches, grep(m/^$partial/i,@buddies));
 	}
 
