@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(xboxproxy, 1.0, psionic@csh.rit.edu)
-AM_INIT_AUTOMAKE(xboxproxy, 0.1)
+AC_INIT(xboxproxy, 1.1, psionic@csh.rit.edu)
+AM_INIT_AUTOMAKE(xboxproxy, 1.1)
 AC_CONFIG_SRCDIR([main.c])
 
 # Checks for programs.
@@ -54,12 +54,21 @@ AC_ARG_WITH([pcap],
 				[ PCAP_PREFIX=$withval ],
 				[ PCAP_PREFIX=/usr/local ])
 
-AC_CHECK_FILE([$PCAP_PREFIX/lib/libpcap.a],
-				  [LDFLAGS="$LDFLAGS -L$PCAP_PREFIX/lib"
-				  CFLAGS="$CFLAGS -I$PCAP_PREFIX/include" ],
-				  AC_MSG_ERROR([
-pcap not found in $PCAP_PREFIX. Specify path with --with-pcap=/path/to/pcap/dir
-]))
+PCAP_FOUND=0
+for for_prefix in $PCAP_PREFIX /usr /opt; do
+
+AC_CHECK_FILE([$for_prefix/lib/libpcap.a],
+				  [LDFLAGS="$LDFLAGS -L${for_prefix}/lib"
+				  CFLAGS="$CFLAGS -I${for_prefix}/include"
+				  PCAP_PREFIX=$for_prefix
+				  PCAP_FOUND=1
+				  break])
+
+done
+
+if test $PCAP_FOUND -eq 0; then
+	AC_MSG_ERROR([pcap not found in $PCAP_PREFIX. Specify path with --with-pcap=/path/to/pcap/dir])
+fi
 
 AC_CHECK_HEADERS(pcap.h)
 AC_CHECK_LIB(pcap, pcap_lib_version, [LDFLAGS="$LDFLAGS -lpcap"], 
@@ -73,13 +82,21 @@ AC_ARG_WITH([libnet],
 				[ LIBNET_PREFIX=$withval ],
 				[ LIBNET_PREFIX=/usr/local ])
 
+LIBNET_FOUND=0
+for for_prefix in $LIBNET_PREFIX /usr /opt; do
 
-AC_CHECK_FILE([$LIBNET_PREFIX/lib/libnet.a],
-				  [LDFLAGS="$LDFLAGS -L$LIBNET_PREFIX/lib"
-				  CFLAGS="$CFLAGS -I$LIBNET_PREFIX/include" ],
-				  AC_MSG_ERROR([
-Libnet not found in $LIBNET_PREFIX. Specify path with --with-libnet
-]))
+AC_CHECK_FILE([${for_prefix}/lib/libnet.a],
+				  [LDFLAGS="$LDFLAGS -L${for_prefix}/lib"
+				  CFLAGS="$CFLAGS -I${for_prefix}/include"
+				  LIBNET_PREFIX=$for_prefix
+				  LIBNET_FOUND=1
+				  break])
+
+done;
+
+if test $LIBNET_FOUND -eq 0; then
+	AC_MSG_ERROR([ Libnet not found in $LIBNET_PREFIX. Specify path with --with-libnet ])
+fi
 
 AC_CHECK_LIB(net, libnet_write_link_layer, 
 				 AC_DEFINE([HAVE_LIBNET_1_0], [], [libnet 1.0.x]),
@@ -89,6 +106,7 @@ AC_CHECK_LIB(net, libnet_write_link_layer,
 
 AC_CHECK_TYPE(u_char, unsigned char)
 
+AC_SUBST(PCAP_PREFIX)
 AC_SUBST(LIBNET_PREFIX)
 AC_SUBST(LIBNET_LDFLAGS)
 AC_SUBST(LIBNET_CFLAGS)
