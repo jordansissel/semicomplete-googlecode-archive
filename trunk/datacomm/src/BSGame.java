@@ -6,6 +6,9 @@
  * 
  * Revisions:
  *   $Log$
+ *   Revision 1.10  2004/01/19 02:14:39  njohnson
+ *   the constructor redone. BSGame does not keep track of names[
+ *
  *   Revision 1.9  2004/01/19 02:09:14  njohnson
  *   fixed some replace mistakes
  *
@@ -62,19 +65,14 @@ public class BSGame {
     /**
      * Constructor of BSGame.
      *
-     * @param ownName -
-     * @param targetName -
-     * @param ownGrid -
-     * @param targetGrid -
      */
-    public BSGame( String ownName, 
-            String targetName,    
-            BSGrid ownGrid,
-            BSGrid targetGrid ) {
-        this.ownName = ownName;
-        this.targetName = targetName;
-        this.ownGrid = ownGrid;
-        this.targetGrid = targetGrid;
+    public BSGame(); 
+        ownName = new String();
+        targetName = new String();
+        ownGrid = new BSGrid();
+        this.initializeGrid(); 
+        targetGrid = new BSGrid();
+        targetGrid.clearGrid();       
         shipSunk = new boolean[ 5 ];
         for( int i = 0; i < shipSunk.length; i++ ) {
             shipSunk[ i ] = false;
