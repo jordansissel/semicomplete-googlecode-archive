@@ -2,6 +2,8 @@
 
 use MP3::Tag;
 use Storable;
+use strict;
+use warnings;
 
 my %hashy;
 my $id = 0;
@@ -9,36 +11,51 @@ open(FILES, "< $ENV{HOME}/foo.m3u") or die ($!);
 
 my $time = time() - 1;
 my @foo = <FILES>;
-foreach (@foo) {
-	next if (m/^#/);
-	chomp;
 
-	my $foo = $_;
+rabble(\@foo);
 
-	my $t = time() - $time;
-	printf("[%d / %.2f/sec / %.2f%%] %s\n",
-			 $t, 
-			 $id / $t),
-			 $id / @foo, 
-			 substr($foo,0,50));
-	my $tag = MP3::Tag->new($_);
-	my ($title, $track, $artist, $album, $comment, $year, $genre) = $tag->autoinfo();
+sub rabble {
+	my $razzle = shift;
+	foreach (@$razzle) {
+		next if (m/^#/);
+		chomp;
 
-	$hashy->{$id} = {
-		title => $title,
-		artist => $artist,
-		album => $album
-	};
+		my $foo = $_;
 
-	$id++;
-	$tag = undef;
+		my $t = time() - $time;
+		#if ($id % 50 == 0) {
+			printf("[%d / %.2f/sec / %.2f%%] $id - %s\n",
+					 $t, 
+					 $id / $t,
+					 ($id / @foo) * 100, 
+					 substr($foo,0,50));
+		#}
+		my $tag = MP3::Tag->new($_);
+
+		next unless defined($tag);
+		my ($title, $track, $artist, $album, $comment, $year, $genre) = $tag->autoinfo();
+
+		$hashy{$id} = {
+			title => $title,
+			artist => $artist,
+			album => $album,
+			file => $foo,
+			id => $id,
+
+		};
+
+		$id++;
+		$tag = undef;
+	}
+
+
+	print "ALL DONE!!!\n";
+	print "Took " . (time() - $time) . " seconds\n\n";
+
+	$time = time();
+	print "Storing...\n";
+
+
+	nstore(\%hashy, $ENV{HOME} . "/.pimp/tags");
+	print "Done - took " . (time() - $time) . " seconds\n";
 }
-
-
-print "ALL DONE!!!\n";
-print "Took " . (time() - $time) . " seconds\n\n";
-
-$time = time();
-print "Storing...\n";
-store(\%hashy, $ENV{HOME} . ".pimp/tags");
-print "Done - took " . (time() - $time) . " seconds\n";
