@@ -10,7 +10,7 @@ use strict;
 my $DRINKHOST = "drink.csh.rit.edu";
 my $DRINKPORT = 4242;
 
-my ($STATUS);
+my $userdata;
 
 my %session;
 my ($aim,$conn);
@@ -20,6 +20,7 @@ include("userdata.pl");
 
 $aim = new Net::AIM;
 $aim->newconn(Screenname => 'CSH Drink', Password => 'cshdrink123');
+my $userdata;
 #$aim->newconn(Screenname => 'CSH Drink2', Password => 'cshdrink123');
 #$aim->newconn(Screenname => 'mobilesoutherner', Password => 'carleneway');
 
