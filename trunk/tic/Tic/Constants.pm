@@ -21,7 +21,7 @@ use constant DEFAULT_CONFIG => {
 	"logstamp"         => "[%m/%d/%y %H:%M:%S]",
 	"im_awaymsg"       => "[AWAY] <*%s*> %m",
 	"im_msg"           => "<*%s*> %m",
-	"out_msg"          => "<*%S*> %m", 
+	"out_msg"          => ">>%s>> %m", 
 
 	"chat_buddy_in"    => "(%c) %s joined the chat.",
 	"chat_buddy_out"   => "(%c) %s left the chat.",
