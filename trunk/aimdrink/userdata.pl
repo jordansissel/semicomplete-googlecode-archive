@@ -66,12 +66,14 @@ sub write_users {
    my $userhash = shift;
 
    print "Writing user data to disk...\n" if ($DEBUG >= 1);
+   print ": $userhash\n";
 
    my $out = new IO::File(">$CONFIG");
    my $o = new XML::Writer(OUTPUT => $out, DATA_MODE => 1, DATA_INDENT => 3);
 
    $o->startTag("data");
 
+   print ": ". keys(%{$userhash}) ."\n";
    foreach my $user (sort(keys(%{$userhash}))) {
       print "User: $user\n" if ($DEBUG >= 2);
       $o->startTag("user", "name" => "$user");
@@ -88,6 +90,5 @@ sub write_users {
    $o->end();
    $out->close();
 
-   print "Done\n" if ($DEBUG >= 1);
 }
 1;
