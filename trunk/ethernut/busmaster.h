@@ -7,7 +7,9 @@
 #ifndef BUSMASTER_H
 #define BUSMASTER_H
 
+#ifndef NULL
 #define NULL 0
+#endif
 
 /* i2c addresses are 1 byte
  * so slaves need only 1 byte */
