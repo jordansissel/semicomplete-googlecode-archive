@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.4  2004/01/13 18:14:54  tristan
+ *   finished connect method. untested
+ *
  *   Revision 1.3  2004/01/13 14:44:08  tristan
  *   updated connect and disconnect methods with status.
  *
@@ -63,11 +66,17 @@ public class TCPClientConnection extends ClientConnection {
         boolean retVal = false;
 
         try {
+            // connect to server
             socket = new Socket( getServerHost(), getServerPort() );
             out = new PrintWriter( socket.getOutputStream(), true );
             in = new BufferedReader( new InputStreamReader(
                                      socket.getInputStream() ) );
-            retVal = true;
+
+            // test for hello/response
+            out.println( HELLO_MSG + " Hello" );
+            if ( parseMessage( in.readLine() ) == HELLO_RESPONSE ) {
+                retVal = true;
+            }
         } catch ( Exception e ) {
             System.err.println( e.getMessage() );
             e.printStackTrace();
@@ -92,5 +101,24 @@ public class TCPClientConnection extends ClientConnection {
 
         // update status
         setConnected( false );
+    }
+
+    /**
+     * Returns the integer corresponding to this msg.
+     * @param msg The message to parse.
+     * @return The integer value of the msg. -1 if error.
+     */
+    private int parseMessage( String msg ) {
+        int retVal = -1;
+        String[] parsed = msg.split( "\\s", 1 );
+
+        if ( parsed.length >= 1 ) {
+            try {
+                retVal = Integer.parseInt( parsed[ 0 ] );
+            } catch ( NumberFormatException e ) {
+            }
+        }
+
+        return retVal;
     }
 }   // TCPClientConnection
