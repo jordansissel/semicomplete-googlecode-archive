@@ -924,7 +924,7 @@ RECHECK:
 		$self->{"completion"}->{"index"}++;
 		$self->{"completion"}->{"index"} = 0 if ($self->{"completion"}->{"index"} == scalar(@matches));
 
-		$self->out(length($line) . " / $bword / $pos");
+		#$self->out(length($line) . " / $bword / $pos");
 		substr($line, $bword, $pos - $bword) = $match . " ";
 
 		$self->{"completion"}->{"endpos"} = $pos;
