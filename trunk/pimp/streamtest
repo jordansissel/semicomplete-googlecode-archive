@@ -27,14 +27,16 @@ if (defined($ARGV[0])) {
 		$HOST = $u->host();
 		$PATH = $u->path();
 
-
 CONNECT:
 		socket($fd, PF_INET, SOCK_STREAM, getprotobyname('tcp')) or die("socket(): $!");
 		connect($fd, sockaddr_in($PORT, inet_aton($HOST))) or die("connect(): $!");
 
 		$fd->autoflush(1);
 
-		print $fd "GET $PATH HTTP/1.0\n\n";
+		print $fd "GET $PATH HTTP/1.0\n";
+		print $fd "Host: $HOST\n\n";
+		print "GET $PATH HTTP/1.0\n";
+		print "Host: $HOST\n\n";
 		print "Connected\n";
 
 		chomp(my $resp = <$fd>);
@@ -79,7 +81,7 @@ print "DONE\n";
 my $select = IO::Select->new($fd);
 my $BUFSIZE = 8192;
 
-my $buffer;
+my $buffer = '';
 my $tbytes = 0;
 
 
@@ -100,8 +102,8 @@ die("Unable to open sound device\n") unless defined($device);
 my ($fsize);
 
 print "Prebuffering...\n";
-while (length($buffer) < 65536) {
-	sysread($fd, $buffer, $BUFSIZE, length($buffer));
+while (length($buffer) < 8192) {
+	sysread($fd, $buffer, $BUFSIZE, length($buffer)); 
 }
 
 FOO:
@@ -110,7 +112,7 @@ while (1) {
 		if (length($buffer) < 65536) {
 			my $foo = sysread($fd, $buffer, $BUFSIZE, length($buffer));
 			if ($foo) {
-				#print "$foo = sysread()\n";
+				print "$foo = sysread()\n";
 			}
 		}
 	#}
@@ -123,8 +125,7 @@ while (1) {
 			# Make sure we don't drop the last frame fragment
 			#my $partial = substr($buffer, $stream->next_frame(), $BUFSIZE);
 			$buffer = substr($buffer, $stream->next_frame());
-			#$buffer = substr($buffer, $stream->next_frame() + $BUFSIZE);
-			print "Buffer length: " . length($buffer) . " / " . length($partial) ."\n";
+			#print "Buffer length: " . length($buffer) . " / " . length($partial) ."\n";
 
 			#last if (sysread($fd, $buffer, $BUFSIZE - length($buffer), length($buffer)) == 0);
 
@@ -144,7 +145,8 @@ while (1) {
 		$oldbuf = substr($buffer,$stream->this_frame());
 	}
 	$synth->synth($frame);
-	my $pcm = $dither->dither($synth->samples());
+	my $pcm = $dither->dither($resample->resample($synth->samples()));
+	#my $pcm = $dither->dither($synth->samples());
 
 	play($device,$pcm,length($pcm));
 }
