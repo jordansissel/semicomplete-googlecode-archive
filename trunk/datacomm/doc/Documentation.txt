@@ -73,6 +73,37 @@ Specification
    
  3. The protocol:
 
+    The server always waits for a connection on its ports as soon
+    as it starts.
+
+
+    Client Messages:
+
+	HELLO
+
+	STARTGAME
+
+	INITGAME
+
+	FIRE
+
+    Server Messages:
+
+        101
+
+	102
+
+	103
+
+	104
+
+	105
+
+	201
+
+	202
+
+
 
 ------------------------------------
 Feasibility Study
