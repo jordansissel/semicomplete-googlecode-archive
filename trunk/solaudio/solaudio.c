@@ -11,10 +11,6 @@
 #include <sys/audio.h>
 #include <sys/mixer.h>
 
-void print_status();
-void parse_args(int argc, char **argv);
-void usage(const char *err);
-
 struct options {
 	uint_t	volume;        /* Master output volume */
 	uchar_t	muted;         /* Muted? */
@@ -22,6 +18,12 @@ struct options {
 };
 
 typedef struct options options_t;
+
+void print_status();
+void print_info(audio_info_t *info, audio_channel_t *ch);
+void parse_args(int argc, char **argv);
+void set_info(options_t *foo, audio_info_t *info, audio_channel_t *chan);
+void usage(const char *err);
 
 /* I'm lazy... */
 static char            *me;
@@ -68,6 +70,10 @@ int main(int argc, char **argv) {
 
 void print_status() {
 	int i;
+	audio_info_t maininfo;
+	if (ioctl(audio_fd, AUDIO_GETINFO, &maininfo) >= 0) {
+		print_info(&maininfo, NULL);
+	}
 	for (i = 0; i < num; i++) {
 		if (ctl->ch_open[i] != 0) {
 			ch.ch_number = i;
@@ -75,25 +81,31 @@ void print_status() {
 				printf("Channel # %d isn't an audio/audioctl device\n", i);
 			} else {
 				audio_info_t *info = (audio_info_t *)ch.info;
-				float vol = (float)(info->play.gain);
-				
-				printf("Ch# %d, PID = %d, Type = %d",
-						 i, ch.pid, ch.dev_type);
-
-				if (info->output_muted) 
-					printf(" [MUTED]\n");
-				else
-					printf("\n");
-
-				printf("\tVolume: %.0f%%\n", (vol / AUDIO_MAX_GAIN) * 100.0);
-
-
+				print_info(info, &ch);
 			}
 		}
 	}
 }
 
+void print_info(audio_info_t *info, audio_channel_t *ch) {
+	float vol = (float)(info->play.gain);
+
+	if (ch == NULL)
+		printf("Ch# Master");
+	else 
+		printf("Ch# %d, PID = %d, Type = %d",
+				 ch->ch_number, ch->pid, ch->dev_type);
+
+	if (info->output_muted) 
+		printf(" [MUTED]\n");
+	else
+		printf("\n");
+
+	printf("\tVolume: %.0f%%\n", (vol / AUDIO_MAX_GAIN) * 100.0);
+}
+
 void parse_args(int argc, char **argv) {
+	audio_info_t maininfo;
 	char **p = argv;
 	int gain;
 	char *param;
@@ -110,20 +122,24 @@ void parse_args(int argc, char **argv) {
 		while (!done && *++*p != '\0') {
 			/* printf("Flag: %c\n", **p); */
 			switch (**p) {
+				case 'h':
+					usage(NULL);
+					break;
 				case 'm':
 					printf("Toggling mute\n");
 					foo.muted = 1;
-					//info->output_muted ^= 0x1;
 					break;
 				case 'p':
 					printf("Toggling Headphones\n");
-					//info->play.port ^= AUDIO_HEADPHONE;
 					foo.port |= AUDIO_HEADPHONE;
 					break;
 				case 'l':
 					printf("Toggling Line Out\n");
-					//info->play.port ^= AUDIO_LINE_OUT;
 					foo.port |= AUDIO_LINE_OUT;
+					break;
+				case 's':
+					printf("Toggling Internal Speaker\n");
+					foo.port |= AUDIO_SPEAKER;
 					break;
 				case 'v':
 					//printf("---> %c\n", 
@@ -151,6 +167,7 @@ void parse_args(int argc, char **argv) {
 					done = 1;
 					break;
 				default:
+					/* Call usage() instead? */
 					printf("Invalid argument: %c\n", **p);
 					break;
 			}
@@ -162,35 +179,53 @@ void parse_args(int argc, char **argv) {
 						printf("Channel # %d isn't an audio/audioctl device\n", i);
 					} else {
 						audio_info_t *info = (audio_info_t *)ch.info;
-						/* printf("Ch# %d, PID = %d, Type = %d, Gain = %d\n",
-								 i, ch.pid, ch.dev_type, ((audio_info_t *)ch.info)->play.gain);
-						*/
 
-						if (foo.muted) {
-							printf("Muting channel %d\n", i);
-							info->output_muted ^= foo.muted;
-						}
-
-						if (foo.volume)
-							info->play.gain = foo.volume;
-
-						if (foo.port)
-							info->play.port ^= foo.port;
-
-						if (ioctl(audio_fd, AUDIO_SETINFO, info) < 0) {
-							printf("Warning: Failed setting audio channel info for channel %d [PID: %d].\n", i, ch.pid);
-
-						}
-
+						set_info(&foo, info, &ch);
 					}
 				}
+			}
+			if (ioctl(audio_fd, AUDIO_GETINFO, &maininfo) >= 0) {
+				set_info(&foo, &maininfo, NULL);
 			}
 		}
 	}
 }
 
+void set_info(options_t *foo, audio_info_t *info, audio_channel_t *chan) {
+	char chname[10] = "main";
+
+	if (chan != NULL)
+		sprintf(chname, "%d", chan->ch_number);
+	else {
+		if (foo->muted) {
+			/* printf("Muting channel %s / %d / %d\n", chname, info->output_muted, foo->muted); */
+			info->output_muted ^= foo->muted;
+		}
+	}
+
+	if (foo->volume)
+		info->play.gain = foo->volume;
+
+	if (foo->port)
+		info->play.port ^= foo->port;
+
+	if (ioctl(audio_fd, AUDIO_SETINFO, info) < 0) {
+		printf("Warning: Failed setting audio channel info for channel %s", chname);
+		if (chan != NULL)
+	  		printf("[PID: %d].\n", chan->pid);
+	}
+
+}
+
 void usage(const char *err) {
-	printf("Usage: %s [ -m | -v <0-100> ]\n", me);
-	printf("	Error: %s\n", err);
+	if (err != NULL)
+		printf("Error: %s\n", err);
+
+	printf("Usage: %s [ -mslp -v <0-100> ]\n", me);
+	printf("\t-m     toggle mute\n");
+	printf("\t-l     toggle line-out\n");
+	printf("\t-p     toggle headphones\n");
+	printf("\t-s     toggle internal speaker\n");
+	printf("\t-v <0-100> set volume percentage level\n");
 	exit(1);
 }
