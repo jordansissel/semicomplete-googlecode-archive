@@ -5,7 +5,11 @@ use Tic::Common;
 use Exporter;
 
 our @ISA = qw(Exporter);
-our @EXPORT = qw(create_alias remove_alias command_msg command_alias command_unalias command_echo command_info command_login command_quit command_buddylist command_default command_undefault command_log command_timestamp command_who);
+our @EXPORT = qw(create_alias remove_alias command_msg command_alias
+					  command_unalias command_echo command_info command_login
+					  command_quit command_buddylist command_default
+					  command_undefault command_log command_timestamp command_who
+					  command_timestamp command_sn);
 
 my $state;
 
@@ -15,6 +19,8 @@ sub import {
 }
 
 sub set_state {
+	my $self = shift;
+	debug("Setting state for ::Commands");
 	$state = shift;
 }
 
@@ -30,8 +36,6 @@ sub remove_alias {
 
 	undef($state->{"aliases"}->{$alias});
 }
-
-
 
 sub get_config { 
 	my ($a) = @_;
@@ -50,6 +54,9 @@ sub command_msg {
 	my ($sn, $msg) = split(/\s+/, $args, 2);
 	
 	$aim->send_im($sn, $msg);
+	if (($state->{"logging"}->{"who_log"}->{$sn} == 1) || ($state->{"config"}->{"logging"} eq "all")) {
+		prettylog($state,"out_msg", { sn => $sn, msg => $msg } );
+	}
 }
 
 sub command_alias {
@@ -222,7 +229,6 @@ sub command_undefault {
 sub command_log {
 	$state = shift;
 	my ($args) = @_;
-	out("foo");
 
 	if ($args eq "+") {
 		set_config("logging", "all");
@@ -230,7 +236,11 @@ sub command_log {
 	} elsif ($args eq "-") {
 		set_config("logging", "off");
 		out("Stopping all logging.");
+	} elsif ($args eq "on") {
+		set_config("logging", "on");
+		out("Logging is now on.");
 	} elsif ($args eq '') {
+		set_config("logging", "off") unless (defined(get_config("logging")));
 		my $logstate = get_config("logging");
 		out("Logging: $logstate");
 		if ($logstate =~ m/^only/) {
@@ -259,6 +269,27 @@ sub command_timestamp {
 	$state = shift;
 	my ($args) = @_;
 
+	if ($args =~ m/^(yes|on|plz)$/i) {
+		$state->{"timestamp"} = 1;
+		prettyprint($state, "generic_status", { msg => "Timestamps are now on." } );
+	} elsif ($args =~ m/^(no|off)$/i) {
+		$state->{"timestamp"} = 0;
+		prettyprint($state, "generic_status", { msg => "Timestamps are now off." } );
+	} elsif ($args =~ m/^$/) {
+		my $status = ( ($state->{"timestamp"}) ? "on" : "off" );
+		prettyprint($state, "generic_status", { msg => "Timestamps are $status." } );
+	} else {
+		prettyprint($state, "error_generic", "Invalid parameter to /timestamp");
+	}
+
+}
+
+sub command_sn {
+	$state = shift;
+	my ($args) = @_;
+
+	my $foo = $state->{"aim"}->buddy($args);
+	out("Name: $foo / " . $foo->{"screenname"});
 }
 
 sub command_who {
