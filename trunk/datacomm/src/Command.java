@@ -6,10 +6,13 @@
  *
  * Revisions:
  *	$Log$
+ *	Revision 1.12  2004/01/20 00:12:01  psionic
+ *	- Fixed a little bug
+ *
  *	Revision 1.11  2004/01/19 23:48:52  psionic
  *	- Bulk commit: Command infrastructure improved. New commands can be added
  *	  dynamically now.
- *
+ *	
  *	Revision 1.10  2004/01/19 16:58:32  tristan
  *	changed two methods to static
  *	
@@ -220,6 +223,7 @@ public class Command implements Message {
 		String[] items = unparsedCommand.split( "\\s", 2 );
 		items[0] = items[0].substring(0,1).toUpperCase() + 
 		           items[0].substring(1).toLowerCase();
+
 		Command retVal = null;
 
 		try {
