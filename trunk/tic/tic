@@ -72,10 +72,10 @@ while (1) {
 
 		if (($state->{"is_idle"} != 1) && 
 			 ($state->{"idle"} + get_config("idle_timeout") < time())) {
-			$sh->out("idle: " . $state->{"idle"} . " / " . get_config("idle_timeout"));
+			#$sh->out("idle: " . $state->{"idle"} . " / " . get_config("idle_timeout"));
 			#$sh->out("Setting idle - " . $state->{"idle"} . " / " . get_config("idle_timeout") . " / " . time());
-			$aim->set_idle(get_config("idle_timeout"));
-			$state->{"is_idle"} = 1;
+			#$aim->set_idle(get_config("idle_timeout"));
+			#$state->{"is_idle"} = 1;
 		}
 	}
 }
