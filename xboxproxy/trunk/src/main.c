@@ -6,9 +6,6 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
-#include <pcap.h>
-#include <libnet.h>
-
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -27,6 +24,9 @@
 #include <net/ethernet.h>
 
 #include <pthread.h>
+#include <pcap.h>
+#include <libnet.h>
+
 
 #ifndef ETHER_ADDR_LEN
 #define ETHER_ADDR_LEN 6
@@ -73,7 +73,7 @@ static int use_udp = 0;
 static int serverport = SERVER_PORT;
 
 #ifdef LIBNET_VERSION_1_0
-static struct libnet_link_int *libnet;
+struct libnet_link_int *libnet;
 #else
 #	ifdef LIBNET_VERSION_1_1
 libnet_t *libnet;
