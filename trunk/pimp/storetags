@@ -30,4 +30,5 @@ foreach (@foo) {
 	};
 
 	$id++;
+	$tag = undef;
 }
