@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.8  2004/02/05 01:57:23  tristan
+ *   fixed parse bug.
+ *
  *   Revision 1.7  2004/01/20 04:23:33  tristan
  *   updated comments for everything.
  *
@@ -44,11 +47,6 @@ import java.io.DataOutputStream;
  * @author Nick Johnson
  */
 public class Response implements Message {
-    // constants
-    public static final Pattern responsePattern = Pattern.compile(
-        "(\\d*?)\\s*"
-    );
-
     // member vars
     private int id;
     private String message;
@@ -132,20 +130,17 @@ public class Response implements Message {
      * @return The response object.
      */
     public static Response parseResponse( String input ) {
+        String[] items = input.split( "\\s", 2 );
         Response retVal = null;
-        Matcher m = responsePattern.matcher( input );
 
-        // id found
-        if ( m.matches() ) {
+        if ( items.length > 0 ) {
             try {
-                retVal = new Response( Integer.parseInt( m.group( 1 ) ) );
+                retVal = new Response( Integer.parseInt( items[ 0 ] ) );
 
-                // message found
-                if ( m.groupCount() > 1 ) {
-                    retVal.setMessage( m.group( 2 ) );
+                if ( items.length == 2 ) {
+                    retVal.setMessage( items[ 1 ] );
                 }
             } catch ( NumberFormatException e ) {
-					// ignore
             }
         }
 
