@@ -65,6 +65,7 @@ int network_send_discover() {
 	int sock; 
 	int bytes; 
 	int sockopt; 
+	char packet[4];
 
 	struct sockaddr_in destaddr; 
 
@@ -88,8 +89,9 @@ int network_send_discover() {
 		return sock;
 	}
 
-	bytes = sendto(sock, DISCOVERY_MESSAGE, strlen(DISCOVERY_MESSAGE), 0, 
-						(struct sockaddr *)&destaddr, sizeof(destaddr));
+	packet[0] = PACKETTYPE_DISCOVERY;
+
+	bytes = sendto(sock, packet, 1, 0, (struct sockaddr *)&destaddr, sizeof(destaddr));
 
 	if (bytes < 0) {
 		log(0, "discovery sendto() failed: %s", strerror(errno));
@@ -151,23 +153,30 @@ THREAD(network_thread, args) {
 	for (;;) {
 		int fromlen = sizeof(srcaddr);
 		int bytes = 0;
-		char buf[1024];
-		memset(buf, 0, 1024);
+		//char buf[1024];
+		//memset(buf, 0, 1024);
+		char buf[4];
+		memset(buf, 0, 4);
 
 		/* Now check if we have any discovery packets coming in */
-		if (recvfrom(discovery, buf, 1024, 0, (struct sockaddr *)&srcaddr, &fromlen) < 0) {
+		/* NOTE: Per the Bus Master Specification, UDP packets are max 1 byte. */
+		if (recvfrom(discovery, buf, sizeof(buf), 0, (struct sockaddr *)&srcaddr, &fromlen) < 0) {
 			log(0, "network_thread recvfrom() failed: %s", strerror(errno));
 			THREAD_EXIT();
 		}
 
 		log(5, "Packet from 0x%08x %s: %s", srcaddr.sin_addr, inet_ntoa(srcaddr.sin_addr), buf);
 
-		if (strcmp(buf,DISCOVERY_MESSAGE) == 0) {
+		if (buf[0] == PACKETTYPE_DISCOVERY) {
+			char packet[4];
+
+			packet[0] = PACKETTYPE_DISCOVERY_ACK;
+
 			log(20, "Packet is a discovery broadcast");
 			/* Respond to this discovery with an ack to the DISCOVERY_PORT */
 			srcaddr.sin_port = htons(DISCOVERY_PORT);
 			log(10, "Sending 'ACK' to %s", inet_ntoa(srcaddr.sin_addr));
-			if ((bytes = sendto(discovery, DISCOVERY_ACK, strlen(DISCOVERY_ACK), 0, 
+			if ((bytes = sendto(discovery, packet, 1, 0, 
 									  (struct sockaddr *)&srcaddr, sizeof(struct sockaddr))) < 0) {
 				log(0, "network_thread sendto() ack failed: %s", strerror(errno));
 				THREAD_EXIT();
@@ -175,7 +184,7 @@ THREAD(network_thread, args) {
 
 			network_addnut(srcaddr.sin_addr);
 		} 
-		else if (strcmp(buf, DISCOVERY_ACK) == 0) {
+		else if (buf[0] == PACKETTYPE_DISCOVERY_ACK) {
 			log(20, "ACK received from %s", inet_ntoa(srcaddr.sin_addr));
 			network_addnut(srcaddr.sin_addr);
 		}
@@ -203,14 +212,16 @@ THREAD(network_pingthread, args) {
 				network_removenut(c);
 			} else if (nuts[c].lastseen + DISCOVERY_INTERVAL < t) {
 				struct sockaddr_in nutaddr;
+				char packet[4];
+
 				nutaddr.sin_family = AF_INET;
 				nutaddr.sin_port = htons(DISCOVERY_PORT);
 				nutaddr.sin_addr = nuts[c].ip; 
-
 				memset(&(nutaddr.sin_zero), '\0', 8);
 
 				log(10, "Pinging %s - haven't seen them in a while...", inet_ntoa((struct in_addr)nuts[c].ip));
-				bytes = sendto(pingfd, DISCOVERY_MESSAGE, strlen(DISCOVERY_MESSAGE), 0, 
+				packet[0] = PACKETTYPE_DISCOVERY;
+				bytes = sendto(pingfd, packet, 1, 0, 
 									(struct sockaddr *)&nutaddr, sizeof(nutaddr));
 
 				if (bytes < 0) {
@@ -258,7 +269,6 @@ void network_removenut(int index) {
 
 	log(0, "ping timeout - Removing %s from nut list", inet_ntoa(nuts[index].ip));
 	for (c = index; c < nut_count - 1; c++) {
-		log(10, "c/nutcount: %d / %d", c, nut_count);
 		nuts[c] = nuts[c + 1];
 	}
 
