@@ -1,10 +1,12 @@
 #!/usr/bin/perl
+# $Id$
 #
 # Filter mail output from mhl (which should basically be the entire mail)
 # 
 #  Features:
 #    - Automatically open html mail in w3m (see $BROWSER)
 #    - Automagically verify pgp signatures
+#
 
 use strict;
 use MIME::Parser;
@@ -15,6 +17,9 @@ my $BROWSER = 'w3m -title -T text/html';
 my $MHL_PROG = "/usr/local/libexec/nmh/mhl";
 my $MHL_HTML_OPTS = "-form mhl.html";
 my $MHL_PLAIN_OPTS = "";
+
+# This was stolen from my .muttrc - I'll need to come up with a decent
+# parser for these lines eventually.
 my %pgp = (
 pgp_verify_command => "gpg --no-secmem-warning --quiet --no-verbose --batch --output - --verify %s %f"
 	 );
