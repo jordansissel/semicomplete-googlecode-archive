@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.9  2004/01/19 16:36:02  tristan
+ *   switched to extend thread
+ *
  *   Revision 1.8  2004/01/19 05:32:42  tristan
  *   implemented send/receive functions.
  *
@@ -39,7 +42,7 @@ import java.net.InetAddress;
  *
  * @author tristan
  */
-public abstract class ClientConnection {
+public abstract class ClientConnection extends Thread {
     // constants
     public static final int HELLO_RESPONSE = 101;
 
