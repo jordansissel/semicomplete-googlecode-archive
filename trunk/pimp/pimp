@@ -52,6 +52,7 @@ $pimp->{"HTTP_SERVER"} = IO::Socket::INET->new( Proto => "tcp",
 													  Reuse => 1);
 $pimp->{"HTTP_SELECT"} = IO::Select->new($pimp->{"HTTP_SERVER"});
 $pimp->{"HTTP_CLIENTS"} = { };
+$pimp->{"HTTP_CLIENTS_SELECT"} = IO::Select->new();
 
 my $stream   = new Audio::Mad::Stream();
 my $frame    = new Audio::Mad::Frame();
@@ -145,12 +146,13 @@ sub play_loop {
 			$pcm = decode_current_mp3();
 			if ($pcm eq ERR_EOF) {
 				signal_event("end_of_song");
-			} elsif (defined($pcm) && $pcm ne '') {
-				play($device, $pcm, length($pcm));
-			} elsif ($pcm ne ERR_DECODE) {
-				# End of song or something broke. (Non-decoding error)
-				signal_event("end_of_song");
-				$pimp->{"state"} = "stopped";
+			#} elsif (defined($pcm) && $pcm ne '') {
+				#play($device, $pcm, length($pcm));
+			#} elsif ($pcm ne ERR_DECODE) {
+				## End of song or something broke. (Non-decoding error)
+				#printf("ERRDECODE\n");
+				#signal_event("end_of_song");
+				#$pimp->{"state"} = "stopped";
 			}
 		}
 	}
@@ -158,6 +160,25 @@ sub play_loop {
 
 # Decode a frame of our happy MP3
 sub decode_current_mp3 {
+
+	#$pimp->{"current_buffer"} |= '';
+	#if (length($pimp->{"current_buffer"}) < $MAXBUFSIZE) {
+		#my $b = sysread($pimp->{"current_fd"}, $pimp->{"current_buffer"}, 
+							 #$MAXBUFSIZE - length($pimp->{"current_buffer"}), length($pimp->{"current_buffer"}));
+	#}
+#
+	#if (length($pimp->{"current_buffer"}) == 0) {
+		#return ERR_EOF;
+	#}
+#
+	#map { 
+		#syswrite($_,$pimp->{"current_buffer"},256,0);
+	#} values(%{$pimp->{"HTTP_CLIENTS"}});
+	##($pimp->{"HTTP_CLIENTS_SELECT"}->can_write(0));
+#
+	#substr($pimp->{"current_buffer"}, 0, 256) = '';
+#
+	#return '';
 
 	# Keep our internal prebuffer filled as best as we can...
 	$pimp->{"current_buffer"} |= '';
@@ -197,6 +218,7 @@ sub decode_current_mp3 {
 	map { 
 		syswrite($_, $pimp->{"old_buffer"}, $stream->next_frame() - $stream->this_frame(), $stream->this_frame);
 	} values(%{$pimp->{"HTTP_CLIENTS"}});
+	#($pimp->{"HTTP_CLIENTS_SELECT"}->can_write(0)) ;
 
 	# $frame->samplerate() shows us the bitrate.
 	$pimp->{"current_samplerate"} |= 0;
@@ -602,6 +624,7 @@ sub handle_http_requests {
 	my $server = $pimp->{"HTTP_SERVER"};
 	foreach my $socket ($pimp->{"HTTP_SELECT"}->can_read(0)) {
 		my $client = $server->accept();
+		$pimp->{"HTTP_CLIENTS_SELECT"}->add($client);
 		$pimp->{"HTTP_CLIENTS"}->{"$client"} = $client;
 		print $client "ICY 200 OK\n\n";
 	}
