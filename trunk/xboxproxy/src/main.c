@@ -237,6 +237,7 @@ void pcap(void *args) {
 	bpf_u_int32	mask, net;
 
 	pcap_lookupnet(pcapdev, &net, &mask, errbuf);
+
 	/* A generous cap length */
 	handle = pcap_open_live(pcapdev, 2048, 1, 10, errbuf);
 
@@ -314,7 +315,7 @@ void proxy(void *args) {
 		int size = sizeof(struct sockaddr_in); /* sizeof(srcaddr) */
 		int sel;
 		struct timeval timeout;
-		timeout.tv_sec = 5;
+		timeout.tv_sec = 0;
 		timeout.tv_usec = 0;
 		fd_set proxycopy;
 
