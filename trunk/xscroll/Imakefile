@@ -1,0 +1,9 @@
+DEPLIBS = $(DEPXTESTLIB) $(DEPEXTENSIONLIB) $(DEPXLIB)
+LOCAL_LIBRARIES = $(XTESTLIB) $(EXTENSIONLIB) $(XLIB)
+
+SRCS = test.c
+OBJS = test.o
+
+CC = gcc
+
+ComplexProgramTarget(test)
