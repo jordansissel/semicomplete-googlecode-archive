@@ -394,9 +394,10 @@ HELP
 	$state = shift;
 	my ($args) = @_;
 
-	if ($args eq "+") {
+	if ($args eq "+" || $args eq "all") {
 		set_config("logging", "all");
 		$sh->out("Now logging all messages.");
+		$sh->out("Getconfig log: " . get_config("logging"));
 	} elsif (($args eq "-") || ($args =~ m/^off$/i)) {
 		set_config("logging", "off");
 		$sh->out("Stopping all logging.");
