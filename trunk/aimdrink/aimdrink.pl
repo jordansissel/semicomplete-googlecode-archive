@@ -24,8 +24,8 @@ $userdata = Drink::read_users();
 
 $aim = new Net::AIM;
 $aim->debug(0);
-#$aim->newconn(Screenname => 'CSH Drink', Password => 'cshdrink123');
-$aim->newconn(Screenname => 'CSH Drink2', Password => 'cshdrink123');
+$aim->newconn(Screenname => 'CSH Drink', Password => 'cshdrink123');
+#$aim->newconn(Screenname => 'CSH Drink2', Password => 'cshdrink123');
 #$aim->newconn(Screenname => 'mobilesoutherner', Password => 'carleneway');
 
 #Handlers
@@ -83,6 +83,7 @@ sub read_from_sessions {
 
 sub sendim {
    my ($from,$msg) = @_;
+   $msg =~ s/\t/   /g;
    $msg = translate($from,$msg);
    $aim->send_im($from,$msg);
    print "--> $from: $msg\n";
@@ -190,18 +191,24 @@ sub handle_message {
       } elsif ($msg =~ /^s(t(a(t(u(s)?)?)?)?)?$/i) { #status
 	 get_drink_stats($session{$from}{'socket'}) 
 	    if ($infotime + 600 < time());
-	 print "Status: $clientinfo\n";
-	 sendim($from,$clientinfo);
+	 $_ = $clientinfo; s/<br>/\n/g;
+	 print "Status: $_\n";
+	 sendim($from,$_);
       } elsif ($msg =~ /^d(r(o(p)?)?)?$/i) { #drop
 	 sendim($from,"Not implemented yet.");
-      } elsif ($msg =~ /^s(a(v(e)?)?)?$/i) { #save
-	 print "Data: $userdata\n";
-	 Drink::write_users($userdata); 
       } elsif ($msg =~ /^i(n(f(o)?)?)?$/i) { #info
 	 my $say;
 	 my $data = $session{$from}{'data'};
 	 foreach (keys(%{$data})) { $say .= "<b>$_</b>: " . $data->{$_}."\n" }
 	 sendim($from,$say);
+      } elsif ($msg =~ /^s(a(v(e)?)?)?$/i) { #save
+	 print "Data: $userdata\n";
+	 Drink::write_users($userdata); 
+      } elsif ($msg =~ m/^r(e(s(e(t)?)?)?)?$/i) { #reset
+	 send($session{$from}{'sock'},"quit\n",0);
+	 close($session{$from}{'sock'});
+	 $s->remove($session{$from}{'sock'}); 
+	 undef $session{$from};
       }
       
       #send($session{$from}{'socket'},$msg . "\n",0);
@@ -264,7 +271,7 @@ sub get_drink_stats {
    $info = '';
    foreach (@slots) {
      my @word = split(" ",$_);
-     $info .= '<b>'.$word[1].'</b>: $0.'.$word[2].' - '.$word[3]." left.\n";
+     $info .= '<b>'.$word[1].'</b>: $0.'.$word[2].' - '.$word[3]." left.<br>";
    }
 
    $clientinfo = $info;
