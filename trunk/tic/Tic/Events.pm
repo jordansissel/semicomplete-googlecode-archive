@@ -40,27 +40,26 @@ sub event_admin_ok {
 
 sub event_buddy_in {
 	my ($aim, $sn, $group, $data) = @_;
-	if (!defined($state->{"buddylist"}->{$sn})) {
+	#if (!defined($state->{"buddylist"}->{$sn}))
+	#prettyprint($state, "buddy_online", { sn => $sn, group => $group } );
+	#} else
+	my $b = $state->{"buddylist"}->{$sn};
+	if ($b->{"away"} xor $data->{"away"}) {
+		if ($data->{"away"}) {
+			prettyprint($state, "buddy_away", { sn => $sn } );
+		} else {
+			prettyprint($state, "buddy_notaway", { sn => $sn } );
+		}
+	}
+	if ($b->{"idle"} xor $data->{"idle"}) {
+		if ($data->{"idle"}) {
+			prettyprint($state, "buddy_idle", { sn => $sn, idle => $data->{"idle"} } );
+		} else {
+			prettyprint($state, "buddy_notidle", { sn => $sn } );
+		}
+	}
+	if ($b->{"online"} xor $data->{"online"}) {
 		prettyprint($state, "buddy_online", { sn => $sn, group => $group } );
-	} else {
-		my $b = $state->{"buddylist"}->{$sn};
-		if ($b->{"away"} xor $data->{"away"}) {
-			if ($data->{"away"}) {
-				prettyprint($state, "buddy_away", { sn => $sn } );
-			} else {
-				prettyprint($state, "buddy_notaway", { sn => $sn } );
-			}
-		}
-		if ($b->{"idle"} xor $data->{"idle"}) {
-			if ($data->{"idle"}) {
-				prettyprint($state, "buddy_idle", { sn => $sn, idle => $data->{"idle"} } );
-			} else {
-				prettyprint($state, "buddy_notidle", { sn => $sn } );
-			}
-		}
-		#my $foo = "$sn / i(" . $b->{"idle"} . ", " . $data->{"idle"} .")";
-		#$foo .= " | a(" . $b->{"away"} . ", " . $data->{"away"} . ")";
-		#prettyprint($state, "buddy_in", { sn => $foo } );
 	}
 	$state->{"buddylist"}->{$sn} = deep_copy($data);
 
@@ -94,6 +93,7 @@ sub event_buddy_info {
 sub event_buddy_out {
 	my ($aim, $sn, $group) = @_;
 	prettyprint($state, "buddy_offline", { sn => $sn, group => $group } );
+	$state->{"buddylist"}->{$sn}->{"online"} = 0;
 }
 
 sub event_buddylist_error {
