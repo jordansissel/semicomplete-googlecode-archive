@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.3  2004/01/19 05:44:43  tristan
+ *   added to byte array function.
+ *
  *   Revision 1.2  2004/01/14 06:05:25  tristan
  *   finished basic response class
  *
@@ -16,13 +19,15 @@
 
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 
 /**
  * Response to a command query.
  *
  * @author tristan
  */
-public class Response {
+public class Response implements Message {
     // constants
     public static final Pattern responsePattern = Pattern.compile(
         "(\\d*?)\\s*"
@@ -119,5 +124,22 @@ public class Response {
         }
 
         return retVal;
+    }
+
+    /**
+     * Returns the response in byte form.
+     * @return The response in byte form
+     */
+    public byte[] toByteArray() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        DataOutputStream data = new DataOutputStream( out );
+
+        try {
+            data.writeInt( id );
+            data.writeUTF( message );
+        } catch ( Exception e ) {
+        }
+
+        return out.toByteArray();
     }
 }   // Response
