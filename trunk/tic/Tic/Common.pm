@@ -9,8 +9,8 @@ use Term::ReadKey;
 use POSIX qw(strftime);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(out real_out error debug query deep_copy prettyprint prettylog
-             login set_config get_config expand_aliases);
+@EXPORT = qw(debug deep_copy prettyprint prettylog login set_config get_config
+				 expand_aliases);
 
 my $state;
 my $sh;
@@ -135,7 +135,7 @@ sub login {
 	my ($fail) = 0;
 
 	if (defined($pass)) {
-		$state->{"login_password"} = $user;
+		$state->{"login_password"} = $pass;
 	}
 	if (defined($user)) {
 		get_username($user);
@@ -180,7 +180,7 @@ sub do_login {
 	$hash{"port"} = $state->{"settings"}->{"port"} || "5190";
 	$hash{"host"} = $state->{"settings"}->{"host"} || "login.oscar.aol.com";
 
-	$sh->out("Connecting to " . $hash{"host"} . ":" . $hash{"port"} . " as " . $hash{"screenname"});
+	$sh->out("Connecting to " . $hash{"host"} . ":" . $hash{"port"} . " as " . $hash{"screenname"} . " {$pass}");
 	$state->{"aim"}->signon(%hash);
 
 	$sh->{"readline_callback"} = $state->{"command_callback"};
@@ -221,4 +221,3 @@ sub expand_aliases {
 }
 
 1;
-
