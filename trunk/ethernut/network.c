@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <netdb.h>
 
 #ifdef ETHERNUT
 #include <thread.h>
@@ -69,12 +70,13 @@ int network_send_discover() {
 		return sock;
 	}
 
+	bytes = 1;
 	bytes = sendto(sock, DISCOVERY_MESSAGE, strlen(DISCOVERY_MESSAGE), 0, 
 						(struct sockaddr *)&destaddr, sizeof(struct sockaddr));
 
 	if (bytes < 0) {
 		log(0, "discovery sendto() failed: %s", strerror(errno));
-		//pthread_exit(NULL);
+		pthread_exit(NULL);
 	}
 
 	close(sock);
@@ -94,6 +96,8 @@ void network_thread(void *args) {
 	int sockopt = 1; 
 	struct sockaddr_in listenaddr;
 	struct sockaddr_in srcaddr;
+
+	memset(&srcaddr, '\0', sizeof(srcaddr));
 
 	if ((discovery = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
 		log(0, "network_thread socket() failed: %s", strerror(errno));
@@ -118,28 +122,35 @@ void network_thread(void *args) {
 	}
 
 	for (;;) {
-		int fromlen;
-		int bytes;
+		int fromlen = 0;
+		int bytes = 0;
 		char buf[1024];
+		memset(buf, 0, 1024);
 
 		if (recvfrom(discovery, buf, 1024, 0, (struct sockaddr *)&srcaddr, &fromlen) < 0) {
-			log(0, "network_thread accept() failed: %s", strerror(errno));
+			log(0, "network_thread recvfrom() failed: %s", strerror(errno));
 			pthread_exit(NULL);
 		}
 
 		log(5, "Packet from 0x%08x %s: %s", srcaddr.sin_addr, inet_ntoa(srcaddr.sin_addr), buf);
 
+
 		if (strcmp(buf,"Hello!") == 0) {
 			log(20, "Packet is a discovery broadcast");
 		}
 
-		/* Respond to this discovery with an ack to the DISCOVERY_PORT */
-		srcaddr.sin_port = htons(DISCOVERY_PORT);
-		log(10, "Sending 'ACK' to %s", inet_ntoa(srcaddr.sin_addr));
-		if ((bytes = sendto(discovery, "ACK", strlen("ACK"), 0, 
-								(struct sockaddr *)&srcaddr, sizeof(struct sockaddr))) < 0) {
-			log(0, "network_thread sendto() ack failed: %s", strerror(errno));
-			pthread_exit(NULL);
+		if (srcaddr.sin_addr.s_addr == 0) {
+			log(0, "network_thread - ignoring 'hello' from myself");
+		}
+		else {
+			/* Respond to this discovery with an ack to the DISCOVERY_PORT */
+			srcaddr.sin_port = htons(DISCOVERY_PORT);
+			log(10, "Sending 'ACK' to %s", inet_ntoa(srcaddr.sin_addr));
+			if ((bytes = sendto(discovery, "ACK", strlen("ACK"), 0, 
+									(struct sockaddr *)&srcaddr, sizeof(struct sockaddr))) < 0) {
+				log(0, "network_thread sendto() ack failed: %s", strerror(errno));
+				pthread_exit(NULL);
+			}
 		}
 	}
 }
