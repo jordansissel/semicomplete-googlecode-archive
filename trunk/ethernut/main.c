@@ -24,5 +24,9 @@ int main(int argc, char **argv) {
 	network_init();
 	i2c_init();
 
+	for (;;) {
+		log(0, "main says hi");
+		sleep(10);
+	}
 	return 0;
 }
