@@ -6,27 +6,35 @@
  *
  * Revisions:
  *   $Log$
- *   Revision 1.1  2004/01/19 20:42:36  tristan
- *   refactored to a new name
+ *   Revision 1.2  2004/01/19 20:54:19  psionic
+ *   - Updated server-side happyland framework for TCP
  *
- *   Revision 1.2  2004/01/18 23:48:00  tristan
- *   extended and updated comments
- *
- *   Revision 1.1  2004/01/18 23:41:21  tristan
- *   initial
  *
  */
 
 /**
- * Manages a tcp based connection with a client
+ * Manages a server's connection with the client
  *
- * @author tristan
+ * @author Jordan Sissel
  */
-public class TCPServer extends Server {
-    /**
-     * Creates a new TCPServer
-     */
-    public TCPServer() {
 
-    }
-}   // TCPServer
+public class TCPServer extends Thread {
+	private Socket sock;
+	private String user;
+	private boolean error;
+
+	public TCPServer(Socket sock) {
+		this.sock = sock;
+		error = false;
+	}
+
+	public void run() {
+		String line = null;
+		BufferedReader in = new BufferedReader( new InputStreamReader(sock.getInputStream()));
+		PrintWriter out = new PrintWriter( sock.getOutputStream() );
+
+		while (!error) {
+			
+		}
+	}
+} // TCPServer

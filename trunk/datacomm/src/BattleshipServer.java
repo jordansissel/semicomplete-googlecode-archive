@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.4  2004/01/19 20:54:18  psionic
+ *   - Updated server-side happyland framework for TCP
+ *
  *   Revision 1.3  2004/01/18 23:10:31  tristan
  *   fixed count
  *
@@ -24,10 +27,12 @@ import java.net.InetAddress;
  *
  * @author tristan
  */
-public class BattleshipServer {
+public class BattleshipServer extends Thread {
     private InetAddress host;
     private int tcpPort;
     private int udpPort;
+	 private ServerSocket tcplisten;
+	 private DatagramSocket udplisten;
 
     /**
      * Starts up the program.
@@ -71,17 +76,13 @@ public class BattleshipServer {
      * @exception IllegalArgumentException if tcp is the same as udp.
      */
     public BattleshipServer( InetAddress host,
-                             int tcpPort,
-                             int udpPort ) throws IllegalArgumentException {
-        if ( tcpPort == udpPort ) {
-            throw new IllegalArgumentException( "TCP and UDP ports must " +
-                                                "differ" );
-        }
-
-        // set vars
-        this.host = host;
-        this.tcpPort = tcpPort;
-        this.udpPort = udpPort;
+									  int tcpPort,
+									  int udpPort ) throws IllegalArgumentException {
+		this.host = host;
+		this.tcpPort = tcpPort;
+		this.udpPort = udpPort;
+		tcplisten = new ServerSocket(tcpPort);
+		//udplisten = new DatagramSocket(udpPort);
     }
 
     /**
@@ -127,8 +128,22 @@ public class BattleshipServer {
     /**
      * Starts the server's tcp and udp servers.
      */
-    public void start() {
+    public void run() {
+		 tcplisten.setSoTimeout(1);
 
+		 while (true) {
+			 // Look for attempts to connect to tcp or udp
+			 try {
+				 Socket newconn = tcplisten.accept();
+				 Thread newclient = new TCPServer(newconn);
+
+				 newclient.start();
+			 } catch (SocketTimeoutException) {
+				 // ignore
+			 }
+
+
+		 }
     }
 
     /**
