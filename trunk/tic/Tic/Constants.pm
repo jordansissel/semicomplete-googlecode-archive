@@ -1,6 +1,7 @@
 package Tic::Constants;
 
 use Tic::Common;
+use vars qw(@ISA @EXPORT);
 
 use Exporter;
 use constant KEY_CONSTANTS => {
@@ -49,7 +50,7 @@ use constant DEFAULT_OUTPUT => {
 @EXPORT = qw(KEY_CONSTANTS DEFAULT_OUTPUT);
 
 sub import {
-	debug("Importing from Tic::Constants");
+	#debug("Importing from Tic::Constants");
 	Tic::Constants->export_to_level(1,@_);
 }
 

@@ -1,23 +1,24 @@
 package Tic::Common;
 
 use strict;
+use vars qw(@ISA @EXPORT);
 use Exporter;
 use Term::ReadKey;
 use POSIX qw(strftime);
 
-our @ISA = qw(Exporter);
-our @EXPORT = qw(out real_out error debug query deep_copy prettyprint prettylog);
+@ISA = qw(Exporter);
+@EXPORT = qw(out real_out error debug query deep_copy prettyprint prettylog);
 
 my $state;
 
 sub set_state { 
 	my $self = shift;
-	debug("Setting state for ::Common");
+	#debug("Setting state for ::Common");
 	$state = shift;
 }
 
 sub import {
-	debug("Importing from Tic::Common");
+	#debug("Importing from Tic::Common");
 	Tic::Common->export_to_level(1,@_);
 }
 

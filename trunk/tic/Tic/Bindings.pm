@@ -2,10 +2,11 @@ package Tic::Bindings;
 
 use strict;
 use Tic::Common;
+use vars qw(@ISA @EXPORT);
 use Exporter;
 
-our @ISA = qw(Exporter);
-our @EXPORT = qw(DEFAULT_BINDINGS DEFAULT_MAPPINGS);
+@ISA = qw(Exporter);
+@EXPORT = qw(DEFAULT_BINDINGS DEFAULT_MAPPINGS);
 
 # Default key -> sub bindings
 use constant DEFAULT_BINDINGS => {
@@ -34,7 +35,7 @@ use constant DEFAULT_MAPPINGS => {
 my $state;
 
 sub import {
-	debug("Importing from Tic::Bindings");
+	#debug("Importing from Tic::Bindings");
 	Tic::Bindings->export_to_level(1,@_);
 }
 

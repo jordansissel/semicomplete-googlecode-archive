@@ -2,10 +2,11 @@ package Tic::Events;
 
 use strict;
 use Tic::Common;
+use vars qw(@ISA @EXPORT);
 use Exporter;
 
-our @ISA = qw(Exporter);
-our @EXPORT = qw( event_admin_error          event_chat_closed
+@ISA = qw(Exporter);
+@EXPORT = qw( event_admin_error          event_chat_closed
 						event_admin_ok             event_chat_im_in
 						event_buddy_in             event_connection_changed
 						event_buddy_info           event_error
@@ -18,13 +19,13 @@ our @EXPORT = qw( event_admin_error          event_chat_closed
 my $state;
 
 sub import {
-	debug("Importing from Tic::Events");
+	#debug("Importing from Tic::Events");
 	Tic::Events->export_to_level(1,@_);
 }
 
 sub set_state {
 	my $self = shift;
-	debug("Setting state for ::Events");
+	#debug("Setting state for ::Events");
 	$state = shift;
 }
 

@@ -2,10 +2,11 @@ package Tic::Commands;
 
 use strict;
 use Tic::Common;
+use vars qw(@ISA @EXPORT);
 use Exporter;
 
-our @ISA = qw(Exporter);
-our @EXPORT = qw(create_alias remove_alias command_msg command_alias
+@ISA = qw(Exporter);
+@EXPORT = qw(create_alias remove_alias command_msg command_alias
 					  command_unalias command_echo command_info command_login
 					  command_quit command_buddylist command_default
 					  command_undefault command_log command_timestamp command_who
@@ -14,13 +15,13 @@ our @EXPORT = qw(create_alias remove_alias command_msg command_alias
 my $state;
 
 sub import {
-	debug("Importing from Tic::Commands");
+	#debug("Importing from Tic::Commands");
 	Tic::Commands->export_to_level(1,@_);
 }
 
 sub set_state {
 	my $self = shift;
-	debug("Setting state for ::Commands");
+	#debug("Setting state for ::Commands");
 	$state = shift;
 }
 
