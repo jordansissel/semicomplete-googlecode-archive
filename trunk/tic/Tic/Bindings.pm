@@ -4,6 +4,7 @@ package Tic::Bindings;
 use strict;
 use Tic::Common;
 use Tic::Commands;
+#use Tic::Interface;
 use Net::OSCAR qw/:standard/;
 use vars ('@ISA', '@EXPORT');
 use Exporter;
@@ -23,6 +24,7 @@ sub set_state {
 	my $self = shift;
 	$state = shift;
 	Tic::Common->set_state($state);
+	Tic::Interface->set_state($state);
 	$sh = $state->{"sh"};
 
 	$sh->{"bindings"}->{"^T"} = "expand-line";
@@ -72,12 +74,30 @@ sub anykey_binding {
 	if ($line =~ s!^/msg\s+!!) {
 		$sn = next_arg(\$line);
 
-		return unless defined($aim->buddy($sn)) && $aim->buddy($sn)->{"typing_status"} == 1;
+		#$sh->out("SN: $sn");
 
-	} elsif ($line !~ m!^/!) { # line starts with something that isn't /
-		if (defined($state->{"default"})) {
-			$sn = $state->{"default"};
+		return unless defined($aim->buddy($sn));
+			
+		# We're typing to someone on our buddylist
+		if (length($line) >= 1) {
+			Tic::Interface::prompter("TARGET", $sn) ;
+
+			# Drop off the first 2 arguments.. this is a lame hack
+			$line = \$sh->{"input_line"};
+			my $chopped = next_arg($line);
+			$chopped .= next_arg($line);
+			$sh->{"input_position"} = 1;
+			#$sh->out("New line: " . $$line . " / " . $sh->{"input_position"} . " / $chopped");
+
+			$state->{"target"} = $sn;
+			$sh->fix_inputline();
 		}
+
+		return unless $aim->buddy($sn)->{"typing_status"} == 1;
+
+		#$sh->out("Target: $sn\nLine: '$line'");
+	} elsif ($line !~ m!^/!) { # line starts with something that isn't /
+		$sn = $state->{"target"} || $state->{"default"}
 	}
 
 	# Record that we've typed...
