@@ -20,14 +20,14 @@ use POSIX;
 use Socket;
 use URI;
 
-use constant ERR_DECODE => 1;
-use constant ERR_EOF => 2;
+use constant ERR_DECODE => "1";
+use constant ERR_EOF => "2";
 
 $SIG{INT} = \&do_shutdown;
 $SIG{__DIE__} = \&do_shutdown;
 
 my ($serv, $player) = IO::Socket->socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC);
-my $BUFSIZE = 8192;
+my $BUFSIZE = 16384;
 
 my $pimp = { };
 
@@ -44,7 +44,7 @@ my $stream   = new Audio::Mad::Stream();
 my $frame    = new Audio::Mad::Frame();
 my $synth    = new Audio::Mad::Synth();
 my $timer    = new Audio::Mad::Timer();
-my $resample = new Audio::Mad::Resample(44100, 22050);
+my $resample = new Audio::Mad::Resample(44100, 44100);
 my $dither   = new Audio::Mad::Dither();
 
 my @playlist;
@@ -54,11 +54,12 @@ next_song();
 initialize_ao;
 my $device = open_live(default_driver_id(), 16, 44100, 2, is_big_endian(), {});
 die ("Unable to open sound device.\n") unless defined($device);
+$pimp->{"sound_device"} = $device;
 $pimp->{"sound_state"} = 1;
 
 my $select = IO::Select->new($player);
 
-my $buffer = ""; # IPC buffer
+#my $buffer = ""; # IPC buffer
 $pimp->{"state"} = "playing";
 
 while (1) {
@@ -73,22 +74,45 @@ while (1) {
 
 		while ($pimp->{"server_buffer"} =~ s/(.*\n)//) {
 			handle_command($1);
-		}
+	}
 	}
 
 	play_loop();
+
+	handle_one_event();
 }
 
-# We shouldn't ever get here.
+# Subs!
 
 sub signal_event {
-	my $event = shift;
+	push(@{$pimp->{"event_queue"}}, { event => shift, data => shift });
+}
+
+sub handle_one_event {
+	my $e = shift(@{$pimp->{"event_queue"}});
+	return if (!defined($e));
+
+	my ($event, $data);
+	$event = $e->{"event"};
+	$data = $e->{"data"};
+
+	print "EVENT: $event\n";
 
 	if ($event eq 'end_of_song') {
 		stop_song();
 		next_song();
 	} elsif ($event eq 'new_song') {
 		print $player "BROADCAST " . display_song($pimp->{"current_song"}) . "\n";
+	} elsif ($event eq 'client_next_song') {
+		stop_song();
+		next_song();
+	} elsif ($event eq 'client_pause') {
+		$pimp->{"state"} = ($pimp->{"state"} eq "pause") ? "playing" : "pause";
+		print $player "BROADCAST Paused\n";
+	} elsif ($event eq 'open_fail') {
+		print $player "BROADCAST Failed trying to read file...\n";
+		stop_song();
+		next_song();
 	}
 
 }
@@ -106,10 +130,9 @@ sub play_loop {
 			$pcm = decode_current_mp3();
 			if (defined($pcm) && $pcm ne '') {
 				play($device, $pcm, length($pcm));
-			} elsif ($pcm != ERR_DECODE) {
+			} elsif ($pcm ne ERR_DECODE) {
 				# End of song or something broke. (Non-decoding error)
 				$pimp->{"state"} = "stopped";
-				signal_event("end_of_song");
 			}
 		}
 	}
@@ -117,21 +140,21 @@ sub play_loop {
 
 # Decode a frame of our happy MP3
 sub decode_current_mp3 {
-	if ($frame->decode($stream) == -1) {
-
+	while ($frame->decode($stream) == -1) {
 		# If there's a buffer-related error, then we need to read more from 
 		if ($stream->error() == MAD_ERROR_BUFLEN || 
 			 $stream->error == MAD_ERROR_BUFPTR) {
-			my $buf = substr($pimp->{"current_buffer"}, $stream->next_frame());
-			return ERR_EOF unless (sysread($pimp->{"current_fd"}, $buf, $BUFSIZE - length($buffer), length($buf)));
-			print "Buffered: " . length($buf) . "\n";
+			my $buffer = substr($pimp->{"current_buffer"}, $stream->next_frame());
+			sysread($pimp->{"current_fd"}, $buffer, $BUFSIZE - length($buffer), length($buffer)) or return ERR_EOF;
 
-			$stream->buffer($buf);
-			$pimp->{"current_buffer"} = $buf;
-			return ERR_DECODE;
+			$stream->buffer($buffer);
+			$pimp->{"current_buffer"} = $buffer;
+
+			# This breaks the music :-(
+			#return ERR_DECODE;
+		} else {
+			return ERR_EOF unless ($stream->err_ok());
 		}
-
-		return ERR_EOF if ($stream->err_ok());
 	}
 	$synth->synth($frame);
 	return $dither->dither($synth->samples());
@@ -144,16 +167,16 @@ sub handle_command {
 	$cmd = lc($cmd);
 
 	if ($cmd eq 'pause') {
-		$pimp->{"state"} = ($pimp->{"state"} eq "pause") ? "playing" : "pause";
-		print $player "$who OK!\n";
+		signal_event("client_pause", $player);
 	} elsif ($cmd eq 'play') {
+		# Doesn't block, no need for an event. 
 		play_song($pimp->{"current_song"}->{"file"})
 			if ($pimp->{"state"} =~ m/(?:playing|stop)/);
 		$pimp->{"state"} = "playing";
 
 	} elsif ($cmd eq 'stop') {
 		$pimp->{"state"} = 'stop';
-		
+
 		# Shutdown sound
 		if (close_ao($device)) {
 			$pimp->{"sound_state"} = 0;
@@ -161,7 +184,8 @@ sub handle_command {
 			print STDERR "Unable to close sound?!\n";
 		}
 	} elsif ($cmd eq 'next') {
-		next_song();
+		signal_event("client_next_song");
+		#next_song();
 	} elsif ($cmd eq 'quit') {
 		print $player "$who CLOSE\n";
 	} elsif ($cmd eq 'info') {
@@ -193,10 +217,10 @@ sub handle_command {
 			$mp3->{ID3v1}->write_tag();
 			my ($song, $track, $artist, $album) = $mp3->autoinfo();
 			$pimp->{"playlist"}->{$file} = { title => $song, artist => $artist, 
-														track => $track, album => $album,
-														file => $file };
-			$pimp->{"current_song"} = $pimp->{"playlist"}->{$file};
-			$mp3->close();
+				track => $track, album => $album,
+				file => $file };
+				$pimp->{"current_song"} = $pimp->{"playlist"}->{$file};
+				$mp3->close();
 		} else {
 			print $player "$who Invalid tag name, '$tag'\n";
 		}
@@ -209,7 +233,7 @@ sub display_song {
 	my $foo = shift;
 	$0 = "PiMP: ";
 	$0 .= sprintf("(%s) %s - %s", $foo->{"album"}, $foo->{"artist"}, 
-						                $foo->{"title"});
+					  $foo->{"title"});
 }
 
 sub stop_song {
@@ -235,54 +259,57 @@ sub next_song {
 sub play_song {
 	my $file = shift;
 	#if ($file =~ m/\.mp3$/) {
-		local $/ = undef;
+		#local $/ = undef;
+		my $buffer = '';
 
 		# Support for HTTP streams
 
 		my $fd;
+
 		if ($file =~ m!^http://!) {
 			print "HTTP!\n";
-			my $uri = URI->new($file);
-			#$file =~ m!http://([A-Za-z0-9.-]+)(?::([0-9]+))?!;
-			my $port = $uri->port();
+		my $uri = URI->new($file);
+		#$file =~ m!http://([A-Za-z0-9.-]+)(?::([0-9]+))?!;
+		my $port = $uri->port();
 
-			socket($fd, PF_INET, SOCK_STREAM, getprotobyname('tcp')) or 
-				signal_event("socket_fail", $file) and return;
-			connect($fd, sockaddr_in($port, inet_aton($uri->host()))) or
-				signal_event("connect_fail", $file) and return;
+		socket($fd, PF_INET, SOCK_STREAM, getprotobyname('tcp')) or 
+			signal_event("socket_fail", $file) and return;
+		connect($fd, sockaddr_in($port, inet_aton($uri->host()))) or
+			signal_event("connect_fail", $file) and return;
 
-			print $fd "GET " . $uri->path() . "\r\n";
-			print $fd "Host: " . $uri->host() . "\r\n";
-			print $fd "\r\n";
+		print $fd "GET " . $uri->path() . "\r\n";
+		print $fd "Host: " . $uri->host() . "\r\n";
+		print $fd "\r\n";
+		print $fd "\r\n";
 
-			print "GET " . $uri->path() . "\r\n";
-			print "Host: " . $uri->host() . "\r\n";
-			print "\r\n";
-		} elsif ($file =~ m/\.mp3$/) {
-			open($fd, $file) or signal_event("open_fail", $file) and return;
-		} else {
-			signal_event("open_fail", $file);
-		}
+		print "GET " . $uri->path() . "\r\n";
+		print "Host: " . $uri->host() . "\r\n";
+		print "\r\n";
+	} elsif ($file =~ m/\.mp3$/) {
+		open($fd, $file) or signal_event("open_fail", $file);
+	} else {
+		signal_event("open_fail", $file);
+	}
 
-		unless (sysread($fd, $buffer, $BUFSIZE, 0)) {
-			warn("Failed reading from $file\n");
-			next_song();
-		}
-		print "BUFFER LENGTH: " . length($buffer) . "\n";
-		#close(MP3);
-		$stream->buffer($buffer);
+	$pimp->{"current_type"} = "mp3";
 
-		$pimp->{"current_buffer"} = $buffer;
+	unless (sysread($fd, $buffer, $BUFSIZE, 0)) {
+		signal_event("read_fail", $file);
+		warn("Failed reading from $file\n");
+		return;
+	} else {
 		$pimp->{"current_fd"} = $fd;
-		$pimp->{"current_type"} = "mp3";
+		$stream->buffer($buffer);
+		$pimp->{"current_buffer"} = $buffer;
+	}
 
-		my $mp3 = MP3::Tag->new($file);
-		my ($song, $track, $artist, $album) = $mp3->autoinfo();
-		$pimp->{"playlist"}->{$file} = { title => $song, artist => $artist, 
-		                                 track => $track, album => $album,
-	                                    file => $file };
-		$pimp->{"current_song"} = $pimp->{"playlist"}->{$file};
-		$mp3->close();
+	my $mp3 = MP3::Tag->new($file);
+	my ($song, $track, $artist, $album) = $mp3->autoinfo();
+	$pimp->{"playlist"}->{$file} = { title => $song, artist => $artist, 
+		                              track => $track, album => $album,
+		                              file => $file };
+	$pimp->{"current_song"} = $pimp->{"playlist"}->{$file};
+	$mp3->close();
 
 	#}
 	$pimp->{"state"} ||= "playing";
@@ -332,7 +359,7 @@ sub run_server {
 
 				while ($buffers{$socket} =~ s/(.*\n)//) {
 					push( @{$ready{$socket}}, $1 );
-				}
+			}
 			}	
 		}
 
@@ -367,7 +394,6 @@ sub handle {
 			}
 		}
 	} else {
-		print "Client: $client ($serv)\n";
 		map { print $serv "$client $_" } @{$lines};
 	}
 }
@@ -387,7 +413,7 @@ sub do_shutdown {
 	if ($error ne 'INT' ) {
 		print STDERR "Fatal Error: $error\n";
 	}
-	close_ao($device);
+	close_ao($pimp->{"sound_device"});
 	shutdown_ao;
 	print STDERR "Dying...\n";
 	kill("KILL", $spid);
