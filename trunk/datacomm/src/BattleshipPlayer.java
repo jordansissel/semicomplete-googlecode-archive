@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.5  2004/01/19 02:18:56  tristan
+ *   added game var
+ *
  *   Revision 1.4  2004/01/19 00:13:00  tristan
  *   cleaned up and switched to thread
  *
@@ -33,6 +36,7 @@ public class BattleshipPlayer extends Thread {
     private ClientConnection connection;
     private String yourName;
     private String otherName;
+    private BSGame game;
 
     /**
      * Initializes the battleship player
@@ -46,6 +50,7 @@ public class BattleshipPlayer extends Thread {
         this.connection = connection;
         this.yourName = yourName;
         this.otherName = otherName;
+        this.game = new BSGame();
     }
 
     /**
@@ -95,7 +100,13 @@ public class BattleshipPlayer extends Thread {
      */
     public void run() {
         if ( connection.connect() ) {
+            // send a start game message
+
+            // block until server says opponent found
+
+
             while ( connection.isConnected() ) {
+
                 // talk to server
             }
         } else {
