@@ -87,10 +87,15 @@ typedef struct proxy {
 static hash_t *proxies = NULL;
 static fd_set proxysocks;
 
+static char *progname;
+
 static char *pcapdev = NULL;
 static char *proxyserver = NULL;
-static int use_udp = 0;
+
+/* Some defaults */
+static int use_udp = 1;
 static int forwardmulticast = 0;
+static int forwardxbox = 1;
 static int serverport = SERVER_PORT;
 
 //define HAVE_LIBNET_1_1
@@ -111,6 +116,19 @@ void remove_proxy(proxy_t *ppt);
 void connect_to_proxy();
 int recv_from_proxy(proxy_t *ppt);
 void distribute_packet(proxy_t *ppt, char *packet, int pktlen);
+
+void usage() {
+	debuglog(0, "Usage: %s [-xm] [-u] [-s <server>] [-i <dev>] [-d <debuglevel>] [-p <port>] [-h]",
+				progname);
+	debuglog(0, "-x          forward xbox system link packets");
+	debuglog(0, "-m          forward multicast packets");
+	debuglog(0, "-u          use udp encapsulation instead of tcp (default)");
+	debuglog(0, "-s <server> specify another proxy to send packets to");
+	debuglog(0, "-i <dev>    ethernet device to sniff packets on");
+	debuglog(0, "-d <level>  specify debug level, (0-1000)");
+	debuglog(0, "-p <port>   which port to send data on when talkin to other proxies");
+	debuglog(0, "-h          this message");
+}
 
 int comparemac(const void *k1, const void *k2) {
 	extern loglevel;
@@ -358,10 +376,20 @@ void pcap(void *args) {
 	struct bpf_program filter;
 	char errbuf[PCAP_ERRBUF_SIZE];
 	bpf_u_int32	mask, net;
+	char *bpf_filter;
+
+	char netstring[17];
+	char maskstring[17];
 
 	pcap_lookupnet(pcapdev, &net, &mask, errbuf);
 
-	debuglog(0, "Network: %08x / %08x", net, mask);
+#define GETBYTE(data,i) (*(((unsigned char *)&data) + i))
+	sprintf(netstring, "%u.%u.%u.%u", GETBYTE(net, 0), GETBYTE(net,1),
+			  GETBYTE(net,2), GETBYTE(net, 3));
+	sprintf(maskstring, "%u.%u.%u.%u", GETBYTE(mask, 0), GETBYTE(mask,1),
+			  GETBYTE(mask,2), GETBYTE(mask, 3));
+
+	debuglog(0, "Network: %s / %s", netstring, maskstring);
 
 	/* A generous cap length */
 	handle = pcap_open_live(pcapdev, 2048, 1, 10, errbuf);
@@ -391,7 +419,18 @@ void pcap(void *args) {
 
 	debuglog(2, "Opened %s, listening for xbox traffic", pcapdev);
 
-	pcap_compile(handle, &filter, filter_app, 1, net);
+	bpf_filter = malloc(1024);
+	memset(bpf_filter, 0, 1024);
+
+	/* Build the pcap bpf filter string */
+	if (forwardmulticast)
+		sprintf(bpf_filter + strlen(bpf_filter), "(src net %s mask %s and (multicast))", netstring, maskstring);
+
+	if (forwardxbox)
+		sprintf(bpf_filter + strlen(bpf_filter), "or (host 0.0.0.1)");
+
+	debuglog(10, "pcap filter: %s", bpf_filter);
+	pcap_compile(handle, &filter, bpf_filter, 1, net);
 	pcap_setfilter(handle, &filter);
 	pcap_loop(handle, -1, packet_handler, NULL);
 
@@ -444,7 +483,7 @@ void proxy(void *args) {
 		int size = sizeof(struct sockaddr_in); /* sizeof(srcaddr) */
 		int sel;
 		struct timeval timeout;
-		timeout.tv_sec = 0;
+		timeout.tv_sec = 10;
 		timeout.tv_usec = 0;
 		fd_set proxycopy;
 
@@ -727,6 +766,8 @@ int main(int argc, char **argv) {
 	//int *pthread_return;
 	char ch;
 
+	progname = argv[0];
+
 	/* Initialization and Defaults */
 	xboxen = hash_create(64, comparemac, hashmac);
 	proxies = hash_create(64, compareip, haship);
@@ -735,8 +776,12 @@ int main(int argc, char **argv) {
 	pthread_t pcapthread, proxythread;
 
 	/* Argument Processing */
-	while ((ch = getopt(argc, argv, "mus:i:d:h?p:")) != -1) {
+	while ((ch = getopt(argc, argv, "xmus:i:d:h?p:")) != -1) {
 		switch (ch) {
+			case 'x':
+				debuglog(10, "-x flag, enabling xbox system link forwarding");
+				forwardxbox = 1;
+				break;
 			case 'm':
 				debuglog(10, "-m flag, enabling multicast forwarding");
 				forwardmulticast = 1;
@@ -760,11 +805,13 @@ int main(int argc, char **argv) {
 				break;
 			case 'p':
 				serverport = atoi(optarg);
+				debuglog(10, "-p flag, setting proxy port to %d", serverport);
 				break;
 			case 'h':
 			case '?':
 			default:
-				//usage();
+				usage();
+				exit(1);
 				break;
 		}
 	}
