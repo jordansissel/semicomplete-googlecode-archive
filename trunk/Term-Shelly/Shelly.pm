@@ -48,6 +48,9 @@ use constant WORD_ONLY => 2;          # Trailing spaces are important.
 use constant WORD_REGEX => 4;         # I want to specify my own regexp
 
 # Some key constant name mappings.
+# I definately need a function to do this and some sort of hash returned which
+# specifies the key pressed and any modifiers too.
+# Like... ctrl+f5 is \e[15;5~ ... and not on all systems.
 my %KEY_CONSTANTS = (
 							"\e[A"      => "UP",
 							"\e[B"      => "DOWN",
@@ -132,6 +135,17 @@ sub new ($) {
 	return $self;
 }
 
+sub DESTROY {
+	my $self = shift;
+	$self->real_out("\n");
+	ReadMode 0;
+}
+
+#sub END {
+	#print "\n";
+	#ReadMode 0;
+#}
+
 =pod
 
 =item $sh->do_one_loop()
@@ -170,14 +184,10 @@ sub handle_key($$) {
 	my $line = $self->{"input_line"} || "";
 	my $pos = $self->{"input_position"} || 0;
 
-	# This is sometimes a nice feature to have...
-	# Press the any key!!!
-	$self->execute_binding("ANYKEY");
-
 	if ($self->{"escape"}) {
 		$self->{"escape_string"} .= $char;
 		if ($self->{"escape_expect_ansi"}) {
-			$self->{"escape_expect_ansi"} = 0 if ($char =~ m/[a-zA-Z]/);
+			$self->{"escape_expect_ansi"} = 0 if ($char =~ m/[a-zA-Z~]/);
 		}
 
 		$self->{"escape_expect_ansi"} = 1 if ($char eq '[');
@@ -187,26 +197,17 @@ sub handle_key($$) {
 			my $estring = $self->{"escape_string"};
 
 			$self->{"escape_string"} = undef;
-			return $self->execute_binding("\e".$estring);
+			$self->execute_binding("\e".$estring);
+		} else {
+			return;
 		}
-
-		return 0;
-	}
-
-	if ($char eq "\e") {      # Trap escapes, they're speshul.
+	} elsif ($char eq "\e") {      # Trap escapes, they're speshul.
 		$self->{"escape"} = 1;
 		$self->{"escape_string"} = undef;
-		
-		# What now?
-		return 0;
-	}
-
-	if ((ord($char) < 32) || (ord($char) > 126)) {   # Control character
+		return;
+	} elsif ((ord($char) < 32) || (ord($char) > 126)) {   # Control character
 		$self->execute_binding($char);
-		return 0;
-	}
-
-	if ((defined($char)) && (ord($char) >= 32)) {
+	} elsif ((defined($char)) && (ord($char) >= 32)) {
 		if (defined($self->{"bindings"}->{"$char"})) {
 			$self->execute_binding($char);
 		} else  {
@@ -219,6 +220,10 @@ sub handle_key($$) {
 		# If we just did a tab completion, kill the state.
 		delete($self->{"completion"}) if (defined($self->{"completion"}));
 	}
+
+	# This is sometimes a nice feature to have...
+	# Press the any key!!!
+	$self->execute_binding("ANYKEY");
 
 	$self->fix_inputline();
 }
@@ -239,6 +244,8 @@ sub execute_binding ($$) {
 	my $self = shift;
 	my $str = shift;
 	my $key = $self->prettify_key($str);
+
+	#$self->out("Key: $key");
 
 	my $bindings = $self->{"bindings"};
 	my $mappings = $self->{"mappings"};
@@ -267,8 +274,6 @@ sub execute_binding ($$) {
 			$self->error("Unimplemented function, " . $bindings->{$key});
 		}
 	}
-
-	return 0;
 }
 
 =pod
@@ -345,7 +350,7 @@ This super-happy function redraws the input line. If input_position is beyond th
 
 =cut
 
-sub fix_inputline {
+sub fix_inputline ($) {
 	my $self = shift;
 
 	print "\r\e[2K";
@@ -356,19 +361,22 @@ sub fix_inputline {
 		return;
 	}
 
-	# If we're past the end of the terminal line, shuffle back!
+	# If we're before the beginning of the terminal line, shuffle over!
 	if ($self->{"input_position"} - $self->{"leftcol"} <= 0) {
 		$self->{"leftcol"} -= 30;
 		$self->{"leftcol"} = 0 if ($self->{"leftcol"} < 0);
 	}
 
-	# If we're before the beginning of the terminal line, shuffle over!
-	if ($self->{"input_position"} - $self->{"leftcol"} > $self->{"termcols"}) {
+	# If we're past the end of the terminal line, shuffle back!
+	# length = input_position - leftcol + input_prompt - leftcol
+	my $pl = length($self->{"input_prompt"}) - $self->{"leftcol"};
+	$pl = 0 if ($pl < 0);
+	if ($self->{"input_position"} - $self->{"leftcol"} + $pl > $self->{"termcols"}) {
 		$self->{"leftcol"} += 30;
 	}
 
 	# Can se show the whole line? If so, do it!
-	if (length($self->{"input_line"}) < $self->{"termcols"}) {
+	if (length($self->{"input_line"}) + length($self->{"input_prompt"}) < $self->{"termcols"}) {
 		$self->{"leftcol"} = 0;
 	}
 
@@ -580,7 +588,7 @@ sub echo ($;$) {
 	my $self = shift;
 
 	if (@_) {
-		$self->{"echo"} = shift;;
+		$self->{"echo"} = shift;
 	} 
 	return $self->{"echo"};
 }
