@@ -91,7 +91,7 @@ HELP
 	}
 	prettyprint($state,"out_msg", { sn => $sn, msg => $msg } );
 
-	$aim->send_im($sn, encode_entities($msg), $away);
+	$aim->send_im($sn, encode_entities($msg, '<>'), $away);
 }
 
 sub command_help {

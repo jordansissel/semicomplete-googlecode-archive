@@ -129,9 +129,9 @@ sub prettyprint {
 		 }
 	}
 
+	$output =~ s![\r]!!g;
+	$output =~ s!<br>!\n!gis;
 	$output =~ s!<(?:(?:(?:html|body|font|b|i|u)(?:\s[^>]+)?)|(?:/(?:html|body|font|b|i|u)))>!!gi;
-	$output =~ s!<br>!\n!gi;
-	$output =~ s![[:cntrl:]]!!g;
 
 	if ($type =~ m/^error/) {
 		$sh->error($output);
