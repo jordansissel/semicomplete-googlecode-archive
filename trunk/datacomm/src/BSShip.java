@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.11  2004/01/20 02:07:05  tristan
+ *   added stubs for comments
+ *
  *   Revision 1.10  2004/01/19 23:19:47  tristan
  *   switched back and wrote getter/setters
  *
@@ -67,6 +70,13 @@ public class BSShip {
         endY = 0;
     } // constructor
 
+    /**
+     *
+     * @param startX
+     * @param startY
+     * @param endX
+     * @param endY
+     */
     public BSShip( byte startX, byte startY, byte endX, byte endY ) {
         this.startX = startX;
         this.startY = startY;
@@ -74,6 +84,10 @@ public class BSShip {
         this.endY = endY;
     }
 
+    /**
+     *
+     * @return
+     */
     public byte getLength() {
         byte retVal = 0;
 
@@ -88,34 +102,66 @@ public class BSShip {
         return retVal;
     }
 
+    /**
+     *
+     * @return
+     */
     public byte getStartX() {
         return startX;
     }
 
+    /**
+     *
+     * @param startX
+     */
     public void setStartX( byte startX ) {
         this.startX = startX;
     }
 
+    /**
+     *
+     * @return
+     */
     public byte getStartY() {
         return startY;
     }
 
+    /**
+     *
+     * @param startY
+     */
     public void setStartY( byte startY ) {
         this.startY = startY;
     }
 
+    /**
+     *
+     * @return
+     */
     public byte getEndX() {
         return endX;
     }
 
+    /**
+     *
+     * @param endX
+     */
     public void setEndX( byte endX ) {
         this.endX = endX;
     }
 
+    /**
+     *
+     * @return
+     */
     public byte getEndY() {
         return endY;
     }
 
+    /**
+     *
+     * @param endY
+     */
     public void setEndY( byte endY ) {
         this.endY = endY;
     }
