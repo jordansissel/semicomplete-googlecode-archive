@@ -449,39 +449,64 @@ HELP
 	my ($args) = @_;
 	my $aim = $state->{"aim"};
 
+	my $count = 0;
 	foreach my $g ($aim->groups()) {
-		out($g);
 		my @buddies = $aim->buddies($g);
-		my $count = 0;
-		my %results;
-		foreach my $b (sort(compare($a,$b),@buddies)) {
-			my $bud = $aim->buddy($b,$g);
-			next unless (defined($bud));
-			my $e;
-			$e .= "offline" unless ($bud->{"online"});
-			$e ||= "online, ";
-			$e .= "away, " if ($bud->{"away"});
-			$e .= "idle, " if ($bud->{"idle"});
-			$e =~ s/, $//;
-			push(@{$results{"offline"}}, $bud) unless ($bud->{"online"});
-			push(@{$results{"online"}}, $bud) if ($bud->{"online"});
-			push(@{$results{"away"}}, $bud) if ($bud->{"away"});
-			push(@{$results{"idle"}}, $bud) if ($bud->{"idle"});
-			push(@{$results{"mobile"}}, $bud) if ($bud->{"mobile"});
-		}
+		@buddies = map { 
+			my $bd = $aim->buddy($_,$g);
+			unless ($bd->{"online"}) {
+				$bd = { "online" => 0, "screenname" => $_ };
+			}
+			$bd;
+		} @buddies;
+
+		#map { out("B: " . $_->{"screenname"}); } @buddies;
+		
 		# TODO: Only display all matches to their query?
 		# -a    active
 		# -w    away
 		# -o    offline
 		# -i    idle
-		# -m    idle
-		my %opts;
-		my @budmatches;
-		@ARGV = split(/\s+/, $args);
-		getopt('awoim', \%opts);
+		# -m    mobile
 
-		error("No buddies matching your query, '$args'") if ($count == 0);
+		my %opts;
+		@ARGV = split(/\s+/, $args);
+		getopts('awoim', \%opts);
+		my %USERFLAGS = (
+		  "a" => sub { my ($b) = @_; ($b->{online} && !$b->{away} && !defined($b->{idle_since})) },
+		  "w" => sub { my ($b) = @_; ($b->{online} && $b->{away}) },
+		  "i" => sub { my ($b) = @_; ($b->{online} && $b->{idle}) },
+		  "m" => sub { my ($b) = @_; ($b->{online} && $b->{mobile}) },
+		  "o" => sub { my ($b) = @_; (!$b->{online}) },
+		);
+
+		foreach my $flag (grep($opts{$_} == 1, keys(%opts))) { 
+			my $sub = $USERFLAGS{$flag};
+			#out("Grepping for $flag - " . scalar(@buddies) . "before");
+			@buddies = grep(&{$sub}($_), @buddies);
+			#out("After:" . scalar(@buddies));
+		}
+
+		my $reg = join(" ", @ARGV);
+		if (length($reg) > 0) {
+			@buddies = grep($_->{"screenname"} =~ m/\Q$reg\E/i, @buddies);
+		}
+
+		out("$g") if scalar(@buddies);
+		$count += scalar(@buddies);
+		foreach my $b (sort(compare($a,$b),@buddies)) {
+			next unless (ref($b) eq 'HASH');
+			my $bl = $b->{"screenname"} . "(";
+			$bl .= " active" if (&{$USERFLAGS{"a"}}($b));
+			$bl .= " away" if (&{$USERFLAGS{"w"}}($b));
+			$bl .= " idle" if (&{$USERFLAGS{"i"}}($b));
+			$bl .= " offline" if (&{$USERFLAGS{"o"}}($b));
+			$bl .= " mobile" if (&{$USERFLAGS{"m"}}($b));
+			$bl .= " )";
+			out("\t$bl");
+		}
 	}
+	error("No buddies matching your query, '$args'") if ($count == 0);
 }
 
 sub command_addbuddy {
