@@ -6,8 +6,8 @@
  * 
  * Revisions:
  *   $Log$
- *   Revision 1.8  2004/01/19 02:06:04  njohnson
- *   fixed some javadoc mistakes
+ *   Revision 1.9  2004/01/19 02:09:14  njohnson
+ *   fixed some replace mistakes
  *
  *   Revision 1.7  2004/01/19 00:35:46  njohnson
  *   Committing Compilable code. Added a getGridArray() funtion for grids
@@ -46,9 +46,9 @@ import java.util.*;
  */
 public class BSGame {
     private String ownName;
-    private String tparametName;
+    private String targetName;
     private BSGrid ownGrid;
-    private BSGrid tparametGrid;
+    private BSGrid targetGrid;
     private boolean[] shipSunk; //true if the ship is sunk.
 				// 0 - Destroyer
 				// 1 - Submarine
@@ -63,18 +63,18 @@ public class BSGame {
      * Constructor of BSGame.
      *
      * @param ownName -
-     * @param tparametName -
+     * @param targetName -
      * @param ownGrid -
-     * @param tparametGrid -
+     * @param targetGrid -
      */
     public BSGame( String ownName, 
-            String tparametName,    
+            String targetName,    
             BSGrid ownGrid,
-            BSGrid tparametGrid ) {
+            BSGrid targetGrid ) {
         this.ownName = ownName;
-        this.tparametName = tparametName;
+        this.targetName = targetName;
         this.ownGrid = ownGrid;
-        this.tparametGrid = tparametGrid;
+        this.targetGrid = targetGrid;
         shipSunk = new boolean[ 5 ];
         for( int i = 0; i < shipSunk.length; i++ ) {
             shipSunk[ i ] = false;
@@ -141,13 +141,13 @@ public class BSGame {
     } //getOwnGrid()
 
     /**
-     * Returns the player who owns this game's tparamet grid.
+     * Returns the player who owns this game's target grid.
      *
-     * @return - the tparamet grid
+     * @return - the target grid
      */
-    public BSGrid getTparametGrid() {
-        return tparametGrid;
-    } //getTparametGrid()
+    public BSGrid getTargetGrid() {
+        return targetGrid;
+    } //getTargetGrid()
 
     /**
      * Determines whether a shot is a hit or miss
