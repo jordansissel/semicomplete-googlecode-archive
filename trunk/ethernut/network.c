@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 
 #include <errno.h>
+#include <strings.h>
 
 #include "network.h"
 
