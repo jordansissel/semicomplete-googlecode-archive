@@ -1,3 +1,8 @@
+#include <stdio.h>
+#include "bar.h"
+
 int main() {
-return 0;
+	printf("main says hi...\n");
+	razzle();
+	return 0;
 }
