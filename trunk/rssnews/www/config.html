@@ -1,24 +1,41 @@
 <%args>
 	$data
+
+	# Form stuffs
 	$email => undef
+	@subscriptions => undef
+	$save => undef
 </%args>
 <%init>
 	my $db = $data->{"db"};
 	my $userinfo = $data->{"userinfo"};
 </%init>
 
-% foreach (keys(%$userinfo)) {
-<b><% $_ %></b>: <% $userinfo->{$_} %><br>
-% }
-<p>
+<%perl>
+	my $subs;
+	my $r = $db->prepare("SELECT sourceid FROM watching WHERE userid=?");
+	$r->execute($userinfo->{"id"});
+	$subs = $r->fetchall_hashref("sourceid");
 
-<form method="POST" action="config.html">
+	if ($save) {
+		# Save stuff.
+		# Subscriptions are in @subscriptions
+		foreach my $sub (@subscriptions) {
+			my $res = $db->prepare("INSERT INTO watching (userid, sourceid) VALUES (?,?)");
+			$res->execute($userinfo->{"id"}, $sub);
+			$subs->{$sub} = 1;
+			$res->finish();
+		}
+	} 
+</%perl>
+
+<form method="GET" action="config.html">
 % my $s = $db->selectall_hashref("SELECT * FROM sources", "id");
 % my @sources = sort { lc($a->{"name"}) cmp lc($b->{"name"}) } values(%$s);
 % foreach (@sources) {
 <table border="0" cellspacing="0">
 <tr><td valign="top">
-<input type="checkbox" name="sources" value="<% $_->{"id"} %>">
+<input type="checkbox" name="subscriptions" value="<% $_->{"id"} %>" <% ($subs->{$_->{"id"}} ? "checked" : "") %>>
 </td>
 <td>
 <b><% $_->{"name"} %></b> - <% $_->{"descr"} %>
@@ -28,5 +45,5 @@
 <br>
 % }
 <input type="hidden" name="save" value="1">
-<input type="submit" value="Save Config"
+<input type="submit" value="Save Config">
 </form>
