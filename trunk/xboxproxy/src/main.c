@@ -159,6 +159,11 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 
 		p = ((xbox_t *)(box->hash_data))->proxy;
 
+		if (p == NULL) {
+			debuglog(3, "Packet is destined for something on this net, ignore it")
+				return;
+		}
+
 		debuglog(3, "Proxy is: %s", (p == NULL ? "Local" : inet_ntoa(p->addr)));
 
 		if (use_udp) {
