@@ -26,6 +26,9 @@ static u_char myaddr = 0; /* ??? What address do I use? */
 void i2c_init() {
 	log(1, "i2c_init()");
 
+	/* Set the port high first, or it won't work... is this a bug? */
+	outb(PORTD, 1); /* or 0xff */
+
 	/* Initialize TWI/I2C interface */
 	TwInit(myaddr);
 
