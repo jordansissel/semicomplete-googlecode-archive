@@ -148,6 +148,7 @@ sub check_readline {
 			real_out("\n");
 			$state->{"input_line"} = undef;
 			$state->{"input_position"} = 0;
+			$state->{"leftcol"} = 0;
 
 			# Instead of printing an EOL, we could have the commands each handle
 			# outputting things themselves, so that things aren't so cluttered 
@@ -170,7 +171,17 @@ sub check_readline {
 			if (defined($extra->{"-print"})) {
 				real_out($extra->{"-print"});
 			}
-			real_out("\r\e[2K" . $ret);
+			if ($state->{"termcols"} < length($ret)) {
+				my $left = length($ret) - $state->{"termcols"};
+				$state->{"leftcol"} = $left + 1;
+			}
+			print STDERR $state->{"leftcol"} . " / " . $state->{"termcols"} . " - " . substr($ret,$state->{"leftcol"} ,$state->{"termcols"}) . "\n";
+
+			# Determine what the leftmost pos is:
+			my $l = ($state->{"leftcol"} < $state->{"input_position"}) ? 
+				      $state->{"leftcol"} : $state->{"input_position"};
+			real_out("\r\e[2K" . substr($ret,$l, $state->{"termcols"}));
+			#real_out("\r\e[2K" . substr($ret,$state->{"leftcol"},$state->{"termcols"}));
 			real_out("\e[".$back."D") if ($back > 0);
 			$state->{"input_line"} = $ret;
 		} else {
@@ -253,6 +264,12 @@ sub command {
 		#out("<$cmd>");
 		if (defined($commands->{$cmd})) { 
 			&{$commands->{$cmd}}($state, $args);
+			#my $whattodo = &{$commands->{$cmd}}($state, $args);
+			#if (defined($whattodo)) {
+				#out "Doing: $whattodo\n";
+				#eval $whattodo;
+				#warn($@) if $@;
+			#}
 		} elsif (defined($aliases->{$cmd})) {
 			$state->{"recursion_check"}++;
 			if ($state->{"recursion_check"} > 10) {
@@ -329,7 +346,7 @@ sub read_config {
 		my $c = 0;
 		while (my $line = <FILE>) {
 			$c++;
-			next if ($line =~ m/^#/);
+			next if ($line =~ m/^(?:#|\s*$)/);
 			chomp($line);
 			$line =~ s/#.*$//;
 			if ($line =~ m/^(screenname|password|server|port)(?:\s|=)/i) {
