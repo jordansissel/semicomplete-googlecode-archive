@@ -1,10 +1,17 @@
 #!/usr/bin/perl
+# (?:Perl|Pretty)i? Music Player
+# or...
+# Pimp Is a Music Player (I had to!)
+#
+# Anyhoo... on with the perl!
+# $Id$
 
 use strict;
 use warnings;
 
 use Audio::Mad qw(:all);
 use Audio::Ao qw(:all);
+use File::Glob qw(:glob);
 use IO::Socket;
 use IO::Select;
 use IO::Handle;
@@ -12,10 +19,12 @@ use Socket;
 use Fcntl;
 use POSIX;
 
-$SIG{INT} = \&shutdown;
-$SIG{__DIE__} = \&shutdown;
+$SIG{INT} = \&do_shutdown;
+$SIG{__DIE__} = \&do_shutdown;
 
-my ($server, $player) = IO::Socket->socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC);
+my ($serv, $player) = IO::Socket->socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC);
+
+my $pimp = {};
 
 # MP3 Player writes to $server, reads from $player
 # Server writes to $server, reads from CHILD
@@ -23,7 +32,7 @@ my ($server, $player) = IO::Socket->socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC);
 my $spid = fork();
 if ($spid == 0) {
 	run_server();
-	
+
 	print STDERR "Server died!\n";
 	exit(1);
 }
@@ -35,23 +44,16 @@ my $timer    = new Audio::Mad::Timer();
 my $resample = new Audio::Mad::Resample(44100, 22050);
 my $dither   = new Audio::Mad::Dither();
 
-{
-	local $/ = undef;
-	open(MP3, $ARGV[0]);
-	my $buffer = <MP3>;
-	close(MP3);
-	$stream->buffer($buffer);
-}
-
-#print Dumper($stream->options());
+play_song($ARGV[0]);
 
 initialize_ao;
-my $device = open_live(default_driver_id(), 16, 22050, 2, is_big_endian(), {});
+my $device = open_live(default_driver_id(), 16, 44100, 2, is_big_endian(), {});
 
 my $select = IO::Select->new($player);
 
 my $buffer = ""; # IPC buffer
-my $state = "playing"; # Player State
+$pimp->{"state"} = "playing";
+
 while (1) {
 	foreach my $socket ($select->can_read(.01)) {
 		my $data;
@@ -67,26 +69,54 @@ while (1) {
 		}
 	}
 
-	# Audio Stuff
-	if ($state eq "playing") {
-		if ($frame->decode($stream) == -1) {
-			print "Done\n";
-			last unless ($stream->err_ok());
-
-			warn "decoding error: " . $stream->error();
-			next;
-		}
-
-		$synth->synth($frame);
-		my $pcm = $dither->dither($resample->resample($synth->samples()));
-
-		play($device, $pcm, length($pcm));
-		#print $pcm;
-	}
+	play_loop();
 }
 
 close_ao($device);
 shutdown_ao;
+do_shutdown("INT");
+
+sub signal_event {
+	my $event = shift;
+
+	if ($event eq 'end_of_song') {
+		next_song();
+	} elsif ($event eq 'new_song') {
+		print $player "BROADCAST randomsonginfohere\n";
+	}
+
+}
+
+sub play_loop {
+	# Audio Stuff
+	if ($pimp->{"state"} eq "playing") {
+		my $pcm;
+		if ($pimp->{"current_type"} eq "mp3") {
+			$pcm = decode_current_mp3();
+			if (defined($pcm) && $pcm ne '') {
+				play($device, $pcm, length($pcm));
+			} else {
+				# End of song or something broke.
+				next_song();
+			}
+		}
+	}
+}
+
+sub decode_current_mp3 {
+	if ($frame->decode($stream) == -1) {
+		unless ($stream->err_ok()) {
+			$pimp->{"state"} = "stopped";
+			signal_event("end_of_song");
+			return;
+		}
+		warn "decoding error: " . $stream->error();
+		return;
+	}
+	$synth->synth($frame);
+	#my $pcm = $dither->dither($resample->resample($synth->samples()));
+	return $dither->dither($synth->samples());
+}
 
 sub handle_command {
 	my $line = shift;
@@ -95,8 +125,53 @@ sub handle_command {
 	$cmd = lc($cmd);
 
 	if ($cmd eq 'pause') {
-		$state = ($state eq "pause") ? "playing" : "pause";
+		$pimp->{"state"} = ($pimp->{"state"} eq "pause") ? "playing" : "pause";
+		print $player "$who OK!\n";
+	} elsif ($cmd eq 'play') {
+		$pimp->{"state"} = "playing";
+	} elsif ($cmd eq 'stop') {
+		$pimp->{"state"} = 'stop';
+	} elsif ($cmd eq 'next') {
+		next_song();
 	}
+}
+
+sub next_song {
+	# Find next song to play
+	# Then play it
+
+	my @songs;
+	@songs = bsd_glob("/usr/home/psionic/download/mp3/*/*/*");
+
+	# Foo.
+	my $newsong = $songs[ (int(rand() * scalar(@songs))) ];
+	print STDERR "New song: $newsong\n";
+
+	play_song($newsong);
+}
+
+sub play_song {
+	my $file = $_[0];
+	if ($file =~ m/\.mp3$/) {
+		local $/ = undef;
+		open(MP3, $file) or signal_error("open_fail", $_[0]) and return;
+		my $buffer = <MP3>;
+		close(MP3);
+
+		my $mp3 = MP3::Tag->new($file);
+		my ($song, $artist, $no, $album) = $mp3->read_filename();
+		$mp3->close();
+		$pimp->{"playlist"}->{$file} = { song => $song, artist => $artist, 
+		                                 no => $no, album => $album };
+		$pimp->{"current_song"} = $pimp->{"playlist"}->{$file};
+
+		$stream->buffer($buffer);
+		$pimp->{"current_type"} = "mp3";
+		$pimp->{"current_song"} = $file;
+	}
+	$pimp->{"state"} ||= "playing";
+	$pimp->{"state"} = "playing" if ($pimp->{"state"} eq "pause");
+	signal_event("new_song");
 }
 
 
@@ -108,18 +183,21 @@ sub run_server {
 
 	my $select = IO::Select->new();
 	my $server = IO::Socket::INET->new( Proto => "tcp",
-										  LocalPort => "3242",
-										  Listen => SOMAXCONN,
-										  Reuse => 1);
+													LocalPort => "3242",
+													Listen => SOMAXCONN,
+													Reuse => 1);
 	$select->add($server);
+	$select->add($serv);
 	#nonblock($server);
 
 	my $clients = {};
+	$clients->{"$serv"} = $serv;
+
 	while (1) {
 		my $socket;
 
 		foreach $socket ($select->can_read(1)) {
-			if ($socket == $server) {
+			if ($socket == $server) {  # Incomming Clients
 				my $client = $server->accept();
 				$select->add($client);
 				$clients->{"$client"} = $client;
@@ -132,6 +210,7 @@ sub run_server {
 					# Client disconnected, clean up.
 					delete $ready{$socket};
 					delete $buffers{$socket};
+					delete $clients->{$socket};
 					$select->remove($socket);
 					close($socket);
 					next;
@@ -146,17 +225,34 @@ sub run_server {
 		}
 
 		foreach my $client (keys(%ready)) {
-			handle($client, \@{$ready{$client}});
+			handle($clients, $client, \@{$ready{$client}});
 			delete($ready{$client});
 		}
 	}
 }
 
 sub handle {
+	my $clients = shift;
 	my $client = shift;
 	my $lines = shift;
-	#print "Client: $client\n";
-	map { print $server "$client $_" } @{$lines};
+	if ($client eq $serv) {
+		foreach my $line (@{$lines}) {
+			my ($who, $resp) = split(/\s+/,$line);
+			if ($who eq 'BROADCAST') {
+				foreach $client (keys(%{$clients})) {
+					next if ($client eq $serv);
+					$client = $clients->{$client};
+					print $client "$resp\n";
+				}
+			} else {
+				$client = $clients->{$who};
+				print $client $resp . "\n";
+			}
+		}
+	} else {
+		print "Client: $client ($serv)\n";
+		map { print $serv "$client $_" } @{$lines};
+	}
 }
 
 sub nonblock {
@@ -169,7 +265,11 @@ sub nonblock {
 		or die "Can't make socket nonblocking: $!\n";
 }
 
-sub shutdown {
+sub do_shutdown {
+	my $error = shift;
+	if ($error ne 'INT' ) {
+		print STDERR "Fatal Error: $error\n";
+	}
 	print STDERR "Dying...\n";
 	kill("KILL", $spid);
 	while ((my $child = waitpid(-1,WNOHANG)) > 0) {
