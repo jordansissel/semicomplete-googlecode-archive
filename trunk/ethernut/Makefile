@@ -2,7 +2,7 @@
 #
 # $Id$
 
-OBJECTS=main.o busmaster.o
+OBJECTS=main.o busmaster.o log.o
 
 all: ethernut
 
