@@ -4,6 +4,7 @@ package Tic::Common;
 use strict;
 use vars ('@ISA', '@EXPORT');
 use Exporter;
+use Term::Shelly;
 use Term::ReadKey;
 use POSIX qw(strftime);
 
@@ -12,11 +13,13 @@ use POSIX qw(strftime);
              login set_config get_config expand_aliases);
 
 my $state;
+my $sh;
 
 sub set_state { 
 	my $self = shift;
 	#debug("Setting state for ::Common");
 	$state = shift;
+	$sh = $state->{"sh"};
 }
 
 sub import {
@@ -24,37 +27,14 @@ sub import {
 	Tic::Common->export_to_level(1,@_);
 }
 
-sub out { 
-	real_out("\r\e[2K",join("\n",@_) . "\n");
-	fix_inputline();
-}
-
-sub real_out { print @_; }
-
-sub error {
-	print STDERR "\r\e[2K";
-	print STDERR "*> " . shift() . "\n"; 
-	fix_inputline();
-}
-sub debug { foreach (@_) { print STDERR "debug> $_\n"; } }
-
-sub fix_inputline {
-	# Fix the line
-	if (defined($state->{"input_line"})) {
-		my $back = (length($state->{"input_line"}) - $state->{"input_position"});
-		#real_out($state->{"input_line"});
-		real_out(substr($state->{"input_line"},$state->{"leftcol"}, $state->{"termcols"} - 1));
-		real_out("\e[" . $back . "D") if ($back > 0);
-	}
-}
+sub debug { foreach (@_) { $sh->error("debug> $_\n"); } }
 
 sub prettyprint {
 	my ($state, $type, $data) = @_;
 	my $output;
 
 	if ($type eq "help") {
-		out();
-		real_out($data->{"help"} . "\n");
+		$sh->out($data->{"help"});
 		return;
 	}
 
@@ -111,10 +91,10 @@ sub prettyprint {
 	$output =~ s![[:cntrl:]]!!g;
 
 	if ($type =~ m/^error/) {
-		error($output);
+		$sh->error($output);
 	} else {
 		#out("< $type > $output");
-		out($output);
+		$sh->out($output);
 	}
 }
 
@@ -131,16 +111,6 @@ sub prettylog {
 			close(IMLOG);
 		}
 	}
-}
-
-sub query {
-	my ($q, $hide) = @_;
-	real_out("$q");
-	ReadMode(0) unless ($hide);
-	chomp($q = <STDIN>);
-	ReadMode(3);
-	real_out("\n") if ($hide);
-	return $q;
 }
 
 sub deep_copy {
@@ -164,25 +134,56 @@ sub login {
 	my ($user,$pass) = @_;
 	my ($fail) = 0;
 
-	do {
-		$user = $pass = undef if ($fail > 0);
-		while (length($user) == 0) {
-			$user = query("login: ");
-		}
-		$pass = query("password: ", 1) if (length($pass) == 0);
-		$fail++;
-	} while (length($pass) == 0);
+	if (defined($pass)) {
+		$state->{"login_password"} = $user;
+	}
+	if (defined($user)) {
+		get_username($user);
+	} else {
+		$sh->prompt("Login: ");
+		$sh->{"readline_callback"} = \&get_username;
+		$sh->fix_inputline();
+	}
+
+}
+
+sub get_username {
+	$state->{"login_username"} = shift;
+
+	unless (defined($state->{"login_password"})) {
+		$sh->prompt("Password: ");
+		$sh->echo(0);
+		$sh->{"readline_callback"} = \&get_password;
+	} else {
+		get_password($state->{"login_password"});
+	}
+}
+
+sub get_password {
+	$state->{"login_password"} = shift;
+	$sh->prompt("");
+	$sh->echo(1);
+
+	do_login();
+}
+
+sub do_login {
+
+	my $user = $state->{"login_username"};
+	my $pass = $state->{"login_password"};
 
 	$state->{"signon"} = 1;
 	$state->{"aimok"} = 1;
-	out("Logging in to AIM, please wait :)");
+	$sh->out("Logging in to AIM, please wait :)");
 	my %hash = ( screenname => $user, 
 					 password => $pass );
 	$hash{"port"} = $state->{"settings"}->{"port"} || "5190";
 	$hash{"host"} = $state->{"settings"}->{"host"} || "login.oscar.aol.com";
 
-	out("Connecting to " . $hash{"host"} . ":" . $hash{"port"} . " as " . $hash{"screenname"});
+	$sh->out("Connecting to " . $hash{"host"} . ":" . $hash{"port"} . " as " . $hash{"screenname"});
 	$state->{"aim"}->signon(%hash);
+
+	$sh->{"readline_callback"} = $state->{"command_callback"};
 }
 
 sub get_config {
@@ -209,7 +210,7 @@ sub expand_aliases {
 		} elsif (defined($aliases->{$cmd})) {
 			$state->{"recursion_check"}++;
 			if ($state->{"recursion_check"} > 10) {
-				out("Too much recursion in this alias. Aborting execution");
+				$sh->out("Too much recursion in this alias. Aborting execution");
 				return;
 			}  
 			($cmd, $args) = $aliases->{$cmd} . " " . $args;
