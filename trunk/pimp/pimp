@@ -7,7 +7,6 @@
 # $Id$
 
 use strict;
-
 use warnings;
 
 use Audio::Ao qw(:all);
@@ -149,6 +148,7 @@ sub play_loop {
 sub decode_current_mp3 {
 
 	# Keep our internal prebuffer filled as best as we can...
+	$pimp->{"current_buffer"} |= '';
 	if (length($pimp->{"current_buffer"}) < $MAXBUFSIZE) {
 		my $b = sysread($pimp->{"current_fd"}, $pimp->{"current_buffer"}, 
 				  $MAXBUFSIZE - length($pimp->{"current_buffer"}), length($pimp->{"current_buffer"}));
@@ -161,6 +161,7 @@ sub decode_current_mp3 {
 		if ($stream->error() == MAD_ERROR_BUFLEN || 
 			 $stream->error == MAD_ERROR_BUFPTR) {
 
+			return ERR_EOF if length($pimp->{"current_buffer"}) == 0;
 			my $buffer = substr($pimp->{"old_buffer"}, $stream->next_frame());
 			$buffer .= substr($pimp->{"current_buffer"}, 0, $BUFSIZE);
 			$pimp->{"current_buffer"} = substr($pimp->{"current_buffer"}, $BUFSIZE);
@@ -183,13 +184,11 @@ sub decode_current_mp3 {
 	# $frame->samplerate() shows us the bitrate.
 	$pimp->{"current_samplerate"} |= 0;
 	if ( ($frame->samplerate() != $pimp->{"current_samplerate"}) ) {
-		print "Creating sampler for: " . $frame->samplerate() . " -> 44100\n";
+		#print "Creating sampler for: " . $frame->samplerate() . " -> 44100\n";
 		$pimp->{"current_samplerate"} = $frame->samplerate();
-		#print "Resample: " . $resample->init($frame->samplerate(), 44100) . "\n";
 
 		# if @samples has 2 items, this is a stereo stream
 		# if not, this is a mono stream
-
 		if (scalar(@samples) != 2) {
 			$resample->init($frame->samplerate() / 2, 44100);
 		} else {
@@ -206,16 +205,55 @@ sub decode_current_mp3 {
 sub handle_command {
 	my $line = shift;
 	my ($who, $cmd, $args) = split(/\s+/,$line,3);
+
+	# Kill trailing EOL and \r stuff
+	$args =~ s/\s+$// if (defined($args));
+
 	#print "Command: $cmd FROM $who\n";
 	$cmd = lc($cmd);
 
 	if ($cmd eq 'pause') {
 		signal_event("client_pause", $player);
 	} elsif ($cmd eq 'play') {
-		# Doesn't block, no need for an event. 
-		play_song($pimp->{"current_song"}->{"file"})
-			if ($pimp->{"state"} =~ m/(?:playing|stop)/);
+		if (defined($pimp->{"jump_lists"}->{"$who"}) && length($args) > 0) {
+			my @files = @{$pimp->{"jump_lists"}->{"$who"}};
+
+			if ($args =~ m/^(\d+)(-|\.\.)(\d+)$/) {
+				my ($left, $right) = ($1 - 1, $3 - 1);
+				play_song(@files[$left .. $right]);
+			} elsif ($args =~ m/^\d+$/) {
+				play_song($files[$args]);
+			} elsif ($args =~ m/^all$/i) {
+				play_song(@files);
+			}
+			delete $pimp->{"jump_lists"}->{"$who"};
+			#eval "\@slice = \$files[$args]\n";
+			#play_song(@slice);
+		} else {	
+			play_song($pimp->{"current_song"}->{"file"})
+				if ($pimp->{"state"} =~ m/(?:playing|stop)/);
+		}
 		$pimp->{"state"} = "playing";
+
+	} elsif ($cmd eq 'queue') {
+		@{$pimp->{"jump_lists"}->{"$who"}} = () unless (defined($pimp->{"jump_lists"}->{"$who"}));
+		my @files = @{$pimp->{"jump_lists"}->{"$who"}};
+
+		if ($args =~ m/^(\d+)(-|\.\.)(\d+)$/) {
+			my ($left, $right) = ($1 - 1, $3 - 1);
+			push(@{$pimp->{"song_queue"}}, @files[$left .. $right]);
+		} elsif ($args =~ m/^\d+$/) {
+			push(@{$pimp->{"song_queue"}}, $files[$args]);
+		} elsif ($args =~ m/^all$/i) {
+			push(@{$pimp->{"song_queue"}}, @files);
+		} elsif ($args =~ m/^clear$/i) {
+			print "Clear\n";
+			$pimp->{"song_queue"} = [ ];
+		} else {
+			map { my $a = $_; $a =~ s!^.*/!!g; print $player "$who $a\n" } @{$pimp->{"song_queue"}};
+		}
+
+		delete $pimp->{"jump_lists"}->{"$who"};
 
 	} elsif ($cmd eq 'stop') {
 		$pimp->{"state"} = 'stop';
@@ -234,6 +272,18 @@ sub handle_command {
 	} elsif ($cmd eq 'info') {
 		my $csong = $pimp->{"current_song"};
 		print $player "$who " . display_song($csong) . "\n";
+	} elsif ($cmd eq 'jump') {
+		my @matches = @playlist;
+
+		map { my $a = $_; @matches = grep(/\Q$a\E/i, @matches); } split(/\s+/, $args);
+		@{$pimp->{"jump_lists"}->{"$who"}} = @matches;
+
+		#@matches = map { $_ =~ s!^.*/!!g; $_ } @matches;
+		print $player "$who Files matching query: '$args'\n";
+
+		my $x = 1;
+		map { s!^.*/!!g; print $player "$who " . $x++ . ": $_\n" } @matches;
+
 	} elsif ($cmd eq 'set') {
 		my $file = $pimp->{"current_song"}->{"file"};
 		my ($tag,$value) = split(/\s+/,$args,2);
@@ -276,11 +326,14 @@ sub display_song {
 	my $foo = shift;
 
 	if ($pimp->{"current_is_stream"}) {
-
+		#$0 = "PiMP: " . $foo->{"file"} . "\n";
+		return $foo->{"file"} . "\n";
 	} else {
-		$0 = "PiMP: ";
-		$0 .= sprintf("(%s) %s - %s", $foo->{"album"}, $foo->{"artist"}, 
-						  $foo->{"title"});
+		#$0 = "PiMP: ";
+		#$0 .= sprintf("(%s) %s - %s", $foo->{"album"}, $foo->{"artist"}, 
+						  #$foo->{"title"});
+		return sprintf("(%s) %s - %s", $foo->{"album"}, $foo->{"artist"}, 
+				  $foo->{"title"});
 	}
 }
 
@@ -293,72 +346,77 @@ sub stop_song {
 sub next_song {
 	# Find next song to play
 	# Then play it
+	my $newsong;
 
-	my $newsong = $playlist[ (int(rand() * scalar(@playlist))) ];
+	if (defined($pimp->{"song_queue"}) && (scalar(@{$pimp->{"song_queue"}}) > 0)) {
+		$newsong = shift(@{$pimp->{"song_queue"}});
+	}  else {
+		$newsong = $playlist[ (int(rand() * scalar(@playlist))) ];
+	}
 	print STDERR "New song: $newsong\n";
 
 	play_song($newsong);
 }
 
 sub play_song {
-	my $file = shift;
-	#if ($file =~ m/\.mp3$/) {
-		#local $/ = undef;
-		my $buffer = '';
+	my @files = @_;
+	my $file = shift(@files);
+	my $buffer = '';
 
-		# Support for HTTP streams
+	if (scalar(@files) > 0) {
+		push(@{$pimp->{"song_queue"}}, @files);
+	}
 
-		my $fd;
+	my $fd;
 
-		if ($file =~ m!^http:\/\/!) {
-			print "HTTP!\n";
-			my $http = HTTP::Handle->new();
-			$http->url($file);
-			$http->connect();
-			$fd = $http->fd();
-			$pimp->{"current_is_stream"} = 1;
-		} elsif ($file =~ m/\.mp3$/) {
-			open($fd, $file) or signal_event("open_fail", $file);
-			$pimp->{"current_is_stream"} = 0;
-		} else {
-			signal_event("open_fail", $file);
+	if ($file =~ m!^http:\/\/!) {
+		print "HTTP!\n";
+		my $http = HTTP::Handle->new();
+		$http->url($file);
+		$http->connect();
+		$fd = $http->fd();
+		$pimp->{"current_is_stream"} = 1;
+	} elsif ($file =~ m/\.mp3$/) {
+		open($fd, $file) or signal_event("open_fail", $file) and return;
+		$pimp->{"current_is_stream"} = 0;
+	} else {
+		signal_event("open_fail", $file) and return;
+	}
+
+	$pimp->{"current_type"} = "mp3";
+
+	# Prebuffer stage
+	STDOUT->autoflush(1);
+	while (length($buffer) < $MAXBUFSIZE / 2) {
+		unless (sysread($fd, $buffer, $BUFSIZE, length($buffer))) {
+			signal_event("read_fail", $file);
+			warn("Failed in prebuffer stage for $file\n");
+			return;
 		}
+	}
+	$pimp->{"current_fd"} = $fd;
+	$stream->buffer(substr($buffer, 0, $BUFSIZE));
+	$pimp->{"old_buffer"} = substr($buffer, 0, $BUFSIZE);
+	$pimp->{"current_buffer"} = substr($buffer, $BUFSIZE);;
 
-		$pimp->{"current_type"} = "mp3";
-
-		# Prebuffer stage
-		STDOUT->autoflush(1);
-		print "Prebuffering... \n";
-		while (length($buffer) < $MAXBUFSIZE / 2) {
-			unless (sysread($fd, $buffer, $BUFSIZE, length($buffer))) {
-				signal_event("read_fail", $file);
-				warn("Failed in prebuffer stage for $file\n");
-				return;
-			}
-		}
-		print "Done!\n";
-		$pimp->{"current_fd"} = $fd;
-		$stream->buffer(substr($buffer, 0, $BUFSIZE));
-		$pimp->{"old_buffer"} = substr($buffer, 0, $BUFSIZE);
-		$pimp->{"current_buffer"} = substr($buffer, $BUFSIZE);;
-
-		if (! $pimp->{"current_is_stream"}) {
-			my $mp3 = MP3::Tag->new($file);
-			my ($song, $track, $artist, $album) = $mp3->autoinfo();
-			$pimp->{"playlist"}->{$file} = { title => $song, artist => $artist, 
-				track => $track, album => $album,
-				file => $file };
-				$pimp->{"current_song"} = $pimp->{"playlist"}->{$file};
-				$mp3->close();
-		} else {
-			$pimp->{"playlist"}->{$file} = { file => $file };
+	if (! $pimp->{"current_is_stream"}) {
+		my $mp3 = MP3::Tag->new($file);
+		my ($song, $track, $artist, $album) = $mp3->autoinfo();
+		$pimp->{"playlist"}->{$file} = { title => $song, artist => $artist, 
+			track => $track, album => $album,
+			file => $file };
 			$pimp->{"current_song"} = $pimp->{"playlist"}->{$file};
-		}
+			$mp3->close();
+	} else {
+		$pimp->{"playlist"}->{$file} = { file => $file };
+		$pimp->{"current_song"} = $pimp->{"playlist"}->{$file};
+	}
 
-		$pimp->{"state"} ||= "playing";
-		$pimp->{"state"} = "playing" if ($pimp->{"state"} eq "pause");
-		signal_event("new_song");
-		#}
+	$pimp->{"state"} ||= "playing";
+	$pimp->{"state"} = "playing" if ($pimp->{"state"} eq "pause");
+	signal_event("new_song");
+
+
 }
 
 ###
@@ -367,6 +425,8 @@ sub play_song {
 sub run_server {
 	close(STDIN);
 	my (%ready, %buffers);
+
+	$SIG{TERM} = \&server_sigterm;
 
 	my $select = IO::Select->new();
 	my $server = IO::Socket::INET->new( Proto => "tcp",
@@ -380,6 +440,8 @@ sub run_server {
 	my $clients = {};
 	$clients->{"$serv"} = $serv;
 
+	$pimp->{"clients"} = $clients;
+
 	while (1) {
 		my $socket;
 
@@ -388,7 +450,6 @@ sub run_server {
 				my $client = $server->accept();
 				$select->add($client);
 				$clients->{"$client"} = $client;
-				#nonblock($client);
 			} else {
 				my $data;
 				my $recv = $socket->recv($data, POSIX::BUFSIZ, 0);
@@ -411,6 +472,15 @@ sub run_server {
 			handle($clients, $client, \%ready, \%buffers, $select);
 			delete($ready{$client});
 		}
+	}
+}
+
+sub server_sigterm {
+	my $clients = $pimp->{"clients"};
+
+	foreach my $client (values(%{$clients})) {
+		print $client "Server is quitting... Good bye :)\n";
+		drop_client($client);
 	}
 }
 
@@ -445,10 +515,10 @@ sub handle {
 sub drop_client {
 	my $socket = shift;
 	my ($ready, $buffers, $clients, $select) = @_;
-	delete $ready->{$socket};
-	delete $buffers->{$socket};
-	delete $clients->{$socket};
-	$select->remove($socket);
+	delete $ready->{$socket} if defined($ready);
+	delete $buffers->{$socket} if defined($ready);
+	delete $clients->{$socket} if defined($ready);
+	$select->remove($socket) if defined($select);
 	close($socket);
 }
 
@@ -460,11 +530,11 @@ sub do_shutdown {
 	close_ao($pimp->{"sound_device"});
 	shutdown_ao;
 	print STDERR "Dying...\n";
-	kill("KILL", $spid);
+	kill("TERM", $spid);
 	while ((my $child = waitpid(-1,WNOHANG)) > 0) {
 		# meh..
 	}
-	exit;
+	exit 1;
 }
 
 sub read_playlist {
