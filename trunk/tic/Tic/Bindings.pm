@@ -33,7 +33,8 @@ sub set_state {
 	#$sh->out("Ref: " . ref($sh->{"mappings"}->{"kill-line"}));
 	push(@{$sh->{"mappings"}->{"kill-line"}}, \&killline_binding);
 	$sh->{"completion_function"} = \&completer;
-	$sh->{"anykey_callback"} = \&anykey_binding
+	$sh->{"anykey_callback"} = \&anykey_binding;
+	$sh->{"fardelete_callback"} = \&fardelete_callback;
 }
 
 sub prepare_completion {
@@ -60,31 +61,25 @@ sub anykey_binding {
 
 	$line = expand_aliases($line);
 
-	#$sh->out("Line: '$line'");
-
 	if (length($line) == 0) {
 		killline_binding();
 		return;
 	}
 
-	# Let the user know we're typing...
 
 	if ($line =~ s!^/msg\s+!!) {
 		$sn = next_arg(\$line);
 
+		# This is a bug hack workaroundy thing.
+
 		return unless defined($aim->buddy($sn));
 
-		# We're typing to someone on our buddylist
 		if (length($line) > 0) {
+			$line =~ s/^\s//;
 			prompter("TARGET", $sn);
 
-			# Drop off the first 2 arguments.. this is a lame hack
-			$line = \$sh->{"input_line"};
-			my $chopped = next_arg($line);
-			$chopped .= next_arg($line);
-			$line =~ s/^\s//;
 			$sh->{"input_position"} = 0;
-			#$sh->out("New line: " . $$line . " / " . $sh->{"input_position"} . " / $chopped");
+			$sh->{"input_line"} = $line;
 
 			$state->{"target"} = $sn;
 			$sh->fix_inputline();
@@ -92,7 +87,6 @@ sub anykey_binding {
 
 		return unless $aim->buddy($sn)->{"typing_status"} == 1;
 
-		#$sh->out("Target: $sn\nLine: '$line'");
 	} elsif ($line !~ m!^/!) { # line starts with something that isn't /
 		$sn = $state->{"target"} || $state->{"default"}
 	}
@@ -119,9 +113,19 @@ sub anykey_binding {
 
 sub killline_binding {
 	if (defined($state->{"typing_status"})) {
+		prompter("TARGET", $state->{"default"} || undef);
 		$state->{"aim"}->send_typing_status($state->{"typing_status"}->{"sn"}, 
 														TYPINGSTATUS_FINISHED);
 		delete $state->{"typing_status"};
+	}
+}
+
+sub fardelete_callback {
+	$sh->out("Fardelete: '".$sh->{"input_line"}."'");
+	if ($state->{"target"}) {
+		$sh->{"input_line"} = "/msg \"" . $state->{"target"} . "\"";
+		$sh->{"input_position"} = length($sh->{"input_line"});
+		prompter("TARGET","");
 	}
 }
 
