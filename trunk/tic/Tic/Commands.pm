@@ -77,9 +77,16 @@ HELP
 		($sn, $msg) = @_;
 	} 
 	$sh->error("Message who?") and return unless defined($sn);
-	$sh->error("You didn't tell me what to say!") and return unless defined($msg);
+	$sh->error("You didn't tell me what to say!") and return unless defined($msg)&& length($msg) > 0;
+
+	my $away = undef;
+	if ($state->{"away_responding"}->{"$sn"} == 1) {
+		$away = 1;
+		delete($state->{"away_responding"}->{"$sn"});
+	}
+
 	
-	$aim->send_im($sn, $msg, (defined($state->{"away"}) ? 1 : undef));
+	$aim->send_im($sn, $msg, $away);
 	my $wholog = get_config("who_log");
 	if ((get_config("logging") eq "all" || ((ref($wholog) eq 'HASH' && $wholog->{"$sn"} == 1)))) {
 		prettylog($state,"out_msg", { sn => $sn, msg => $msg } );
