@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.3  2004/01/19 00:05:51  tristan
+ *   fixed protocol specification
+ *
  *   Revision 1.2  2004/01/18 23:35:09  tristan
  *   basic usage parsing done
  *
@@ -22,33 +25,22 @@ import java.net.InetAddress;
  * @author tristan
  */
 public class BattleshipPlayer {
-    // constants
-    private static final int UDP = 0;
-    private static final int TCP = 1;
 
     // member variables
-    private InetAddress host;
-    private int protocol;
-    private int port;
+    private ClientConnection connection;
     private String yourName;
     private String otherName;
 
     /**
-     *
-     * @param host The server we're connecting to.
-     * @param protocol Which protocol to use for connections.
-     * @param port The server's listening port.
+     * Initializes the battleship player
+     * @param connection The client's connection to the server.
      * @param yourName This client's name.
      * @param otherName The client's opposition.
      */
-    public BattleshipPlayer( InetAddress host,
-                             int protocol,
-                             int port,
+    public BattleshipPlayer( ClientConnection connection,
                              String yourName,
                              String otherName ) {
-        this.host = host;
-        this.protocol = protocol;
-        this.port = port;
+        this.connection = connection;
         this.yourName = yourName;
         this.otherName = otherName;
     }
@@ -61,23 +53,22 @@ public class BattleshipPlayer {
         if ( args.length == 5 ) {
             try {
                 InetAddress host = InetAddress.getByName( args[ 0 ] );
-                int protocol = 0;
+                ClientConnection connection = null;
+                int port = Integer.parseInt( args[ 2 ] );
 
                 // figure out the protocol
                 if ( args[ 1 ].equals( "TCP" ) ) {
-                    protocol = 1;
-                } else if ( !args[ 1 ].equals( "UDP" ) ) {
+                    connection = new TCPClientConnection( host, port );
+                } else if ( args[ 1 ].equals( "UDP" ) ) {
+                    connection = new UDPClientConnection( host, port );
+                } else {
                     System.err.println( "Protocol must be UDP or TCP" );
                     System.exit( 3 );
                 }
 
-                int port = Integer.parseInt( args[ 2 ] );
-
                 // make the client
                 BattleshipPlayer client = new BattleshipPlayer(
-                    host,
-                    protocol,
-                    port,
+                    connection,
                     args[ 3 ],
                     args[ 4 ] );
 
@@ -100,86 +91,46 @@ public class BattleshipPlayer {
      * Starts up the battle ship client
      */
     public void start() {
-
+        
     }
 
     /**
-     *
-     * @return
+     * Returns the client connection for this player.
+     * @return The player's connection to the server.
      */
-    public InetAddress getHost() {
-        return host;
+    public ClientConnection getConnection() {
+        return connection;
     }
 
     /**
-     *
-     * @param host
+     * Sets the connection for the server.
+     * @param connection Changes the connection for the client.
      */
-    public void setHost( InetAddress host ) {
-        this.host = host;
+    public void setConnection( ClientConnection connection ) {
+        this.connection = connection;
     }
 
     /**
-     *
-     * @return
-     */
-    public int getProtocol() {
-        return protocol;
-    }
-
-    /**
-     *
-     * @param protocol
-     */
-    public void setProtocol( int protocol ) {
-        this.protocol = protocol;
-    }
-
-    /**
-     *
-     * @return
-     */
-    public int getPort() {
-        return port;
-    }
-
-    /**
-     *
-     * @param port
-     */
-    public void setPort( int port ) {
-        this.port = port;
-    }
-
-    /**
-     *
-     * @return
+     * Gets the name of this player.
+     * @return The player's name.
      */
     public String getYourName() {
         return yourName;
     }
 
     /**
-     *
-     * @param yourName
+     * Sets the player's name.
+     * @param yourName The name for this player.
      */
     public void setYourName( String yourName ) {
         this.yourName = yourName;
     }
 
     /**
-     *
-     * @return
+     * Returns the other player's name.
+     * @return The other player's name.
      */
     public String getOtherName() {
         return otherName;
-    }
-
-    /**
-     *
-     * @param otherName
-     */
-    public void setOtherName( String otherName ) {
-        this.otherName = otherName;
     }
 }   // BattleshipPlayer
