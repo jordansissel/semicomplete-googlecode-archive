@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.4  2004/01/17 18:22:08  tristan
+ *   fixed parse bug
+ *
  *   Revision 1.3  2004/01/14 06:02:14  tristan
  *   removed unneeded var
  *
@@ -29,74 +32,90 @@ import java.util.regex.Matcher;
  * @author tristan
  */
 public class Command {
-    // constants
-    public static final Pattern commandPattern = Pattern.compile(
-        "(.*?)\\s*"
-    );
+
+    // regexes needed to parse commands
     public static final Pattern argsPattern = Pattern.compile(
         "\\s*(.*?)\\s*,{1}\\s*(.*)\\s*"
     );
 
-    // member vars
-    private String command;
-    private List args;
+	private String command;
+	private List args;
 
-    /**
-     * Initializes a command with a command name and args.
-     * @param command The command
-     * @param args The args to set.
-     */
-    public Command( String command, List args ) {
-        this.command = command;
-        this.args = args;
-    }
+	/**
+	 * Initialize a default command.
+	 */
+	public Command() {
+		command = null;
+		args = null;
+	}
 
-    /**
-     * Initializes a command without args.
-     * @param command
-     */
-    public Command( String command ) {
+	/**
+	 * Initializes a new Command out of the command and it's arguments.
+	 */
+	public Command( String command, List args ) {
+		setCommand( command );
+		this.args = args;
+	}
+
+	/**
+	 * Parses and initializes the command variable.
+	 * @param command The command.
+	 */
+	public Command( String command ) {
         this( command, null );
-    }
+	}
 
-    /**
-     * Gets the command.
-     * @return The command.
-     */
-    public String getCommand() {
-        return command;
-    }
+	/**
+	 * Returns the arguments for this command.
+	 * @return The comman arguments.
+	 */
+	public List getArgs() {
+		return args;
+	}
 
-    /**
-     * Sets the command var.
-     * @param command The command name.
-     */
-    public void setCommand( String command ) {
-        this.command = command;
-    }
+	/**
+	 * Returns the arg at the specified index.
+	 * @param i The index of the arg.
+	 * @return The arg.
+	 */
+	public Object getArg( int i ) {
+		return args.get( i );
+	}
 
-    /**
-     * Returns the args in this command.
-     * @return The args for this command.
-     */
-    public List getArgs() {
-        return args;
-    }
+	/**
+	 * Changes the command args.
+	 * @param args The command args.
+	 */
+	public void setArgs( List args ) {
+		this.args = args;
+	}
 
-    /**
-     * Changes the args for this command.
-     * @param args The args for this command.
-     */
-    public void setArgs( List args ) {
-        this.args = args;
-    }
+	/**
+	 * Returns the command name.
+	 * @return The command name.
+	 */
+	public String getCommand() {
+		return command;
+	}
 
-    /**
-     * Returns a string representation of Command
-     * @return A string representation of Command
-     */
+	/**
+	 * Changes the command.
+	 * @param command The command.
+	 */
+	public void setCommand( String command ) {
+        if ( command != null ) {
+		    this.command = command.toUpperCase();
+        } else {
+            this.command = null;
+        }
+	}
+
+	/**
+	 * Return the command as a string.
+	 * @return The command as a string.
+	 */
     public String toString() {
-        StringBuffer retVal = new StringBuffer( command.toUpperCase() );
+        StringBuffer retVal = new StringBuffer( command );
 
         if ( args != null ) {
             Iterator i = args.iterator();
@@ -114,50 +133,57 @@ public class Command {
         return retVal.toString();
     }
 
-    /**
-     * Parses a command object in the format: COMMAND arg1, arg2, arg3
-     * @param input Input text to parse.
-     * @return Return the created command object.
-     */
-    public static Command parseCommand( String input ) {
-        Command retVal = null;
-        Matcher m = commandPattern.matcher( input );
+	/**
+	 * Sets the command args and parses them.
+	 * @param unparsedArgs The unparsed arguments.
+	 */
+	public static List parseArgs( String unparsedArgs ) {
+        List retVal = new ArrayList();
 
-        // command found
-        if ( m.matches() ) {
-            retVal = new Command( m.group( 1 ) );
+        // parse each arg
+        do {
+            Matcher m = argsPattern.matcher( unparsedArgs );
 
-            // args found
-            if ( m.groupCount() > 1 ) {
-                String unparsedArgs = m.group( 2 );
-                List args = new ArrayList();
-                retVal.setArgs( args );
+            if ( m.matches() ) {
+                retVal.add( m.group( 1 ) );
 
-                // parse each arg
-                do {
-                    m = argsPattern.matcher( unparsedArgs );
-
-                    if ( m.matches() ) {
-                        args.add( m.group( 1 ) );
-
-                        if ( m.groupCount() == 1 ) {
-                            unparsedArgs = null;
-                            break;
-                        } else {
-                            unparsedArgs = m.group( 2 );
-                        }
-                    } else {
-                        break;
-                    }
-                } while ( true );
-
-                // add trailing arg
-                if ( unparsedArgs != null ) {
-                    args.add( unparsedArgs );
+                if ( m.groupCount() == 1 ) {
+                    unparsedArgs = null;
+                    break;
+                } else {
+                    unparsedArgs = m.group( 2 );
                 }
+            } else {
+                break;
+            }
+        } while ( true );
+
+        // add trailing arg
+        if ( unparsedArgs != null ) {
+            retVal.add( unparsedArgs );
+        }
+
+        return retVal;
+	}
+
+	/**
+	 * Parses a command and it's arguments.
+	 * @param unparsedCommand The command to parse.
+	 */
+	public static Command parseCommand( String unparsedCommand ) {
+        String[] items = unparsedCommand.split( "\\s", 2 );
+        Command retVal = new Command();
+
+        // if command was found
+        if ( items.length > 0 ) {
+            retVal.setCommand( items[ 0 ] );
+
+            // if items were found
+            if ( items.length == 2 ) {
+                retVal.setArgs( parseArgs( items[ 1 ] ) );
             }
         }
 
         return retVal;
-    }
+	}
 }   // Command
