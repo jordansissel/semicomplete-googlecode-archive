@@ -17,6 +17,7 @@ use Exporter;
 				 command_delbuddy command_away);
 
 my $state;
+my $sh;
 
 my %USERFLAGS = (
 	"a" => sub { my ($b) = @_; ($b->{online} && !$b->{away} && !defined($b->{idle_since})) },
@@ -37,6 +38,7 @@ sub set_state {
 	#debug("Setting state for ::Commands");
 	$state = shift;
 	Tic::Common->set_state($state);
+	$sh = $state->{"sh"};
 }
 
 sub create_alias {
@@ -74,8 +76,8 @@ HELP
 	} else {
 		($sn, $msg) = @_;
 	} 
-	error("Message who?") and return unless defined($sn);
-	error("You didn't tell me what to say!") and return unless defined($msg);
+	$sh->error("Message who?") and return unless defined($sn);
+	$sh->error("You didn't tell me what to say!") and return unless defined($msg);
 	
 	$aim->send_im($sn, $msg, (defined($state->{"away"}) ? 1 : undef));
 	my $wholog = get_config("who_log");
@@ -146,12 +148,12 @@ HELP
 
 	if ($alias =~ m/^$/) {
 		if (scalar(keys(%{$aliases})) == 0) {
-			out("There are no aliases set.");
+			$sh->out("There are no aliases set.");
 		} else {
-			out("Aliases:");
+			$sh->out("Aliases:");
 			foreach my $alias (keys(%{$aliases})) {
 				next unless (defined($aliases->{$alias}));
-				out("$alias => " . $aliases->{$alias});
+				$sh->out("$alias => " . $aliases->{$alias});
 			}
 		}
 		return;
@@ -159,9 +161,9 @@ HELP
 
 	if ($cmd =~ m/^$/) {
 		if (defined($aliases->{$alias})) {
-			out("$alias => " . $aliases->{$alias});
+			$sh->out("$alias => " . $aliases->{$alias});
 		} else {
-			error("No such alias, \"$alias\"");
+			$sh->error("No such alias, \"$alias\"");
 		}
 	} else {
 		create_alias($alias, $cmd);
@@ -179,12 +181,12 @@ HELP
 	my ($alias) = split(/\s+/, $args);
 
 	if ($alias =~ m/^$/) {
-		error("Unalias what?");
+		$sh->error("Unalias what?");
 		return;
 	}
 
 	remove_alias($alias);
-	out("Removed the alias \"/$alias\"");
+	$sh->out("Removed the alias \"/$alias\"");
 }
 
 sub command_echo {
@@ -195,7 +197,7 @@ This isn't really useful, but whatever. It's obvious what this does.
 HELP
 	$state = shift;
 	my ($args) = @_;
-	out($args);
+	$sh->out($args);
 }
 
 sub command_getaway {
@@ -210,7 +212,7 @@ HELP
 	my $sn = $args;
 
 	if ($sn eq '') {
-		error("Invalid number of arguments to /getaway");
+		$sh->error("Invalid number of arguments to /getaway");
 		return;
 	}
 	$aim->get_away($sn);
@@ -230,16 +232,16 @@ HELP
 	my ($sn,$key) = split(/\s+/,$args);
 
 	if ($sn eq '') {
-		error("Invalid number of arguments to /info.");
+		$sh->error("Invalid number of arguments to /info.");
 		return;
 	}
 
 	if ($key eq '') {
-		out("Fetching user info for $sn");
+		$sh->out("Fetching user info for $sn");
 		$aim->get_info($sn);
 	} else {
-		out("State info for $sn");
-		out("$key: " . $aim->buddy($sn)->{$key});
+		$sh->out("State info for $sn");
+		$sh->out("$key: " . $aim->buddy($sn)->{$key});
 	}
 }
 
@@ -256,7 +258,7 @@ HELP
 		login();
 	} else {
 		if ($aim->is_on()) {
-			error("You are already logged in, use /login -f to force reconnection.");
+			$sh->error("You are already logged in, use /login -f to force reconnection.");
 		} else {
 			login();
 		}
@@ -272,7 +274,7 @@ HELP
 	$state = shift;
 	my ($args) = @_;
 	my $aim = $state->{"aim"};
-	error("Bye :)");
+	$sh->error("Bye :)");
 	$aim->signoff();
 	exit;
 }
@@ -288,7 +290,7 @@ HELP
 	my $aim = $state->{"aim"};
 
 	foreach my $g ($aim->groups()) {
-		out($g);
+		$sh->out($g);
 		foreach my $b ($aim->buddies($g)) {
 			my $bud = $aim->buddy($b,$g);
 
@@ -306,7 +308,7 @@ HELP
 				$extra .= " (".$bud->{extended_status}.")" if defined $bud->{extended_status};
 			}
 
-			out("$b ($extra)");
+			$sh->out("$b ($extra)");
 		}
 	}
 }
@@ -326,23 +328,23 @@ HELP
 
 	if ($args eq '') {
 		if ($state->{"default"}) {
-			out("Default target: " . $state->{"default"});
+			$sh->out("Default target: " . $state->{"default"});
 		} else {
-			error("No default target yet");
+			$sh->error("No default target yet");
 		}
 	} else {
 		if ($aim->buddy("$args")) {
 			$state->{"default"} = $args;
-			out("New default target: $args");
+			$sh->out("New default target: $args");
 		} elsif ($args eq ';') {
 			if ($state->{"last_from"}) {
 				$state->{"default"} = $state->{"last_from"};
-				out("New default target: " . $state->{"default"});
+				$sh->out("New default target: " . $state->{"default"});
 			} else {
-				error("No one has sent you a message yet... what are you trying to do?!");
+				$sh->error("No one has sent you a message yet... what are you trying to do?!");
 			}
 		} else {
-			error("The buddy $args is not on your buddylist, I won't default to it.");
+			$sh->error("The buddy $args is not on your buddylist, I won't default to it.");
 		}
 	}
 }
@@ -355,7 +357,7 @@ This will clear the default target setting.
 HELP
 	$state = shift;
 	my ($args) = @_;
-	out("Default target cleared.");
+	$sh->out("Default target cleared.");
 	undef($state->{"default"});
 }
 
@@ -379,21 +381,21 @@ HELP
 
 	if ($args eq "+") {
 		set_config("logging", "all");
-		out("Now logging all messages.");
+		$sh->out("Now logging all messages.");
 	} elsif (($args eq "-") || ($args =~ m/^off$/i)) {
 		set_config("logging", "off");
-		out("Stopping all logging.");
+		$sh->out("Stopping all logging.");
 	} elsif ($args =~ m/^on$/) {
 		set_config("logging", "on");
-		out("Logging is now on.");
+		$sh->out("Logging is now on.");
 	} elsif ($args eq '') {
 		set_config("logging", "off") unless (defined(get_config("logging")));
 		my $logstate = get_config("logging");
-		out("Logging: $logstate");
+		$sh->out("Logging: $logstate");
 		if ($logstate =~ m/^only/) {
 			my $who = get_config("who_log");
 			my @wholog = grep($who->{$_} == 1, keys(%{$who}));
-			out("Currently logging: " . join(", ", @wholog));
+			$sh->out("Currently logging: " . join(", ", @wholog));
 		}
 	} else {
 		set_config("logging", "only specified users");
@@ -402,10 +404,10 @@ HELP
 		foreach (split(/\s+/,$args)) {
 			if (m/^-(.*)/) {
 				get_config("who_log")->{$1} = undef;
-				out("Stopped logging $1");
+				$sh->out("Stopped logging $1");
 			} elsif (m/^\+?(.+)/) {
 				get_config("who_log")->{$1} = 1;
-				out("Logging for $1 started");
+				$sh->out("Logging for $1 started");
 			}
 		}
 	}
@@ -421,7 +423,7 @@ HELP
 
 	$state = shift;
 	my ($args) = @_;
-	out("command_timestamp($state,$args)");
+	$sh->out("command_timestamp($state,$args)");
 
 	if ($args =~ m/^(yes|on|plz)$/i) {
 		$state->{"timestamp"} = 1;
@@ -443,7 +445,7 @@ sub command_date {
 Syntax: /date
 Display's a timestamp.
 HELP
-	out("Time: " . strftime(get_config("timestamp"),localtime(time)));
+	$sh->out("Time: " . strftime(get_config("timestamp"),localtime(time)));
 
 }
 
@@ -469,7 +471,7 @@ HELP
 			$bd;
 		} @buddies;
 
-		#map { out("B: " . $_->{"screenname"}); } @buddies;
+		#map { $sh->out("B: " . $_->{"screenname"}); } @buddies;
 		
 		# TODO: Only display all matches to their query?
 		# -a    active
@@ -494,22 +496,22 @@ HELP
 			@buddies = grep($_->{"screenname"} =~ m/\Q$reg\E/i, @buddies);
 		}
 
-		out("$g") if scalar(@buddies);
+		$sh->out("$g") if scalar(@buddies);
 		$count += scalar(@buddies);
 		foreach my $b (sort(compare($a,$b),@buddies)) {
 			next unless (ref($b) eq 'HASH');
 			my $bl = $b->{"screenname"} . " (";
 			$bl .= " active" if (&{$USERFLAGS{"a"}}($b));
 			$bl .= " away" if (&{$USERFLAGS{"w"}}($b));
-			$bl .= " idle[" if (&{$USERFLAGS{"i"}}($b));
+			$bl .= " idle" if (&{$USERFLAGS{"i"}}($b));
 			$bl .= " online" if (&{$USERFLAGS{"o"}}($b));
 			$bl .= " offline" if (&{$USERFLAGS{"f"}}($b));
 			$bl .= " mobile" if (&{$USERFLAGS{"m"}}($b));
 			$bl .= " )";
-			out("\t$bl");
+			$sh->out("\t$bl");
 		}
 	}
-	error("No buddies matching your query, '$args'") if ($count == 0);
+	$sh->error("No buddies matching your query, '$args'") if ($count == 0);
 }
 
 sub command_addbuddy {
@@ -539,7 +541,7 @@ HELP
 		($group, $args) = split(/\s/, $args, 2);
 	}
 
-	error("No buddy specified to add :(") and return unless length($sn) > 0;
+	$sh->error("No buddy specified to add :(") and return unless length($sn) > 0;
 
 	$group = "Buddies" if (length($group) == 0);
 	$aim->add_buddy($group, $sn);
@@ -565,7 +567,7 @@ HELP
 	}
 
 	if (length($sn) == 0) {
-		error("No buddy specified to delete :(");
+		$sh->error("No buddy specified to delete :(");
 		return;
 	}
 
@@ -575,7 +577,7 @@ HELP
 		$aim->remove_buddy($group, $buddy);
 		$aim->commit_buddylist();
 	} else {
-		error("No such buddy, '$sn' found in your buddy list.");
+		$sh->error("No such buddy, '$sn' found in your buddy list.");
 	}
 
 }
@@ -595,16 +597,16 @@ HELP
 
 	if (length($msg) == 0) {
 		if (defined($state->{"away"})) {
-			out("You are no longer away...");
+			$sh->out("You are no longer away...");
 			$aim->set_away("");
 			delete $state->{"away"};
 		} else {
-			error("Go away with what message?");
+			$sh->error("Go away with what message?");
 		}
 	} else {
 		$aim->set_away($args);
 		$state->{"away"} = $args;
-		out("You have gone away: $args");
+		$sh->out("You have gone away: $args");
 	}
 }
 
