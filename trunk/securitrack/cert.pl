@@ -1,4 +1,7 @@
 #!/usr/bin/perl
+# $Id$
+#
+# Pull vulnerability note entries from CERT.org                       (psionic)
 
 use strict;
 use warnings;
@@ -11,7 +14,7 @@ use XML::Simple;
 my $mech = WWW::Mechanize->new();
 my $tree = HTML::TreeBuilder->new();
 
-$mech->get("http://www.kb.cert.org/vuls/byupdate?open&count=1000");
+$mech->get("http://www.kb.cert.org/vuls/byupdate?open&count=2000");
 
 if ($mech->status() != 200) {
 	croak("HTTP Status is is not OK, was: " . $mech->status() . "\n");
