@@ -1,4 +1,3 @@
-0
 /**
  * BSShip.java
  *
@@ -7,6 +6,10 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.6  2004/01/19 00:35:46  njohnson
+ *   Committing Compilable code. Added a getGridArray() funtion for grids
+ *   which allows the array to be accessed directly for game grids.
+ *
  *   Revision 1.5  2004/01/18 23:02:48  njohnson
  *   added some important stubs that need to be implemented.
  *

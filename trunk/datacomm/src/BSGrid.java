@@ -6,6 +6,10 @@
  *
  * Revisions:
  *     $Log$
+ *     Revision 1.12  2004/01/19 00:35:46  njohnson
+ *     Committing Compilable code. Added a getGridArray() funtion for grids
+ *     which allows the array to be accessed directly for game grids.
+ *
  *     Revision 1.11  2004/01/18 23:02:48  njohnson
  *     added some important stubs that need to be implemented.
  *
@@ -256,6 +260,15 @@ public class BSGrid {
 
         return retVal;
     }
+
+    /**
+     *
+     *
+     *
+     */
+    public byte[][] getGridArray() {
+	return grid;
+    } //getGridArray()
 
     /**
      * Creates a string that is the BattleShip grid in

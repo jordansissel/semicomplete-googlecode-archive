@@ -6,9 +6,9 @@
  * 
  * Revisions:
  *   $Log$
- *   Revision 1.6  2004/01/18 23:17:36  njohnson
- *   filled in a bit of the stubs. alterGrid now take a specific grid in
- *   arguments. We are altering either ownGrid or targetGrid
+ *   Revision 1.7  2004/01/19 00:35:46  njohnson
+ *   Committing Compilable code. Added a getGridArray() funtion for grids
+ *   which allows the array to be accessed directly for game grids.
  *
  *   Revision 1.5  2004/01/18 23:02:48  njohnson
  *   added some important stubs that need to be implemented.
@@ -44,39 +44,76 @@ import java.util.*;
 public class BSGame {
     private String ownName;
     private String targetName;
-    private byte[] misses;
     private BSGrid ownGrid;
     private BSGrid targetGrid;
+    
+    static char[] horz_coords = 
+    { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J' };
 
-
+    /**
+     * Constructor of BSGame.
+     *
+     * @arg ownName -
+     * @arg targetName -
+     * @arg ownGrid -
+     * @arg targetGrid -
+     */
     public BSGame( String ownName, 
             String targetName,    
             BSGrid ownGrid,
             BSGrid targetGrid ) {
-
-
+        this.ownName = ownName;
+        this.targetName = targetName;
+        this.ownGrid = ownGrid;
+        this.targetGrid = targetGrid;
     } // BSGame()
 
     public void initializeGrid( BSGrid the_grid ) {
         the_grid.generateGrid();
     } //initializeGrid()
 
+    /**
+     * Clears the bytes of a grid all to zero.
+     *
+     * @arg the_grid - the grid that is cleared
+     */
     public void clearGrid( BSGrid the_grid ) {
         byte[][] new_grid = new byte[10][10];
         the_grid.generateGrid( new_grid );
     } //clearGrid()
 
     /** 
-     * Alters the byte at a point on grid
+     * Alters the byte at a point on the grid given
      *
-     *
+     * @arg the_grid - The grid to be altered.
+     * @arg x - letter A-J representing horizontal coord
+     * @arg i - integer 1-10 representing vertical coord
+     * @arg hit - true for hit, false for miss
      */
     public void alterGrid( BSGrid the_grid, char x, int i, boolean hit ) {
-        int j = 0;
+        int j = -1;
         byte new_byte = 0;
 
+	//go from characters to numbers to work with array
+	for( int k = 0; k < horz_coords.length; k++ ) {
+            if( x == horz_coords[ k ] ) {
+                  j = k; 
+	    }
+	}
 
-        the_grid[ j ][ i ] = new_byte;
+	//decrement i once to work with the array
+        i = i - 1; 
+
+
+	//set new_byte to the correct value
+	if( hit ) {
+            new_byte = 4;
+	} else {
+            new_byte = 2;
+	}
+
+	//set the byte in the grid
+        the_grid.getGridArray()[ j ][ i ] = new_byte;
 
     } //alterGrid()
 
@@ -104,10 +141,30 @@ public class BSGame {
      *
      * @return    true - if hit
      *        false - if miss
+     *
+     * @throws AlreadyShotThereException
      */
     public boolean shot( char x, int i ) {
         boolean retVal = false;
+        int j = 0;  
+      
+	//go from characters to numbers to work with array
+	for( int k = 0; k < horz_coords.length; k++ ) {
+            if( x == horz_coords[ k ] ) {
+                  j = k; 
+	    }
+	}
 
+        i = i - 1;
+
+	//check for a hit
+        if( ownGrid.getGridArray()[ j ][ i ] == 1 ) {
+            retVal = true;
+        } else if( ownGrid.getGridArray()[ j ][ i ] == 0 ) {
+            retVal = false;
+        } else {
+            //throw the exception
+	}
 
         return retVal;
     }
