@@ -94,11 +94,16 @@ int network_send_discover() {
 }
 
 void network_start_thread() {
-	pthread_t thread;
+	pthread_t discoverythread;
+	pthread_t pingthread;
 	
-	if (pthread_create(&thread, NULL, (void *)&network_thread, NULL) != 0) {
+	if (pthread_create(&discoverythread, NULL, (void *)&network_thread, NULL) != 0) {
 		log(0, "discovery pthread_create failed: %s", strerror(errno));
 	}
+	if (pthread_create(&pingthread, NULL, (void *)&network_pingthread, NULL) != 0) {
+		log(0, "pingthread pthread_create failed: %s", strerror(errno));
+	}
+
 }
 
 void network_thread(void *args) {
@@ -136,30 +141,7 @@ void network_thread(void *args) {
 		int fromlen = sizeof(srcaddr);
 		int bytes = 0;
 		char buf[1024];
-		int c;
 		memset(buf, 0, 1024);
-		
-		/* Check the list of known ethernuts, and ping them if we haven't in DISCOVERY_INTERVAL */
-		for (c = 0; c < nut_count; c++) {
-			time_t t = time(NULL);
-			if (nuts[c].lastseen + DISCOVERY_INTERVAL < t) {
-				struct sockaddr_in nutaddr;
-				nutaddr.sin_family = AF_INET;
-				nutaddr.sin_port = htons(DISCOVERY_PORT);
-				nutaddr.sin_addr = nuts[c].ip; 
-				memset(&(nutaddr.sin_zero), '\0', 8);
-
-				log(10, "Pinging %s - haven't seen them in a while...", inet_ntoa((struct in_addr)nuts[c].ip));
-				bytes = sendto(discovery, DISCOVERY_MESSAGE, strlen(DISCOVERY_MESSAGE), 0, 
-									(struct sockaddr *)&nutaddr, sizeof(nutaddr));
-
-				if (bytes < 0) {
-					log(0, "discovery ping sendto() failed: %s", strerror(errno));
-					pthread_exit(NULL);
-				}
-			}
-
-		}
 
 		/* Now check if we have any discovery packets coming in */
 		if (recvfrom(discovery, buf, 1024, 0, (struct sockaddr *)&srcaddr, &fromlen) < 0) {
@@ -187,14 +169,67 @@ void network_thread(void *args) {
 		} 
 		else if (strcmp(buf, "ACK") == 0) {
 			log(20, "ACK received from %s", inet_ntoa(srcaddr.sin_addr));
-			nuts = realloc(nuts, sizeof(nut_t) * (nut_count + 1));
-			nuts[nut_count].ip = srcaddr.sin_addr;
-			nuts[nut_count].lastseen = time(NULL);
-			nut_count++;
+			network_addnut(srcaddr.sin_addr);
 		}
 	}
 }
 
-void network_addnut(unsigned int ip) {
+void network_pingthread(void *args) {
+	int c;
+	int bytes;
 
+	int pingfd;
+
+	if ((pingfd = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
+		log(0, "network_thread socket() failed: %s", strerror(errno));
+		pthread_exit(NULL);
+	}
+
+	for (;;) {
+		/* Check the list of known ethernuts, and ping them if we haven't in DISCOVERY_INTERVAL */
+		log(0, "ping - checking if I need to ping anyone");
+		for (c = 0; c < nut_count; c++) {
+			time_t t = time(NULL);
+			log(0, "%s lastseen: %d ago", inet_ntoa(nuts[c].ip), t - nuts[c].lastseen);
+			if (nuts[c].lastseen + DISCOVERY_INTERVAL < t) {
+				struct sockaddr_in nutaddr;
+				nutaddr.sin_family = AF_INET;
+				nutaddr.sin_port = htons(DISCOVERY_PORT);
+				nutaddr.sin_addr = nuts[c].ip; 
+				memset(&(nutaddr.sin_zero), '\0', 8);
+
+				log(10, "Pinging %s - haven't seen them in a while...", inet_ntoa((struct in_addr)nuts[c].ip));
+				bytes = sendto(pingfd, DISCOVERY_MESSAGE, strlen(DISCOVERY_MESSAGE), 0, 
+									(struct sockaddr *)&nutaddr, sizeof(nutaddr));
+
+				if (bytes < 0) {
+					log(0, "discovery ping sendto() failed: %s", strerror(errno));
+					pthread_exit(NULL);
+				}
+			}
+		}
+
+		sleep(1);
+	}
+}
+
+void network_addnut(struct in_addr ip) {
+	int c;
+	
+	/* Check if this is a existing nut */
+	for (c = 0; c < nut_count; c++) {
+		if (ip.s_addr == nuts[c].ip.s_addr) {
+			log(10, "Found an old nut, %s, updating lastseen", inet_ntoa(nuts[c].ip));
+			nuts[c].lastseen = time(NULL);
+			return;
+		}
+	}
+
+	/* This must be a new nut */
+
+	log(10, "Found an new nut, %s", inet_ntoa(ip));
+	nuts = realloc(nuts, sizeof(nut_t) * (nut_count + 1));
+	nuts[nut_count].ip = ip;
+	nuts[nut_count].lastseen = time(NULL);
+	nut_count++;
 }
