@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.8  2004/01/20 02:33:23  tristan
+ *   finished init game
+ *
  *   Revision 1.7  2004/01/19 23:20:52  tristan
  *   wrote start game and find opponent
  *
@@ -132,21 +135,14 @@ public abstract class BSClient extends Thread implements ProtocolConstants {
         connection.sendMessage( new Command( STARTGAME, args ) );
 
         // check for a receive msg
-        Response response = null;
-        do {
-            response = connection.receiveResponse();
-        } while ( response != null && response.getId() != STARTGAME_RESPONSE );
+        waitForResponse( STARTGAME_RESPONSE );
     }
 
     /**
      * Waits until an opponent is found.
      */
     public void findOpponent() {
-        Response response = null;
-
-        do {
-            response = connection.receiveResponse();
-        } while ( response != null && response.getId() != PLAYERFOUND );
+        waitForResponse( PLAYERFOUND );
     }
 
     /**
@@ -154,7 +150,42 @@ public abstract class BSClient extends Thread implements ProtocolConstants {
      * other startup things.
      */
     public void initGame() {
-        
+        Command comm = new Command( INITGAME );
+        List args = new ArrayList();
+
+        // build the command
+        BSGrid grid = game.getOwnGrid();
+        for ( int i = 0; i < BSGrid.ROW_COUNT; i++ ) {
+            BSShip ship = grid.getShip( i );
+            args.add( new Integer( ship.getStartX() ) );
+            args.add( new Integer( ship.getStartY() ) );
+            args.add( new Integer( ship.getEndX() ) );
+            args.add( new Integer( ship.getEndY() ) );
+        }
+
+        // send it
+        try {
+            comm.setArgs( args );
+        } catch ( Exception e ) {
+        }
+        connection.sendMessage( comm );
+
+        // check response
+        Response response = null;
+        boolean done = false;
+
+        do {
+            response = connection.receiveResponse();
+
+            if ( response != null ) {
+                if ( response.getId() == INITGAME_RESPONSE_FIRST ) {
+                    clientTurn = true;
+                    done = true;
+                } else if ( response.getId() == INITGAME_RESPONSE_SECOND ) {
+                    done = true;
+                }
+            }
+        } while ( !done && connection.isConnected() );
     }
 
     /**
@@ -194,7 +225,23 @@ public abstract class BSClient extends Thread implements ProtocolConstants {
      * Blocks until it's the user's turn
      */
     public void waitForTurn() {
-        // get input from server
-        setClientTurn( true );
+        if ( clientTurn != true ) {
+            // get fire command
+        }
+        clientTurn = true;
+    }
+
+    /**
+     * Waits for a response from the server.
+     * @param id The id to match.
+     */
+    protected void waitForResponse( int id ) {
+        Response response = null;
+
+        do {
+            response = connection.receiveResponse();
+        } while ( response != null &&
+                  response.getId() != id &&
+                  connection.isConnected() );
     }
 }   // BSClient
