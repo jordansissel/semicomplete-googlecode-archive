@@ -23,6 +23,8 @@ sub import {
 }
 
 sub set_state {
+	my $self = shift;
+	debug("Setting state for ::Events");
 	$state = shift;
 }
 
@@ -37,12 +39,25 @@ sub event_admin_ok {
 sub event_buddy_in {
 	my ($aim, $sn, $group, $data) = @_;
 	if (!defined($state->{"buddylist"}->{$sn})) {
-		out("* $sn ($group) is online.");
+		prettyprint($state, "buddy_online", { sn => $sn, group => $group } );
 	} else {
-		# Here we can add sections to output data
-		# pertainting to the user's new state.
+		my $b = $state->{"buddylist"}->{$sn};
+		if ($b->{"away"} != $data->{"away"}) {
+			if ($data->{"away"}) {
+				prettyprint($state, "buddy_away", { sn => $sn } );
+			} else {
+				prettyprint($state, "buddy_notaway", { sn => $sn } );
+			}
+		#} elsif ($b->{"idle"} < $data->{"idle"}) {
+			#prettyprint($state, "buddy_idle", { sn => $sn, idle => $data->{"idle"} } );
+			#prettyprint($state, "buddy_noidle", { sn => $sn } );
+		} else {
+			my $foo = "$sn / i(" . $b->{"idle"} . ", " . $data->{"idle"} .")";
+			$foo .= " | a(" . $b->{"away"} . ", " . $data->{"away"} . ")";
+			prettyprint($state, "buddy_in", { sn => $foo } );
+		}
 	}
-	$state->{"buddylist"}->{$sn} = $data;
+	$state->{"buddylist"}->{$sn} = deep_copy($data);
 
 }
 
@@ -59,41 +74,52 @@ sub event_buddy_info {
 		out("Buddy info for $sn");
 		out("------------------");
 		if (1) { # If they have w3m...
-			my $prof = $data->{'profile'};
-			out(`echo "$prof" | lynx -dump -stdin`);
-			#out(`echo "$prof" | w3m -T text/html -dump`);
+			my $prof = $data->{"profile"};
+			out(`echo "$prof" | lynx -dump -stdin | grep -v '^\$'`);
 		}
-	} elsif ($data->{"awaymsg"}) {
+	}
+   if ($data->{"awaymsg"}) {
+		my $away = $data->{"awaymsg"};
+		out("Away message for $sn:");
+		out(`echo "$away" | lynx -dump -stdin | grep -v '^\$'`); 
 	}
 
 }
 
 sub event_buddy_out {
 	my ($aim, $sn, $group) = @_;
+	prettyprint($state, "buddy_offline", { sn => $sn, group => $group } );
 }
 
 sub event_buddylist_error {
 	my ($aim, $error, $what) = @_;
+	error("An error occurred while updating your buddylist.");
+	error("($error) $what");
 }
 
 sub event_buddylist_ok {
 	my ($aim) = @_;
+	out("Buddy list updated :)");
 }
 
 sub event_chat_buddy_in {
 	my ($aim, $sn, $chat, $data) = @_;
+	prettyprint($state, "chat_buddy_in", { sn => $sn, chat => $chat } );
 }
 
 sub event_chat_buddy_out {
 	my ($aim, $sn, $chat) = @_;
+	prettyprint($state, "chat_buddy_out", { sn => $sn, chat => $chat } );
 }
 
 sub event_chat_closed {
 	my ($aim, $chat, $error) = @_;
+	prettyprint($state, "chat_closed", { chat => $chat, error => $error } );
 }
 
 sub event_chat_im_in {
 	my ($aim, $from, $chat, $msg) = @_;
+	prettyprint($state, "chat_im_in", { chat => $chat, sn => $from, msg => $msg } );
 }
 
 sub event_connection_changed {
@@ -105,20 +131,26 @@ sub event_error {
 	error("$desc");
 	if ($fatal) {
 		error("This error was fatal and you have been disconnected. :(") ;
-		$aim = Net::OSCAR->new();
-		$state->{"signon"} = 0;
 	}
-	
 }
 
 sub event_evil {
 	my ($aim, $newevil, $from) = @_; 
+	prettyprint($state, "evil_user", { sn => $from, warn => $newevil } ) if (defined($from));
+	prettyprint($state, "evil_anon", { warn => $newevil } ) unless (defined($from));
 }
 
 sub event_im_in {
 	my ($aim, $from, $msg, $away) = @_;
 	$state->{"last_from"} = $from;
-	out("<*$from*> $msg");
+
+	if (($state->{"logging"}->{"who_log"}->{$from} == 1) || ($state->{"config"}->{"logging"} eq "all")) {
+		prettylog($state, "im_msg", { sn => $from, msg => $msg } ) unless ($away);
+		prettylog($state,"im_awaymsg", { sn => $from, msg => $msg } ) if ($away);
+	}
+	
+	prettyprint($state, "im_msg", { sn => $from, msg => $msg } ) unless ($away);
+	prettyprint($state,"im_awaymsg", { sn => $from, msg => $msg } ) if ($away);
 }
 
 sub event_im_ok {
@@ -127,6 +159,15 @@ sub event_im_ok {
 
 sub event_rate_alert {
 	my ($aim, $level, $clear, $window, $worrisome) = @_;
+
+	if ($level == $aim->RATE_CLEAR) {
+	} elsif ($level == $aim->RATE_ALERT) {
+		prettyprint($state, "error_rate_alert");
+	} elsif ($level == $aim->RATE_LIMIT) {
+		prettyprint($state, "error_rate_limit");
+	} elsif ($level == $aim->RATE_DISCONNECT) {
+		prettyprint($state, "error_rate_disco");
+	}
 }
 
 sub event_signon_done {
