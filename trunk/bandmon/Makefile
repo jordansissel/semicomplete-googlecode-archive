@@ -1,5 +1,5 @@
 INCS=-I/usr/local/include
-LIBS=-L/usr/local/lib -lpcap
+LIBS=-L/usr/lib -lpcap -L/usr/local/lib -lrrd
 
 foo:
-	gcc ${INCS} ${LIBS} -o bandmon bandmon.c
+	gcc -g ${INCS} ${LIBS} -o bandmon bandmon.c
