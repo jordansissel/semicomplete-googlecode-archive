@@ -17,6 +17,7 @@
 #include <netinet/in_systm.h>
 #endif
 
+#include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -62,12 +63,15 @@ typedef struct proxy {
 static hash_t *proxies = NULL;
 static fd_set proxysocks;
 
-static char *pcapdev;
+static char *pcapdev = NULL;
+static char *proxyserver = NULL;
+static int clientfd = 0;
 
 void addxbox(u_char *macaddr, int proxyip);
 void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 						  const u_char *packet);
 void remove_proxy(proxy_t *ppt);
+void connect_to_proxy();
 
 int comparemac(const void *k1, const void *k2) {
 	return memcmp(k1, k2, ETHER_ADDR_LEN);
@@ -185,6 +189,12 @@ void proxy(void *args) {
 
 	FD_SET(server, &proxysocks);
 
+	/* If server is non-null, connect to that server and listen for data on it */
+	if (proxyserver != NULL) {
+		connect_to_proxy();
+	}
+
+
 	for (;;) {
 		int fd;
 		struct sockaddr_in srcaddr;
@@ -251,6 +261,54 @@ void proxy(void *args) {
 	}
 }
 
+void connect_to_proxy() {
+	int sock;
+	struct sockaddr_in destaddr;
+	struct hostent *hostdata;
+	struct in_addr in;
+
+	proxy_t *newproxy;
+
+	if ((sock = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+		debuglog(0, "socket() failed: %s", strerror(errno));
+		pthread_exit(NULL);
+	}
+
+	if ((hostdata = gethostbyname(proxyserver))== NULL) {
+		debuglog(0, "gethostbyname() failed: %s", strerror(errno));
+		pthread_exit(NULL);
+	}
+
+	/* Grab the IP this hostname is */
+	memcpy(&(in.s_addr),hostdata->h_addr_list[0],hostdata->h_length);
+	debuglog(1, "%s is %s (%s)", proxyserver, hostdata->h_name, inet_ntoa(in));
+				//inet_ntoa((struct in_addr *)(hostdata->h_addr_list[0])));
+
+	destaddr.sin_family = PF_INET;
+	destaddr.sin_addr = in;
+	destaddr.sin_port = htons(SERVER_PORT);
+
+	if (connect(sock, &destaddr, sizeof(struct sockaddr))) {
+		debuglog(0, "connect() failed: %s", strerror(errno));
+		pthread_exit(NULL);
+	}
+
+
+	/* After we establish a connection with the proxy server host,
+	 * we should completely forget about this relationship 
+	 * (us being the client). Now, add it to the list of
+	 * known proxies and move along.
+	 */
+	newproxy = malloc(sizeof(proxy_t));
+	newproxy->ip = (int) destaddr.sin_addr.s_addr;
+	newproxy->addr = destaddr.sin_addr;
+	newproxy->fd = sock;
+	newproxy->xboxen = hash_create(64, comparemac, NULL);
+
+	hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
+	FD_SET(sock, &proxysocks);
+}
+
 int recv_from_proxy(proxy_t *ppt) {
 	int bytes;
 	int pktlen = 0;
@@ -300,6 +358,7 @@ void remove_proxy(proxy_t *ppt) {
 int main(int argc, char **argv) {
 	char errbuf[PCAP_ERRBUF_SIZE];
 	int *pthread_return;
+	char ch;
 
 	/* Initialization and Defaults */
 	xboxen = hash_create(64, comparemac, NULL);
@@ -309,9 +368,28 @@ int main(int argc, char **argv) {
 	pthread_t pcapthread, proxythread;
 
 	/* Argument Processing */
-	if (argc > 1)
-		pcapdev = argv[1];
-	else
+	while ((ch = getopt(argc, argv, "s:i:")) != -1) {
+		switch (ch) {
+			case 'i':
+				pcapdev = malloc(strlen(optarg) + 1);
+				strlcpy(pcapdev,optarg,strlen(optarg) + 1);
+				debuglog(10, "-i flag, setting device to %s", pcapdev);
+				break;
+			case 's':
+				proxyserver = malloc(strlen(optarg) + 1);
+				strlcpy(proxyserver,optarg,strlen(optarg) + 1);
+				debuglog(10, "-s flag, setting proxy server to %s", proxyserver);
+				break;
+			default:
+				//usage();
+				break;
+		}
+	}
+
+	argc -= optind;
+	argv += optind;
+
+	if (pcapdev == NULL) 
 		pcapdev = pcap_lookupdev(errbuf);
 
 	if (pcapdev == NULL) {
