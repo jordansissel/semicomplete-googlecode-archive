@@ -8,7 +8,8 @@ use Term::ReadKey;
 use POSIX qw(strftime);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(out real_out error debug query deep_copy prettyprint prettylog);
+@EXPORT = qw(out real_out error debug query deep_copy prettyprint prettylog
+             login);
 
 my $state;
 
@@ -32,7 +33,7 @@ sub real_out { print @_; }
 
 sub error {
 	print STDERR "\r\e[2K";
-  	print STDERR "*> " . shift() . "\n"; 
+	print STDERR "*> " . shift() . "\n"; 
 	fix_inputline();
 }
 sub debug { foreach (@_) { print STDERR "debug> $_\n"; } }
@@ -124,21 +125,13 @@ sub prettylog {
 }
 
 sub query {
-   my ($q, $hide) = @_;
-   real_out("$q");
-   #stty("-echo") if ($hide);
+	my ($q, $hide) = @_;
+	real_out("$q");
 	ReadMode(0) unless ($hide);
-   chomp($q = <STDIN>);
-   #stty("echo") if ($hide);
-   ReadMode(3);
-   out() if ($hide);
-   return $q;
-}
-
-sub stty {
-	#return $state->{"stty"} if (!defined($_[0]));
-	#$state->{"stty"} = IO::Stty::stty(\*STDIN, "-g");
-	return IO::Stty::stty(@_);
+	chomp($q = <STDIN>);
+	ReadMode(3);
+	real_out("\n") if ($hide);
+	return $q;
 }
 
 sub deep_copy {
@@ -146,9 +139,7 @@ sub deep_copy {
 	my $foo;
 
 	if (ref($data) eq "HASH") {
-		foreach my $key (keys(%{$data})) {
-			$foo->{$key} = $data->{$key};
-		}
+		map { $foo->{$_} = $data->{$_} } keys(%{$data});
 	}
 	return $foo;
 }
@@ -158,6 +149,20 @@ sub getrealsn {
 	my $foo = $state->{"aim"}->buddy($sn);
 	return $foo->{"screenname"} if (defined($foo));
 	return $sn;
+}
+
+sub login {
+	my ($user,$pass);
+	do {
+		do {
+			$user = query("login: ");
+		} while (length($user) == 0);
+		$pass = query("password: ", 1);
+	} while (length($pass) == 0);
+
+	$state->{"signon"} = 1;
+	$state->{"aimok"} = 1;
+	$state->{"aim"}->signon($user,$pass);
 }
 
 1;
