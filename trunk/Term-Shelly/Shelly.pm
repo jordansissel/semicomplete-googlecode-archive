@@ -579,10 +579,7 @@ sub backward_char {
 sub delete_char_backward {
 	my $self = shift;
 
-	$self->out("backup");
-	$self->out("ip: " . $self->{"input_position"});
 	$self->callback("fardelete") if (length($self->{"input_line"}) == 0);
-	$self->out("ip: " . $self->{"input_position"});
 	
 
 	if ($self->{"input_position"} > 0) {
@@ -892,6 +889,9 @@ RECHECK:
 			$bword = $self->find_word_bound($line, $pos, WORD_BEGINNING | WORD_REGEX, '\S');
 			$complete = substr($line,$bword,$pos - $bword);
 			#$self->out("Complete: $complete");
+			$self->out(length($line) . " / $bword / $pos");
+
+			# Make sure we can actually do this ?
 
 			#$self->out("First time completing $complete");
 			$self->{"completion"} = {
@@ -904,6 +904,7 @@ RECHECK:
 			};
 		} else {
 			$bword = $self->{"completion"}->{"bword"};
+			$self->out(length($line) . " / $bword / $pos");
 			$complete = substr($line,$bword,$pos - $bword);
 		}
 
@@ -923,6 +924,7 @@ RECHECK:
 		$self->{"completion"}->{"index"}++;
 		$self->{"completion"}->{"index"} = 0 if ($self->{"completion"}->{"index"} == scalar(@matches));
 
+		$self->out(length($line) . " / $bword / $pos");
 		substr($line, $bword, $pos - $bword) = $match . " ";
 
 		$self->{"completion"}->{"endpos"} = $pos;
