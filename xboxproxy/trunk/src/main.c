@@ -314,7 +314,7 @@ void proxy(void *args) {
 		int size = sizeof(struct sockaddr_in); /* sizeof(srcaddr) */
 		int sel;
 		struct timeval timeout;
-		timeout.tv_sec = 0;
+		timeout.tv_sec = 5;
 		timeout.tv_usec = 0;
 		fd_set proxycopy;
 
