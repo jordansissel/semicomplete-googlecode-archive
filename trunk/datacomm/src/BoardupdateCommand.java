@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.2  2004/02/16 12:39:49  psionic
+ *   - Security measures implemented. Password, SSL, etc...
+ *
  *   Revision 1.1  2004/02/15 22:37:26  psionic
  *   - New commands Boardupdate and Shipupdate
  *   - Added random selection for which player goes first.
@@ -57,11 +60,9 @@ public class BoardupdateCommand extends Command {
 	 */
 	public boolean validateArguments(List args)
 		throws InvalidCommandArgumentsException {
-			System.err.println("BoardupdateCommand validateArguments()");
 
 			// Number of arguments
 			if ((args.size() != 100) || ( ((String)args.get(0)).equals("") )) {
-				System.err.println("- Failed num args ("+args+")");
 				return false;
 			}
 
