@@ -126,6 +126,6 @@ void network_thread(void *args) {
 			pthread_exit(NULL);
 		}
 
-		log(0, "Packet from %s", inet_ntoa(srcaddr.sin_addr));
+		log(0, "Packet from %s: %s", inet_ntoa(srcaddr.sin_addr), buf);
 	}
 }
