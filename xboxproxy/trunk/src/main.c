@@ -27,7 +27,7 @@
 #ifdef HAVE_NET_ETHERNET_H
 #include <net/ethernet.h>
 #define MACTYPE u_char
-#define MACCONV(ether) (ether)
+#define ETHERCONV(ether) (ether)
 #endif
 
 #ifdef HAVE_NETINET_IF_ETHER_H
