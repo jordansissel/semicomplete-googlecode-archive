@@ -234,10 +234,17 @@ THREAD(network_pingthread, args) {
 	}
 
 	for (;;) {
+		char buf[4];
 		/* Check the list of known ethernuts, and ping them if we haven't in DISCOVERY_INTERVAL */
 		log(100, "ping - checking if I need to ping anyone");
 
-		/* DEBUG */ network_tcpbroadcast("test", 4);
+		/* DEBUG */ 
+
+		buf[0] = PACKETTYPE_DATA;
+		buf[1] = 0x20; /* 32... sounds good for a test address */
+		buf[2] = 'a';
+		buf[3] = 'b';
+		network_tcpbroadcast(buf, 4);
 
 		for (c = 0; c < nut_count; c++) {
 			time_t t = time(NULL);
@@ -360,6 +367,31 @@ THREAD(network_tcphandler, args) {
 
 		log(10, "Packet from %s:%d: %s (%s)", 
 			 inet_ntoa(conn->src.sin_addr), conn->src.sin_port, pkt, buf);
+
+		switch (buf[0]) {
+			case PACKETTYPE_DATA:
+				log(5, "DATA for node %d: 0x%02x%02x", buf[1], buf[2], buf[3]);
+				break;
+			case PACKETTYPE_ERROR_QUENCH:
+				log(5, "QUENCH node %d", buf[1]);
+				break;
+			case PACKETTYPE_ERROR_NOQUENCH:
+				log(5, "NOQUENCH node %d", buf[1]);
+				break;
+			case PACKETTYPE_REBOOT:
+				log(5, "REBOOT received... I don't know what to do!");
+				break;
+			case PACKETTYPE_ERROR_ACK:
+				log(5, "ERROR ACK from mailman for node %d: code %d", buf[2], buf[3]);
+				break;
+			case PACKETTYPE_ERROR_BROADCAST:
+				log(5, "ERROR BROADCAST from %s for node %d: code %d",
+					 inet_ntoa(conn->src.sin_addr), buf[2], buf[3]);
+				break;
+			default:
+				log(1, "Unknown packet type: %d (%d byte message)", buf[0], bytes);
+				break;
+		}
 
 	}
 
