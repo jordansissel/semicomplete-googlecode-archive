@@ -15,7 +15,7 @@ use constant KEY_CONSTANTS => {
 use constant DEFAULT_OUTPUT => {
 	"timestamp"        => "(%H:%M:%S)",
 	"logstamp"         => "[%m/%d/%y %H:%M:%S]",
-	"im_awaymsg"       => "<*%s*> %m",
+	"im_awaymsg"       => "[AWAY] <*%s*> %m",
 	"im_msg"           => "<*%s*> %m",
 	"out_msg"          => "<*%S*> %m", 
 
