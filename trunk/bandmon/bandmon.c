@@ -10,7 +10,9 @@
 #include <stdio.h>
 
 #include <pcap.h>
+#ifdef RRD_UPDATES
 #include <rrd.h>
+#endif
 
 #include <signal.h>
 #include <unistd.h>
@@ -24,7 +26,7 @@
 #include <netinet/ip.h>
 
 /* How long do we wait before reporting data? (in seconds) */
-#define WAIT_SECONDS 11
+#define WAIT_SECONDS 1
 
 /* CSH has a /23, that means 512 addresses. */
 #define CSH_NET_SIZE 512
@@ -32,11 +34,16 @@
 static char     filter_app[] = "(tcp or udp) and not (multicast or dst net 129.21.0.0/16 or dst net 192.168.0.0/16 or dst net 10.0.0.0/8)";
 
 static int cshnet[CSH_NET_SIZE];
+static int COUNT_SECONDS = 1;
 
 void
 sigalarm(int sig) {
 	if (sig == SIGALRM) {
 		int i;
+		
+#ifdef WATCHER
+		printf("[H[2J");
+#endif
 
 		for (i = 1; i < CSH_NET_SIZE; i++) {
 			int *this = (cshnet + i);
@@ -60,21 +67,32 @@ sigalarm(int sig) {
 				argv[argc] = NULL;
 
 
+#ifdef RRD_UPDATES
 				rrd_clear_error();
 				rrd_update(argc, argv);
 				if (rrd_test_error()) {
 					fprintf(stderr, "RRD ERROR: %s\n", rrd_get_error());
 				}
+#endif
 
 				if (*this > 0) {
+#ifdef WATCHER
+					printf("129.21.%d.%d: %d\n", c, d, *this / COUNT_SECONDS);
+					if (COUNT_SECONDS & 8 == 1) *this = 0;
+#else
 					printf("129.21.%d.%d: %d\n", c, d, *this);
 					*this = 0;
+#endif
 				}
 			}
 
 		}
 
 		alarm(WAIT_SECONDS);
+#ifdef WATCHER
+		if (COUNT_SECONDS & 8 == 1) COUNT_SECONDS = 0;
+		COUNT_SECONDS++;
+#endif
 	}
 }
 
