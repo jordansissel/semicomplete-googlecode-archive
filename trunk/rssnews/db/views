@@ -1,0 +1,16 @@
+-- myarticles will let you grab a unique user's articles 
+-- We need: sources.id, sources.name, articles.url, articles.title, articles.id
+-- Anything else?
+
+CREATE OR REPLACE VIEW mynews AS
+SELECT sources.id AS sourceid, articles.url, articles.title, 
+		articles.id AS articleid, articles.descr, articles.lastupdate,
+		sources.name AS sourcename
+	FROM sources, articles, watching, latest_articles
+	WHERE
+		latest_articles.articleid = articles.id AND
+		articles.sourceid = sources.id AND
+		watching.sourceid = articles.sourceid AND
+		articles.id NOT IN 
+			(SELECT articleid FROM seen WHERE userid = watching.userid)
+;
