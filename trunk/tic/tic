@@ -15,7 +15,7 @@ use Tic::Events;
 
 ReadMode(3);
 
-mkdir($ENV{HOME}."/.tic") unless (-d $ENV{HOME} . "/.tic");
+mkdir($ENV{HOME}."/.tic", "0700") unless (-d $ENV{HOME} . "/.tic");
 
 my $aliases = undef;   # Aliases
 my $commands = undef;  # Commands
@@ -86,26 +86,6 @@ sub setup_callbacks {
 	$aim->set_callback_im_ok(\&event_im_ok);
 	$aim->set_callback_rate_alert(\&event_rate_alert);
 	$aim->set_callback_signon_done(\&event_signon_done);
-
-	#$conn->set_handler("admin_error", \&event_admin_error);
-	#$conn->set_handler("admin_ok", \&event_admin_ok);
-	#$conn->set_handler("buddy_in", \&event_buddy_in);
-	#$conn->set_handler("buddy_info", \&event_buddy_info);
-	#$conn->set_handler("buddy_out", \&event_buddy_out);
-	#$conn->set_handler("buddylist_error", \&event_buddylist_error);
-	#$conn->set_handler("buddylist_ok", \&event_buddylist_ok);
-	#$conn->set_handler("chat_buddy_in", \&event_chat_buddy_in);
-	#$conn->set_handler("chat_buddy_out", \&event_chat_buddy_out);
-	#$conn->set_handler("chat_closed", \&event_chat_closed);
-	#$conn->set_handler("chat_im_in", \&event_chat_im_in);
-	#$conn->set_handler("chat_invite", \&event_chat_invite);
-	#$conn->set_handler("chat_joined", \&event_chat_joined);
-	#$conn->set_handler("error", \&event_error);
-	#$conn->set_handler("evil", \&event_evil);
-	#$conn->set_handler("im_in", \&event_im_in);
-	#$conn->set_handler("im_ok", \&event_im_ok);
-	#$conn->set_handler("rate_alert", \&event_rate_alert);
-	#$conn->set_handler("signon_done", \&event_signon_done);
 }
 
 sub setup_readline {
