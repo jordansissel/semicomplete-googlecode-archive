@@ -535,15 +535,20 @@ sub newline {
 	$self->{"input_position"} = 0;
 	$self->{"leftcol"} = 0;
 
-	if (ref($self->{"readline_callback"}) eq 'CODE') {
-		&{$self->{"readline_callback"}}($line);
-	}
+	$self->callback("readline", $line);
+	#if (ref($self->{"readline_callback"}) eq 'CODE') {
+		#&{$self->{"readline_callback"}}($line);
+	#}
 
 	$self->fix_inputline();
 }
 
 sub kill_line {
 	my $self = shift;
+
+	# Ask for more data perhaps...
+	#$self->callback("fardelete") if (length($self->{"input_line"}) == 0);
+
 	$self->{"input_line"} = "";
 	$self->{"input_position"} = 0;
 	$self->{"leftcol"} = 0;
@@ -573,7 +578,13 @@ sub backward_char {
 
 sub delete_char_backward {
 	my $self = shift;
-	#"delete-char-backward"   => \&delete_char_backward,
+
+	$self->out("backup");
+	$self->out("ip: " . $self->{"input_position"});
+	$self->callback("fardelete") if (length($self->{"input_line"}) == 0);
+	$self->out("ip: " . $self->{"input_position"});
+	
+
 	if ($self->{"input_position"} > 0) {
 		substr($self->{"input_line"}, $self->{"input_position"} - 1, 1) = '';
 		$self->{"input_position"}--;
@@ -603,6 +614,7 @@ sub delete_word_backward {
 	my $regex = '\S';
 	my $bword;
 
+	$self->callback("fardelete") if (length($self->{"input_line"}) == 0);
 	$bword = $self->find_word_bound($line, $pos, WORD_BEGINNING | WORD_REGEX, $regex);
 
 	#$self->error("Testing $bword $pos");
@@ -820,6 +832,8 @@ sub vi_delete_char_forward {
 sub vi_delete_char_backward {
 	my $self = shift;
 
+	$self->callback("fardelete") if (length($self->{"input_line"}) == 0);
+
 	substr($self->{"input_line"}, $self->{"input_position"}, 1) = '';
 	$self->{"input_position"}-- if ($self->{"input_position"} == length($self->{"input_line"}) && $self->{"input_position"} > 0);
 }
@@ -830,6 +844,7 @@ sub vi_delete {
 
 	if ($exec == 1) {
 		my ($start, $end);
+	$self->callback("fardelete") if (length($self->{"input_line"}) == 0);
 		if ($self->{"input_position"} < $self->{"vi_input_position"}) {
 			$start = $self->{"input_position"};
 			$end = $self->{"vi_input_position"};
@@ -923,9 +938,10 @@ RECHECK:
 sub anykey {
 	my $self = shift;
 
-	if (ref($self->{"anykey_callback"}) eq 'CODE') {
-		&{$self->{"anykey_callback"}};
-	}
+	$self->callback("anykey");
+	#if (ref($self->{"anykey_callback"}) eq 'CODE') {
+		#&{$self->{"anykey_callback"}};
+	#}
 }
 
 
@@ -962,6 +978,15 @@ sub echo ($;$) {
 
 # --------------------------------------------------------------------
 # Helper functions
+#
+
+sub callback($$;$) {
+	my $self = shift;
+	my $callback = shift() . "_callback";
+	if (ref($self->{$callback}) eq 'CODE') {
+		$self->{$callback}->(@_);
+	} #elsif (ref($self->{$callback
+}
 
 # Go from a position and find the beginning of the word we're on.
 sub find_word_bound ($$$;$) {
