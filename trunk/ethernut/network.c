@@ -236,6 +236,7 @@ THREAD(network_pingthread, args) {
 	for (;;) {
 		/* Check the list of known ethernuts, and ping them if we haven't in DISCOVERY_INTERVAL */
 		log(100, "ping - checking if I need to ping anyone");
+		network_tcpbroadcast("testing", 8);
 		for (c = 0; c < nut_count; c++) {
 			time_t t = time(NULL);
 			log(20, "%s lastseen: %d ago", inet_ntoa(nuts[c].ip), t - nuts[c].lastseen);
@@ -294,6 +295,8 @@ THREAD(network_communicationthread, args) {
 		log(0, "network_communicationthread listen() failed: %s", strerror(errno));
 		THREAD_EXIT();
 	}
+
+	log(0, "network_communicationthread - Listening on port %d", DISCOVERY_PORT);
 
 	for (;;) {
 		int fd;
@@ -429,8 +432,9 @@ void network_tcpbroadcast(char *message, int bytes) {
 
 		destaddr.sin_family = PF_INET;
 		destaddr.sin_addr = nuts[c].ip;
-		destaddr.sin_port = DISCOVERY_PORT;
+		destaddr.sin_port = htons(DISCOVERY_PORT);
 
+		//log(10, "Trying to connect to %s:%d", inet_ntoa(destaddr.sin_addr), DISCO
 		if (connect(sock, (struct sockaddr *)&destaddr, sizeof(destaddr)) < 0) {
 			logerror("network_tcpbroadcast connect()");
 			THREAD_EXIT();
@@ -440,5 +444,6 @@ void network_tcpbroadcast(char *message, int bytes) {
 			logerror("network_tcpbroadcast send()");
 			THREAD_EXIT();
 		}
+		close(sock);
 	}
 } /* }}} */
