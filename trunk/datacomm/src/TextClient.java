@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.6  2004/01/19 23:23:19  tristan
+ *   included init game
+ *
  *   Revision 1.5  2004/01/19 20:48:32  tristan
  *   changes due to refactoring
  *
@@ -49,6 +52,7 @@ public class TextClient extends BSClient {
             // initialize game
             startGame();
             findOpponent();
+            initGame();
 
             // start game loop
             while ( !isGameOver() && getConnection().isConnected() ) {
