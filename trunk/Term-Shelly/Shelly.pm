@@ -889,7 +889,7 @@ RECHECK:
 			$bword = $self->find_word_bound($line, $pos, WORD_BEGINNING | WORD_REGEX, '\S');
 			$complete = substr($line,$bword,$pos - $bword);
 			#$self->out("Complete: $complete");
-			$self->out(length($line) . " / $bword / $pos");
+			#$self->out(length($line) . " / $bword / $pos");
 
 			# Make sure we can actually do this ?
 
@@ -904,7 +904,7 @@ RECHECK:
 			};
 		} else {
 			$bword = $self->{"completion"}->{"bword"};
-			$self->out(length($line) . " / $bword / $pos");
+			#$self->out(length($line) . " / $bword / $pos");
 			$complete = substr($line,$bword,$pos - $bword);
 		}
 
