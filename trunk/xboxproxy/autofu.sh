@@ -1,3 +1,3 @@
-aclocal15
-autoconf259
-automake15 -a Makefile
+aclocal
+autoconf
+automake -a Makefile

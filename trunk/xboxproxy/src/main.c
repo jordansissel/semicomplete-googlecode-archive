@@ -6,6 +6,8 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
+#include "config.h"
+
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -21,7 +23,19 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+
+#ifdef HAVE_NET_ETHERNET_H
 #include <net/ethernet.h>
+#define MACTYPE u_char
+#define MACCONV(ether) (ether)
+#endif
+
+#ifdef HAVE_NETINET_IF_ETHER_H
+#include <net/if.h>
+#include <netinet/if_ether.h>
+#define MACTYPE uchar_t
+#define ETHERCONV(ether) (&((ether).ether_addr_octet))
+#endif
 
 #include <pthread.h>
 #include <pcap.h>
@@ -38,7 +52,7 @@
 #define SERVER_PORT 3434
 
 /* The xbox network stuff only uses an ip of 0.0.0.1 */
-static char filter_app[] = "host 0.0.0.1";
+static char filter_app[] = "host 0.0.0.1 or multicast or broadcast";
 
 /* xbox broadcasts to FF:FF:FF:FF:FF:FF */
 static char broadcastmac[ETHER_ADDR_LEN] = { 
@@ -49,7 +63,7 @@ static char broadcastmac[ETHER_ADDR_LEN] = {
 struct proxy;
 
 typedef struct xbox {
-	u_char macaddr[ETHER_ADDR_LEN];
+	MACTYPE macaddr[ETHER_ADDR_LEN];
 	struct proxy *proxy; /* The IP address of the proxy this xbox is located at */
 	time_t lastseen; /* Last time a packet was seen from this xbox */
 } xbox_t;
@@ -80,16 +94,23 @@ libnet_t *libnet;
 #	endif
 #endif
 
-void addxbox(u_char *macaddr, proxy_t *ppt);
+void addxbox(MACTYPE *macaddr, proxy_t *ppt);
 proxy_t *addproxy(struct sockaddr_in *addr, int sock);
 void packet_handler(u_char *args, const struct pcap_pkthdr *head,
-						  const u_char *packet);
+					  const u_char *packet);
 void remove_proxy(proxy_t *ppt);
 void connect_to_proxy();
 int recv_from_proxy(proxy_t *ppt);
 void distribute_packet(proxy_t *ppt, char *packet, int pktlen);
 
 int comparemac(const void *k1, const void *k2) {
+	extern loglevel;
+	if (loglevel >= 30) {
+		char foo[25];
+		strcpy(foo,ether_ntoa((struct ether_addr *)k1));
+		debuglog(30, "comparemac %s vs %s", foo, ether_ntoa((struct ether_addr *)k2));
+	}
+
 	return memcmp(k1, k2, ETHER_ADDR_LEN);
 }
 
@@ -162,19 +183,19 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 
 	/* Try adding this xbox to the list */
 	//debuglog(1, "Adding xbox in packet_handler");
-	addxbox(eptr->ether_shost, 0);
+	addxbox((MACTYPE *) ETHERCONV(eptr->ether_shost), 0);
 
 	/* If this packet is sent to our local net, ignore it... */
-	if (hash_lookup(xboxen, eptr->ether_shost) != NULL) {
-		 debuglog(15, "Packet!");
-		 debuglog(3, "From: %s", ether_ntoa((struct ether_addr *)eptr->ether_shost));
-		 debuglog(3, "To: %s", ether_ntoa((struct ether_addr *)eptr->ether_dhost));
-	 }
+	if (hash_lookup(xboxen, ETHERCONV(eptr->ether_shost)) != NULL) {
+		debuglog(15, "Packet!");
+		debuglog(3, "From: %s", ether_ntoa((struct ether_addr *)ETHERCONV(eptr->ether_shost)));
+		debuglog(3, "To: %s", ether_ntoa((struct ether_addr *)ETHERCONV(eptr->ether_dhost)));
+	}
 
 	/*
 	 * If this is broadcast, send it to all known proxies
 	 */
-	if (memcmp(eptr->ether_dhost, broadcastmac, ETHER_ADDR_LEN) == 0) {
+	if (memcmp(ETHERCONV(eptr->ether_dhost), broadcastmac, ETHER_ADDR_LEN) == 0) {
 		hscan_t hs;
 		hnode_t *node;
 
@@ -185,7 +206,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 
 			/* Make sure the source addr of this packet is not getting
 			 * sent this packet. Do not send! */
-			if ((hash_lookup(p->xboxen, eptr->ether_shost) != NULL))
+			if ((hash_lookup(p->xboxen, ETHERCONV(eptr->ether_shost)) != NULL))
 				continue;
 
 			debuglog(3, "Sending ethernet packet to %s", inet_ntoa(p->addr));
@@ -208,16 +229,16 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 		proxy_t *p;
 		hnode_t *box;
 
-		box = hash_lookup(xboxen, eptr->ether_dhost);
+		box = hash_lookup(xboxen, ETHERCONV(eptr->ether_dhost));
 		if (box == NULL) {
 			debuglog(3, "Unknown destination %s, hasn't been seen yet.", 
-						ether_ntoa((struct ether_addr *)(eptr->ether_dhost)));
+						ether_ntoa((struct ether_addr *)ETHERCONV(eptr->ether_dhost)));
 			return;
 		}
 
 		debuglog(3, "Found packet destined for %s! (len: %d)", 
-						ether_ntoa((struct ether_addr *)(eptr->ether_dhost)),
-						head->caplen);
+					ether_ntoa((struct ether_addr *)ETHERCONV(eptr->ether_dhost)),
+					head->caplen);
 
 		p = ((xbox_t *)(box->hash_data))->proxy;
 
@@ -285,7 +306,7 @@ proxy_t *addproxy(struct sockaddr_in *addr, int sock) {
 }
 
 
-void addxbox(u_char *macaddr, proxy_t *ppt) {
+void addxbox(MACTYPE *macaddr, proxy_t *ppt) {
 	xbox_t *newbox = NULL;
 	hnode_t *box = NULL;
 
@@ -295,8 +316,8 @@ void addxbox(u_char *macaddr, proxy_t *ppt) {
 		hnode_t *node;
 
 		//fprintf(stderr, "NEW XBOX FOUND: %s / LOCATION: %s\n", 
-				  //ether_ntoa((struct ether_addr *)macaddr),
-				  //(ppt == NULL ? "Local" : inet_ntoa(ppt->addr)));
+		//ether_ntoa((struct ether_addr *)macaddr),
+		//(ppt == NULL ? "Local" : inet_ntoa(ppt->addr)));
 
 
 		debuglog(1, "NEW XBOX FOUND: %s", ether_ntoa((struct ether_addr *)macaddr));
@@ -381,7 +402,7 @@ void proxy(void *args) {
 	serveraddr.sin_family = PF_INET;
 	serveraddr.sin_addr.s_addr = INADDR_ANY;
 	serveraddr.sin_port = htons(serverport);
-	
+
 	debuglog(5, "Binding to any on port %d", serverport);
 	if (bind(server, (struct sockaddr *)&serveraddr, sizeof(struct sockaddr)) == -1) {
 		debuglog(0, "bind() failed: %s", strerror(errno));
@@ -482,19 +503,19 @@ void proxy(void *args) {
 						debuglog(0, "Socket sndbuf: %d", bufsiz);
 					} while (0);
 
-				
+
 					debuglog(1, "New proxy connection from %s:%d",
 								inet_ntoa(srcaddr.sin_addr), htons(srcaddr.sin_port));
 
 					/*
-					newproxy = malloc(sizeof(proxy_t));
-					newproxy->ip = (int) srcaddr.sin_addr.s_addr;
-					newproxy->addr = srcaddr.sin_addr;
-					newproxy->fd = fd;
-					newproxy->xboxen = hash_create(64, comparemac, hashmac);
+					 newproxy = malloc(sizeof(proxy_t));
+					 newproxy->ip = (int) srcaddr.sin_addr.s_addr;
+					 newproxy->addr = srcaddr.sin_addr;
+					 newproxy->fd = fd;
+					 newproxy->xboxen = hash_create(64, comparemac, hashmac);
 
-					hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
-					*/
+					 hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
+					 */
 					addproxy(&srcaddr, fd);
 					FD_SET(fd, &proxysocks);
 				} 
@@ -532,18 +553,20 @@ void connect_to_proxy() {
 	memcpy(&(in.s_addr),hostdata->h_addr_list[0],hostdata->h_length);
 
 	debuglog(1, "%s is %s (%s)", proxyserver, hostdata->h_name, inet_ntoa(in));
-				//inet_ntoa((struct in_addr *)(hostdata->h_addr_list[0])));
+	//inet_ntoa((struct in_addr *)(hostdata->h_addr_list[0])));
 
 	destaddr.sin_family = PF_INET;
 	destaddr.sin_addr = in;
 	destaddr.sin_port = htons(serverport);
 
 	if (use_udp) {
+		debuglog(30, "Sending UDP hello packet to %s", proxyserver);
 		if (sendto(sock, NULL, 0, 0, (struct sockaddr *)&destaddr, sizeof(struct sockaddr)) < 0) {
 			debuglog(0, "sendto() failed [while saying hi]: %s", strerror(errno));
 			pthread_exit(NULL);
 		}
 	} else {
+		debuglog(30, "Sending TCP hello to %s", proxyserver);
 		if (connect(sock, (struct sockaddr *)&destaddr, sizeof(struct sockaddr))) {
 			debuglog(0, "connect() failed: %s", strerror(errno));
 			pthread_exit(NULL);
@@ -557,14 +580,14 @@ void connect_to_proxy() {
 	 * known proxies and move along.
 	 */
 	/*
-	newproxy = malloc(sizeof(proxy_t));
-	newproxy->ip = (int) destaddr.sin_addr.s_addr;
-	newproxy->addr = destaddr.sin_addr;
-	newproxy->fd = sock;
-	newproxy->xboxen = hash_create(64, comparemac, hashmac);
+	 newproxy = malloc(sizeof(proxy_t));
+	 newproxy->ip = (int) destaddr.sin_addr.s_addr;
+	 newproxy->addr = destaddr.sin_addr;
+	 newproxy->fd = sock;
+	 newproxy->xboxen = hash_create(64, comparemac, hashmac);
 
-	hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
-	*/
+	 hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
+	 */
 	addproxy(&destaddr, sock);
 	FD_SET(sock, &proxysocks);
 }
@@ -619,7 +642,7 @@ int recv_from_proxy(proxy_t *ppt) {
 	}
 
 	//debuglog(1, "Adding xbox in  recv_from_proxy");
-	addxbox(((struct ether_header *)packet)->ether_shost, ppt);
+	addxbox(ETHERCONV(((struct ether_header *)packet)->ether_shost), ppt);
 
 	debuglog(1, "Packet received from %s. Length: %d vs %d (%s)", 
 				inet_ntoa(ppt->addr), bytes, pktlen,
@@ -646,8 +669,10 @@ void distribute_packet(proxy_t *ppt, char *packet, int pktlen) {
 	eptr = (struct ether_header *)packet;
 	ether_type = ntohs(eptr->ether_type);
 
-	debuglog(30, "----- REMOTE PACKET From: %s", ether_ntoa((struct ether_addr *)eptr->ether_shost));
-	debuglog(30, "----- REMOTE PACKET To: %s", ether_ntoa((struct ether_addr *)eptr->ether_dhost));
+	debuglog(30, "----- REMOTE PACKET From: %s", 
+				ether_ntoa((struct ether_addr *)ETHERCONV(eptr->ether_shost)));
+	debuglog(30, "----- REMOTE PACKET To: %s",
+				ether_ntoa((struct ether_addr *)ETHERCONV(eptr->ether_dhost)));
 
 #ifdef LIBNET_VERSION_1_0
 	bytes = libnet_write_link_layer(libnet, pcapdev, packet, pktlen);
