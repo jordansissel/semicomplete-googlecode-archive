@@ -28,6 +28,7 @@ use constant ERR_EOF => "2";
 
 $SIG{INT} = \&do_shutdown;
 $SIG{__DIE__} = \&do_shutdown;
+$SIG{PIPE} = sub { return; };
 
 my ($serv, $player) = IO::Socket->socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC);
 my $BUFSIZE = 8192;
