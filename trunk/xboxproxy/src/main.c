@@ -52,7 +52,7 @@
 #define SERVER_PORT 3434
 
 /* The xbox network stuff only uses an ip of 0.0.0.1 */
-static char filter_app[] = "host 0.0.0.1 or (src net 129.21.253.0/25 and port 5353 and (multicast or broadcast))";
+static char filter_app[] = "host 0.0.0.1 or (src net 129.21.60.0/23 and port 5353 and (multicast or broadcast))";
 
 /* xbox broadcasts to FF:FF:FF:FF:FF:FF */
 static char broadcastmac[ETHER_ADDR_LEN] = { 
@@ -360,6 +360,8 @@ void pcap(void *args) {
 	bpf_u_int32	mask, net;
 
 	pcap_lookupnet(pcapdev, &net, &mask, errbuf);
+
+	debuglog(0, "Network: %08x / %08x", net, mask);
 
 	/* A generous cap length */
 	handle = pcap_open_live(pcapdev, 2048, 1, 10, errbuf);
