@@ -46,10 +46,11 @@ use Term::ReadKey;
 # Useful constants we need...
 
 # for find_word_bound()
-use constant WORD_BEGINNING => 0;     # look for the beginning of this word.
-use constant WORD_END => 1;           # look for end of the word.
-use constant WORD_ONLY => 2;          # Trailing spaces are important.
-use constant WORD_REGEX => 4;         # I want to specify my own regexp
+use constant WORD_BEGINNING => 1;     # look for the beginning of this word.
+use constant WORD_END => 2;           # look for end of the word.
+use constant WORD_NEXT => 4;          # look for beginning of next word
+use constant WORD_ONLY => 8;          # Trailing spaces are important.
+use constant WORD_REGEX => 16;         # I want to specify my own regexp
 
 # for vi_jumpchar()
 use constant JUMP_BACKCHARTO => 000;  # 'T' in vi (backwards)
@@ -641,10 +642,18 @@ sub vi_forward_char {
 
 sub vi_forward_word {
 	my $self = shift;
-	my $reg = shift;
-	$self->vi_end_word($reg);
-	$self->vi_end_word($reg);
-	$self->vi_beginning_word($reg) if ($self->{"input_position"} < length($self->{"input_line"}) - 1);
+	my $pos = $self->{"input_position"};
+	my $line = $self->{"input_line"};
+	my $bword = $pos;
+	my $BITS = WORD_NEXT;
+	my $regex = shift;
+
+	$BITS |= WORD_REGEX if (defined($regex)); 
+	$bword = $self->find_word_bound($line, $pos, $BITS, $regex);
+
+	$self->{"input_position"} = $bword;
+
+	$self->{"vi_done"};
 }
 
 sub vi_forward_whole_word {
@@ -662,9 +671,7 @@ sub vi_beginning_word {
 	my $regex = shift;
 
 	$BITS |= WORD_REGEX if (defined($regex)); 
-	do {
-		$bword = $self->find_word_bound($line, $pos, $BITS, $regex);
-	} while ($bword == $pos--);
+	$bword = $self->find_word_bound($line, $pos, $BITS, $regex);
 
 	$self->{"input_position"} = $bword;
 
@@ -686,9 +693,7 @@ sub vi_end_word {
 	my $regex = shift;
 
 	$BITS |= WORD_REGEX if (defined($regex)); 
-	do {
-		$bword = $self->find_word_bound($line, $pos, $BITS, $regex);
-	} while ($bword == $pos++);
+	$bword = $self->find_word_bound($line, $pos, $BITS, $regex);
 
 	$self->{"input_position"} = $bword;
 
@@ -987,58 +992,36 @@ sub callback($$;$) {
 	my $callback = shift() . "_callback";
 	if (ref($self->{$callback}) eq 'CODE') {
 		$self->{$callback}->(@_);
-	} #elsif (ref($self->{$callback
+	}
 }
 
 # Go from a position and find the beginning of the word we're on.
-sub find_word_bound ($$$;$) {
+sub find_word_bound ($$$$;$) {
 	my $self = shift;
 	my $line = shift;
 	my $pos = shift;
-	my $opts = shift || 0;
-	my $regex = "[A-Za-z0-9]";
-	my $bword;
-
-	$regex = shift if ($opts & WORD_REGEX);
+	my $opts = shift;
+	my $regex = ($opts & WORD_REGEX ? shift() : '\\w');
 
 	# Mod? This is either -1 or +1 depending on if we're looking behind or
 	# if we're looking ahead.
-	my $mod = -1;
-	$mod = 1 if ($opts & WORD_END);
+	my $mod = ($opts & WORD_BEGINNING) ? -1 : 1;
 
-	# What are we doing?
-	# If we're in a word, go to the beginning of the word
-	# If we're on a space, go to end of previous word.
-	# If we're on a nonspace/nonword, go to beginning of nonword chars
-	
-	$bword = $pos;# - 1;
+	if ($opts & WORD_NEXT) {
+		$regex = qr/^.{$pos}(.+?)(?<!$regex)$regex/;
+	} elsif ($opts & WORD_BEGINNING) {
+		$regex = qr/($regex+[^$regex]*)(?<=^.{$pos})/;
+	} elsif ($opts & WORD_END) {
+		$regex = qr/^.{$pos}($regex?.*?$regex+)$regex/;
+	}
 
-	# Back up if we're past the end of the string (cursor at end of line)
-	$bword-- if ($pos == $self->{"input_position"});
+	if ($line =~ $regex) {
+		$pos += length($1) * $mod;
+	} else {
+		$pos = ($mod == 1 ? length($line) : 0);
+	}
 
-	# Ignore trailing whitespace.
-	#$bword += $mod while (substr($line,$bword,1) =~ m/^\s/);
-
-	# If we're not on an ALPHANUM, then we want to reverse the match.
-	# that is, if we are:
-	# "testing here hello .......there"
-	#                           ^-- here
-	# Then we want to delete (match) all the periods (nonalphanums)
-	substr($regex, 1, 0) = "^" if (substr($line,$bword,1) !~ m/$regex/ &&
-											 $opts & WORD_ONLY);
-
-	# Keep going while there's whitespace...
-	$bword += $mod while (substr($line,$bword,1) =~ m/\s/ && $bword >= 0);
-
-	# Back up until we hit the bound of our "word"
-	$bword += $mod while (substr($line,$bword,1) =~ m/$regex/ && $bword >= 0);
-
-	# Whoops, one too far...
-	$bword -= $mod;
-
-	#$self->out("find_word_bound(): $bword");
-
-	return $bword;
+	return $pos;
 }
 
 # -----------------------------------------------------------------------------
