@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.4  2004/01/19 00:13:00  tristan
+ *   cleaned up and switched to thread
+ *
  *   Revision 1.3  2004/01/19 00:05:51  tristan
  *   fixed protocol specification
  *
@@ -24,7 +27,7 @@ import java.net.InetAddress;
  * 
  * @author tristan
  */
-public class BattleshipPlayer {
+public class BattleshipPlayer extends Thread {
 
     // member variables
     private ClientConnection connection;
@@ -90,8 +93,14 @@ public class BattleshipPlayer {
     /**
      * Starts up the battle ship client
      */
-    public void start() {
-        
+    public void run() {
+        if ( connection.connect() ) {
+            while ( connection.isConnected() ) {
+                // talk to server
+            }
+        } else {
+            System.out.println( "Failing to connect to server" );
+        }
     }
 
     /**
