@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.2  2004/01/19 02:34:58  tristan
+ *   added a new constructor
+ *
  *   Revision 1.1  2004/01/19 02:28:17  tristan
  *   finished basic abstract client.
  *
@@ -25,9 +28,13 @@ public abstract class BSClient extends Thread {
     /**
      * Initializes the battle ship client
      */
-    public BSClient( ClientConnection connection ) {
+    public BSClient( ClientConnection connection,
+                     String yourName,
+                     String otherName ) {
         this.connection = connection;
         this.game = new BSGame();
+        this.yourName = yourName;
+        this.otherName = otherName;
     }
 
     /**
