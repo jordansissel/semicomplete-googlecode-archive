@@ -282,8 +282,8 @@ THREAD(network_communicationthread, args) {
 	listener = socket(PF_INET, SOCK_STREAM, 0);
 
 	listenaddr.sin_family = PF_INET;
-	listenaddr.sin_port = htons(DISCOVERY_PORT);
 	listenaddr.sin_addr.s_addr = INADDR_ANY;
+	listenaddr.sin_port = htons(DISCOVERY_PORT);
 	memset(&(listenaddr.sin_zero), '\0', 8);
 
 	if (bind(listener, (struct sockaddr *)&listenaddr, sizeof(struct sockaddr)) == -1) {
@@ -440,6 +440,7 @@ void network_tcpbroadcast(char *message, int bytes) {
 			THREAD_EXIT();
 		}
 
+		log(10, "Sending '%s' to %s:%d", message, inet_ntoa(destaddr.sin_addr), DISCOVERY_PORT);
 		if (send(sock, message, bytes, 0) < 0) {
 			logerror("network_tcpbroadcast send()");
 			THREAD_EXIT();
