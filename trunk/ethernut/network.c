@@ -8,11 +8,14 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 #include <errno.h>
-#include <strings.h>
+#include <string.h>
 
 #include "network.h"
+#include "log.h"
 
 /* discovery listener socket */
 static int discovery;

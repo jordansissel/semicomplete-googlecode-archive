@@ -4,8 +4,11 @@
  * $Id$
  */
 
+#include <stdlib.h> /* for malloc and such */
+
 #include "busmaster.h"
 #include "log.h"
+
 
 busmaster_t *busmaster;
 

@@ -29,4 +29,6 @@ typedef struct busmaster {
 
 } busmaster_t;
 
+void busmaster_init();
+
 #endif

@@ -23,4 +23,6 @@ int main(int argc, char **argv) {
 	busmaster_init();
 	network_init();
 	i2c_init();
+
+	return 0;
 }
