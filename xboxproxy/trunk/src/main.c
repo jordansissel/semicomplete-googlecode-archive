@@ -226,7 +226,9 @@ void pcap(void *args) {
 
 	pcap_compile(handle, &filter, filter_app, 0, net);
 	pcap_setfilter(handle, &filter);
-	pcap_loop(handle, -1, packet_handler, NULL);
+	for (;;) {
+		pcap_loop(handle, 1, packet_handler, NULL);
+	}
 	pcap_close(handle);
 
 	pthread_exit(NULL);
@@ -283,7 +285,7 @@ void proxy(void *args) {
 		proxycopy = proxysocks;
 
 		FD_SET(server, &proxysocks);
-		debuglog(10, "select: %08x", proxysocks);
+		debuglog(12, "select: %08x", proxysocks);
 		sel = select(FD_SETSIZE, &proxysocks, NULL, NULL, &timeout);
 		if (sel < 0) {
 			debuglog(0, "select() failed: %s", strerror(errno));
