@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.7  2004/01/19 02:06:04  njohnson
+ *   fixed some javadoc mistakes
+ *
  *   Revision 1.6  2004/01/19 00:35:46  njohnson
  *   Committing Compilable code. Added a getGridArray() funtion for grids
  *   which allows the array to be accessed directly for game grids.
@@ -41,7 +44,7 @@ public class BSShip {
     private byte[] location = new byte[4];    
 
     /**
-     *
+     *  A default constructor that makes a ship at A, 1.
      *
      *
      */
@@ -53,9 +56,12 @@ public class BSShip {
     } // constructor
     
     /**
+     * Constructs a ship with specific coords.
      *
-     *
-     *
+     * @param startPointX
+     * @param startPointY
+     * @param endPointX
+     * @param endPointY
      */
     public BSShip( byte startPointX, 
             byte startPointY,        

@@ -6,9 +6,8 @@
  *
  * Revisions:
  *     $Log$
- *     Revision 1.13  2004/01/19 01:12:12  njohnson
- *     added a method to get a ship from the fleet on a grid. This will
- *     make it easier to write a method to test for ship sunkedness :) Booyah!
+ *     Revision 1.14  2004/01/19 02:06:04  njohnson
+ *     fixed some javadoc mistakes
  *
  *     Revision 1.11  2004/01/18 23:02:48  njohnson
  *     added some important stubs that need to be implemented.
@@ -279,6 +278,7 @@ public class BSGrid {
      *          Cruiser - 3
      *          Battleship - 4
      *          Carrier - 5
+     * @return  returns the particular ship from the grid
      */
     public BSShip getShip( int i ) {
 	

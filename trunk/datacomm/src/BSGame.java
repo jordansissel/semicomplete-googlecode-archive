@@ -6,6 +6,9 @@
  * 
  * Revisions:
  *   $Log$
+ *   Revision 1.8  2004/01/19 02:06:04  njohnson
+ *   fixed some javadoc mistakes
+ *
  *   Revision 1.7  2004/01/19 00:35:46  njohnson
  *   Committing Compilable code. Added a getGridArray() funtion for grids
  *   which allows the array to be accessed directly for game grids.
@@ -43,29 +46,40 @@ import java.util.*;
  */
 public class BSGame {
     private String ownName;
-    private String targetName;
+    private String tparametName;
     private BSGrid ownGrid;
-    private BSGrid targetGrid;
-    
+    private BSGrid tparametGrid;
+    private boolean[] shipSunk; //true if the ship is sunk.
+				// 0 - Destroyer
+				// 1 - Submarine
+				// 2 - Cruiser
+				// 3 - Battleship
+				// 4 - Carrier
+
     static char[] horz_coords = 
     { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J' };
 
     /**
      * Constructor of BSGame.
      *
-     * @arg ownName -
-     * @arg targetName -
-     * @arg ownGrid -
-     * @arg targetGrid -
+     * @param ownName -
+     * @param tparametName -
+     * @param ownGrid -
+     * @param tparametGrid -
      */
     public BSGame( String ownName, 
-            String targetName,    
+            String tparametName,    
             BSGrid ownGrid,
-            BSGrid targetGrid ) {
+            BSGrid tparametGrid ) {
         this.ownName = ownName;
-        this.targetName = targetName;
+        this.tparametName = tparametName;
         this.ownGrid = ownGrid;
-        this.targetGrid = targetGrid;
+        this.tparametGrid = tparametGrid;
+        shipSunk = new boolean[ 5 ];
+        for( int i = 0; i < shipSunk.length; i++ ) {
+            shipSunk[ i ] = false;
+	}
+
     } // BSGame()
 
     public void initializeGrid( BSGrid the_grid ) {
@@ -75,7 +89,7 @@ public class BSGame {
     /**
      * Clears the bytes of a grid all to zero.
      *
-     * @arg the_grid - the grid that is cleared
+     * @param the_grid - the grid that is cleared
      */
     public void clearGrid( BSGrid the_grid ) {
         byte[][] new_grid = new byte[10][10];
@@ -85,10 +99,10 @@ public class BSGame {
     /** 
      * Alters the byte at a point on the grid given
      *
-     * @arg the_grid - The grid to be altered.
-     * @arg x - letter A-J representing horizontal coord
-     * @arg i - integer 1-10 representing vertical coord
-     * @arg hit - true for hit, false for miss
+     * @param the_grid - The grid to be altered.
+     * @param x - letter A-J representing horizontal coord
+     * @param i - integer 1-10 representing vertical coord
+     * @param hit - true for hit, false for miss
      */
     public void alterGrid( BSGrid the_grid, char x, int i, boolean hit ) {
         int j = -1;
@@ -127,13 +141,13 @@ public class BSGame {
     } //getOwnGrid()
 
     /**
-     * Returns the player who owns this game's target grid.
+     * Returns the player who owns this game's tparamet grid.
      *
-     * @return - the target grid
+     * @return - the tparamet grid
      */
-    public BSGrid getTargetGrid() {
-        return targetGrid;
-    } //getTargetGrid()
+    public BSGrid getTparametGrid() {
+        return tparametGrid;
+    } //getTparametGrid()
 
     /**
      * Determines whether a shot is a hit or miss
@@ -167,8 +181,39 @@ public class BSGame {
 	}
 
         return retVal;
-    }
+    } //shot()
 
+    /**
+     * Checks whether a particular ship on ownGrid 
+     * is sunk.
+     *
+     * @param i - the number mapping to a particular ship
+     *          1 - Destroyer
+     *          2 - Submarine
+     *          3 - Cruiser
+     *          4 - Battleship
+     *          5 - Carrier
+     */
+    public boolean shipSunk( int i )  {
+        boolean retVal = false;
+
+        //first check the shipSunk array
+	if( shipSunk[ i - 1 ] ) {
+            retVal = true;
+	} else { //calculate whether the ship was sunk
+            BSShip the_ship; // the ship to test
+            int X; //the letter coord
+	    int Y; //the number coord
+
+            //get the ship from the fleet
+	    the_ship ownGrid.getShip( i );
+            
+
+        }
+
+        return retVal;
+    } //shipSunk()
+     
     /**
      * The main method the runs a game locally.
      *
