@@ -2,7 +2,7 @@
 #
 # $Id$
 
-OBJECTS=main.o busmaster.o log.o
+OBJECTS=main.o busmaster.o log.o network.o
 
 CFLAGS+=-fno-builtin-log
 
