@@ -15,11 +15,14 @@ I needed a shell kit for an aim client I was writing. All of the Term::ReadLine 
 =head1 NEEDS
 
  - Settable key bindings
+ - history
+ - vi mode (Yeah, I lub vi)
+
+=head1 DONE
+
  - Tab completion
  - Support for window size changes (sigwinch)
  - movement in-line editing.
- - vi mode (Yeah, I lub vi)
- - history
  - Completion function calls
  - Settable callbacks for when we have an end-of-line (EOL binding?)
 
@@ -46,6 +49,12 @@ use constant WORD_BEGINNING => 0;     # I want the beginning of this word.
 use constant WORD_END => 1;           # I want the end of the word.
 use constant WORD_ONLY => 2;          # Trailing spaces are important.
 use constant WORD_REGEX => 4;         # I want to specify my own regexp
+
+# for vi_jumpchar()
+use constant JUMP_BACKCHARTO => 000;  # 'T' in vi (backwards)
+use constant JUMP_BACKCHAR   => 001;  # 'F' in vi (backwards)
+use constant JUMP_CHARTO     => 010;  # 't' in vi (forwards)
+use constant JUMP_CHAR       => 011;  # 'f' in vi (forwards)
 
 # Some key constant name mappings.
 # I definately need a function to do this and some sort of hash returned which
@@ -80,6 +89,8 @@ sub new ($) {
 		"input_prompt" => "",
 		"leftcol" => 0,
 		"echo" => 1,
+		"vi_mode" => 1,
+		"mode" => "insert",
 	};
 
 	bless $self, $class;
@@ -112,6 +123,63 @@ sub new ($) {
 		"TAB"         => "complete-word",
 
 		#"^T"          => "expand-line",
+
+		#--------------------------------
+		# vi bindings
+		#
+
+		# -------- DIRECTIONS
+
+		"vi_h"           => "vi-backward-char",                  # DONE
+		"vi_l"           => "vi-forward-char",                   # DONE
+		"vi_k"           => "vi-up-history",
+		"vi_j"           => "vi-down-history",
+
+		"vi_w"           => "vi-forward-word",                   # DONE
+		"vi_W"           => "vi-forward-whole-word",             # DONE
+		"vi_e"           => "vi-end-word",                       # DONE
+		"vi_E"           => "vi-end-whole-word",                 # DONE
+		"vi_t"           => "vi-forward-charto", 
+		"vi_T"           => "vi-backward-charto",
+		"vi_f"           => "vi-forward-charat",
+		"vi_F"           => "vi-backward-charat",
+		"vi_G"           => "vi-history-goto",
+		"vi_b"           => "vi-beginning-word",
+		"vi_B"           => "vi-beginning-whole-word",,
+		"vi_n"           => "vi-search-next",
+		"vi_N"           => "vi-search-prev",
+		"vi_'"           => "vi-mark-goto",
+		'vi_$'           => "vi-eol",
+		"vi_^"           => "vi-bol",
+
+		# -------- INSERTION
+   
+		"vi_i"           => "vi-insert",
+		"vi_I"           => "vi-insert-at-bol",
+		"vi_a"           => "vi-add",
+		"vi_A"           => "vi-add-at-eol",
+		"vi_r"           => "vi-replace-char",
+		"vi_R"           => "vi-replace-mode",
+		"vi_s"           => "vi-substitute-char",
+		"vi_S"           => "vi-substitute-line",
+		#"vi_o" 
+		#"vi_O"
+		"vi_c"           => "vi-change",
+		"vi_C"           => "vi-change-to-eol",
+
+		#"vi_y"           => "vi-yank-direction",
+		#"vi_Y"           => "vi-yank-to-eol",
+		#"vi_u"           => "vi-undo",
+		#"vi_p"           => "vi-paste-at",
+		#"vi_P"           => "vi-paste-before",
+		"vi_x"           => "vi-delete-char-backward",
+		"vi_X"           => "vi-delete-char-forward",
+		"vi_d"           => "vi-delete",
+
+		# -------- OTHER COMMANDS
+
+		"vi_m"           => "vi-mark",
+
 	};
 
 	my $mappings = {
@@ -128,6 +196,32 @@ sub new ($) {
 
 		"complete-word"          => [ \&complete_word ],
 		#"expand-line"            => [ \&expand_line ],
+
+		# ----------------------------------------------------------- vi mappings
+		"vi-backward-char"       => [ \&vi_backward_char ],
+		"vi-forward-char"        => [ \&vi_forward_char ],
+		"vi-forward-word"        => [ \&vi_forward_word ],
+		"vi-forward-whole-word"  => [ \&vi_forward_whole_word ],
+		"vi-beginning-word"      => [ \&vi_beginning_word ],
+		"vi-beginning-whole-word" => [ \&vi_beginning_whole_word ],
+		"vi-eol"                 => [ \&vi_eol ],
+		"vi-bol"                 => [ \&vi_bol ], 
+		"vi-forward-charto"      => [ \&vi_forward_charto ],
+		"vi-forward-charat"        => [ \&vi_forward_charat ],
+		"vi-backward-charto"     => [ \&vi_backward_charto ],
+		"vi-backward-charat"       => [ \&vi_backward_charat ],
+
+		"vi-end-word"            => [ \&vi_end_word ],
+		"vi-end-whole-word"      => [ \&vi_end_whole_word ],
+		"vi-insert"              => [ \&vi_insert ],
+		"vi-insert-at-bol"       => [ \&vi_insert_at_bol ],,
+		"vi-add"                 => [ \&vi_add ],
+		"vi-add-at-eol"          => [ \&vi_add_at_eol ],
+
+		"vi-delete-char-backward" => [ \&vi_delete_char_backward ],
+		"vi-delete-char-forward"  => [ \&vi_delete_char_forward ],
+		"vi-delete"               => [ \&vi_delete ],
+
 	};
 
 	$self->{"bindings"} = $bindings;
@@ -140,11 +234,6 @@ sub DESTROY {
 	$self->real_out("\n");
 	ReadMode 0;
 }
-
-#sub END {
-	#print "\n";
-	#ReadMode 0;
-#}
 
 =pod
 
@@ -184,6 +273,11 @@ sub handle_key($$) {
 	my $line = $self->{"input_line"} || "";
 	my $pos = $self->{"input_position"} || 0;
 
+	if (defined($self->{"input_slurper"})) {
+		&{$self->{"input_slurper"}}($self, $char);
+		return;
+	}
+
 	if ($self->{"escape"}) {
 		$self->{"escape_string"} .= $char;
 		if ($self->{"escape_expect_ansi"}) {
@@ -202,19 +296,45 @@ sub handle_key($$) {
 			return;
 		}
 	} elsif ($char eq "\e") {      # Trap escapes, they're speshul.
-		$self->{"escape"} = 1;
-		$self->{"escape_string"} = undef;
-		return;
+		if ($self->{"vi_mode"}) {
+			if ($self->{"mode"} eq 'insert') {
+				$self->{"input_position"}-- if ($self->{"input_position"} > 1);
+				$self->{"mode"} = "command";
+			}
+		} else {
+			$self->{"escape"} = 1;
+			$self->{"escape_string"} = undef;
+			return;
+		}
 	} elsif ((ord($char) < 32) || (ord($char) > 126)) {   # Control character
 		$self->execute_binding($char);
 	} elsif ((defined($char)) && (ord($char) >= 32)) {
-		if (defined($self->{"bindings"}->{"$char"})) {
-			$self->execute_binding($char);
-		} else  {
-			# Insert the character in our string, wherever we are.
-			#substr($line, $pos, 0) = $char;
-			#$self->{"input_position"}++;
-			$self->insert_at_cursor($char);
+		if (defined($self->{"mode"}) && $self->{"mode"} eq "command") {
+			if ($char =~ m/[0-9]/) {
+				$self->{"vi_count"} .= $char;
+			} else {
+				my $cmdwait = defined($self->{"vi_command_waiting"});
+
+				$self->{"vi_count"} ||= 1;
+				while ($self->{"vi_count"} > 0) {
+					$self->execute_binding("vi_$char");
+					$self->{"vi_count"}--;
+				}
+				if ($cmdwait) {
+					&{$self->{"vi_command_waiting"}}($self, 1);
+					$self->{"input_position"} = $self->{"vi_input_position"};
+					delete $self->{"vi_command_waiting"};
+				}
+			}
+		} else {
+			if (defined($self->{"bindings"}->{"$char"})) {
+				$self->execute_binding($char);
+			} else  {
+				# Insert the character in our string, wherever we are.
+				#substr($line, $pos, 0) = $char;
+				#$self->{"input_position"}++;
+				$self->insert_at_cursor($char);
+			}
 		}
 
 		# If we just did a tab completion, kill the state.
@@ -223,6 +343,7 @@ sub handle_key($$) {
 
 	# This is sometimes a nice feature to have...
 	# Press the any key!!!
+	$self->{"lastchar"} = $char;
 	$self->execute_binding("ANYKEY");
 
 	$self->fix_inputline();
@@ -338,6 +459,7 @@ sub out ($;$) {
 
 sub error ($$) { 
 	my $self = shift;
+	$self->real_out("\r\e[2K");
 	print STDERR "*> ", @_, "\n";
 	$self->fix_inputline();
 }
@@ -486,6 +608,238 @@ sub delete_word_backward {
 	$self->fix_inputline();
 }
 
+sub vi_backward_char {
+	my $self = shift;
+
+	$self->backward_char();
+	$self->{"vi_done"} = 1;
+}
+
+sub vi_forward_char {
+	my $self = shift;
+
+	$self->forward_char();
+	$self->{"vi_done"} = 1;
+}
+
+sub vi_forward_word {
+	my $self = shift;
+	my $reg = shift;
+	$self->vi_end_word($reg);
+	$self->vi_end_word($reg);
+	$self->vi_beginning_word($reg) if ($self->{"input_position"} < length($self->{"input_line"}) - 1);
+}
+
+sub vi_forward_whole_word {
+	my $self = shift;
+	$self->vi_forward_word('\S');
+	$self->{"vi_done"} = 1;
+}
+
+sub vi_beginning_word {
+	my $self = shift;
+	my $pos = $self->{"input_position"};
+	my $line = $self->{"input_line"};
+	my $bword = $pos;
+	my $BITS = WORD_BEGINNING;
+	my $regex = shift;
+
+	$BITS |= WORD_REGEX if (defined($regex)); 
+	do {
+		$bword = $self->find_word_bound($line, $pos, $BITS, $regex);
+	} while ($bword == $pos--);
+
+	$self->{"input_position"} = $bword;
+
+	$self->{"vi_done"};
+}
+
+sub vi_beginning_whole_word {
+	my $self = shift;
+	$self->vi_beginning_word('\S');
+	$self->{"vi_done"} = 1;
+}
+
+sub vi_end_word {
+	my $self = shift;
+	my $pos = $self->{"input_position"};
+	my $line = $self->{"input_line"};
+	my $bword = $pos;
+	my $BITS = WORD_END;
+	my $regex = shift;
+
+	$BITS |= WORD_REGEX if (defined($regex)); 
+	do {
+		$bword = $self->find_word_bound($line, $pos, $BITS, $regex);
+	} while ($bword == $pos++);
+
+	$self->{"input_position"} = $bword;
+
+	$self->{"vi_done"};
+}
+
+sub vi_end_whole_word {
+	my $self = shift;
+	$self->vi_end_word('\S');
+	$self->{"vi_done"} = 1;
+}
+
+sub vi_forward_charto {
+	my $self = shift;
+
+	# We need to wait for another character input...
+	$self->{"jumpchardir"} = JUMP_CHARTO;
+	$self->{"input_slurper"} = \&vi_jumpchar;
+}
+
+sub vi_forward_charat {
+	my $self = shift;
+
+	# We need to wait for another character input...
+	$self->{"jumpchardir"} = JUMP_CHAR;
+	$self->{"input_slurper"} = \&vi_jumpchar;
+}
+
+sub vi_backward_charto {
+	my $self = shift;
+
+	$self->{"jumpchardir"} = JUMP_BACKCHARTO;
+	$self->{"input_slurper"} = \&vi_jumpchar;
+}
+
+sub vi_backward_charat {
+	my $self = shift;
+
+	$self->{"jumpchardir"} = JUMP_BACKCHAR;
+	$self->{"input_slurper"} = \&vi_jumpchar;
+}
+
+sub vi_jumpchar {
+	my $self = shift;
+	my $char = shift;
+	my $pos = $self->{"input_position"};
+	my $line = $self->{"input_line"};
+	my $newpos;
+	my $mod = 0;
+
+TRYAGAIN:
+	# Jump to the character we're looking for, depending on the direction we
+	# want to go...
+	$self->out("Jumpchardir: " . $self->{"jumpchardir"});
+	
+	if ($self->{"jumpchardir"} & JUMP_CHARTO) { 
+		# Look ahead
+		$mod = -1;
+		$pos++;
+		$newpos = index($line, $char, $pos);
+	} else { 
+		# Look behind
+		$mod = 1;
+		$pos--;
+		$newpos = rindex($line, $char, $pos);
+	}
+
+	if ($pos == $newpos) {
+		$self->out("We didn't move, try again.");
+		#$pos -= $mod;
+		goto TRYAGAIN;
+	}
+
+	delete $self->{"input_slurper"};
+
+	return if ($newpos < 0);
+
+	if (($self->{"jumpchardir"} & JUMP_BACKCHAR) == 0) {
+		$newpos += $mod;
+	}
+
+	$self->{"input_position"} = $newpos;
+
+	$self->fix_inputline();
+}
+
+sub vi_bol {
+	my $self = shift;
+	$self->{"input_position"} = 0;
+	$self->{"vi_done"} = 1;
+}
+
+sub vi_eol {
+	my $self = shift;
+	$self->{"input_position"} = length($self->{"input_line"});
+	$self->{"vi_done"} = 1;
+}
+sub vi_insert {
+	my $self = shift;
+
+	$self->{"mode"} = "insert";
+	$self->{"vi_done"} = 1;
+}
+
+sub vi_insert_at_bol {
+	my $self = shift;
+
+	$self->vi_bol();
+	$self->vi_insert();
+	$self->{"vi_done"} = 1;
+}
+
+sub vi_add {
+	my $self = shift;
+
+	$self->{"input_position"}++ if ($self->{"input_position"} < length($self->{"input_line"}));
+
+	$self->vi_insert();
+	$self->{"vi_done"} = 1;
+}
+
+sub vi_add_at_eol {
+	my $self = shift;
+
+	$self->vi_eol();
+	$self->vi_add();
+	$self->{"vi_done"} = 1;
+}
+
+sub vi_delete_char_forward {
+	my $self = shift;
+	unless ($self->{"input_position"} == 0) {
+		substr($self->{"input_line"}, $self->{"input_position"} - 1, 1) = '';
+		$self->{"input_position"}--;
+	}
+}
+
+sub vi_delete_char_backward {
+	my $self = shift;
+
+	substr($self->{"input_line"}, $self->{"input_position"}, 1) = '';
+	$self->{"input_position"}-- if ($self->{"input_position"} == length($self->{"input_line"}) && $self->{"input_position"} > 0);
+}
+
+sub vi_delete {
+	my $self = shift;
+	my $exec = shift;
+
+	if ($exec == 1) {
+		my ($start, $end);
+		if ($self->{"input_position"} < $self->{"vi_input_position"}) {
+			$start = $self->{"input_position"};
+			$end = $self->{"vi_input_position"};
+		} else {
+			$start = $self->{"vi_input_position"};
+			$end = $self->{"input_position"};
+		}
+		substr($self->{"input_line"}, $start, ($end - $start)) = '';
+	} else {
+		# Mark such that we remember what command we're doing at the time
+		# and set ourselves as the call back for the end of the next valid
+		# command. soo.... something like:
+		$self->{"vi_command_waiting"} = \&vi_delete;
+		$self->{"vi_input_position"} = $self->{"input_position"};
+	}
+	
+}
+
 =pod
 
 =item $sh->complete_word
@@ -566,6 +920,11 @@ sub anykey {
 	}
 }
 
+
+
+#------------------------------------------------------------------------------
+# Useful functions to set prompt and other things.
+
 =pod
 
 =item $sh->prompt([$prompt])
@@ -617,7 +976,7 @@ sub find_word_bound ($$$;$) {
 	# If we're on a space, go to end of previous word.
 	# If we're on a nonspace/nonword, go to beginning of nonword chars
 	
-	$bword = $pos - 1;
+	$bword = $pos;# - 1;
 
 	# If we're at the end of the string, ignore all trailing whitespace.
 	# unless WORD_ONLY is set.
@@ -633,7 +992,7 @@ sub find_word_bound ($$$;$) {
 	# Then we want to delete (match) all the periods (nonalphanums)
 	substr($regex, 1, 0) = "^" if (substr($line,$bword,1) !~ m/$regex/);
 
-	# Back up until we hit the end of our "word"
+	# Back up until we hit the bound of our "word"
 	$bword += $mod while (substr($line,$bword,1) =~ m/$regex/ && $bword >= 0);
 
 	# Whoops, one too far...
