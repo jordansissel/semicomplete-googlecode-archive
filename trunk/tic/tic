@@ -15,7 +15,7 @@ use Tic::Common;
 use Tic::Commands;
 use Tic::Events;
 use Tic::Bindings;
-use Tic::Interface;
+#use Tic::Interface;
 
 mkdir($ENV{HOME}."/.tic", "0700") unless (-d $ENV{HOME} . "/.tic");
 
