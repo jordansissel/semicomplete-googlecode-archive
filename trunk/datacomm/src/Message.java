@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.5  2004/01/19 19:23:35  psionic
+ *   - changed validateArguments to public from protected
+ *
  *   Revision 1.4  2004/01/19 05:56:00  psionic
  *   *** empty log message ***
  *
@@ -28,7 +31,7 @@
 public interface Message {
     public byte[] toByteArray();
     public String toString();
-	 protected boolean validateArguments() 
-	           throws InvalidCommandArgumentsException();
+	 public boolean validateArguments() 
+	           throws InvalidCommandArgumentsException;
 }   // Message
 
