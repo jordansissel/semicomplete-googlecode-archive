@@ -162,7 +162,7 @@ sub event_im_in {
 
 	if (defined($state->{"away"})) {
 		return if (defined($state->{"away_respond"}->{$from}) && 
-					  $state->{"away_respond"}->{$from} + 600 < time());
+					  $state->{"away_respond"}->{$from} + 600 > time());
 		command_msg($state, '"' . $from .'" ' . $state->{"away"});
 		$state->{"away_respond"}->{$from} = time();
 	}
