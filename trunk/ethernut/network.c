@@ -136,8 +136,8 @@ void network_thread(void *args) {
 		int fromlen = sizeof(srcaddr);
 		int bytes = 0;
 		char buf[1024];
-		memset(buf, 0, 1024);
 		int c;
+		memset(buf, 0, 1024);
 		
 		/* Check the list of known ethernuts, and ping them if we haven't in DISCOVERY_INTERVAL */
 		for (c = 0; c < nut_count; c++) {
