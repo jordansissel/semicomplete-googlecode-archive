@@ -6,9 +6,12 @@
  *
  * Revisions:
  *	$Log$
+ *	Revision 1.9  2004/01/19 16:17:42  tristan
+ *	added char in tobytearray
+ *
  *	Revision 1.8  2004/01/19 06:13:02  tristan
  *	write toByteArray
- *
+ *	
  *	Revision 1.7  2004/01/19 05:36:49  psionic
  *	- initial
  *	
@@ -261,6 +264,8 @@ public class Command implements Message {
                     data.writeShort( ( ( Short ) item ).shortValue() );
                 } else if ( item instanceof Long ) {
                     data.writeLong( ( ( Long ) item ).longValue() );
+                } else if ( item instanceof Character ) {
+                    data.writeChar( ( ( Character ) item ).charValue() );
                 } else {
                     data.writeUTF( item.toString() );
                 }
