@@ -18,6 +18,7 @@ use IO::Select;
 use IO::Socket;
 use POSIX;
 
+#use Time::HiRes qw(gettimeofday);
 use Storable;
 
 use Audio::Mad qw(:all);
@@ -200,9 +201,9 @@ sub play_song(;$) {
 		unless (open($$fd, $file)) {
 			signal_event("open_failed");
 		} else {
-			print_to_client("BROADCAST", "$file\n");
 			$pimp->{"state"} = "playing" if ($pimp->{"state"} ne 'paused');
 			$pimp->{"current_song"} = $song;
+			print_to_client("BROADCAST", current_song_title());
 		}
 	} else {
 		signal_event("open_failed");
@@ -215,20 +216,23 @@ sub play_song(;$) {
 sub read_playlist() {
 	my $file = "/home/psionic/foo.m3u";
 	my $idx = 0;
-	my @values;
+	my %values;
 	print "Reading tags file...\n";
 
 	if (-r $pimp->{"tagfile"}) {
-		#$pimp->{"playlist"} = retrieve($pimp->{"tagfile"});
+		$pimp->{"playlist"} = retrieve($pimp->{"tagfile"});
 	}
 
-	@values = values(%{$pimp->{"playlist"}});
+	print "Size: " . scalar(keys(%{$pimp->{"playlist"}})) . "\n";
+	print "Done\n";
+
+	%values = map { $_->{"file"} => 1 } values(%{$pimp->{"playlist"}});
 	
 	open(LIST, "<$file") or die("Failed trying to open $file");
 	while (my $line = <LIST>) {
 		chomp($line);
 		next if ($line =~ m/^#/);
-		next if (grep($line eq $_->{"file"}, @values));
+		next if (exists($values{$line}));
 
 		$idx++ while (exists($pimp->{"playlist"}->{"$idx"}));
 
@@ -236,6 +240,7 @@ sub read_playlist() {
 	}
 
 	$pimp->{"playlist_count"} = $idx;
+	close(LIST);
 } #}}}
 
 # drop_client {{{
@@ -263,6 +268,9 @@ sub drop_http_client($;$) {
 		#print $client "$msg\n";
 		print "Closing connection...\n";
 	}
+
+	delete $pimp->{"metaintleft"}->{"$client"};
+	delete $pimp->{"http_output_buffer"}->{$client};
 	delete $pimp->{"http_clients"}->{"$client"};
 	$pimp->{"http_select"}->remove($client);
 	$client->close();
@@ -275,7 +283,7 @@ sub play_to_clients() {
 	my $select = $pimp->{"http_select"};
 
 	my @data = splice(@{$pimp->{"output"}}, 0, 10);
-	my $cnt = 0;
+	my ($hcnt,$bcnt) = (0,0); # Handle and overbuffered-count
 
 	foreach my $sock ($select->handles()) { 
 		next if ($sock == $pimp->{"http"});
@@ -283,11 +291,19 @@ sub play_to_clients() {
 		my $obuf = $pimp->{"http_output_buffer"}->{$sock};
 		push(@$obuf, @data) ;
 
-		print "Chunks remaining for " . sock2addr($sock) . ": " . 
-			scalar(@$obuf) . "\n";
+		if (scalar(@$obuf) > 20) {
+			$bcnt++;
+			print "Chunks remaining for " . sock2addr($sock) . ": " . 
+				scalar(@$obuf) . "\n";
+			splice(@$obuf, 300) if (scalar(@$obuf) > 300);
+		}
+		$hcnt++;
 
 		splice(@$obuf, 300) if (scalar(@$obuf) > 300);
 	} 
+
+	# If all buffers are overfull, stop decoding so http clients can catch up.
+	$pimp->{"halt_decoding"} = ($hcnt == $bcnt);
 
 	foreach my $sock ($select->can_write(.05)) {
 		next if ($sock == $pimp->{"http"}); 
@@ -303,24 +319,27 @@ sub play_to_clients() {
 				# Check if we need to inject metadata
 				$$metaint -= length($data);
 				if ($$metaint <= 0) {
-
-					# First byte is LENGTH / 16
 					my $metadata = "";
-					my $len;
-					$metadata .= "StreamTitle='The time is: " . time(). "';";
-					$metadata .= "StreamUrl='http://www.foo.com/bar';";
-					$len = (1 + int((length($metadata) + 1) / 16)) * 16;
-					$metadata .= chr(0) x ($len - length($metadata));
+					if (defined($pimp->{"metatitle"}->{$sock}) && $pimp->{"metatitle"}->{$sock} eq current_song_title()) {
+						$metadata = "\0";
+					} else {
+						my $len;
+						$metadata .= "StreamTitle='" . current_song_title() . "';";
+						$metadata .= "StreamUrl='http://www.foo.com/bar';";
+						$len = (1 + int((length($metadata) + 1) / 16)) * 16;
+						$metadata .= chr(0) x ($len - length($metadata));
 
-					# Put the meta data in the proper place.
-					$metadata = chr(int($len / 16))  . $metadata;
+						# Put the meta data in the proper place.
+						$metadata = chr(int($len / 16))  . $metadata;
 
-					print "Metaint is: $$metaint\n";
-					print "MetaLength is: $len / " . length($metadata) . "\n";
-					print STDERR "META: $metadata\n\n\n";
+						#print "Metaint is: $$metaint\n";
+						#print "MetaLength is: $len / " . length($metadata) . "\n";
+						#print STDERR "META: $metadata\n\n\n";
 
+					}
 					substr($data,length($data) + $$metaint, 0) = $metadata;
 
+					$pimp->{"metatitle"}->{$sock} = current_song_title();
 					# Set next interval to METAINT minus the overflow
 					$$metaint = $METAINT + $$metaint;
 				}
@@ -337,7 +356,7 @@ sub play_to_clients() {
 
 	#print "[$cnt] / " . scalar($select->handles()) . " / Size of to-be-printed: " . scalar(@data) . "\n";
 
-	splice(@{$pimp->{"output"}}, 0, 10) if ($cnt);
+	splice(@{$pimp->{"output"}}, 0, 10);
 } #}}}
 
 # decode_current_mp3 {{{
@@ -346,6 +365,10 @@ sub decode_current_mp3() {
 	my $buffer = \$pimp->{"buffer"};
 	my $blen = length($$buffer);
 	my $output = $pimp->{"output"};
+
+
+	# Sooooo let's go ahead and not decode if the http buffers are overloaded
+	return 0 if ($pimp->{"halt_decoding"});
 
 	$$buffer |= "";
 
@@ -360,9 +383,15 @@ sub decode_current_mp3() {
 		substr($$buffer, 0, $BUFSIZE) = "";
 	}
 
+
+	#return 0 if ($pimp->{"sleep_timeleft"} - (Time::HiRes::time() - $pimp->{"sleep_timecheck"}) > 8);
+
+	#print "Time gained from last decode: " . $pimp->{"sleep_timeleft"} . "\n";
+	#print "Time spent doing other things: " . (Time::HiRes::time() - $pimp->{"sleep_timecheck"}) . "\n";
+
 	# Try decoding up to 15 frames.
-	for (1 .. 15) {
-		next if (scalar(@$output) > 30);
+	for (1 .. 10) {
+		next if (scalar(@$output) > 20);
 
 		while ($frame->decode($stream) == -1) {
 			if ($stream->error() == MAD_ERROR_BUFLEN ||
@@ -389,8 +418,11 @@ sub decode_current_mp3() {
 
 		$pimp->{"timer"} += $frame->duration();
 		push(@{$output}, $data);
-	}
 
+		# Add one frame's worth of time to our total time remaining
+		#$pimp->{"sleep_timeleft"} += 0.26;
+	}
+	#$pimp->{"sleep_timecheck"} = Time::HiRes::time(); 
 	return 0;
 
 } #}}}
@@ -455,9 +487,9 @@ sub handle_http_request($) {
 	$response .= "icy-url: http://whack.csh.rit.edu/this/is/a/lie\r\n";
 	$response .= "icy-name: I like music!\r\n";
 
-	print sock2addr($sock) . " sent:\n";
-	print $buffer . "\n";
-	print sock2addr($sock) . " requested:\n" . $buffer . "\n";
+	#print sock2addr($sock) . " sent:\n";
+	#print $buffer . "\n";
+	#print sock2addr($sock) . " requested:\n" . $buffer . "\n";
 	foreach my $line (split(/\r?\n/, $buffer)) {
 		my ($key,$val) = split(/:\s*/, $line, 2);
 		if ($key eq 'Icy-MetaData') {
@@ -470,8 +502,8 @@ sub handle_http_request($) {
 	}
 	$response .= "\r\n";
 
-	print "Sending to " . sock2addr($sock) . ":\n";
-	print $response . "\n-\n";
+	#print "Sending to " . sock2addr($sock) . ":\n";
+	#print $response . "\n-\n";
 
 	print $sock $response;
 
@@ -586,7 +618,7 @@ sub song_control() {
 			$newsong = $playlist->{int(rand() * $pimp->{"playlist_count"})};
 			#$newsong = $playlist[ (int(rand() * scalar(@playlist))) ];
 		}
-		#print STDERR "New song: $newsong / " . $newsong->{"file"} . "\n";
+		print STDERR "New song: $newsong / " . $newsong->{"file"} . "\n";
 		play_song($newsong);
 	} elsif ($event eq "command_prev") {
 		my $previous = $pimp->{"previous"};
@@ -735,6 +767,14 @@ sub get_tag(;$) {
 	$id->close();
 } #}}}
 
+# current_song_title {{{
+#
+sub current_song_title() {
+	my $song = $pimp->{"current_song"};
+
+	return "(" . $song->{"artist"} . ") " . $song->{"album"} . " - " . $song->{"title"};
+} #}}}
+
 # Commands {{{
 
 sub cmd_play($$$) {
@@ -773,6 +813,9 @@ $pimp->{"state"} = "stopped";
 $pimp->{"output"} = [ ];
 $pimp->{"previous"} = [ ];
 $pimp->{"callbacks"} = { };
+
+#$pimp->{"sleep_timeleft"} = 0;
+#$pimp->{"sleep_timecheck"} = Time::HiRes::time();
 
 setup_server();
 setup_callbacks();
