@@ -1,12 +1,14 @@
 #!/usr/bin/perl
 
-use Storable;
+use Storable qw(store retrieve nstore );
 use Data::Dumper;
 
 use strict;
 
 my $hash;
 $hash = retrieve($ENV{HOME} . "/.pimp/tags");
+
+nstore($hash, $ENV{HOME} . "/.pimp/tags");
 
 
 print Dumper($hash);
