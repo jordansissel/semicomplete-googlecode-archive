@@ -1,7 +1,11 @@
-LIBNET_CFLAGS=-DLIBNET_BSDISH_OS -DLIBNET_BSD_BYTE_SWAP -DHAVE_SOCKADDR_SA_LEN -DLIBNET_LIL_ENDIAN -D__GLIBC__
-LIBNET_LDFLAGS=-lnet
+#LIBNET_CFLAGS=-DLIBNET_BSDISH_OS -DLIBNET_BSD_BYTE_SWAP -DHAVE_SOCKADDR_SA_LEN -DLIBNET_LIL_ENDIAN -D__GLIBC__
+#LIBNET_LDFLAGS=-lnet
 
-LIBS=-L/usr/lib -lpcap -L/usr/local/lib -pthread -lnet
+.if defined(INCLUDE_BUILDFLAGS)
+.include "Makefile.inc"
+.endif
+
+LIBS+=-L/usr/lib -lpcap -L/usr/local/lib -pthread
 INCLUDE=-I/usr/local/include
 
 BUILDY=gcc -ansi -g ${INCS} ${LIBS} -o proxy
@@ -9,17 +13,26 @@ BUILDY=gcc -ansi -g ${INCS} ${LIBS} -o proxy
 SRCS=main.c log.c hash.c
 OBJS=main.o log.o hash.o
 
-CFLAGS+=-g -Wall $(LIBNET_CFLAGS)
+LIBNET_CFLAGS_HACK=-D__GLIBC__
 
+CFLAGS+=-g -Wall $(LIBNET_CFLAGS) $(BUILDFLAGS) $(LIBNET_CFLAGS_HACK)
 CFLAGS+=$(INCLUDE)
 
-default: all
+default: config
 
-all: $(OBJS)
+config: Makefile.inc
+	@make all -DINCLUDE_BUILDFLAGS
+
+Makefile.inc: configure
+	@sh configure
+
+all: $(OBJS) proxy
+
+proxy:
 	$(CC) $(LDFLAGS) $(LIBS) $(OBJS) /usr/local/lib/libnet.a -o proxy
 
 clean:
-	rm -f $(OBJS) proxy *.core >/dev/null 2>&1 || true;
+	rm -f $(OBJS) proxy *.core Makefile.inc >/dev/null 2>&1 || true;
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
