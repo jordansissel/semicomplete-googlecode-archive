@@ -115,16 +115,18 @@ CONNECT:
 
 	$self->{"socket"} = $sock;
 
-	_debug("Connecting to " . $self->{"host"} . ":" . $self->{"port"});
-
+	_debug("Looking up hostname for " . $self->{"host"});
 	my $inetnum = inet_aton($self->{"host"});
+	_debug("Done!\n");
 
 	if (!defined($inetnum)) {
 		_fatal("Unable to resolve hostname: " . $self->{"host"});
 		return -1;
 	}
 
-	connect($sock, sockaddr_in($self->{"port"}, inet_aton($self->{"host"}))) 
+	_debug("Connecting to " . $self->{"host"} . ":" . $self->{"port"});
+
+	connect($sock, sockaddr_in($self->{"port"}, $inetnum)) 
 		or _fatal("Failed connecting to " . $self->{"host"} . ":" . $self->{"port"}) and return -1;
 	_debug("Connected");
 
@@ -207,7 +209,6 @@ sub url($;$) {
 	my $url = shift;
 
 	if (defined($url)) {
-		print "Setting URL\n";
 		my $uri = URI->new($url);
 
 		$self->{"host"} = $uri->host();
@@ -271,7 +272,7 @@ sub _fatal {
 }
 
 sub _debug {
-	print STDERR map { "$_\n" } @_;
+	#print STDERR map { "$_\n" } @_;
 }
 
 =pod
