@@ -6,6 +6,9 @@
  * 
  * Revisions:
  *   $Log$
+ *   Revision 1.4  2004/01/12 23:20:51  njohnson
+ *   Stubs almost complete for client to use
+ *
  *   Revision 1.3  2004/01/12 04:51:41  njohnson
  *   I made the code compilation error free. Still mostly stubs.
  *
@@ -58,15 +61,26 @@ public class BSGame {
 		return targetGrid;
 	} //getTargetGrid()
 
-	public void printGrid() {
+	/**
+	 * Determines whether a shot is a hit or miss
+	 * on ownGrid.
+	 *
+	 * @return	true - if hit
+	 *		false - if miss
+	 */
+	public boolean shot( int i, char x ) {
+		boolean retVal = false;
 
-	} //printGrid()
+
+		return retVal;
+	}
 
 	/**
 	 * The main method the runs a game locally.
 	 *
-	 * @args
-	 *
+	 * @args - player one's name
+	 *         player two's name
+	 *	   type of game?
 	 */
 	public static void main( String[] args ) {
 		String input_string = new String();
