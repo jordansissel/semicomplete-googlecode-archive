@@ -15,7 +15,8 @@ use Exporter;
 				 command_login command_quit command_buddylist command_default
 				 command_undefault command_log command_timestamp command_who
 				 command_timestamp command_getaway command_help command_date
-				 command_delbuddy command_away command_set);
+				 command_delbuddy command_away command_set command_ignore
+				 command_unignore);
 
 my $state;
 my $sh;
@@ -643,6 +644,34 @@ HELP
 
 	$state->{"settings"}->{$key} = $val if ($val);
 	$sh->out("$key = $val");
+}
+
+sub command_ignore {
+	return "%s" if ($_[0] eq 'completion');
+	return << "HELP" if ($_[0] eq 'help');
+Syntax: /ignore <buddy name>
+Ignores the given buddy. Shame on them for bothering you!
+HELP
+	my $state = shift;
+	my ($args) = @_;
+	my $sn = next_arg(\$args);
+
+	$state->{"aim"}->add_deny($sn);
+	$state->{"aim"}->commit_buddylist();
+}
+
+sub command_ignore {
+	return "%s" if ($_[0] eq 'completion');
+	return << "HELP" if ($_[0] eq 'help');
+Syntax: /unignore <buddy name>
+Stops ignoring the given buddy. I guess you like them again?
+HELP
+	my $state = shift;
+	my ($args) = @_;
+	my $sn = next_arg(\$args);
+
+	$state->{"aim"}->remove_deny($sn);
+	$state->{"aim"}->commit_buddylist();
 }
 
 sub compare {
