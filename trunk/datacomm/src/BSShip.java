@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.9  2004/01/19 21:49:05  tristan
+ *   converted to row/col/length
+ *
  *   Revision 1.8  2004/01/19 04:27:36  njohnson
  *   All stubs written. Time to test.
  *
@@ -44,8 +47,9 @@
  * @author Nicholas R. Johnson
  */
 public class BSShip {
-    private byte[] location;    
-    private int length;
+    private byte row;
+    private byte col;
+    private byte length;
 
     /**
      *  A default constructor that makes a ship at A, 1.
@@ -53,77 +57,69 @@ public class BSShip {
      *
      */
     public BSShip() {
-	location = new byte[4];
-	length = 0;
-    } // constructor
-    
-    /**
-     * Constructs a ship with specific coords.
-     *
-     * @param startPointX
-     * @param startPointY
-     * @param endPointX
-     * @param endPointY
-     */
-    public BSShip( byte startPointX, 
-            byte startPointY,        
-            byte endPointX,
-            byte endPointY ) {
-
-        location = new byte[ 4 ];
-        location[ 0 ] = startPointX;
-        location[ 1 ] = startPointY;
-        location[ 2 ] = endPointX;
-        location[ 3 ] = endPointY;
-
-        if( endPointX == startPointX ) {
-            length = Math.abs( endPointY - startPointY ); 
-	} else {
-            length = Math.abs( endPointX - startPointX );
-	}
-
+        row = 0;
+        col = 0;
+        length = 0;
     } // constructor
 
     /**
-     * Returns a 2-byte byte array with
-     * the starting point of the ship.
-     * Format: { <row>, <column> }
-     * Where <row> is the number associated with the letter of 
-     * the grid's row ( 1 - A, 2 - B, ... , 9 - I, 10 - J )
-     * and <column> is the number of the grid's column. 
      *
-     * @return 
+     * @param row
+     * @param col
+     * @param length
      */
-    public byte[] getStart() {
-        byte[] startLocation = new byte[2];    
-        startLocation[ 0 ] = location[ 0 ];
-        startLocation[ 1 ] = location[ 1 ];
-        return startLocation;
-    } // getStart()
+    public BSShip( byte row, byte col, byte length ) {
+        this.row = row;
+        this.col = col;
+        this.length = length;
+    } // constructor
 
     /**
-     * Returns a 2-byte byte arrays with
-     * the ending point of the ship.
-     * Format: { <row>, <column> }
-     * Where <row> is the number associated with the letter of 
-     * the grid's row ( 1 - A, 2 - B, ... , 9 - I, 10 - J )
-     * and <column> is the number of the grid's column. 
      *
      * @return
      */
-    public byte[] getEnd() {
-        byte[] endLocation = new byte[2];
-        endLocation[ 0 ] = location[ 2 ];
-        endLocation[ 1 ] = location[ 3 ];
-        return endLocation;
-    } //getEnd()
+    public byte getRow() {
+        return row;
+    }
 
-    /** 
+    /**
      *
-     *
+     * @param row
      */
-    public int getLength() {
+    public void setRow( byte row ) {
+        this.row = row;
+    }
+
+    /**
+     *
+     * @return
+     */
+    public byte getCol() {
+        return col;
+    }
+
+    /**
+     *
+     * @param col
+     */
+    public void setCol( byte col ) {
+        this.col = col;
+    }
+
+    /**
+     *
+     * @return
+     */
+    public byte getLength() {
         return length;
+    }
+
+    /**
+     *
+     * @param length
+     */
+    public void setLength( byte length ) {
+        this.length = length;
     }
 } //BSShip
 
