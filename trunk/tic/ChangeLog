@@ -1,0 +1,543 @@
+2004-06-05 23:35  psionic
+
+	* Tic/Commands.pm: - Added idle time reporting to /who output.	-
+	  Wrote idletime($buddy) which returns a formatted idle time
+	  string.
+
+2004-06-05 23:09  psionic
+
+	* Tic/Common.pm: - Unimportant comment added.
+
+2004-06-05 22:15  psionic
+
+	* Tic/Commands.pm: - command_who no longer quotes (with \Q and \E)
+	  the regex match. I now   eval the regex and check if it's got
+	  good syntax, and if so, grep the   buddylist for it.
+
+2004-06-04 18:44  psionic
+
+	* Tic/: Bindings.pm, Common.pm: [no log message]
+
+2004-06-04 18:09  psionic
+
+	* Tic/Events.pm: - Added $state->{"away_responding"}->{"$from"},
+	  which gets set to 1 in   event_im_in if you are away. This is
+	  used by command_msg to determine if	you are away or not. I
+	  should do this better :(
+
+2004-06-04 18:08  psionic
+
+	* Tic/Common.pm: - Removed out(), real_out(), and error() which are
+	  provided by Term::Shelly
+
+2004-06-04 18:07  psionic
+
+	* Tic/Commands.pm: - Fixed a bug where if you did "/msg foo" it
+	  would try to send a blank   message despite code existing which
+	  should have prevented it.  - Added $state->{"away_responding"}
+	  which gets set when tic   auto-responds with your away message.
+	  This is so that while you are   away, all of your messages aren't
+	  flagged as being your away message
+
+2004-06-04 18:05  psionic
+
+	* Tic/Bindings.pm: - Resurrected! :) - Does it's original job of
+	  providing input-oriented functionality. It   extends the existing
+	  functionality of Term::Shelly and includes a	 completer
+	  function.  - The completer function currently supports commands
+	  and completing   names for /msg and /m only. More to come soon
+	  when I create a flexible   framework.  - Also wrote in the
+	  expand-line keybinding again, hitting ^T will expand	 the
+	  aliases on the current line.	- Added complete_lastfrom() which
+	  is executed when you hit ';' on the	beginning of the line. It
+	  replaces ; with   /msg <person who messaged you last> - Wrote
+	  match_buddies which takes a partial and returns buddies matching
+	  it.
+
+2004-06-04 18:02  psionic
+
+	* tic: - Resurrected Tic::Bindings. I needed it afterall to do
+	  special   functional enhancements over what Term::Shelly
+	  provides. <3 flexibility
+
+2004-06-04 02:21  psionic
+
+	* Tic/Events.pm: - Integrated Term::Shelly. Yadda yadda yadda.
+
+2004-06-04 02:20  psionic
+
+	* Tic/Common.pm: - Integrated Term::Shelly, so some things had to
+	  be changed:	login() used to block until we got a user and pass.
+	  This is not so   anymore. The chain of events is:
+
+	    login() - sets the callback of Shelly to be get_username(),
+	  which is
+	    given the username and then sets the call back to
+	  get_password(),
+	    which is given the password (after input, duh) and then runs
+	    do_login() which logs you in and resets the callback to the
+	  oringal
+	    one tic uses to execute commands
+	  ($state->{"command_callback"}).
+
+	    Also got rid of out(), error(), fix_inputline(), etc... these
+	  are all
+	    now in Term::Shelly
+
+	  - Got rid of query(), it was deprecated by Term::Shelly
+
+2004-06-04 02:18  psionic
+
+	* Tic/Commands.pm: - Integrated Term::Shelly, out() and error() are
+	  now $sh->out(), etc.	- Fixed a typo in the idle /who output
+
+2004-06-04 02:17  psionic
+
+	* tic: - Integrated Term::Shelly. Got rid of all my kludgly input
+	  code.  Finally! As such, tic (the file) has WAAAAY less code in
+	  it. Goodie :) - Had to update all the out() and error() functions
+	  to be $sh->out() etc
+
+2004-06-01 21:51  psionic
+
+	* Tic/Commands.pm: - Moved %USERFLAGS to the top, it only needs to
+	  be declared once.  - Changed the -o flag to mean "online." Also
+	  moved the offline flag to -f
+
+2004-06-01 21:50  psionic
+
+	* Tic/Events.pm: - Typo again, used a < instead of a > in the time
+	  comparison with away message responses.
+
+2004-06-01 02:19  psionic
+
+	* Tic/Commands.pm: - Fixed up command_who: Now supports the
+	  following flags, which can be combined:    -a     Show only
+	  active users	  -i	 Show only idle users	  -w	 Show only
+	  away users	 -m	Show only mobile users	 -o	Show only
+	  offline users The new syntax is: /who [-aiwmo] [regex]
+
+	  All options are optional.
+
+2004-06-01 00:55  psionic
+
+	* Tic/Events.pm: - Updated event_im_in to properly autorespond with
+	  the current away message
+
+2004-06-01 00:54  psionic
+
+	* Tic/Constants.pm: - Changed im_awaymsg's text to be [AWAY] <*xs*>
+	  %m I'll make this prettier later, I don't care for now ...
+
+2004-06-01 00:53  psionic
+
+	* Tic/Common.pm: - Fixed a possible off by one bug where one too
+	  many characters were being displayed when the line was too long
+	  to show on the terminal.
+
+2004-06-01 00:52  psionic
+
+	* Tic/Commands.pm: - Added command_addbuddy, command_delbuddy, and
+	  command_away - Modified command_msg to set the 3rd argument of
+	  $aim->send_im() to 1 if we are currently away, undef otherwise
+	  (as per Net::OSCAR documentation)
+
+2004-06-01 00:51  psionic
+
+	* tic: - Added /addbuddy, /away, and /delbuddy - Fixed an
+	  off-by-one bug where if you ran text off the edge of the
+	  terminal and caused scrolling of the line, then backspaced, it
+	  would   display one too many characters.
+
+2004-05-31 17:26  psionic
+
+	* Tic/Bindings.pm: - Fixed off-by-one-ness where if you typed
+	  beyond the end of the   terminal, then backspaced, it would print
+	  one-too-many characters.
+
+2004-05-30 22:45  psionic
+
+	* Tic/Commands.pm: - typo :(
+
+2004-05-30 22:20  psionic
+
+	* tic, Tic/Bindings.pm, Tic/Commands.pm, Tic/Common.pm,
+	  Tic/Constants.pm: - Bugfixes, etc... You don't care.
+
+2004-05-30 15:50  psionic
+
+	* Tic/Events.pm: - buddy_in events are now processed correctly when
+	  buddies log on.
+
+2004-03-07 02:59  psionic
+
+	* Tic/Events.pm: - changed instances of $state->{"config"}->{...}
+	  to get_config(...)
+
+2004-03-07 02:59  psionic
+
+	* Tic/Common.pm: - Moved set_config() and get_config() to here.
+
+2004-03-07 02:58  psionic
+
+	* Tic/Commands.pm: - Added command_date() - prints out the time -
+	  Moved get_config() and set_config() to Tic::Common - Fixed a few
+	  misc bugs here and there
+
+2004-03-07 02:51  psionic
+
+	* Tic/Bindings.pm: - added Tic::Common->set_state() to set_state
+
+2004-03-07 01:26  psionic
+
+	* Tic/Common.pm: - Added support for port and host in the case that
+	  you may want to connect to   a nonstandard port or host. In
+	  ~/.ticrc:   port=8080
+
+	    For example, would make you connect to login.oscar.aol.com port
+	  8080
+	    (which does in fact work).
+
+2004-03-07 01:10  psionic
+
+	* tic, Tic/Common.pm: [no log message]
+
+2004-03-07 00:18  psionic
+
+	* Tic/Common.pm: [no log message]
+
+2004-03-07 00:18  psionic
+
+	* Tic/Events.pm: - Modified error output to include an error
+	  number, *shrug*
+
+2004-03-07 00:16  psionic
+
+	* Tic/Common.pm: - Modified fix_inputline() to support long lines
+
+2004-03-07 00:15  psionic
+
+	* Tic/Commands.pm: - Added new features to /who (command_who)	You
+	  can do: /who [-active|-idle|-away|regex] to pull certain kinds of
+	  buddies - Added errors for command_msg if no buddy or message is
+	  specified
+
+2004-03-07 00:13  psionic
+
+	* tic: - Removed some debug output
+
+2004-03-07 00:04  psionic
+
+	* Tic/Bindings.pm: - Modified backward_char() and forward_char() to
+	  support modification of   $state->{"leftcol"} - thus letting you
+	  scroll back and forth using the   arrow keys to scroll long longs
+	  - Also commented out lots of STDERR prints
+
+2004-03-07 00:01  psionic
+
+	* tic: - Modified check_readline() to handle a output better.
+	  long-lines are supported   now. It'll scroll you off to the right
+	  if you type too much.  - Fixed read_config() to ignore blank
+	  lines
+
+2004-03-04 07:09  psionic
+
+	* test.pl: [no log message]
+
+2004-03-04 07:08  psionic
+
+	* Tic/Common.pm: - Changed prettyprint() to not display the message
+	  type, it was debugging info.
+
+2004-03-04 07:07  psionic
+
+	* Tic/Commands.pm: - Added some various debugging statements to
+	  help with processing - Started working on better handling of
+	  argument processing
+
+2004-03-04 07:06  psionic
+
+	* tic: - Cleaned out no-longer-used code and modules - added
+	  $settings ($state->{"settings"}). Configuration data is stored
+	  here.    This includes thinsg read in from the now-supported rc
+	  file (~/.ticrc)  - Added support for a ~/.ticrc   Syntax is:
+	  key = value	Comments are marked by #, whitespace between the =,
+	  key and values are   ignored. Currently supported options are:
+	  screenname, password	 For Example:	screenname =  psikronic -
+	  Attempted to add support for dynamic window sizings, but
+	  apparently setting   $SIG{WINCH} (SIGWINCH, Signal sent when the
+	  term size changes) causes   the Net::OSCAR connection to die,
+	  it's fucked up. I'm looking into it.	- added read_config()
+
+2004-02-28 19:46  psionic
+
+	* Tic/Events.pm: - Added "aimok" state toggle off when a fatal
+	  error occurs.
+
+2004-02-28 18:43  psionic
+
+	* Tic/Common.pm: - Remvoed stty() - Fixed deep_copy() to use map()
+	  instead.  - Added login();
+
+2004-02-28 18:41  psionic
+
+	* Tic/Commands.pm: - Fixed argument handling in command_msg() -
+	  Moved login() to Tic::Common
+
+2004-02-28 18:40  psionic
+
+	* tic: - Moved login() to Tic::Common - Fixed 'default' messaging
+	  behavior
+
+2004-01-03 22:52  psionic
+
+	* Tic/Commands.pm: - wierd...
+
+2004-01-03 22:17  psionic
+
+	* tic, Tic/Bindings.pm: - Removed some debug stuff
+
+2004-01-03 22:16  psionic
+
+	* Tic/Commands.pm: - /help alone now prints out contents of /help
+	  /help
+
+2004-01-02 05:54  psionic
+
+	* tic, Tic/Common.pm, Tic/Constants.pm, Tic/Events.pm: - Added $Id$
+	  tags
+
+2004-01-02 05:53  psionic
+
+	* Tic/: Bindings.pm, Commands.pm: - Added $Id$ stuff to the top of
+	  the file - Made a meta syntax for completion. Commands now
+	  specify how to complete   their own arguments! :)   %s =
+	  screenname   %c = command or alias   %a = alias   %ca = read the
+	  previous command's arguments
+
+	    What does that last one mean?
+	    Well, the completion for /alias is: "%a %c %ca"
+	    and the completion for /msg is: %s
+	    which means when you type: /alias foo /msg bar*TAB*
+	    it will:
+	       See that you are on the 4th token of the input. Then see
+	  that /alias
+	       is being used and look up it's completion string. Then see
+	  that only
+	       the first two parameters are defined and that the 3rd and on
+	  are defined
+	       by the 2nd parameter (a command). So it then sees that /msg
+	  is the 2nd
+	       parameter to /alias, and treats "bar" as the 1st parameter
+	  to /msg and
+	       completes it based on that. So it will try to complete "bar"
+	  to a known
+	       screen name. Got it?
+
+	    Now doing completion is loads easier because I don't have to
+	  hand-code
+	    anything for new commands, I can simply have them define new
+	  completions.
+	    This goes for everyone else too, and makes it far easier to
+	  maintain in
+	    the future if someone wants to hack on it.
+
+	    This change affects Bindings.pm and Commands.pm
+
+2004-01-02 05:52  psionic
+
+	* Tic/Events.pm: - Fixed a bug where idle and away status messages
+	  weren't being handled right.
+
+2004-01-02 05:52  psionic
+
+	* Tic/Constants.pm: - Added nohelp and alias_is default outputs
+
+2004-01-02 05:51  psionic
+
+	* Tic/Common.pm: - Added more metas to prettyprint, see
+	  Tic/Common.pm for what they all are.
+
+2004-01-02 05:50  psionic
+
+	* Tic/Commands.pm: - Added command_help. It does the obvious. It
+	  also will define aliases if you   do /help /<some alias> - Also
+	  added help context for all the current methods. Now, it is easy
+	  to add   new help information becuase each command documents
+	  itself. Calling   command_*("help") will return a help message.
+
+2004-01-02 05:48  psionic
+
+	* Tic/Bindings.pm: - Added do_complete_buddy and do_complete_alias,
+	  they take the   same parameters as do_complete_command. It's
+	  obvious what they do.
+
+2004-01-02 05:41  psionic
+
+	* tic: - call prepare_completion() before we do any real work. (See
+	  Tic::Bindings) - Made it so pasting wasn't annoying. Excerpt from
+	  the code explaining:	  $aim->do_one_loop() sleeps for .01
+	  seconds waiting for data. This is time    that could be better
+	  spent reading from the input. So, what I did	  is every time a
+	  key is read set $state->{"aimok"} to 0. And any time
+	  check_readline() does not read a keypress $state->{"aimok"} is
+	  set to 1.	This makes it so pasting things is very fast
+	  because while you're pasting	   $aim->do_one_loop() is never
+	  called.
+
+2004-01-01 21:33  psionic
+
+	* Tic/Events.pm: - Cleaned up the debug code. Now displays when
+	  people go away and come back.    Same is displayed for idle.
+
+2004-01-01 21:33  psionic
+
+	* tic: - Updated mkdir() call on line 18
+
+2004-01-01 16:51  psionic
+
+	* Tic/: Bindings.pm, Commands.pm, Common.pm, Constants.pm,
+	  Events.pm: - Commit to try and get this working with perl 5.005
+
+2004-01-01 16:40  psionic
+
+	* Tic/Common.pm: - Typo fix
+
+2004-01-01 16:39  psionic
+
+	* Tic/: Bindings.pm, Commands.pm, Common.pm, Constants.pm,
+	  Events.pm: - instead of using our I do use vars qw(@ISA @EXPORT)
+	  now for compat with older   versions of perl.
+
+2003-12-31 07:43  psionic
+
+	* Tic/Constants.pm: - unimportant commit, I'm bored and tired.
+
+2003-12-31 07:43  psionic
+
+	* tic: - Added checks to create ~/.tic/ if it doesn't exist.
+
+2003-12-31 07:21  psionic
+
+	* Tic/Events.pm: - fixed set_state() to work properly, i forgot
+	  that the first argument is   always $self when calling a sub on
+	  an object or class.  - updated all the output statements to use
+	  prettyprint() - added missing output statements (now prettyprint)
+	  to several of the   unimplemented events.
+
+2003-12-31 07:19  psionic
+
+	* Tic/Constants.pm: - Added DEFAULT_OUTPUT which sets all of the
+	  default text formatting. This   includes timestamp format,
+	  inbound message format, etc
+
+2003-12-31 07:18  psionic
+
+	* Tic/Common.pm: - Added deep_copy(), does a one-level deep copy of
+	  a hash - Added prettyprint(). This sub handles printing normal
+	  messages - Added prettylog(), which is a short wrapper around
+	  prettyprint(). Instead of   printing to STDOUT it will open a log
+	  and print to it. Hurray for perl's   select() function making
+	  this simple.	- Updated out() to fix repost the input line (if
+	  there is one).  - Updated error() to also repost the input line -
+	  Added fix_inputline() which reposts the current input line and
+	  positions   the cursor accordingly.  - prettyprint supports
+	  special escapes to insert certain pieces of text:    %s -
+	  Screenname of target (or who is messaging you)   %m - Message
+	  text	     %g - Group the user belongs to  %c - chatroom relted
+	  to this message    %w - warning level      %i - idle time of the
+	  user	    %e - error message	    %S - your own screen name
+	  %% - literal % - added getrealsn() which takes a normalized
+	  screen name (ie; psikronic) and   turns it into "PsiKronic" by
+	  looking it up.
+
+2003-12-31 07:12  psionic
+
+	* Tic/Commands.pm: - Added /log on - to re-enable logging if it was
+	  disabled.  - Added command_sn, this won't stay around long.  -
+	  Added /timestamp to enable/disable timestamping
+
+2003-12-31 07:10  psionic
+
+	* Tic/Bindings.pm: - Renamed the bindings to things that aren't
+	  bind_* - Also renamed the bind_* subs to more fun names.  - added
+	  set_state() so we can somewhat maintain state - Added
+	  do_complete_command() split from do_complete(). This will take a
+	  partial word and complete it to a command or alias.	- Added
+	  extra completion for the 2nd word of the alias command. So doing:
+	  /alias foo /bu*TAB*   will complete "/bu" to "/buddylist" and
+	  such.
+
+2003-12-31 07:07  psionic
+
+	* tic: - Moved event_* subs to Tic::Events - Moved command_* subs
+	  to Tic::Commands
+
+2003-12-31 02:05  psionic
+
+	* Tic/Common.pm: - Updated Exporter shenanigans
+
+2003-12-31 02:04  psionic
+
+	* Tic/Events.pm: - Forked event_* subs from main script
+
+2003-12-31 02:04  psionic
+
+	* Tic/Commands.pm: - Forked command_* subs from the main script
+
+2003-12-30 21:41  psionic
+
+	* tic: [no log message]
+
+2003-12-30 21:25  psionic
+
+	* Tic/Bindings.pm: - Completion works. Currently it will only
+	  complete commands.
+
+2003-12-28 22:42  psionic
+
+	* tic: - Huzzah commit (I'm too lazy to read cvs diff -u and update
+	  the log here.)
+
+2003-12-28 22:19  psionic
+
+	* Tic/Constants.pm: - Instead of hashes, we use constants now.
+
+2003-12-27 19:54  psionic
+
+	* Tic/Constants.pm: - Super magical fun happy place where constants
+	  stay.
+
+2003-12-27 19:24  psionic
+
+	* tic: - backspace and arrow keys work :)
+
+2003-12-27 19:15  psionic
+
+	* tic: - paranoia commit :(
+
+2003-12-27 15:56  psionic
+
+	* tic: - half-implemented the completion system. <3 Term::ReadKey
+
+2003-12-27 14:06  psionic
+
+	* tic: - Working version, temp.
+
+2003-12-27 13:51  psionic
+
+	* test.pl: - Test script... yay
+
+2003-12-27 13:31  psionic
+
+	* tic: [no log message]
+
+2003-12-27 13:26  psionic
+
+	* tic: - special "huzzah" commit... or something.
+
+2003-12-25 21:42  psionic
+
+	* tic: - Initial commit.  - You can login to AIM and it'll handle
+	  buddy login detection, that's it.
+
