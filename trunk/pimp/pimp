@@ -21,8 +21,8 @@ use POSIX;
 #use Time::HiRes qw(gettimeofday);
 use Storable;
 
-use Audio::Mad qw(:all);
-use MP3::Tag;
+#use Audio::Mad qw(:all);
+#use MP3::Tag;
 
 BEGIN {
 	# Call shutdown() when we get SIGINT SIGTERM SIGHUP or __DIE__
@@ -66,8 +66,8 @@ use constant {
 }; #}}}
 
 my $pimp = {};
-my $stream = new Audio::Mad::Stream();
-my $frame = new Audio::Mad::Frame();
+#my $stream = new Audio::Mad::Stream();
+#my $frame = new Audio::Mad::Frame();
 
 # process_decode {{{
 # actually does the transmission of mp3 data
@@ -190,14 +190,14 @@ sub play_song(;$) {
 	my $previous = $pimp->{"previous"};
 	my $fd = \$pimp->{"mp3fd"};
 
-	unshift(@$previous, $file) if (scalar(@$previous) > 0 && $previous->[0] ne $file);
+	unshift(@$previous, $song);
 	splice(@{$pimp->{"output"}});
 	$pimp->{"buffered"} = "";
 	$pimp->{"buffer"} = "";
-	$pimp->{"timer"}->reset();
+	#$pimp->{"timer"}->reset();
 
 	if (-r $file) {
-		get_tag($song);
+		#get_tag($song);
 		unless (open($$fd, $file)) {
 			signal_event("open_failed");
 		} else {
@@ -371,14 +371,13 @@ sub decode_current_mp3() {
 
 	$$buffer |= "";
 
-	# Keep the prebuffer at maximum if we can.
-	if ($blen < $MAXBUFSIZE) {
-		return 1 unless (defined(feed_prebuffer()));
+	return 0 if (scalar(@$output) > 20);
+	if (length($$buffer) < $MAXBUFSIZE) {
+		return 1 unless (feed_prebuffer());
 	}
 
 	# Grab up to 10 chunks of mp3 data
 	for (1 .. 10) {
-		next if (scalar(@$output) > 20);
 
 		my $data = substr($$buffer, 0, 500);
 		substr($$buffer, 0, 500) = "";
@@ -400,7 +399,7 @@ sub feed_prebuffer() {
 
 	$b = sysread($pimp->{"mp3fd"}, $pimp->{"buffer"}, 
 					 $MAXBUFSIZE - $blen, $blen);
-	#print "Feeding prebuffer: " . length($pimp->{"buffer"}) . " / $b\n";
+	print "Feeding prebuffer: " . length($pimp->{"buffer"}) . " / $b\n";
 	return $b;
 } #}}}
 
@@ -586,7 +585,7 @@ sub song_control() {
 	} elsif ($event eq "command_prev") {
 		my $previous = $pimp->{"previous"};
 		if (scalar(@$previous) > 0) {
-			if ($previous->[0] eq $pimp->{"current_song"}->{"file"}) {
+			if ($previous->[0]->{"id"} == $pimp->{"current_song"}->{"id"}) {
 				shift(@$previous);
 			}
 			play_song(shift(@$previous));
@@ -660,6 +659,8 @@ sub queue($$$) {
 		}
 	} elsif ('all' =~ m/^\Q$args\E/) {
 		push(@{$pimp->{"song_queue"}}, @{$pimp->{"jump_lists"}->{"$sock"}});
+	} elsif ('all' =~ m/^\Q$args\E/) {
+		splice(@{$pimp->{"song_queue"}});
 	} else {
 		foreach my $id (split(/\s+/,$args)) {
 			if (defined($pimp->{"playlist"}->{$id})) {
@@ -774,7 +775,7 @@ signal-event("prev");
 	$pimp->{"tagfile"} = "$path/id3tags";
 }
 
-$pimp->{"timer"} = new Audio::Mad::Timer();
+#$pimp->{"timer"} = new Audio::Mad::Timer();
 $pimp->{"state"} = "stopped";
 $pimp->{"output"} = [ ];
 $pimp->{"previous"} = [ ];

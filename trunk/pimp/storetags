@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 use MP3::Tag;
-use Storable;
+use Storable qw(nstore);
 use strict;
 use warnings;
 

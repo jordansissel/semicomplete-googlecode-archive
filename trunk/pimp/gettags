@@ -8,7 +8,7 @@ use strict;
 my $hash;
 $hash = retrieve($ENV{HOME} . "/.pimp/tags");
 
-nstore($hash, $ENV{HOME} . "/.pimp/tags");
+#nstore($hash, $ENV{HOME} . "/.pimp/tags");
 
 
 print Dumper($hash);
