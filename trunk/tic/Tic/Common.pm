@@ -10,7 +10,7 @@ use POSIX qw(strftime);
 
 @ISA = qw(Exporter);
 @EXPORT = qw(debug deep_copy prettyprint prettylog login set_config get_config
-				 expand_aliases);
+				 expand_aliases next_arg);
 
 my $state;
 my $sh;
@@ -219,6 +219,30 @@ sub expand_aliases {
 			$state->{"recursion_check"}--;
 		}
 	} 
+}
+
+sub next_arg ($) {
+	my $ref = shift;
+	my $line = ${$ref};
+	my $string;
+
+	# The following is a use of (?(cond)yespattern|nopattern)
+	# See perldoc perlre, look for "Conditional expressions"
+  	my $ok = $line =~ s!^(
+								 (^")?        # Is there a doublequote at beginning?
+								 (?(2)        # If regex $2 matched: Find the rest of
+								              # string ending at another doublequote.
+									[^"]+"     # Find the end of the quoted string
+								  |           # else
+								  \S+         # Match a word bounded by whitespace.
+								 )
+								)\s*!!x;
+	$string = $1;
+	$string =~ s/^"(.*)"$/$1/;
+
+	${$ref} = $line;
+
+	return $string;
 }
 
 1;
