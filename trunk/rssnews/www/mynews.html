@@ -1,1 +1,19 @@
-Testing!
+<%args>
+	$data
+</%args>
+<%init>
+	my $db = $data->{"db"};
+	my $userinfo = $data->{"userinfo"};
+</%init>
+
+<%perl>
+# Figure out what we need to display
+
+	my $res = $db->prepare("SELECT * FROM mynews WHERE users.id=? ORDER BY articles.lastupdate");
+	$res->execute($userinfo->{"id"}) or die("Failed: " . $db->errstr());
+
+	my $articles = $res->fetchall_hashref("articleid");
+
+	# Now that we have the articles list, send it off to the theme thing
+</%perl>
+<& themes/allatonce, articles => $articles &>
