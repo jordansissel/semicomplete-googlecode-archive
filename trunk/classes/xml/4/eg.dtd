@@ -1,0 +1,15 @@
+<!ELEMENT doctype (element*)>
+<!ELEMENT element (#PCDATA | element | alt | seq)*>
+<!ATTLIST element 
+			 tag CDATA #REQUIRED
+			 repeat CDATA #IMPLIED
+			 like CDATA #IMPLIED
+			 >
+<!ELEMENT alt (#PCDATA | element | alt | seq)*>
+<!ATTLIST alt
+			 repeat CDATA #REQUIRED
+			 >
+<!ELEMENT seq (#PCDATA | element | alt | seq)*>
+<!ATTLIST seq
+			 repeat CDATA #REQUIRED
+			 >
