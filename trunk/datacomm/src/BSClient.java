@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.10  2004/01/20 03:19:24  tristan
+ *   very close to finished.
+ *
  *   Revision 1.9  2004/01/20 02:40:44  tristan
  *   wrote part of send call function.
  *
@@ -220,7 +223,7 @@ public abstract class BSClient extends Thread implements ProtocolConstants {
      * @param row Which row to hit.
      * @param col Which column to hit.
      */
-    public void sendCall( char row, int col ) {
+    public void sendFire( char row, int col ) {
         Command fire = new Command( FIRE );
 
         // build args
@@ -254,7 +257,65 @@ public abstract class BSClient extends Thread implements ProtocolConstants {
         } while ( !done && connection.isConnected() );
 
         // do stuff based on hit/miss
-        // bsgame manipulation goes here
+        game.getTargetGrid().alterGrid( row, col, hit );
+    }
+
+    /**
+     * Receives a fire and processes it.
+     */
+    public void receiveFire() {
+        Command fire = null;
+
+        // get the fire command
+        do {
+            fire = connection.receiveCommand();
+        } while ( connection.isConnected() &&
+                  fire != null &&
+                  fire.getCommand().equals( FIRE ) );
+
+        // parse the row and col
+        char row = 'a';
+        int col = 1;
+        boolean invalid = false;
+
+        try {
+            if ( fire.getArgs().size() == 2 ) {
+                row = fire.getArg( 0 ).toString().toLowerCase().charAt( 0 );
+
+                if ( row < 'a' || row > 'j' ) {
+                    invalid = true;
+                } else {
+                    col = Integer.parseInt( fire.getArg( 1 ).toString() );
+
+                    if ( col < 1 || col > 10 ) {
+                        invalid = true;
+                    }
+                }
+            } else {
+                invalid = true;
+            }
+        } catch ( Exception e ) {
+            invalid = true;
+        }
+
+        // if they sent us a correct fire, then process it
+        if ( !invalid ) {
+            boolean hit = game.getOwnGrid().shot( row, col );
+            Response response = null;
+
+            if ( hit ) {
+                // send hit response
+                response = new Response( FIRE_RESPONSE_HIT, "Succesful fire" );
+                game.getOwnGrid().alterGrid( row, col, hit );
+            } else {
+                // send miss response
+                response = new Response( FIRE_RESPONSE_HIT,
+                                         "Unsuccesful fire" );
+            }
+
+            // send it
+            connection.sendMessage( response );
+        }
     }
 
     /**
@@ -262,7 +323,7 @@ public abstract class BSClient extends Thread implements ProtocolConstants {
      */
     public void waitForTurn() {
         if ( clientTurn != true ) {
-            // get fire command
+            receiveFire();
         }
         clientTurn = true;
     }
