@@ -526,10 +526,10 @@ HELP
 			my $bl = $b->{"screenname"} . " (";
 			$bl .= " active" if (&{$USERFLAGS{"a"}}($b));
 			$bl .= " away" if (&{$USERFLAGS{"w"}}($b));
-			$bl .= " idle" if (&{$USERFLAGS{"i"}}($b));
 			$bl .= " online" if (&{$USERFLAGS{"o"}}($b));
 			$bl .= " offline" if (&{$USERFLAGS{"f"}}($b));
 			$bl .= " mobile" if (&{$USERFLAGS{"m"}}($b));
+			$bl .= " idle [" . idletime($b) . "]" if (&{$USERFLAGS{"i"}}($b));
 			$bl .= " )";
 			$sh->out("\t$bl");
 		}
@@ -652,6 +652,19 @@ sub buddyscore {
 	#out($buddy->{"screenname"} . " = $sum");
 
 	return $sum;
+}
+
+sub idletime {
+	my $buddy = shift;
+	my $time = time() - $buddy->{"idle_since"};
+
+	my ($s, $m, $h);
+
+	$h = int($time / 3600); $time = $time % 3600;
+	$m = int($time / 60); 
+	$s= $time % 60;
+
+	return sprintf("%02d:%02d:%02d",$h, $m, $s);
 }
 
 1;
