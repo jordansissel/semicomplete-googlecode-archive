@@ -11,6 +11,13 @@ Executive Summary
 Requirements
 ------------------------------------
 
+For this project, we were required to implement the game Battleship
+over a network using a client-server model. The rules for the game
+are as defined in http://www.centralconnector.com/GAMES/battleship.html.
+The program will have a centralized server that takes multiple connections.
+A connection from a client includes the name of the partner to be 
+associated with. Therefore, every game operating on the server has two 
+clients.
 
 
 
@@ -22,9 +29,18 @@ Specification
 Feasibility Study
 ------------------------------------
 
+* Possible Solutions and Methods
+
+
 ------------------------------------
 Implementation
 ------------------------------------
+
+The BSGame class contains all the information for a game for one player.
+The BSClient class is instantiated by the BattleShipPlayer class and may
+be a UDP connection to the server or a TCP connection connection to the 
+server.
+
 
 ------------------------------------
 Product Testing
