@@ -1,5 +1,5 @@
 
-LIBS=-L/usr/lib -lpcap -L/usr/local/lib 
+LIBS=-L/usr/lib -lpcap -L/usr/local/lib -pthread
 INCLUDE=-I/usr/local/include
 
 BUILDY=gcc -g ${INCS} ${LIBS} -o proxy
