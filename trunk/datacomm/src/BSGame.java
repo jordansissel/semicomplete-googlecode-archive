@@ -6,6 +6,9 @@
  * 
  * Revisions:
  *   $Log$
+ *   Revision 1.5  2004/01/18 23:02:48  njohnson
+ *   added some important stubs that need to be implemented.
+ *
  *   Revision 1.4  2004/01/12 23:20:51  njohnson
  *   Stubs almost complete for client to use
  *
@@ -35,64 +38,73 @@ import java.util.*;
  * @author Nicholas Johnson - nrj7064
  */
 public class BSGame {
-	private String ownName;
-	private String targetName;
-	private byte[] misses;
-	private BSGrid ownGrid;
-	private BSGrid targetGrid;
+    private String ownName;
+    private String targetName;
+    private byte[] misses;
+    private BSGrid ownGrid;
+    private BSGrid targetGrid;
 
-	public BSGame( String ownName, 
-			String targetName,	
-			BSGrid ownGrid,
-			BSGrid targetGrid ) {
-
-
-	} // BSGame()
-
-	public void initializeGrid( BSGrid the_grid ) {
-
-	} //initializeGrid()
-
-	public BSGrid getOwnGrid() {
-		return ownGrid;
-	} //getOwnGrid()
-
-	public BSGrid getTargetGrid() {
-		return targetGrid;
-	} //getTargetGrid()
-
-	/**
-	 * Determines whether a shot is a hit or miss
-	 * on ownGrid.
-	 *
-	 * @return	true - if hit
-	 *		false - if miss
-	 */
-	public boolean shot( int i, char x ) {
-		boolean retVal = false;
+    public BSGame( String ownName, 
+            String targetName,    
+            BSGrid ownGrid,
+            BSGrid targetGrid ) {
 
 
-		return retVal;
-	}
+    } // BSGame()
 
-	/**
-	 * The main method the runs a game locally.
-	 *
-	 * @args - player one's name
-	 *         player two's name
-	 *	   type of game?
-	 */
-	public static void main( String[] args ) {
-		String input_string = new String();
+    public void initializeGrid( BSGrid the_grid ) {
+        the_grid.generateGrid();
+    } //initializeGrid()
 
-		//starts two games, one for each player
+    public void clearGrid( BSGrid the_grid ) {
+        byte[][] new_grid = new byte[10][10];
+        the_grid.generateGrid( new_grid );
+    } //clearGrid()
 
-		//Generate the grids for each player	
+    public void alterGrid( char x, int i, boolean hit ) {
 
-		//play the game. player one gets the first shot
+    } //alterGrid()
+
+    public BSGrid getOwnGrid() {
+        return ownGrid;
+    } //getOwnGrid()
+
+    public BSGrid getTargetGrid() {
+        return targetGrid;
+    } //getTargetGrid()
+
+    /**
+     * Determines whether a shot is a hit or miss
+     * on ownGrid.
+     *
+     * @return    true - if hit
+     *        false - if miss
+     */
+    public boolean shot( char x, int i ) {
+        boolean retVal = false;
 
 
-	} //main()
+        return retVal;
+    }
+
+    /**
+     * The main method the runs a game locally.
+     *
+     * @args - player one's name
+     *         player two's name
+     *       type of game?
+     */
+    public static void main( String[] args ) {
+        String input_string = new String();
+
+        //starts two games, one for each player
+
+        //Generate the grids for each player    
+
+        //play the game. player one gets the first shot
+
+
+    } //main()
 
 } // BSGame
 

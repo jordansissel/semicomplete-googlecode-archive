@@ -1,3 +1,4 @@
+0
 /**
  * BSShip.java
  *
@@ -6,6 +7,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.5  2004/01/18 23:02:48  njohnson
+ *   added some important stubs that need to be implemented.
+ *
  *   Revision 1.4  2004/01/13 02:14:24  njohnson
  *   I finished the BSGrid's generateGrid() method which is now quite huge.
  *   It might be better with some AI( or worse ) since it just tries to throw
@@ -31,70 +35,70 @@
  * @author Nicholas R. Johnson
  */
 public class BSShip {
-	private byte[] location = new byte[4];	
+    private byte[] location = new byte[4];    
 
-	/**
-	 *
-	 *
-	 *
-	 */
-	public BSShip() {
-		location[ 0 ] = 0;
-		location[ 1 ] = 0;
-		location[ 2 ] = 0;
-		location[ 3 ] = 0;
-	} // constructor
-	
-	/**
-	 *
-	 *
-	 *
-	 */
-	public BSShip( byte startPointX, 
-			byte startPointY,		
-			byte endPointX,
-			byte endPointY ) {
+    /**
+     *
+     *
+     *
+     */
+    public BSShip() {
+        location[ 0 ] = 0;
+        location[ 1 ] = 0;
+        location[ 2 ] = 0;
+        location[ 3 ] = 0;
+    } // constructor
+    
+    /**
+     *
+     *
+     *
+     */
+    public BSShip( byte startPointX, 
+            byte startPointY,        
+            byte endPointX,
+            byte endPointY ) {
 
-		location[ 0 ] = startPointX;
-		location[ 1 ] = startPointY;
-		location[ 2 ] = endPointX;
-		location[ 3 ] = endPointY;
+        location[ 0 ] = startPointX;
+        location[ 1 ] = startPointY;
+        location[ 2 ] = endPointX;
+        location[ 3 ] = endPointY;
 
-	} // constructor
+    } // constructor
 
-	/**
-	 * Returns a 2-byte byte array with
-	 * the starting point of the ship.
-	 * Format: { <row>, <column> }
-	 * Where <row> is the number associated with the letter of 
-	 * the grid's row ( 1 - A, 2 - B, ... , 9 - I, 10 - J )
-	 * and <column> is the number of the grid's column. 
-	 *
-	 * @return 
-	 */
-	public byte[] getStart() {
-		byte[]	startLocation = new byte[2];	
-		startLocation[ 0 ] = location[ 0 ];
-		startLocation[ 1 ] = location[ 1 ];
-		return startLocation;
-	} // getStart()
+    /**
+     * Returns a 2-byte byte array with
+     * the starting point of the ship.
+     * Format: { <row>, <column> }
+     * Where <row> is the number associated with the letter of 
+     * the grid's row ( 1 - A, 2 - B, ... , 9 - I, 10 - J )
+     * and <column> is the number of the grid's column. 
+     *
+     * @return 
+     */
+    public byte[] getStart() {
+        byte[]    startLocation = new byte[2];    
+        startLocation[ 0 ] = location[ 0 ];
+        startLocation[ 1 ] = location[ 1 ];
+        return startLocation;
+    } // getStart()
 
-	/**
-	 * Returns a 2-byte byte arrays with
-	 * the ending point of the ship.
-	 * Format: { <row>, <column> }
-	 * Where <row> is the number associated with the letter of 
-	 * the grid's row ( 1 - A, 2 - B, ... , 9 - I, 10 - J )
-	 * and <column> is the number of the grid's column. 
-	 *
-	 * @return
-	 */
-	public byte[] getEnd() {
-		byte[] endLocation = new byte[2];
-		endLocation[ 0 ] = location[ 2 ];
-		endLocation[ 1 ] = location[ 3 ];
-		return endLocation;
-	} //getEnd()
+    /**
+     * Returns a 2-byte byte arrays with
+     * the ending point of the ship.
+     * Format: { <row>, <column> }
+     * Where <row> is the number associated with the letter of 
+     * the grid's row ( 1 - A, 2 - B, ... , 9 - I, 10 - J )
+     * and <column> is the number of the grid's column. 
+     *
+     * @return
+     */
+    public byte[] getEnd() {
+        byte[] endLocation = new byte[2];
+        endLocation[ 0 ] = location[ 2 ];
+        endLocation[ 1 ] = location[ 3 ];
+        return endLocation;
+    } //getEnd()
 
 } //BSShip
 
