@@ -38,6 +38,7 @@ use vars qw($VERSION);
 $VERSION = '0.2';
 
 # Default perl modules...
+use IO::Select;
 use IO::Handle; # I need flush()... or do i?;
 
 # Get these from CPAN
@@ -99,6 +100,9 @@ sub new ($) {
 
 	($self->{"termcols"}) = GetTerminalSize();
 	$SIG{WINCH} = sub { ($self->{"termcols"}) = GetTerminalSize(); $self->fix_inputline() };
+
+	$self->{"select"} = new IO::Select(\*STDIN);
+
 	my $bindings = {
 		"ANYKEY"      => "anykey",
 		"LEFT"        => "backward-char",
@@ -151,8 +155,8 @@ sub new ($) {
 		"vi_n"           => "vi-search-next",
 		"vi_N"           => "vi-search-prev",
 		"vi_'"           => "vi-mark-goto",
-		'vi_$'           => "vi-eol",
-		"vi_^"           => "vi-bol",
+		'vi_$'           => "vi-end-of-line",
+		"vi_^"           => "vi-beginning-of-line",
 
 		# -------- INSERTION
    
@@ -206,8 +210,8 @@ sub new ($) {
 		"vi-forward-whole-word"  => [ \&vi_forward_whole_word ],
 		"vi-beginning-word"      => [ \&vi_beginning_word ],
 		"vi-beginning-whole-word" => [ \&vi_beginning_whole_word ],
-		"vi-eol"                 => [ \&vi_eol ],
-		"vi-bol"                 => [ \&vi_bol ], 
+		"vi-end-of-line"         => [ \&vi_eol ],
+		"vi-beginning-of-line"   => [ \&vi_bol ], 
 		"vi-forward-charto"      => [ \&vi_forward_charto ],
 		"vi-forward-charat"        => [ \&vi_forward_charat ],
 		"vi-backward-charto"     => [ \&vi_backward_charto ],
@@ -250,11 +254,17 @@ It will handle event processing, etc.
 # Nonblocking readline
 sub do_one_loop ($) { 
 	my $self = shift;
+	my $text;
 	my $char;
 
-	# ReadKey(-1) means no timeout waiting for data, thus is nonblocking
-	while (defined($char = ReadKey(.01))) {
-		$self->handle_key($char);
+	# Select for .01
+	#
+	if ($self->{"select"}->can_read(.01)) {
+		my $bytes = sysread(STDIN, $text, 4096);
+		for (my $i = 0; $i < length($text); $i++) {
+			$char = substr($text,$i,1);
+			$self->handle_key($char);
+		}
 	}
 	
 }
@@ -744,38 +754,20 @@ sub vi_jumpchar {
 	my $newpos;
 	my $mod = 0;
 
-TRYAGAIN:
-	# Jump to the character we're looking for, depending on the direction we
-	# want to go...
-	$self->out("Jumpchardir: " . $self->{"jumpchardir"});
-	
-	if ($self->{"jumpchardir"} & JUMP_CHARTO) { 
-		# Look ahead
-		$mod = -1;
-		$pos++;
-		$newpos = index($line, $char, $pos);
-	} else { 
-		# Look behind
-		$mod = 1;
-		$pos--;
-		$newpos = rindex($line, $char, $pos);
-	}
-
-	if ($pos == $newpos) {
-		$self->out("We didn't move, try again.");
-		#$pos -= $mod;
-		goto TRYAGAIN;
-	}
-
 	delete $self->{"input_slurper"};
 
-	return if ($newpos < 0);
+	$mod = ($self->{"jumpchardir"} & JUMP_CHARTO ? 1 : -1);
 
-	if (($self->{"jumpchardir"} & JUMP_BACKCHAR) == 0) {
-		$newpos += $mod;
+	if ($mod == 1) {
+		$self->out("F: $line / $pos / " . $line =~ m/^(.{$pos}[^$char]*)$char/);
+		$self->out("   " . " " x ($pos) . "^                   / $1");
+		$pos = length($1) if (defined($1));
+	} else {
+		$self->out("B: $line / $pos / " . $line =~ m/$char([^$char]*.{$pos})$/);
+		$self->out("   " . " " x ($pos - 1) . "^              / $1");
+		$pos = length($line) - length($1) if (defined($1));
 	}
-
-	$self->{"input_position"} = $newpos;
+	$self->{"input_position"} = $pos;
 
 	$self->fix_inputline();
 }
@@ -997,25 +989,30 @@ sub callback($$;$) {
 
 # Go from a position and find the beginning of the word we're on.
 sub find_word_bound ($$$$;$) {
-	my $self = shift;
-	my $line = shift;
-	my $pos = shift;
-	my $opts = shift;
-	my $regex = ($opts & WORD_REGEX ? shift() : '\\w');
+	my ($self, $line, $pos, $opts, $rx) = @_;
+	my $nrx;
+	$rx = '\\w' if (!($opts & WORD_REGEX));
 
 	# Mod? This is either -1 or +1 depending on if we're looking behind or
 	# if we're looking ahead.
 	my $mod = ($opts & WORD_BEGINNING) ? -1 : 1;
+	$nrx = qr/[^$rx]/;
+	$rx = qr/[$rx]/;
 
 	if ($opts & WORD_NEXT) {
-		$regex = qr/^.{$pos}(.+?)(?<!$regex)$regex/;
+		#$regex = qr/^.{$pos}(.+?)(?<!$regex)$regex/;
+		$rx = qr/^.{$pos}(.+?)(?<!$rx)$rx/;
 	} elsif ($opts & WORD_BEGINNING) {
-		$regex = qr/($regex+[^$regex]*)(?<=^.{$pos})/;
+		#$regex = qr/($regex+[^$regex]*)(?<=^.{$pos})/;
+		$rx = qr/($rx+$nrx*)(?<=^.{$pos})/;
 	} elsif ($opts & WORD_END) {
-		$regex = qr/^.{$pos}($regex?.*?$regex+)$regex/;
+		#$regex = qr/^.{$pos}(.+?)$regex(?:[^$regex]|$)/;
+		$rx = qr/^.{$pos}(.+?)$rx(?:$nrx|$)/;
 	}
 
-	if ($line =~ $regex) {
+	$self->out("$rx");
+
+	if ($line =~ $rx) {
 		$pos += length($1) * $mod;
 	} else {
 		$pos = ($mod == 1 ? length($line) : 0);
