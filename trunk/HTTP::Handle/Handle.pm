@@ -97,10 +97,14 @@ CONNECT:
 
 	$sock->autoflush(1);
 	print $sock $self->http_request_string();
+	_debug($self->http_request_string());
 
+	_debug("Data Sent");
 	chomp($self->{"code"} = <$sock>);
+
+	print STDERR "Error: $!\n";
 	
-	print "Code: " . $self->{"code"} . "\n";
+	print STDERR "Code: " . $self->{"code"} . "\n";
 
 	while (<$sock>) {
 		chomp();

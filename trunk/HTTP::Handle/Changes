@@ -1,5 +1,5 @@
-2004-05-01 03:30  psionic
+2004-05-01 03:38  psionic
 
-	* Changes, Handle.pm, MANIFEST, Makefile.PL, README, test.pl: [no
-	  log message]
+	* Changes, Handle.pm, MANIFEST, Makefile.PL, Makefile.old, README,
+	  test.pl: - Initial revision
 
