@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.9  2004/01/20 03:43:09  tristan
+ *   added vars for last move.
+ *
  *   Revision 1.8  2004/01/20 03:42:37  tristan
  *   wrote basic functions for print game finish
  *

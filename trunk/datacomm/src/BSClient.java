@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.11  2004/01/20 03:43:24  tristan
+ *   added vars for last move.
+ *
  *   Revision 1.10  2004/01/20 03:19:24  tristan
  *   very close to finished.
  *
@@ -52,6 +55,10 @@ public abstract class BSClient extends Thread implements ProtocolConstants {
     private String otherName;
     private BSGame game;
     private boolean clientTurn;
+    private char lastRow;
+    private int lastCol;
+    private boolean lastHit;
+    private boolean wonGame;
 
     /**
      * Initializes the battle ship client
@@ -64,6 +71,10 @@ public abstract class BSClient extends Thread implements ProtocolConstants {
         this.yourName = yourName;
         this.otherName = otherName;
         this.clientTurn = false;
+        this.wonGame = false;
+        this.lastRow = 'a';
+        this.lastCol = 1;
+        this.lastHit = false;
     }
 
     /**
@@ -258,6 +269,7 @@ public abstract class BSClient extends Thread implements ProtocolConstants {
 
         // do stuff based on hit/miss
         game.getTargetGrid().alterGrid( row, col, hit );
+        setClientTurn( false );
     }
 
     /**
@@ -313,6 +325,11 @@ public abstract class BSClient extends Thread implements ProtocolConstants {
                                          "Unsuccesful fire" );
             }
 
+            // set last vars
+            lastRow = row;
+            lastCol = col;
+            lastHit = hit;
+
             // send it
             connection.sendMessage( response );
         }
@@ -340,5 +357,37 @@ public abstract class BSClient extends Thread implements ProtocolConstants {
         } while ( response != null &&
                   response.getId() != id &&
                   connection.isConnected() );
+    }
+
+    /**
+     * Receives the last row targeted from the opponent.
+     * @return The last row targeted.
+     */
+    public char getLastRow() {
+        return lastRow;
+    }
+
+    /**
+     * Get the last column targeted.
+     * @return The last column targeted.
+     */
+    public int getLastCol() {
+        return lastCol;
+    }
+
+    /**
+     * Return whether or not the last target was a hit.
+     * @return Returns if the last shot was a hit.
+     */
+    public boolean isLastHit() {
+        return lastHit;
+    }
+
+    /**
+     * Return whether or not you won the game.
+     * @return True if this user won.
+     */
+    public boolean wonGame() {
+        return wonGame;
     }
 }   // BSClient
