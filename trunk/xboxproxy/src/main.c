@@ -428,7 +428,9 @@ int recv_from_proxy(proxy_t *ppt) {
 
 	addxbox(((struct ether_header *)packet)->ether_shost, ppt);
 
-	debuglog(1, "Packet received from %s. Length: %d vs %d", inet_ntoa(ppt->addr), bytes, pktlen);
+	debuglog(1, "Packet received from %s. Length: %d vs %d (%s)", 
+				inet_ntoa(ppt->addr), bytes, pktlen,
+				(bytes == pktlen ? "OK" : "FRAGMENTED"));
 	if (bytes < pktlen) {
 		total = bytes;
 		while (total < pktlen) {
