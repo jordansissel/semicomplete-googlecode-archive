@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#define logerror(msg) log(-1, "error: " #msg " failed: %s", strerror(errno))
+#define logerror(msg) log(-1, "error: %s failed: %s", msg, strerror(errno))
 
 /* Set the log level */
 void set_log_level(int level);
