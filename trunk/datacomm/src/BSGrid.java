@@ -6,6 +6,9 @@
  *
  * Revisions:
  *     $Log$
+ *     Revision 1.22  2004/01/20 02:52:34  tristan
+ *     moved shot and alter to this class
+ *
  *     Revision 1.21  2004/01/19 23:20:06  tristan
  *     changed grid generation
  *
@@ -270,6 +273,62 @@ public class BSGrid {
 
         return gridString.toString();
     } //toString()
+
+    /**
+     * Alters the byte at a point on the grid given
+     *
+     * @param x - letter A-J representing horizontal coord
+     * @param i - integer 1-10 representing vertical coord
+     * @param hit - true for hit, false for miss
+     */
+    public void alterGrid( char x, int i, boolean hit ) {
+        int j = -1;
+        byte new_byte = 0;
+
+        //go from characters to numbers to work with array
+        for ( int k = 0; k < ROW_COUNT; k++ ) {
+                if ( x == k + 'a' ) {
+                  j = k;
+            }
+        }
+
+        //decrement i once to work with the array
+        i = i - 1;
+
+        //set new_byte to the correct value
+        if ( hit ) {
+                new_byte = 4;
+        } else {
+                new_byte = 2;
+        }
+
+        //set the byte in the grid
+        grid[ j ][ i ] = new_byte;
+    } //alterGrid()
+
+    /**
+     * Determines whether a shot is a hit or miss
+     * on ownGrid.
+     *
+     * @return    true - if hit
+     *        false - if miss
+     *
+     */
+    public boolean shot( char x, int i ) {
+        int j = 0;
+
+        //go from characters to numbers to work with array
+        for( int k = 0; k < ROW_COUNT; k++ ) {
+            if( x == k + 'a' ) {
+                 j = k;
+            }
+        }
+
+        i = i - 1;
+
+        //check for a hit
+        return grid[ j ][ i ] == 1;
+    } //shot()
 } // BSGrid
 
 
