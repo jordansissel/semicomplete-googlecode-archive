@@ -6,19 +6,24 @@ HTTP::Handle - HTTP Class designed for streaming
 
 =head1 SYNOPSIS
 
-use HTTP::Handle;
+ use HTTP::Handle;
 
-my $http = HTTP::Handle->new( uri => "http://www.google.com/" );
-$http->connect();
-my $fd = $http->fd();
+ my $http = HTTP::Handle->new( uri => "http://www.google.com/" );
+ $http->connect();
+ 
+ my $fd = $http->fd();
+ 
+ while (<$fd>) {
+ 	print "--> $_";
+ }
 
-while (<$fd>) {
-	print "--> $_";
-}
+=head1 VERSION
+
+Version: 0.1
+
+$Id$
 
 =head1 DESCRIPTION
-
-Revision: $Id$
 
 The C<HTTP::Handle> module allows you to make HTTP requests and handle
 the data yourself. The general ideas is that you use this module to make
@@ -35,7 +40,9 @@ use URI;
 
 =pod
 
-=head2 HTTP::Handle->new();
+=over 4
+
+=item HTTP::Handle->new()
 
 Create a new HTTP::Handle object thingy.
 
@@ -46,7 +53,9 @@ sub new {
 
 	my $self = {
 		# Defaults here
-		useragent         => "HTTP-Handle/$VERSION",
+		http_request         => {
+			                        User-Agent      => "HTTP-Handle/$VERSION",
+			                     },
 	};
 
 	my %args = @_;
@@ -62,7 +71,7 @@ sub new {
 
 =pod 
 
-=head2 $http->connect()
+=item $http->connect()
 
 Connect, send the http request, and process the response headers.
 
@@ -99,7 +108,7 @@ sub connect($) {
 
 =pod
 
-=head2 $http->fd()
+=item $http->fd()
 
 Get the file descriptor (socket) we're using to connect.
 
@@ -110,6 +119,16 @@ sub fd($) {
 
 	return $self->{"socket"};
 }
+
+=pod
+
+=item $http->url( [ url_string ])
+
+Get or set the URL. If a url string is passed, you will change the url
+that is requested. If no parameter is passed, a L<URI> object will be 
+returned containing the 
+
+=cut
 
 sub url($;$) {
 	my $self = shift;
@@ -131,6 +150,15 @@ sub url($;$) {
 	}
 }
 
+=pod
+
+=item $http->http_request_string()
+
+Returns a string containing the HTTP request and headers, this is used
+when $http->connect() is called.
+
+=cut
+
 sub http_request_string($) {
 	my $self = shift;
 
@@ -150,4 +178,17 @@ sub _fatal {
 sub _debug {
 	print STDERR map { "$_\n" } @_;
 }
+
+=pod
+
+=back
+
+=head1 AUTHOR
+
+Jordan Sissel <psionic@csh.rit.edu>
+
+=cut
+
 1;
+
+
