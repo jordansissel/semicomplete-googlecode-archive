@@ -299,7 +299,9 @@ my $template = "$mail";
 my $templatereg = '^'.$mail.'\.[0-9]+\.';
 #}}}
 
-if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
+#if ($ctype =~ m,^multipart/,i) { # handle multipart mail
+# Handle the mail, multipart or otherwise, it doesn't matter anymore! =) {{{
+   $ctype = "text/plain" if ($ctype =~ m/^$/);
    print STDERR "Parsing multipart mail ($ctype)\n";
    system("rm $TMP/$template* > /dev/null 2>&1");
 
@@ -339,7 +341,6 @@ if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
       browser_set_content_type("text/html") if ($HTML_ENABLE);;
 
       mhl_write_headers($tmpfile);
-      print BROWSER "YAAAAAAAAAAAAAAAAAY";
       browser_print("< $tmpfile","text/mail-header");
       browser_print("< $TMP/$mailpart");
 
@@ -362,32 +363,46 @@ if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
 
       my $tmpfile = "$TMP/.headers.$fr.$mail";
       mhl_write_headers($tmpfile);
+      #print STDERR "Printing headers ($tmpfile)\n";
       browser_print("< $tmpfile","text/mail-header");
 
       # Do PGP stuff first?
-      if (scalar(grep(/application\/pgp-signature/,@part_types)) > 0) { 
-	 # pgp-signed email {{{
-	 print STDERR "pgp signature found, invoking pgp...\n";
-	 my ($plain, $sig, $plaintype);
-	 my ($pidx, $sidx);
+      my $DO_PGP;
+      my $PGP_TYPE; 
+      chomp(my $pgp_plain_test = `head -n 1 $fileparts[0]`);
+      if ($pgp_plain_test eq '-----BEGIN PGP SIGNED MESSAGE-----') {
+         $DO_PGP = 1; $PGP_TYPE = 1;
+      }
+      if (scalar(grep(/application\/pgp-signature/,@part_types)) > 0) {
+         $DO_PGP = 1;
 	 my $count = 0;
 	 foreach my $part (@fileparts) {
 	    my $type = $part_types[$count];
-	    if ( (!defined($plain)) && ($type =~ m,text/(plain|html),) ) {
-	       $plain = $part;
-	       $plaintype = $type;
-	       $pidx = $count + 1;
+	    if ( (!defined($PGP_TYPE->{'plain'})) && ($type =~ m,text/(plain|html),) ) {
+	       $PGP_TYPE->{'plain'} = $part;
+	       $PGP_TYPE->{'plainidx'} = $count + 1;
+	       $PGP_TYPE->{'plaintype'} = $type;
 	    }
-	    if ( (!defined($sig)) && ($type eq 'application/pgp-signature') ) {
-	       $sig = $part;
-	       $sidx = $count + 1;
+	    if ( (!defined($PGP_TYPE->{'sig'})) && ($type eq 'application/pgp-signature') ) {
+	       $PGP_TYPE->{'sig'} = $part;
+	       $PGP_TYPE->{'sigidx'} = $count + 1;
 	    } 
 	    $count++;
 	 }
+      }
+      
+      if ($DO_PGP) {
+	 # pgp-signed email {{{
+	 print STDERR "pgp signature found, invoking pgp...\n";
 
 	 my $pgp_verify = $pgp{'pgp_verify_command'};
-	 $pgp_verify =~ s,%s,$sig,;
-	 $pgp_verify =~ s,%f,$plain,;
+	 if (ref($PGP_TYPE) eq '') {
+	    $pgp_verify =~ s,%s,,;
+	    $pgp_verify =~ s,%f,$fileparts[0],;
+	 } else {
+	    $pgp_verify =~ s,%s,$PGP_TYPE->{'sig'},;
+	    $pgp_verify =~ s,%f,$PGP_TYPE->{'plain'},;
+	 }
 
 	 my $buffer;
 	 #open(PGP_VERIFY, "$pgp_verify 2>&1 | ");
@@ -422,18 +437,19 @@ if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
 	    }
 	 }
 
+	 $buffer =~ s/^gpg:\s*//g;
 	 browser_print(\$buffer, "text/signature-result",2);
 
-	 undef $parts{$sidx};
+	 undef $parts{$PGP_TYPE->{'sigidx'}} if (ref($PGP_TYPE) eq 'HASH');
 
-	 #}}}
-      }
+      } #}}}
 
+      #print "Printing part #1: " . $fileparts[0] . "\n";
       browser_print("< " . $fileparts[0], $parts{1}{'type'});
 
       undef($parts{1});
 
-      mime_for_you(\%parts,@fileparts);
+      mime_for_you(\%parts,@fileparts) if (scalar(@fileparts) > 1);
 
       close(BROWSER);
       check_open_browser(\@fileparts);
@@ -447,20 +463,19 @@ if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
       }
    }
 #}}}
-} else { # Not multipart mail. {{{
-
-   $ctype = "text/plain" if ($ctype =~ m/^$/);
-   ($ctype) = split("\n",$ctype);
-   $ctype =~ s/;.*//; 
-   print STDERR "Starting browser... (Plain ordinary mail / $ctype)\n";
-   open(BROWSER,"$BROWSER") or die(":( $!");
-   browser_set_content_type("text/plain") unless ($HTML_ENABLE);
-   browser_set_content_type("text/html") if ($HTML_ENABLE);;
-   browser_print("$MHL_PROG $MHL_OPTS $mail |","$ctype");
-   close(BROWSER);
-   check_open_browser();
-
-} # }}}
+#}}}
+#} else { # Not multipart mail. {{{
+#   $ctype = "text/plain" if ($ctype =~ m/^$/);
+#   ($ctype) = split("\n",$ctype);
+#   $ctype =~ s/;.*//; 
+#   print STDERR "Starting browser... (Plain ordinary mail / $ctype)\n";
+#   open(BROWSER,"$BROWSER") or die(":( $!");
+#   browser_set_content_type("text/plain") unless ($HTML_ENABLE);
+#   browser_set_content_type("text/html") if ($HTML_ENABLE);;
+#   browser_print("$MHL_PROG $MHL_OPTS $mail |","$ctype");
+#   close(BROWSER);
+#   check_open_browser();
+#} # }}}
 
 sub mhl_write_headers { #{{{
    my ($out) = shift;
@@ -668,7 +683,8 @@ sub check_open_browser { #{{{
 	 $screen .= " -X screen" if ($SCREEN_STY);
 	 $screen .= " sh -c \"" if ($SCREEN_STY);;
 	 $screen .= " $VBROWSER $BROWSER";
-	 $screen .= " && rm " . join(" ", @${files}) . "\"" if ($SCREEN_STY);
+	 $screen .= " && rm " . join(" ", @${files}) . "\"" 
+	    if ($SCREEN_STY && ref($files) eq 'ARRAY');
 	 #print STDERR "Invoking screen as: $screen\n";
 	 system("$screen");
 	 system("rm $BROWSER") unless ($SCREEN_STY);
