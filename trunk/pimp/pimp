@@ -25,6 +25,7 @@ $SIG{INT} = \&do_shutdown;
 $SIG{__DIE__} = \&do_shutdown;
 
 my ($serv, $player) = IO::Socket->socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC);
+my $BUFSIZE = 65536;
 
 my $pimp = {};
 
@@ -46,7 +47,9 @@ my $timer    = new Audio::Mad::Timer();
 my $resample = new Audio::Mad::Resample(44100, 22050);
 my $dither   = new Audio::Mad::Dither();
 
-play_song($ARGV[0]);
+my @playlist;
+read_playlist();
+next_song();
 
 initialize_ao;
 my $device = open_live(default_driver_id(), 16, 44100, 2, is_big_endian(), {});
@@ -84,6 +87,7 @@ sub signal_event {
 	my $event = shift;
 
 	if ($event eq 'end_of_song') {
+		stop_song();
 		next_song();
 	} elsif ($event eq 'new_song') {
 		print $player "BROADCAST " . display_song($pimp->{"current_song"}) . "\n";
@@ -113,14 +117,27 @@ sub play_loop {
 
 sub decode_current_mp3 {
 	if ($frame->decode($stream) == -1) {
+
+		if ($stream->error() == MAD_ERROR_BUFLEN || 
+			 $stream->error == MAD_ERROR_BUFPTR) {
+			#print STDERR "Reading new chunk at " . $stream->next_frame() . "\n";
+			my $buffer = substr($pimp->{"current_buffer"}, $stream->next_frame());
+			return if (sysread($pimp->{"current_fd"}, $buffer, $BUFSIZE - length($buffer), length($buffer)) == 0);
+
+			$stream->buffer($buffer);
+			$pimp->{"current_buffer"} = $buffer;
+			return ERR_DECODE;
+		} else {
+			warn "decoding error: " . $stream->error();
+			#print $player "BROADCAST Error in decoding of " . $pimp->{"current_song"}->{"file"} . "\n";
+			return ERR_DECODE;
+		}
+
 		unless ($stream->err_ok()) {
 			$pimp->{"state"} = "stopped";
 			signal_event("end_of_song");
-			return;
+			return '';
 		}
-		warn "decoding error: " . $stream->error();
-		#print $player "BROADCAST Error in decoding of " . $pimp->{"current_song"}->{"file"} . "\n";
-		return ERR_DECODE;
 	}
 	$synth->synth($frame);
 	#my $pcm = $dither->dither($resample->resample($synth->samples()));
@@ -201,15 +218,21 @@ sub display_song {
 						                $foo->{"title"});
 }
 
+sub stop_song {
+	if ($pimp->{"current_type"} eq "mp3") {
+		close($pimp->{"current_fd"}) or warn("Failed closing fd: $!");;
+	}
+}
+
 sub next_song {
 	# Find next song to play
 	# Then play it
 
-	my @songs;
-	@songs = bsd_glob("/usr/home/psionic/download/mp3/*/*/*");
+	#my @songs;
+	#@songs = bsd_glob("/usr/home/psionic/download/mp3/*/*/*");
 
 	# Foo.
-	my $newsong = $songs[ (int(rand() * scalar(@songs))) ];
+	my $newsong = $playlist[ (int(rand() * scalar(@playlist))) ];
 	print STDERR "New song: $newsong\n";
 
 	play_song($newsong);
@@ -219,11 +242,17 @@ sub play_song {
 	my $file = $_[0];
 	if ($file =~ m/\.mp3$/) {
 		local $/ = undef;
-		open(MP3, $file) or signal_error("open_fail", $_[0]) and return;
-		my $buffer = <MP3>;
+		open(MP3, $file) or signal_event("open_fail", $_[0]) and return;
+		unless (sysread(MP3, $buffer, $BUFSIZE, 0)) {
+			warn("Failed reading from $file\n");
+			next_song();
+		}
 		print "BUFFER LENGTH: " . length($buffer) . "\n";
-		close(MP3);
+		#close(MP3);
 		$stream->buffer($buffer);
+
+		$pimp->{"current_buffer"} = $buffer;
+		$pimp->{"current_fd"} = \*MP3;
 		$pimp->{"current_type"} = "mp3";
 
 		my $mp3 = MP3::Tag->new($file);
@@ -269,6 +298,10 @@ sub run_server {
 				$clients->{"$client"} = $client;
 				#nonblock($client);
 			} else {
+				if ($socket == $pimp->{"current_fd"}) {
+					print "Uh oh\n";
+				}
+
 				my $data;
 				my $recv = $socket->recv($data, POSIX::BUFSIZ, 0);
 
@@ -340,7 +373,16 @@ sub do_shutdown {
 	print STDERR "Dying...\n";
 	kill("KILL", $spid);
 	while ((my $child = waitpid(-1,WNOHANG)) > 0) {
-		# foo? meh :(
+		# meh..
 	}
 	exit;
+}
+
+sub read_playlist {
+	open(LIST, "< /home/psionic/foo.m3u");
+	while (my $line = <LIST>) {
+		next if ($line =~ m/^#/);
+		chomp($line);
+		push(@playlist,$line) if ($line =~ m/\.mp3$/);
+	}
 }
