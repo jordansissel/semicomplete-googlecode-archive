@@ -8,6 +8,7 @@
 
 #include <pcap.h>
 
+#include <stdlib.h>
 #include <unistd.h>
 
 #include <errno.h>
@@ -65,13 +66,14 @@ static fd_set proxysocks;
 
 static char *pcapdev = NULL;
 static char *proxyserver = NULL;
-static int clientfd = 0;
+//static int clientfd = 0;
 
 void addxbox(u_char *macaddr, int proxyip);
 void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 						  const u_char *packet);
 void remove_proxy(proxy_t *ppt);
 void connect_to_proxy();
+int recv_from_proxy(proxy_t *ppt);
 
 int comparemac(const void *k1, const void *k2) {
 	return memcmp(k1, k2, ETHER_ADDR_LEN);
@@ -91,11 +93,8 @@ int compareip(const void *k1, const void *k2) {
 void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 						  const u_char *packet) {
 	struct ether_header *eptr;
-	u_int length;
-	int c;
 
 	eptr = (struct ether_header *) packet;
-
 
 	/* Try adding this xbox to the list */
 	addxbox(eptr->ether_shost, 0);
@@ -288,7 +287,7 @@ void connect_to_proxy() {
 	destaddr.sin_addr = in;
 	destaddr.sin_port = htons(SERVER_PORT);
 
-	if (connect(sock, &destaddr, sizeof(struct sockaddr))) {
+	if (connect(sock, (struct sockaddr *)&destaddr, sizeof(struct sockaddr))) {
 		debuglog(0, "connect() failed: %s", strerror(errno));
 		pthread_exit(NULL);
 	}
@@ -357,7 +356,7 @@ void remove_proxy(proxy_t *ppt) {
 
 int main(int argc, char **argv) {
 	char errbuf[PCAP_ERRBUF_SIZE];
-	int *pthread_return;
+	//int *pthread_return;
 	char ch;
 
 	/* Initialization and Defaults */
