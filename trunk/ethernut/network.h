@@ -10,7 +10,13 @@
 #define DISCOVERY_PORT 3000
 #define DISCOVERY_MESSAGE "Hello there"
 #define DISCOVERY_ACK "ACK"
+
+
+/* How long to wait before repinging each nut */
 #define DISCOVERY_INTERVAL 10
+
+/* How long to wait before not having gotten a response from a ping */
+#define DISCOVERY_MAXWAIT 10
 
 typedef struct nut {
 	//unsigned int ip;
@@ -28,9 +34,7 @@ unsigned int nut_count = 0;
  */
 void network_init();
 
-/* network_send_discover
- * Send a discovery packet.
- */
+/* Send a discovery packet. */
 int network_send_discover();
 
 /* Start up the network thread */
@@ -44,5 +48,8 @@ void network_pingthread(void *args);
 
 /* Register a new EtherNut that was found */
 void network_addnut(struct in_addr ip);
+
+/* Remove a nut, by index */
+void network_removenut(int index);
 
 #endif

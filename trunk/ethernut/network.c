@@ -14,6 +14,7 @@
 
 #ifdef ETHERNUT
 #include <thread.h>
+#include <sys/mutex.h>
 #else
 #include <pthread.h>
 #endif
@@ -23,6 +24,9 @@
 
 #include "network.h"
 #include "log.h"
+#include "common.h"
+
+static MUTEX *nut_mutex;
 
 /* 
  * Initialize network and discovery hijinks
@@ -33,15 +37,13 @@ void network_init() {
 	//NutRegisterDevice
 	//NutDhcpIfconfig
 	
-	/*
-	if ((nuts = malloc(sizeof(nut_t))) == NULL) {
-		log(0, "network_init malloc() failed: %s", strerror(errno));
-		pthread_exit(NULL);
-	}
-	*/
-
 	nuts = NULL;
 	nut_count = 0;
+
+	nut_mutex = (MUTEX *) malloc(sizeof(nut_mutex));
+	if (MUTEX_INIT(nut_mutex) != 0) {
+		log(0, "network_init MUTEX_INIT failed: %s", strerror(errno));
+	}
 	
 	if (network_send_discover() < 0) {
 		/* Something failed trying to send a discover packet */
@@ -97,9 +99,12 @@ void network_start_thread() {
 	pthread_t discoverythread;
 	pthread_t pingthread;
 	
+	log(10, "Starting discovery thread");
 	if (pthread_create(&discoverythread, NULL, (void *)&network_thread, NULL) != 0) {
 		log(0, "discovery pthread_create failed: %s", strerror(errno));
 	}
+
+	log(10, "Starting pinger thread");
 	if (pthread_create(&pingthread, NULL, (void *)&network_pingthread, NULL) != 0) {
 		log(0, "pingthread pthread_create failed: %s", strerror(errno));
 	}
@@ -184,15 +189,18 @@ void network_pingthread(void *args) {
 
 	for (;;) {
 		/* Check the list of known ethernuts, and ping them if we haven't in DISCOVERY_INTERVAL */
-		log(0, "ping - checking if I need to ping anyone");
+		log(100, "ping - checking if I need to ping anyone");
 		for (c = 0; c < nut_count; c++) {
 			time_t t = time(NULL);
-			log(0, "%s lastseen: %d ago", inet_ntoa(nuts[c].ip), t - nuts[c].lastseen);
-			if (nuts[c].lastseen + DISCOVERY_INTERVAL < t) {
+			log(20, "%s lastseen: %d ago", inet_ntoa(nuts[c].ip), t - nuts[c].lastseen);
+			if (t - nuts[c].lastseen > DISCOVERY_INTERVAL + DISCOVERY_MAXWAIT) {
+				network_removenut(c);
+			} else if (nuts[c].lastseen + DISCOVERY_INTERVAL < t) {
 				struct sockaddr_in nutaddr;
 				nutaddr.sin_family = AF_INET;
 				nutaddr.sin_port = htons(DISCOVERY_PORT);
 				nutaddr.sin_addr = nuts[c].ip; 
+
 				memset(&(nutaddr.sin_zero), '\0', 8);
 
 				log(10, "Pinging %s - haven't seen them in a while...", inet_ntoa((struct in_addr)nuts[c].ip));
@@ -213,11 +221,15 @@ void network_pingthread(void *args) {
 void network_addnut(struct in_addr ip) {
 	int c;
 	
+	log(0, "Trying to lock nut_mutex");
+	MUTEX_LOCK(nut_mutex);
+
 	/* Check if this is a existing nut */
 	for (c = 0; c < nut_count; c++) {
 		if (ip.s_addr == nuts[c].ip.s_addr) {
 			log(10, "Found an old nut, %s, updating lastseen", inet_ntoa(nuts[c].ip));
 			nuts[c].lastseen = time(NULL);
+			MUTEX_UNLOCK(nut_mutex);
 			return;
 		}
 	}
@@ -229,4 +241,22 @@ void network_addnut(struct in_addr ip) {
 	nuts[nut_count].ip = ip;
 	nuts[nut_count].lastseen = time(NULL);
 	nut_count++;
+
+	MUTEX_UNLOCK(nut_mutex);
+}
+
+void network_removenut(int index) {
+	int c;
+
+	log(0, "Trying to lock nut_mutex");
+	MUTEX_LOCK(nut_mutex);
+
+	for (c = index; c < nut_count - 1; c++) {
+		free(&(nuts[c]));
+		nuts[c] = nuts[c + 1];
+	}
+
+	nut_count--;
+
+	MUTEX_UNLOCK(nut_mutex);
 }
