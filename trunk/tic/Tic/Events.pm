@@ -3,6 +3,7 @@ package Tic::Events;
 
 use strict;
 use Tic::Common;
+use Tic::Commands;
 use vars ('@ISA', '@EXPORT');
 use Exporter;
 
@@ -155,9 +156,16 @@ sub event_im_in {
 		prettylog($state, "im_msg", { sn => $from, msg => $msg } ) unless ($away);
 		prettylog($state,"im_awaymsg", { sn => $from, msg => $msg } ) if ($away);
 	}
-	
+
 	prettyprint($state, "im_msg", { sn => $from, msg => $msg } ) unless ($away);
 	prettyprint($state,"im_awaymsg", { sn => $from, msg => $msg } ) if ($away);
+
+	if (defined($state->{"away"})) {
+		return if (defined($state->{"away_respond"}->{$from}) && 
+					  $state->{"away_respond"}->{$from} + 600 < time());
+		command_msg($state, '"' . $from .'" ' . $state->{"away"});
+		$state->{"away_respond"}->{$from} = time();
+	}
 }
 
 sub event_im_ok {
