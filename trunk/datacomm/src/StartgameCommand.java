@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.1  2004/01/26 21:21:28  psionic
+ *   - Updated commands framework, added game-starting ability
+ *
  *   Revision 1.2  2004/01/20 04:23:33  tristan
  *   updated comments for everything.
  *

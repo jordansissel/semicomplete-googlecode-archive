@@ -6,6 +6,9 @@
  *
  * Revisions:
  *    $Log$
+ *    Revision 1.3  2004/01/26 21:21:27  psionic
+ *    - Updated commands framework, added game-starting ability
+ *
  *    Revision 1.2  2004/01/20 04:23:33  tristan
  *    updated comments for everything.
  *
@@ -34,6 +37,10 @@ public class Player {
         name = n;
     }
 
+	 public String wanted() {
+		 return whowanted;
+	 }
+
     /**
      * Sets who this player wants to play against.
      * @param who
@@ -41,5 +48,9 @@ public class Player {
     public void wants(String who) {
         whowanted = who;
     }
+
+	 public String getName() {
+		 return name;
+	 }
 }
 

@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.5  2004/01/26 21:21:27  psionic
+ *   - Updated commands framework, added game-starting ability
+ *
  *   Revision 1.4  2004/01/26 20:30:25  psionic
  *   - Added addPlayer()
  *
@@ -106,10 +109,11 @@ public class BSServer {
 	 }
 
 	 public ServerGame getGame(Player p) {
+		 ServerGame g = null;
 		 Iterator i = games.iterator();
 		 while (i.hasNext()) {
-			 ServerGame g = (ServerGame) i.next();
-			 if (p.getName().equals(g.getPlayer1().getName())) {
+			 g = (ServerGame) i.next();
+			 if (g.getPlayer1().wanted().equals(p.getName())) {
 				 return g;
 			 }
 		 }

@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.10  2004/01/26 21:21:28  psionic
+ *   - Updated commands framework, added game-starting ability
+ *
  *   Revision 1.9  2004/01/26 20:34:57  psionic
  *   *** empty log message ***
  *
@@ -121,12 +124,12 @@ public class TCPServer extends Server {
                                 }
                             }
 
-                            if ( foo instanceof StartGameCommand ) {
+                            if ( foo instanceof StartgameCommand ) {
                                 if ( !isready && hellodone ) {
                                     isready = true;
                                     Response resp = new StartGameResponse();
                                     out.println( resp );
-												Player p = new TCPPlayer(foo.getArgs(0), socket)
+												Player p = new TCPPlayer((String)foo.getArgs(0), socket);
 												server.addPlayer(p);
 												game = server.getGame(p);
 												

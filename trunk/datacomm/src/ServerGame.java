@@ -6,6 +6,9 @@
  *
  * Revisions:
  *    $Log$
+ *    Revision 1.5  2004/01/26 21:21:27  psionic
+ *    - Updated commands framework, added game-starting ability
+ *
  *    Revision 1.4  2004/01/20 09:09:40  tristan
  *    fixed compile errors.
  *
@@ -46,16 +49,24 @@ public class ServerGame {
      * Initializes player 1.
      * @param name Player one's name.
      */
-    public void setPlayer1( String name ) {
-        player1 = new Player( name );
+    public void setPlayer1( Player p) {
+		 player1 = p;
     }
+
+	 public Player getPlayer1() {
+		 return player1;
+	 }
 
     /**
      * Initializes player 2.
      * @param name Player 2's name.
      */
-    public void setPlayer2( String name ) {
-        player2 = new Player( name );
+    public void setPlayer2( Player p) {
+		 player2 = p;
     }
+
+	 public Player getPlayer2() {
+		 return player2;
+	 }
 }   // ServerGame
 
