@@ -44,11 +44,13 @@ use constant DEFAULT_CONFIG => {
 	"alias_is"         => "%a is aliased to '%v'",
 
 	"error_rate_alert" => "Slow down! You're sending messages too fast.",
-	"error_rate_limit" => "Message rate limit exceeded. Your messages are being ignored from the server :(",
+"error_rate_limit" => "Message rate limit exceeded. Your messages are being ignored from the server :(",
 	"error_rate_disco" => "You're about to be disconnected because you're sending too many messages.",
 
 	"error_generic"    => "Error: %e",
 	"error_unknown_command" => "Unknown command, '%k'",
+
+	"idle_timeout"     => 600,
 
 };
 

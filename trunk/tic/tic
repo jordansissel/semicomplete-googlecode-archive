@@ -21,9 +21,11 @@ mkdir($ENV{HOME}."/.tic", "0700") unless (-d $ENV{HOME} . "/.tic");
 my $aliases = undef;   # Aliases
 my $commands = undef;  # Commands
 my $config = DEFAULT_CONFIG;
+my $settings = { };
 
 my $state = undef;     # State information
 $state->{"config"} = $config;
+$state->{"settings"} = $settings;
 read_config($ENV{HOME}."/.ticrc");
 
 my $aim = Net::OSCAR->new(capabilities => [ "typing_status" ]);
@@ -63,7 +65,8 @@ while (1) {
 	if ($aim->is_on) {
 		if (($state->{"is_idle"} != 1) && 
 			 ($state->{"idle"} + get_config("idle_timeout") < time())) {
-			$sh->out("Setting idle - " . $state->{"idle"} . " / " . get_config("idle_timeout") . " / " . time());
+			$sh->out("idle: " . $state->{"idle"} . " / " . get_config("idle_timeout"));
+			#$sh->out("Setting idle - " . $state->{"idle"} . " / " . get_config("idle_timeout") . " / " . time());
 			$aim->set_idle(get_config("idle_timeout"));
 			$state->{"is_idle"} = 1;
 		}
