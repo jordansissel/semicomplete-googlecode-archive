@@ -521,7 +521,12 @@ sub newline {
 	my $self = shift;
 	# Process the input line.
 
-	$self->real_out("\n");
+	if ($self->{"supress_newline_echo"}) {
+		# Clear the line
+		$self->real_out("\e[2K");
+	} else {
+		$self->real_out("\n");
+	}
 
 	my $line = $self->{"input_line"};
 
