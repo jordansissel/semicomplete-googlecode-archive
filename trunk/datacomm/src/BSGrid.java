@@ -6,6 +6,9 @@
  *
  * Revisions:
  *     $Log$
+ *     Revision 1.23  2004/01/20 04:23:33  tristan
+ *     updated comments for everything.
+ *
  *     Revision 1.22  2004/01/20 02:52:34  tristan
  *     moved shot and alter to this class
  *
@@ -58,7 +61,9 @@
 /**
  * The grid objects to represent oceans for each player in BattleShip
  *
- * @author Nicholas R. Johnson - nrj7604
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 public class BSGrid {
     public static final int SHIP_COUNT = 5;

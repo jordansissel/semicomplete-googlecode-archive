@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.7  2004/01/20 04:23:33  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.6  2004/01/20 00:05:21  psionic
  *   - Fixed missing default constructor.
  *
@@ -36,7 +39,9 @@ import java.io.DataOutputStream;
 /**
  * Response to a command query.
  *
- * @author tristan and Jordan Sissel
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 public class Response implements Message {
     // constants

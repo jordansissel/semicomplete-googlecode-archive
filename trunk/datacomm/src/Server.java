@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.2  2004/01/20 04:23:33  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.1  2004/01/19 20:40:58  tristan
  *   refactored to a new file name.
  *
@@ -20,7 +23,9 @@
 /**
  * Manages a server's connection with the client
  *
- * @author tristan
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 public abstract class Server {
     /**

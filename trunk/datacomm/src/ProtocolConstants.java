@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.6  2004/01/20 04:23:33  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.5  2004/01/20 02:36:19  tristan
  *   added fire and fire response constants
  *
@@ -25,8 +28,10 @@
 
 /**
  * Manages the protocol constants.
- * 
+ *
  * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 public interface ProtocolConstants {
     // 100s: startup connection constants

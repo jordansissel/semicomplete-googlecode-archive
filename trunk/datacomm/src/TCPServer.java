@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.5  2004/01/20 04:23:33  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.4  2004/01/20 03:57:35  psionic
  *   *** empty log message ***
  *
@@ -25,7 +28,9 @@ import java.net.*;
 /**
  * Manages a server's connection with the client
  *
+ * @author Tristan O'Tierney
  * @author Jordan Sissel
+ * @author Nick Johnson
  */
 
 public class TCPServer extends Thread {
@@ -36,6 +41,11 @@ public class TCPServer extends Thread {
 	private boolean hellodone = false;
 	private boolean isready = false;
 
+    /**
+     * Creates a new tcp server.
+     * @param sock The socket to connect to.
+     * @param serv The battle ship server for this connection.
+     */
 	public TCPServer(Socket sock, BattleshipServer serv) {
 		this.sock = sock;
 		server = serv;
@@ -45,6 +55,9 @@ public class TCPServer extends Thread {
 		game = g;
 	}
 
+    /**
+     * Runs the clients in a thread.
+     */
 	public void run() {
 
 		try {
@@ -117,6 +130,5 @@ public class TCPServer extends Thread {
 		} catch (IOException e) {
 			System.out.println(e);
 		}
-
 	}
 } // TCPServer

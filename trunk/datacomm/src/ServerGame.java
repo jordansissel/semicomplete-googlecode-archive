@@ -6,6 +6,9 @@
  *
  * Revisions:
  *    $Log$
+ *    Revision 1.3  2004/01/20 04:23:33  tristan
+ *    updated comments for everything.
+ *
  *    Revision 1.2  2004/01/20 03:57:34  psionic
  *    *** empty log message ***
  *
@@ -17,55 +20,30 @@
 
 import java.net.*;
 
+/**
+ * Creates a game and associates two clients.
+ *
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
+ */
 public class ServerGame {
 	private String gameName;
 	private Player player1;
 	private Player player2;
-	private BSGrid board;
 
-
-	public ServerGame() {
-		board = new BSGrid();
-		player1 = null;
-		player2 = null;
-	}
-
-	public setPlayer1(String name) {
+	public void setPlayer1(String name) {
 		player1 = new Player();
 
 	}
 
-	public setPlayer2(String name) {
+	public void setPlayer2(String name) {
 
 	}
+
+	public ServerGame() {
+		player1 = null;
+		player2 = null;
+    }
 }
 
-public class Player {
-	private String name;
-	private String whowanted;
-	
-	public Player(String n) {
-		name = n;
-	}
-
-	public void wants(String who) {
-		whowanted = who;
-	}
-
-}
-
-public class TCPPlayer extends Player {
-	private Socket sock;
-	public TCPPlayer(String n, sock s) {
-		super(n);
-		sock = s;
-	}
-}
-
-public class UDPPlayer extends Player {
-	private DatagramSocket sock;
-	public UDPPlayer(String n, sock s) {
-		super(n);
-		sock = s;
-	}
-}

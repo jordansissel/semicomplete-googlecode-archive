@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.7  2004/01/20 04:23:33  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.6  2004/01/19 23:48:52  psionic
  *   - Bulk commit: Command infrastructure improved. New commands can be added
  *     dynamically now.
@@ -30,22 +33,46 @@
 
 import java.util.List;
 
+/**
+ * Creates a command that fires at the other player.
+ *
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
+ */
 public class FireCommand extends Command {
-
+    /**
+     * Initializes a fire command.
+     */
 	public FireCommand() {
 		super("fire");
 	}
 
+    /**
+     * Initializes a fire command with args.
+     * @param args The args to initialize.
+     */
 	public FireCommand(List args) {
 		super("fire", args);
 	}
 
+    /**
+     * Creates a fire command with a string of args.
+     * @param args The args to set.
+     * @throws InvalidCommandArgumentsException If the args are bad.
+     */
 	public FireCommand(String args) throws InvalidCommandArgumentsException {
 		super("fire");
-		this.args = this.parseArgs(args);
+		this.args = parseArgs(args);
 	}
 
-	public boolean validateArguments(List args) 
+    /**
+     * Validates the arguments for a fire command.
+     * @param args The args to validate
+     * @return If the args are correct.
+     * @throws InvalidCommandArgumentsException If the args are bad.
+     */
+	public boolean validateArguments(List args)
 	        throws InvalidCommandArgumentsException {
 		System.err.println("FireCommand validateArguments()");
 
@@ -72,5 +99,4 @@ public class FireCommand extends Command {
 
 		return true;
 	}
-
 }

@@ -6,9 +6,12 @@
  *
  * Revisions:
  *	$Log$
+ *	Revision 1.13  2004/01/20 04:23:33  tristan
+ *	updated comments for everything.
+ *
  *	Revision 1.12  2004/01/20 00:12:01  psionic
  *	- Fixed a little bug
- *
+ *	
  *	Revision 1.11  2004/01/19 23:48:52  psionic
  *	- Bulk commit: Command infrastructure improved. New commands can be added
  *	  dynamically now.
@@ -57,7 +60,9 @@ import java.io.DataOutputStream;
 /**
  * Command sent to a client from the server.
  *
- * @author tristan, jordan
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 public class Command implements Message {
 

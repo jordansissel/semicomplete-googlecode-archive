@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.11  2004/01/20 04:23:33  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.10  2004/01/20 03:48:07  tristan
  *   added print grid functions to display status.
  *
@@ -40,8 +43,10 @@
 
 /**
  * Text based Battle ship client
- *  
- * @author tristan
+ *
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 public class TextClient extends BSClient {
     /**

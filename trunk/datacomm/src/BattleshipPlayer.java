@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.8  2004/01/20 04:23:33  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.7  2004/01/19 20:48:08  tristan
  *   changes due to refactoring
  *
@@ -33,8 +36,10 @@ import java.net.InetAddress;
 
 /**
  * Starts a battleship player client.
- * 
- * @author tristan
+ *
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 public class BattleshipPlayer {
 

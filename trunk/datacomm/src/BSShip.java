@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.12  2004/01/20 04:23:33  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.11  2004/01/20 02:07:05  tristan
  *   added stubs for comments
  *
@@ -50,7 +53,9 @@
  * A class that contains the endpoints of a ship in 
  * a BattleShip fleet
  *
- * @author Nicholas R. Johnson
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 public class BSShip {
     private byte startX;

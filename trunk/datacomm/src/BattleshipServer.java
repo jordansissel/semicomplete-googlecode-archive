@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.7  2004/01/20 04:23:33  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.6  2004/01/20 03:57:34  psionic
  *   *** empty log message ***
  *
@@ -34,14 +37,16 @@ import java.util.HashMap;
 /**
  * The main method that starts the battle ship server.
  *
- * @author tristan
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 public class BattleshipServer extends Thread {
     private InetAddress host;
     private int tcpPort;
     private int udpPort;
-	 private ServerSocket tcplisten;
-	 private DatagramSocket udplisten;
+	private ServerSocket tcplisten;
+	private DatagramSocket udplisten;
 
 	 private HashMap playerwants = new HashMap();
 

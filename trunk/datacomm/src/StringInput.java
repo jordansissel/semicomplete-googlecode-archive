@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.2  2004/01/20 04:23:33  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.1  2004/01/19 03:13:35  tristan
  *   initial
  *
@@ -18,7 +21,9 @@ import java.io.IOException;
 /**
  *  Receives input from the user.
  *
- *  @author	Tristan O'Tierney
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 
 public class StringInput {

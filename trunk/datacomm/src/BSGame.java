@@ -6,6 +6,9 @@
  * 
  * Revisions:
  *   $Log$
+ *   Revision 1.17  2004/01/20 04:23:33  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.16  2004/01/20 03:18:35  tristan
  *   very close to finished.
  *
@@ -58,7 +61,9 @@
  * This will be usable with the BattleshipPlayer and 
  * BattleShipServer for networked games.
  *
- * @author Nicholas Johnson - nrj7064
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 public class BSGame {
     private BSGrid ownGrid;

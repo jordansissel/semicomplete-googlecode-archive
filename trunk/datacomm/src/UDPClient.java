@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.3  2004/01/20 04:23:33  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.2  2004/01/19 21:11:01  tristan
  *   changed to use constants
  *
@@ -44,7 +47,9 @@ import java.io.ByteArrayInputStream;
 /**
  * Manages a UDP based connection with the server
  *
- * @author tristan
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 public class UDPClient extends Client {
     // constants

@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.3  2004/01/20 04:23:33  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.2  2004/01/19 21:09:11  tristan
  *   implements protocol constants now
  *
@@ -46,7 +49,9 @@ import java.net.InetAddress;
 /**
  * Manages a client connection with the server.
  *
- * @author tristan
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 public abstract class Client extends Thread implements ProtocolConstants {
     // member variables

@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.3  2004/01/20 04:23:33  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.2  2004/01/19 21:10:09  tristan
  *   changed to use constants
  *
@@ -38,7 +41,9 @@ import java.io.InputStreamReader;
 /**
  * Manages a TCP based connection with the server.
  *
- * @author tristan
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 public class TCPClient extends Client {
     private Socket socket;

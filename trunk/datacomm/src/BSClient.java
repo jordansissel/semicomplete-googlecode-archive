@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.12  2004/01/20 04:23:32  tristan
+ *   updated comments for everything.
+ *
  *   Revision 1.11  2004/01/20 03:43:24  tristan
  *   added vars for last move.
  *
@@ -47,7 +50,9 @@ import java.util.List;
 /**
  * Abstract class for a BS Client object
  *
- * @author tristan
+ * @author Tristan O'Tierney
+ * @author Jordan Sissel
+ * @author Nick Johnson
  */
 public abstract class BSClient extends Thread implements ProtocolConstants {
     private Client connection;
