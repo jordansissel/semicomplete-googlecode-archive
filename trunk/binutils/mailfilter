@@ -534,8 +534,8 @@ sub browser_print { #{{{
 
    my $header_cc_kludge = 0;
 
-   if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && !$pre) { print BROWSER ""; $pre = 1; }
    #if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && !$pre) { print BROWSER "<pre>"; $pre = 1; }
+   if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && !$pre) { print BROWSER ""; $pre = 1; }
 
    while (<$contents>) { 
       if ( ($not_real_html) && ($HTML_ENABLE) ) {
@@ -553,6 +553,7 @@ sub browser_print { #{{{
 	    $header_cc_kludge = 1 if ((!$header_cc_kludge) && (m/^cc:/));
 	 }
 
+         s/\n/<br>\n/g if ($pre);
          print BROWSER $_;
 	 #print BROWSER "<br>\n" if ($not_real_html != 2) && ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers);
 	 #print BROWSER "<br>\n" if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers);
@@ -578,8 +579,8 @@ sub browser_print { #{{{
 
    }
 
-   if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && $pre) { print BROWSER ""; $pre = 0; }
    #if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && $pre) { print BROWSER "</pre>"; $pre = 0; }
+   if ($browser_content_type eq 'text/html' && $type ne 'text/html' && $browser_done_headers && $type !~ m,text/(signature-result|mail-header), && $pre) { print BROWSER ""; $pre = 0; }
 
    if ($splitter == 2) {
       if ($HTML_ENABLE) { 
