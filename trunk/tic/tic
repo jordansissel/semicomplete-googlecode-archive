@@ -3,24 +3,24 @@
 use strict;
 use IO::Select;
 use IO::Stty;
-#use Term::ReadKey;
+use Term::ReadKey;
 use Net::OSCAR;
 
-#ReadMode(3);
+ReadMode(3);
 
 my $aliases = undef;   # Aliases
 my $commands = undef;  # Commands
 my $state = undef;     # State information
 
 my $aim = Net::OSCAR->new();
-$aim->timeout(1);
+#$aim->timeout(1);
 
 setup_readline();
 setup_callbacks();
 setup_commands();
 setup_aim();
 
-login();
+#login();
 
 select STDOUT; $| = 1;
 
@@ -42,9 +42,9 @@ sub login {
 sub query {
 	my ($q, $hide) = @_;
 	real_out("$q");
-	stty("echo") unless ($hide);
+	#stty("echo") unless ($hide);
 	chomp($q = <STDIN>);
-	stty("-echo") if ($hide);
+	#stty("-echo") if ($hide);
 	out() if ($hide);
 	return $q;
 }
@@ -267,11 +267,12 @@ sub add_hook {
 }
 
 # Nonblocking readline
-sub REAL_check_readline { 
+sub check_readline { 
 	my $char;
 	$char = ReadKey(-1);
 	if (defined($char)) {
 		if ($char eq "\n") {
+			real_out("\n\e[2K");
 			command($state->{"frag"});
 			$state->{"frag"} = undef;
 			return;
@@ -318,12 +319,15 @@ sub complete {
 
    if ($char eq "\t") {
       out("Tab pressed!");
+		$char = undef;
    }
+
+	$char = undef if (ord($char) < 32);
 
    return $line . $char;
 }
 
-sub check_readline {
+sub _check_readline {
 	my $line;
 	if ($state->{"frag"}) {
 		$line = $state->{"frag"};
