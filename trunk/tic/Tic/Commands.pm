@@ -462,11 +462,11 @@ HELP
 			$e .= "away, " if ($bud->{"away"});
 			$e .= "idle, " if ($bud->{"idle"});
 			$e =~ s/, $//;
-			push($results{"offline"}, $bud) unless ($bud->{"online"});
-			push($results{"online"}, $bud) if ($bud->{"online"});
-			push($results{"away"}, $bud) if ($bud->{"away"});
-			push($results{"idle"}, $bud) if ($bud->{"idle"});
-			push($results{"mobile"}, $bud) if ($bud->{"mobile"});
+			push(@{$results{"offline"}}, $bud) unless ($bud->{"online"});
+			push(@{$results{"online"}}, $bud) if ($bud->{"online"});
+			push(@{$results{"away"}}, $bud) if ($bud->{"away"});
+			push(@{$results{"idle"}}, $bud) if ($bud->{"idle"});
+			push(@{$results{"mobile"}}, $bud) if ($bud->{"mobile"});
 		}
 		# TODO: Only display all matches to their query?
 		# -a    active
