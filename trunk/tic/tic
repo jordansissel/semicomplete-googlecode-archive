@@ -52,27 +52,16 @@ $| = 1;
 login();
 $state->{"aimok"} = 1;
 
-while (1) {
-	$aim->do_one_loop() if ($state->{"aimok"}); # WTF?!? See below.
-	check_readline();
-}
-
-# ^^^ Explanation...
 # $aim->do_one_loop() sleeps for .01 seconds waiting for data. This is time
 # that could be better spent reading from the input. So, what I did
 # is every time a key is read set $state->{"aimok"} to 0. And any time
 # check_readline() does not read a keypress $state->{"aimok"} is set to 1.
 # This makes it so pasting things is very fast because while you're pasting
 # $aim->do_one_loop() is never called.
-
-sub login {
-	my ($user,$pass);
-	$user = query("login: ");
-	$pass = query("password: ", 1);
-	$state->{"signon"} = 1;
-	$aim->signon($user,$pass);
-	$state->{"sn"} = $user;
-	#$aim->newconn(Screenname => $user, Password => $pass);
+while (1) {
+	#print "Loop - " . $aim->do_one_loop() . "\n";
+	$aim->do_one_loop() if ($state->{"aimok"});
+	check_readline();
 }
 
 # init functions
@@ -258,18 +247,18 @@ sub command {
 		} else {
 			out("Unknown command, \"$cmd\"");
 		}
-	} elsif ($cmd !~ m/^$/) {
-	   if ($_[0] =~ s/^;(.)/$1/) {
-			if (($state->{"last_from"}) && ($_[0] =~ m/./)) {
-				command_msg($state,$state->{"last_from"}, $_[0]);
-				#$aim->send_im($state->{"last_from"}, $_[0]);
+	} elsif ($cmd ne '') {
+	   if ($_[0] =~ m/^;\s*(.*)$/) {
+			if (($state->{"last_from"}) && ($1 ne '')) {
+				command_msg($state,$state->{"last_from"}, $1);
+				#$aim->send_im($state->{"last_from"}, $1);
 			} else {
 				error("No one has messaged you yet, how am I supposed to know who messaged you last?");
 			}
 		} else {
-			if ($state->{"default"}) {
-				#$aim->send_im($state->{"default"}, $_[0]);
+			if ($state->{"default"} ne '') {
 				command_msg($state,$state->{"default"}, $_[0]);
+				#$aim->send_im($state->{"default"}, $_[0]);
 			}
 		}
 	}
