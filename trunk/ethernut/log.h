@@ -4,16 +4,16 @@
  * $Id$
  */
 
+#ifndef LOG_H
+#define LOG_H
+
 #include <stdio.h>
-
-/* Log level defaults to 0 */
-int loglevel = 0;
-
-FILE *log_file = stdout;
+#include <stdarg.h>
 
 /* Set the log level */
 void set_log_level(int level);
 
-/* Log.
- * Will log whatever if loglevel >= level
+/* Will log whatever if loglevel >= level */
 void log(int level, const char *format, ...);
+
+#endif

@@ -16,7 +16,6 @@ extern busmaster_t *busmaster;
 int main(int argc, char **argv) {
 
 	busmaster_init();
-
-	//ethernet_init();
+	network_init();
 	//i2c_init();
 }
