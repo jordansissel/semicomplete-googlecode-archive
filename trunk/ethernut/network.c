@@ -14,12 +14,11 @@
 
 #include "network.h"
 
-
 /* discovery listener socket */
 static int discovery;
 
 void network_init() {
-	log(0, "network_init()");
+	log(1, "network_init()");
 
 	//NutRegisterDevice
 	//NutDhcpIfconfig
@@ -33,12 +32,15 @@ void network_init() {
  * Send out a discovery packet 
  */
 int network_send_discover() {
-	int sock;
-	int bytes;
+	int sock; 
+	int bytes; 
+	int sockopt; 
 
 	struct sockaddr_in destaddr; 
 
-	log(0, "Setting up sockaddr_in: %d, %x, 0x%08x", AF_INET, htons(DISCOVERY_PORT), 0xffffffff);
+	log(10, "Sending broadcast discovery packet");
+
+	/* Set up the destaddr struct (where this packet is going) */
 	destaddr.sin_family = AF_INET;
 	destaddr.sin_port = htons(DISCOVERY_PORT);
 	destaddr.sin_addr.s_addr = 0xffffffff; /* 255.255.255.255 */
@@ -46,6 +48,13 @@ int network_send_discover() {
 
 	if ((sock = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
 		log(0, "discovery socket() failed: %s", strerror(errno));
+		return sock;
+	}
+
+	/* Set this socket to allow broadcast */
+	sockopt = 1;
+	if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &sockopt, sizeof(sockopt)) < 0) {
+		log(0, "discovery setsockopt() failed: %s", strerror(errno));
 		return sock;
 	}
 
