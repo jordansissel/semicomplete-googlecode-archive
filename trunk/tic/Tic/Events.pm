@@ -136,6 +136,7 @@ sub event_error {
 	error("$desc");
 	if ($fatal) {
 		error("This error was fatal and you have been disconnected. :(") ;
+		$state->{"aimok"} = 0;
 	}
 }
 
