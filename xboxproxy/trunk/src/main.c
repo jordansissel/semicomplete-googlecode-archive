@@ -52,7 +52,7 @@
 #define SERVER_PORT 3434
 
 /* The xbox network stuff only uses an ip of 0.0.0.1 */
-static char filter_app[] = "host 0.0.0.1 or multicast or broadcast";
+static char filter_app[] = "host 0.0.0.1 or (src net 129.21.253.0/25 and port 5353 and (multicast or broadcast))";
 
 /* xbox broadcasts to FF:FF:FF:FF:FF:FF */
 static char broadcastmac[ETHER_ADDR_LEN] = { 
