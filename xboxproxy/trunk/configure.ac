@@ -2,9 +2,9 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(xboxproxy, 1.1, psionic@csh.rit.edu)
-AM_INIT_AUTOMAKE(xboxproxy, 1.1)
-AC_CONFIG_SRCDIR([main.c])
+AC_INIT(proxy, 1.2, psionic@csh.rit.edu)
+AM_INIT_AUTOMAKE(proxy, 1.2)
+#AC_CONFIG_SRCDIR([src/main.c])
 
 # Checks for programs.
 AC_PROG_CC
@@ -43,9 +43,16 @@ case $host in
 	LDFLAGS="$LDFLAGS -lpthread -lnsl -lsocket" ;;
 *freebsd*)
 	LDFLAGS="-pthread" ;;
+*)
+	AC_CHECK_LIB(pthread,pthread_create,
+					 [LD_FLAGS="$LDFLAGS -lpthread"],
+					 [AC_MSG_ERROR([pthread library not found... perhaps you should fix that?])]
+					)
 esac
 
-AC_CHECK_LIB(pthread,pthread_create,LD_FLAGS="$LDFLAGS -lpthread")
+AC_ARG_WITH([debug], 
+            AC_HELP_STRING([--with-debug], [enable debug symbols]),
+				[ CFLAGS="$CFLAGS -g" ])
 
 # Check for pcap
 AC_ARG_WITH([pcap],
@@ -55,20 +62,18 @@ AC_ARG_WITH([pcap],
 				[ PCAP_PREFIX=/usr/local ])
 
 PCAP_FOUND=0
-for for_prefix in $PCAP_PREFIX /usr /opt; do
 
-AC_CHECK_FILE([$for_prefix/lib/libpcap.a],
-				  [LIBS="$LIBS -L${for_prefix}/lib"
-				  CFLAGS="$CFLAGS -I${for_prefix}/include"
-				  PCAP_PREFIX=$for_prefix
-				  PCAP_FOUND=1
-				  break])
-
-done
-
-if test $PCAP_FOUND -eq 0; then
-	AC_MSG_ERROR([pcap not found in $PCAP_PREFIX. Specify path with --with-pcap=/path/to/pcap/dir])
-fi
+AC_CHECK_PATHS([/usr /usr/local], 
+					[
+					AC_CHECK_FILE([${dirname}/lib/libpcap.a], [AC_PATH_FOUND])
+					],
+					[
+					LDFLAGS="$LDFLAGS -L${dirname}/lib"
+					CFLAGS="$CFLAGS -I${dirname}/include"
+					PCAP_PREFIX=$dirname
+					],
+					[ AC_MSG_ERROR([Unable to find libpcap.a. Specify path wth --with-pcap ]) ]
+				  )
 
 AC_CHECK_HEADERS(pcap.h,,AC_MSG_ERROR([pcap.h not found]))
 AC_CHECK_LIB(pcap, pcap_lib_version, [LIBS="$LIBS -lpcap"], 
@@ -82,21 +87,18 @@ AC_ARG_WITH([libnet],
 				[ LIBNET_PREFIX=/usr/local ])
 
 LIBNET_FOUND=0
-for for_prefix in $LIBNET_PREFIX /usr /opt; do
 
-AC_CHECK_FILE([${for_prefix}/lib/libnet.a],
-				  [LDFLAGS="$LDFLAGS -L${for_prefix}/lib"
-				  CFLAGS="$CFLAGS -I${for_prefix}/include"
-				  LIBS="$LIBS -lnet -L${for_prefix}/lib"
-				  LIBNET_PREFIX=$for_prefix
-				  LIBNET_FOUND=1
-				  break])
-
-done;
-
-if test $LIBNET_FOUND -eq 0; then
-	AC_MSG_ERROR([ Libnet not found in $LIBNET_PREFIX. Specify path with --with-libnet ])
-fi
+AC_CHECK_PATHS([/usr /usr/local], 
+					[
+					AC_CHECK_FILE([${dirname}/lib/libnet.a], [AC_PATH_FOUND])
+					],
+					[
+					LDFLAGS="$LDFLAGS -L${dirname}/lib"
+					CFLAGS="$CFLAGS -I${dirname}/include"
+					LIBNET_PREFIX=$dirname
+					],
+					[ AC_MSG_ERROR([Unable to find libnet.a. Specify path wth --with-libnet ]) ]
+				  )
 
 AC_CHECK_LIB(net, libnet_write_link_layer, 
 				 AC_DEFINE([HAVE_LIBNET_1_0], [], [libnet 1.0.x]),
@@ -112,4 +114,5 @@ AC_SUBST(LIBNET_LDFLAGS)
 AC_SUBST(LIBNET_CFLAGS)
 
 AM_CONFIG_HEADER([config.h])
-AC_OUTPUT(Makefile)
+AC_OUTPUT([Makefile
+           src/Makefile])
