@@ -3,10 +3,11 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     'NAME'		=> 'HTTP::Handle',
-    'VERSION_FROM'	=> 'Handle.pm',
+    #'VERSION_FROM'	=> 'Handle.pm',
+	 'VERSION'        => '0.2',
     'PREREQ_PM'		=> { 
-								 URL => 0 
-								}
+								 URI => 0 
+								},
     ($] >= 5.005 ?    
       (ABSTRACT_FROM => 'Handle.pm', 
        AUTHOR     => 'Jordan Sissel <psionic@csh.rit.edu>') : ()),

@@ -55,13 +55,12 @@ sub new {
 	my $class = shift;
 
 	my $self = {
+		data_timeout         => 5,
 		follow_redirects     => 1,
 		http_request         => {
 			                        "User-Agent"   => "HTTP-Handle/$VERSION",
 			                     },
 	};
-
-	bless $self, $class;
 
 	my %args = @_;
 
@@ -70,6 +69,7 @@ sub new {
 	}
 
 	$self->url($self->{"uri"}) if (defined($self->{"uri"}));
+	bless $self, $class;
 
 	return $self;
 }
@@ -89,32 +89,57 @@ sub connect($) {
 
 CONNECT:
 
-	socket($sock, PF_INET, SOCK_STREAM, getprotobyname('tcp')) or _fatal("Failed creating socket.");
+	socket($sock, PF_INET, SOCK_STREAM, getprotobyname('tcp')) 
+		or _fatal("Failed creating socket.") and return -1;
 
 	$self->{"socket"} = $sock;
 
 	_debug("Connecting to " . $self->{"host"} . ":" . $self->{"port"});
-	connect($sock, sockaddr_in($self->{"port"}, inet_aton($self->{"host"}))) or _fatal("Failed connecting to " . $self->{"host"} . ":" . $self->{"port"});
+	connect($sock, sockaddr_in($self->{"port"}, inet_aton($self->{"host"}))) 
+		or _fatal("Failed connecting to " . $self->{"host"} . ":" . $self->{"port"}) and return -1;
 	_debug("Connected");
 
 	$sock->autoflush(1);
+	_debug("Sending HTTP Request");
 	print $sock $self->http_request_string();
 	_debug($self->http_request_string());
 
 	_debug("Data Sent");
-	chomp($self->{"code"} = <$sock>);
+	my $sel = new IO::Select($sock);
+	my $count = 0;
+	my $data;
 
-	print STDERR "Error: $!\n";
-	
-	print STDERR "Code: " . $self->{"code"} . "\n";
-
-	while (<$sock>) {
-		chomp();
-		s/\015//;
-		last if (m/^$/);
-		m/(\S+):\s*(.+)\s*/;
-		$self->{"http_response"}->{$1} = $2;
+	while (1) {
+		return -1 if ($count > $self->{"data_timeout"});
+		if ($sel->can_read(1)) {
+			my $ret = read($sock,$data,1,length($data));
+			if (!defined($ret)) {
+				_debug("Failed on read: $!");
+				_debug("Buffer: $data");
+				exit;
+			} elsif ($ret == 0) {
+				_debug("EOF Hit...");
+				_debug("Buffer: $data");
+				last;
+			}
+			while ($data =~ s!(.*)\r\n!!s) {
+				chomp(my $f = $1);
+				_debug("HEADER- '$f'");
+				unless (defined($self->{"code"})) {
+					$self->{"code"} = $f;
+					next;
+				}
+				goto DONEHEADERS if ($f =~ m/^$/);
+				$f =~ m/(\S+):\s*(.+)\s*/;
+				$self->{"http_response"}->{$1} = $2;
+			}
+			#print STDERR "Waiting on data... $count\n";
+		} else {
+			$count++;
+		}
 	}
+	DONEHEADERS:
+
 
 	if ($self->{"follow_redirects"} && ($self->{"code"} =~ m/^\S+\s+302/)) {
 		 close($sock);
@@ -165,7 +190,7 @@ sub url($;$) {
 		$self->{"http_action"} |= "GET";
 
 	} else {
-		return $self->{"uri"};
+		return $self->{"url"};
 	}
 }
 
@@ -204,17 +229,16 @@ when $http->connect() is called.
 sub http_request_string($) {
 	my $self = shift;
 
-	my $ret = sprintf("%s %s HTTP/1.0\n", $self->{"http_action"}, $self->{"http_path"}); 
-	map { $ret .= sprintf("%s: %s\n", $_, $self->{"http_request"}->{$_}) } keys(%{$self->{"http_request"}});
+	my $ret = sprintf("%s %s HTTP/1.0\r\n", $self->{"http_action"}, $self->{"http_path"}); 
+	map { $ret .= sprintf("%s: %s\r\n", $_, $self->{"http_request"}->{$_}) } keys(%{$self->{"http_request"}});
 
-	$ret .= "\n\n";
+	$ret .= "\r\n\r\n";
 
 	return $ret;
 }
 
 sub _fatal {
 	print STDERR @_, "\n", "ERR: $!\n";
-	exit(1);
 }
 
 sub _debug {
