@@ -7,47 +7,6 @@ use Net::OSCAR qw/:standard/;
 use POSIX qw(strftime);
 use Term::Shelly;
 use Exporter;
-
-BEGIN {
-	# This is a hack, but hey, it's perl :)
-
-	sub tryload {
-		my $module = shift;
-		my $file = $module;
-		$file =~ s!::!/!g;
-		$file .= ".pm";
-
-		TRYLOAD: {
-			foreach my $prefix (@INC) {
-				if (-f "$prefix/$file") {
-					require "$prefix/$file";
-					last TRYLOAD;
-				}
-			}
-			# failed.
-			return 0;
-		}
-
-		import $module @_;
-		
-		return 1;
-	}
-
-	if (!tryload("Inline", qw(C))) {
-		print STDERR "Failed trying to load Inline\n";
-	}
-
-}
-
-#print join("\n", sort keys %INC) . "\n";
-
-foo();
-exit;
-
-#import Inline qw(C);
-
-foo();
-
 use lib '/home/psionic/projects/tic';
 
 # Super-magical happy land!
@@ -56,6 +15,7 @@ use Tic::Common;
 use Tic::Commands;
 use Tic::Events;
 use Tic::Bindings;
+use Tic::Interface;
 
 mkdir($ENV{HOME}."/.tic", "0700") unless (-d $ENV{HOME} . "/.tic");
 
@@ -85,12 +45,16 @@ $state->{"command_callback"} = \&command;
 
 Tic::Events->set_state($state);
 Tic::Commands->set_state($state);
-Tic::Common->set_state($state);
+#Tic::Common->set_state($state);
 Tic::Bindings->set_state($state);
+Tic::Interface->set_state($state);
 
 setup_enviroment();
 
+load("Tic::Feature::X11Idle");
+
 login(get_config("screenname"), get_config("password"));
+$sh->{"supress_newline_echo"} = 1;
 
 #$state->{"is_idle"} = 0;
 $state->{"aim_ok"} = 1;
@@ -104,6 +68,10 @@ while (1) {
 
 	# Are we idle?
 	if ($aim->is_on) {
+		if (feature("X11Idle")) {
+			#Tic::Feature::X11Idle->X11IdleCheck($state);
+		}
+
 		if (($state->{"is_idle"} != 1) && 
 			 ($state->{"idle"} + get_config("idle_timeout") < time())) {
 			$sh->out("idle: " . $state->{"idle"} . " / " . get_config("idle_timeout"));
@@ -156,6 +124,7 @@ sub setup_commands {
 		"login"                   => \&command_login,
 		"msg"                     => \&command_msg,
 		"quit"                    => \&command_quit,
+		"set"                     => \&command_set,
 		"timestamp"               => \&command_timestamp,
 		"unalias"                 => \&command_unalias,
 		"undefault"               => \&command_undefault,
@@ -195,7 +164,8 @@ sub setup_enviroment {
 }
 
 sub command {
-	my ($cmd,$args) = split(/\s+/, $_[0], 2);
+	my $line = shift;
+	my ($cmd,$args) = split(/\s+/, $line, 2);
 
    if ($cmd =~ s!^/!!) {
 		if (defined($commands->{$cmd})) { 
@@ -212,10 +182,12 @@ sub command {
 		} else {
 			$sh->out("Unknown command, \"$cmd\"");
 		}
-	} elsif ($cmd ne '') {
-		if ($state->{"default"} ne '') {
-			command_msg($state,$state->{"default"}, $_[0]);
-		}
+	} elsif ($line !~ m/^\s+$/) {
+		my $target = $state->{"target"} || $state->{"default"};
+		command_msg($state, $target, $line) if ($target);
+
+		# Immediately reset to default target or nothing.
+		prompter("TARGET", $state->{"default"} || '');
 	}
 }
 
@@ -255,7 +227,7 @@ sub do_check_typing {
 	
 	if (defined($state->{"typing_status"}) && 
 		 $state->{"typing_status"}->{"status"} == TYPINGSTATUS_STARTED &&
-		 $state->{"typing_status"}->{"time"} + 1 < time()) {
+		 $state->{"typing_status"}->{"time"} + 3 < time()) {
 		my $sn = $state->{"typing_status"}->{"sn"};
 		$state->{"aim"}->send_typing_status($sn, TYPINGSTATUS_TYPING);
 		$state->{"typing_status"}->{"status"} = TYPINGSTATUS_TYPING;
@@ -266,8 +238,38 @@ sub do_check_typing {
 __END__
 __C__
 
+#include <X11/Xlib.h>
+#include <X11/extensions/scrnsaver.h>
 #include <stdio.h>
 
-void foo() {
-	printf("Hello!\n");
+static Display *dpy;
+static Window rootwin;
+
+int XConnect(char* display) {
+	if (dpy == NULL) {
+		if ( (dpy = XOpenDisplay(display)) == NULL) {
+			fprintf(stderr, "Error: Can't open display: %s\n", display);
+			return 0;
+		}
+		rootwin = XDefaultRootWindow(dpy);
+	}
+	return 1;
+}
+
+int XGetIdle() {
+	static XScreenSaverInfo *mit_info = NULL;
+	int event_base, error_base;
+	int idle = 0;
+
+	if (XScreenSaverQueryExtension(dpy, &event_base, &error_base)) {
+		if (mit_info == NULL) {
+			mit_info = XScreenSaverAllocInfo();
+		}
+		XScreenSaverQueryInfo(dpy, rootwin, mit_info);
+		idle = (mit_info->idle) / 1000;
+	} else {
+		fprintf(stderr, "XScreenSaverExtension not available on this display\n");
+	}
+
+	return idle;
 }
