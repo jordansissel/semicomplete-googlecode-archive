@@ -153,19 +153,16 @@ void network_thread(void *args) {
 
 		if (strcmp(buf,"Hello!") == 0) {
 			log(20, "Packet is a discovery broadcast");
-			if (srcaddr.sin_addr.s_addr == 0) {
-				log(0, "network_thread - ignoring 'hello' from myself");
+			/* Respond to this discovery with an ack to the DISCOVERY_PORT */
+			srcaddr.sin_port = htons(DISCOVERY_PORT);
+			log(10, "Sending 'ACK' to %s", inet_ntoa(srcaddr.sin_addr));
+			if ((bytes = sendto(discovery, "ACK", strlen("ACK"), 0, 
+									  (struct sockaddr *)&srcaddr, sizeof(struct sockaddr))) < 0) {
+				log(0, "network_thread sendto() ack failed: %s", strerror(errno));
+				pthread_exit(NULL);
 			}
-			else {
-				/* Respond to this discovery with an ack to the DISCOVERY_PORT */
-				srcaddr.sin_port = htons(DISCOVERY_PORT);
-				log(10, "Sending 'ACK' to %s", inet_ntoa(srcaddr.sin_addr));
-				if ((bytes = sendto(discovery, "ACK", strlen("ACK"), 0, 
-										  (struct sockaddr *)&srcaddr, sizeof(struct sockaddr))) < 0) {
-					log(0, "network_thread sendto() ack failed: %s", strerror(errno));
-					pthread_exit(NULL);
-				}
-			}
+
+			network_addnut(srcaddr.sin_addr);
 		} 
 		else if (strcmp(buf, "ACK") == 0) {
 			log(20, "ACK received from %s", inet_ntoa(srcaddr.sin_addr));
