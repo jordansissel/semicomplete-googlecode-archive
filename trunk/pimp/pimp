@@ -366,7 +366,6 @@ sub decode_current_mp3() {
 	my $blen = length($$buffer);
 	my $output = $pimp->{"output"};
 
-
 	# Sooooo let's go ahead and not decode if the http buffers are overloaded
 	return 0 if ($pimp->{"halt_decoding"});
 
@@ -377,55 +376,16 @@ sub decode_current_mp3() {
 		return 1 unless (defined(feed_prebuffer()));
 	}
 
-	if (!defined($pimp->{"buffered"}) || length($pimp->{"buffered"}) == 0) {
-		$pimp->{"buffered"} = substr($$buffer, 0, $BUFSIZE);
-		$stream->buffer($pimp->{"buffered"});
-		substr($$buffer, 0, $BUFSIZE) = "";
-	}
-
-
-	#return 0 if ($pimp->{"sleep_timeleft"} - (Time::HiRes::time() - $pimp->{"sleep_timecheck"}) > 8);
-
-	#print "Time gained from last decode: " . $pimp->{"sleep_timeleft"} . "\n";
-	#print "Time spent doing other things: " . (Time::HiRes::time() - $pimp->{"sleep_timecheck"}) . "\n";
-
-	# Try decoding up to 15 frames.
+	# Grab up to 10 chunks of mp3 data
 	for (1 .. 10) {
 		next if (scalar(@$output) > 20);
-
-		#while ($frame->decode($stream) == -1) {
-			#if ($stream->error() == MAD_ERROR_BUFLEN ||
-				 #$stream->error() == MAD_ERROR_BUFPTR) {
-				#my $b = feed_prebuffer();
-				#return 1 if (!defined($b) || (!$b && length($$buffer) == 0));
-#
-				##print "BUFLEN: $b / " . length($$buffer) . "\n";
-#
-				#$pimp->{"buffered"} = substr($pimp->{"buffered"}, $stream->next_frame());
-				#$pimp->{"buffered"} .= substr($$buffer, 0, $BUFSIZE);
-				#$stream->buffer($pimp->{"buffered"});
-				#substr($$buffer, 0, $BUFSIZE) = "";
-			#} else {
-				#return 1 unless ($stream->err_ok());
-			#}
-		#}
-
-		#my $data = substr($pimp->{"buffered"},$stream->this_frame(),
-								#$stream->next_frame() - $stream->this_frame());
 
 		my $data = substr($$buffer, 0, 500);
 		substr($$buffer, 0, 500) = "";
 
 		# Push the next frame onto the output bufferness
-		#print "Pushing " . length($data) . " onto output queue [ " . scalar(@$output) . " ]\n";
-
-		#$pimp->{"timer"} += $frame->duration();
 		push(@{$output}, $data);
-
-		# Add one frame's worth of time to our total time remaining
-		#$pimp->{"sleep_timeleft"} += 0.26;
 	}
-	#$pimp->{"sleep_timecheck"} = Time::HiRes::time(); 
 	return 0;
 
 } #}}}
