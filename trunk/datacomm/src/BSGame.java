@@ -6,6 +6,9 @@
  * 
  * Revisions:
  *   $Log$
+ *   Revision 1.15  2004/01/20 02:58:13  tristan
+ *   minor commenting changes.
+ *
  *   Revision 1.14  2004/01/19 23:41:34  tristan
  *   fixed references to BSGrid
  *
@@ -78,39 +81,6 @@ public class BSGame {
         }
     } // BSGame()
 
-    /** 
-     * Alters the byte at a point on the grid given
-     *
-     * @param the_grid - The grid to be altered.
-     * @param x - letter A-J representing horizontal coord
-     * @param i - integer 1-10 representing vertical coord
-     * @param hit - true for hit, false for miss
-     */
-    public void alterGrid( BSGrid the_grid, char x, int i, boolean hit ) {
-        int j = -1;
-        byte new_byte = 0;
-
-        //go from characters to numbers to work with array
-        for ( int k = 0; k < BSGrid.ROW_COUNT; k++ ) {
-                if ( x == k + 'A' ) {
-                  j = k;
-            }
-        }
-
-        //decrement i once to work with the array
-        i = i - 1; 
-
-        //set new_byte to the correct value
-        if ( hit ) {
-                new_byte = 4;
-        } else {
-                new_byte = 2;
-        }
-
-        //set the byte in the grid
-        the_grid.getGrid()[ j ][ i ] = new_byte;
-    } //alterGrid()
-
     /**
      * Returns the player who owns this game's own grid.
      *
@@ -128,39 +98,6 @@ public class BSGame {
     public BSGrid getTargetGrid() {
         return targetGrid;
     } //getTargetGrid()
-
-    /**
-     * Determines whether a shot is a hit or miss
-     * on ownGrid.
-     *
-     * @return    true - if hit
-     *        false - if miss
-     *
-     */
-    public boolean shot( char x, int i ) {
-        boolean retVal = false;
-        int j = 0;  
-      
-        //go from characters to numbers to work with array
-        for( int k = 0; k < BSGrid.ROW_COUNT; k++ ) {
-            if( x == k + 'A' ) {
-                 j = k; 
-            }
-        }
-
-        i = i - 1;
-
-        //check for a hit
-        if( ownGrid.getGrid()[ j ][ i ] == 1 ) {
-            retVal = true;
-        } else if( ownGrid.getGrid()[ j ][ i ] == 0 ) {
-            retVal = false;
-        } else {
-            //throw the exception
-        }
-
-        return retVal;
-    } //shot()
 
     /**
      * Checks whether a particular ship on ownGrid 
@@ -189,7 +126,6 @@ public class BSGame {
 
             //get the ship from the fleet
             the_ship = ownGrid.getShip( i );
-
             int shipL = the_ship.getLength();
 
             startX = the_ship.getStartX();
