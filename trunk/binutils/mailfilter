@@ -8,6 +8,11 @@
 #    showproc: /path/to/mailfilter
 #    showmimeproc: /path/to/mailfilter
 #
+#  Notes:
+#    This program will create mhl.html. This file is *required* to display
+#    readable headers in w3m, links, or lynx.
+#    After it is created, feel free to edit it further to suit your needs.
+#    See mhl(1) and mh-format(5) for more information on formatting.
 #
 #  Features:
 #    - Automatically open html mail in w3m (see $BROWSER)
@@ -22,6 +27,7 @@
 #
 
 use strict;
+use Symbol; # Fix for 5.005_03
 
 # User settings, change these to suit your enviroment: {{{
 
@@ -29,7 +35,13 @@ use strict;
 my %pgp = (
 
 # Command to verify a pgp signed email. %s is the "sig" file, %f is the content.
-pgp_verify_command => "gpg --no-secmem-warning --quiet --no-verbose --batch --output - --verify %s %f"
+pgp_verify_command => "gpg --no-secmem-warning --quiet --no-verbose --batch --output - --verify %s %f",
+
+# Command to receive an unknown public key. %i is the key id.
+pgp_recvkey_command => "gpg --no-secmem-warning --no-verbose --batch --output - --recv-key %i",
+
+# Automatically download pgp keys?
+pgp_recvkey_auto => 1,
 
 	 );
 
@@ -53,15 +65,13 @@ while (<MHPROFILE>) {
    chomp();
    m/([A-Za-z-]+):\s*(.*)$/;
    $mh{lc($1)} = $2;
-   print "$1: $2\n";
+   $mh{lc($1)} = $ENV{"HOME"} . "/$2" if (lc($1) eq 'path' && $2 !~ m,^/,);
 }
 close(MHPROFILE);
 
 # Verify *required* parts of mh_profile {{{
 #}}}
 #}}}
-my $TMP = $mh{'nmh-storage'};
-$TMP = "/tmp" unless($TMP);  #nmh defaults to /tmp
 
 # Viewer detection #{{{
 my %viewers = (
@@ -98,7 +108,7 @@ my %viewers = (
 my $VBROWSER;
 my (@v); 
 
-# UNCOMMENT TO SEND MAIL TO /dev/null, DEBUGGING
+# UNCOMMENT TO SEND MAIL TO /dev/null or cat (FOR DEBUGGING)
 #push(@v,@{$viewers{debug}});
 #push(@v, @{$viewers{lastresort}});
 
@@ -126,14 +136,51 @@ if ($VBROWSER !~ /^\|/) {
    $BROWSER = "> /tmp/" . mktemp();
 }
 #}}}
+my $TMP = $mh{'nmh-storage'};
+$TMP = "/tmp" unless($TMP);  #nmh defaults to /tmp
 
 # HTML Enable? {{{
 my $HTML_ENABLE;
 $HTML_ENABLE = 1 if ($VBROWSER =~ /(cat|w3m|links|lynx)/);
 my $MHL_PROG = "/usr/local/libexec/nmh/mhl";
 my $MHL_HTML_OPTS = "-form mhl.html";
-my $MHL_PLAIN_OPTS = "-form mhl.plaintext";
+my $MHL_PLAIN_OPTS = "";
 my $MHL_OPTS = ($HTML_ENABLE) ? $MHL_HTML_OPTS : $MHL_PLAIN_OPTS;
+#}}}
+
+# We need mhl.html, write it if it doesn't exist. {{{
+unless (-e $mh{'path'}."/mhl.html") {
+   print STDERR $mh{'path'}."/mhl.html does not exist. Creating it.\n";
+   open(MHLHTML, "> ".$mh{'path'}."/mhl.html") 
+      or die("Failed trying to open ".$mh{'path'}."/mhl.html for writing.\n$!\n");
+   print MHLHTML << "END_MHLHTML";
+; html
+overflowtext="",overflowoffset=0
+compwidth=1
+:<html>
+:<head>
+:<title>
+Subject:decode
+:</title>
+:</head>
+:<body>
+Date:formatfield="%<(nodate{text})%{text}%|%(pretty{text})%>"
+:<br>
+From:decode
+:<br>
+To:
+:<br>
+cc:
+Subject:decode
+:<br>
+User-Agent:formatfield="%<{text}%{text}<br>%>" 
+X-Mailer:formatfield="%<{text}%{text}<br>%>" 
+X-Spam-Level:formatfield="%<{text}%{text}<br>%>" 
+:<hr>
+body:nocomponent,overflowtext=,overflowoffset=0,noleftadjust
+END_MHLHTML
+close(MHLHTML);
+}
 #}}}
 
 #}}}
@@ -288,7 +335,6 @@ if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
       browser_set_content_type("text/plain") unless ($HTML_ENABLE);
       browser_set_content_type("text/html") if ($HTML_ENABLE);;
 
-      print STDERR "> Writing mail header\n";
       my $tmpfile = "$TMP/.headers.$fr.$mail";
       mhl_write_headers($tmpfile);
       browser_print("< $tmpfile","text/mail-header");
@@ -296,7 +342,7 @@ if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
       # Do PGP stuff first?
       if (scalar(grep(/application\/pgp-signature/,@part_types)) > 0) { 
 	 # pgp-signed email {{{
-	 print STDERR "pgp signature found, invoking pgp... ";
+	 print STDERR "pgp signature found, invoking pgp...\n";
 	 my ($plain, $sig, $plaintype);
 	 my ($pidx, $sidx);
 	 my $count = 0;
@@ -318,16 +364,46 @@ if ($ctype =~ m,^multipart/,i) { # handle multipart mail{{{
 	 $pgp_verify =~ s,%s,$sig,;
 	 $pgp_verify =~ s,%f,$plain,;
 
-	 browser_print("$pgp_verify 2>&1 |", "text/signature-result",2);
+	 my $buffer;
+	 #open(PGP_VERIFY, "$pgp_verify 2>&1 | ");
+	 #$buffer = <PGP_VERIFY>; 
+	 #close(PGP_VERIFY);
+	
+	 # Simpler...
+	 $buffer = `$pgp_verify 2>&1`;
+
+	 # If we don't have this public key, fetch it.
+	 my ($key,$status) = split("\n",$buffer);
+	 $key =~ s/^.*key ID //;
+	 if ($status =~ m,Can't check signature: public key not found,) {
+	    print STDERR "Public key not found, $key.\n";;
+	    print STDERR "gpg said:\n" . $buffer . "\n";
+	    if ($pgp{"pgp_recvkey_auto"}) {
+	       print STDERR "Key not found in keyring, automatically fetching...\n";
+	       my $pgp_recvkey = $pgp{"pgp_recvkey_command"};
+	       $pgp_recvkey =~ s/%i/$key/g;
+	       # Grab key, and reverify if we fetched it.
+	       #$buffer = `$pgp_recvkey`;
+	       system("$pgp_recvkey");
+	       $buffer = "";
+	       print STDERR $buffer . "\n";
+	       if ($? == 0) {
+	          $buffer .= "Key ID $key did not exist in your keyring, it was fetched automatically\n"; 
+		  $buffer .=  `$pgp_verify 2>&1`;
+	       } else {
+		  $buffer .= "Failed to fetch key from keyserver. Exit code $?\n";
+		  $buffer .= "Key ID: $key\n";
+	       }
+	    }
+	 }
+
+	 browser_print(\$buffer, "text/signature-result",2);
 
 	 undef $parts{$sidx};
-
-	 print STDERR "done.\n"
 
 	 #}}}
       }
 
-      print STDERR "Writing first part\n";
       browser_print("< " . $fileparts[0], $parts{1}{'type'});
 
       undef($parts{1});
@@ -381,7 +457,13 @@ sub browser_print { #{{{
 
    if (ref($what) eq 'GLOB') {
       $contents = $what;
+   } elsif (ref($what) eq 'SCALAR') {
+      $contents = Symbol::gensym();  # Fix for 5.005_03
+      pipe($contents,WRITER); # hehe..
+      print WRITER $$what;
+      close(WRITER);
    } else {
+      $contents = Symbol::gensym();  # Fix for 5.005_03
       open($contents,$what) 
 	 or die("Unable to open $what for reading.\nreason> $!\n");
    }
@@ -474,6 +556,7 @@ sub browser_print { #{{{
    }
 
    close($contents) if (ref($what) ne 'GLOB');
+   $| = 0;
 } #}}}
 
 sub browser_set_content_type { #{{{
