@@ -1,0 +1,16 @@
+<%args>
+	$data
+</%args>
+<%attr>
+	logout => 1
+</%attr>
+<%init>
+	my $diecookiedie = Apache::Cookie->new($r,
+														-name => "sessionid",
+														-value => ""
+													  );
+
+	$diecookiedie->bake();
+	$r->header_out("Set-Cookie" => $diecookiedie->as_string());
+</%init>
+Successfully logged you out.

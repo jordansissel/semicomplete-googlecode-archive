@@ -1,0 +1,90 @@
+<%args>
+   $data
+
+	# Form parameters
+	$email => undef
+	$username => undef
+	$password => undef
+	$dosignup => undef
+</%args>
+<%init>
+	my $db = $data->{"db"};
+</%init>
+<%perl>
+my $err;
+if ($dosignup) {
+	$m->out('<font color="red">');
+	if (length($username) == 0) {
+		$m->out("<b>Invalid Username</b><br>\n");
+		$err++;
+	}
+	if (length($password) < 5) {
+		$m->out("<b>Invalid Password - must be of length 5 or greater</b<br>\n");
+		$err++;
+	}
+	if ($email && $email !~ m/^[^@]+@[^@]+$/) {
+		$m->out("<b>Invalid Email - The address you entered doesn't appear to be valid?</b><br>\n");
+		$err++;
+	}
+	$m->out('<p></font>');
+
+	goto TRYAGAIN if ($err);
+
+	# Ok, now let's insert...
+	my $res = $db->prepare("INSERT INTO users (username, password, email) VALUES (?, MD5(?), ?)");
+	$res->execute($username, $password, $email) or die("New user creation failed, postgres said:\n" . $db->errstr());
+
+	# Account successfully created, log them in...
+
+	$m->comp("login.html", user => $username, password => $password, data => $data);
+} else {
+	TRYAGAIN:
+</%perl>
+
+<b>Sign up for your RSSNews Account!</b>
+<p>
+
+<table border="0" width="60%" align="center" style="border:1px solid black">
+<tr>
+<td>
+
+RSSNews is a free service. If you are a spam-paranoid type person I'll note
+that you are in no way required to enter an email address in its field
+below. Your email will be used in the rare case that I want to ask users
+something or inform them of important upcoming changes. Anyway, it's up to you.
+
+</td>
+</tr>
+<tr>
+<td>
+<br>
+<br>
+
+<form method="POST" action="signup.html">
+<table border="0" bgcolor="#F4FAFF" cellspacing="1">
+<tr>
+<td><b>Username:</b></td>
+<td><input type="text" name="username" size="20" value="<% $username %>"></td>
+<td><small><font color="red">(REQUIRED)</font></small></td>
+</tr>
+<tr>
+<td><b>Password:</b></td>
+<td><input type="password" name="password" size="20" value=""></td>
+<td><small><font color="red">(REQUIRED)</font></small></td>
+</tr>
+<tr>
+<td><b>Email:</b></td>
+<td><input type="text" name="email" size="20" value="<% $email %>"></td>
+</tr>
+<tr>
+<td><input type="submit" value="Signup!"></td>
+</tr>
+</table>
+<input type="hidden" name="dosignup" value="1">
+</form>
+
+</td>
+</tr>
+
+</table>
+% }

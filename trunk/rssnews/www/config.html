@@ -1,0 +1,32 @@
+<%args>
+	$data
+	$email => undef
+</%args>
+<%init>
+	my $db = $data->{"db"};
+	my $userinfo = $data->{"userinfo"};
+</%init>
+
+% foreach (keys(%$userinfo)) {
+<b><% $_ %></b>: <% $userinfo->{$_} %><br>
+% }
+<p>
+
+<form method="POST" action="config.html">
+% my $s = $db->selectall_hashref("SELECT * FROM sources", "id");
+% my @sources = sort { lc($a->{"name"}) cmp lc($b->{"name"}) } values(%$s);
+% foreach (@sources) {
+<table border="0" cellspacing="0">
+<tr><td valign="top">
+<input type="checkbox" name="sources" value="<% $_->{"id"} %>">
+</td>
+<td>
+<b><% $_->{"name"} %></b> - <% $_->{"descr"} %>
+</td>
+</tr>
+</table>
+<br>
+% }
+<input type="hidden" name="save" value="1">
+<input type="submit" value="Save Config"
+</form>

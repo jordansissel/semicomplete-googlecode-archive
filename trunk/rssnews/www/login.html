@@ -1,0 +1,47 @@
+<%args>
+   $data
+	$user => undef
+	$password => undef
+</%args>
+<%once>
+	use Digest::MD5 qw(md5_base64);
+</%once>
+<%init>
+	my $db = $data->{"db"};
+
+	if ($user) {
+		# Check that this login attempt is good
+
+		my $res = $db->prepare("SELECT id FROM users WHERE username = ? AND password = md5(?) LIMIT 1");
+		$res->execute($user, $password) or die("Failed looking up user/psasword.\n" . $db->errstr());
+		
+		if ($res->rows()) {
+			my $sessionid = md5_base64($user . time());
+			# Valid OK login! Let's go!
+			my $userid = $res->fetchrow_hashref()->{"id"};
+			my $cookie = Apache::Cookie->new($r, 
+														-name => "sessionid",
+													  	-value => "$sessionid",
+														-expires => '+3M'
+													  );
+			# Redirect them aswell
+			$cookie->bake();
+			$r->header_out("Set-Cookie" => $cookie->as_string(), "Location" => "http://www.google.com/mynews.html");
+
+			$db->do("INSERT INTO sessions (userid, sessionkey) VALUES ($userid, '$sessionid')");
+			$m->out(<<"HTML");
+<html>
+<head>
+<meta http-equiv="refresh" content="0;URL=mynews.html">
+</head>
+<body>
+Succesfully logged you in...
+</body>
+</html>
+HTML
+		} else {
+			$m->out("Invalid user/password. Try again?<p>\n");
+		}
+	}
+</%init>
+	You aren't logged in!? Try doing that...

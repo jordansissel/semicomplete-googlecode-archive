@@ -1,0 +1,23 @@
+<%args>
+   $data
+</%args>
+<%init>
+	my $db = $data->{"db"};
+</%init>
+
+<h3> Welcome to RSSNews 2.0</h3>
+
+<table border="0" cellspacing="0">
+<tr>
+<td>The latest news articles:</td>
+</tr>
+<tr>
+<td>
+% my $arr = $db->selectall_hashref("SELECT id, lastupdate, url, title FROM articles ORDER BY lastupdate LIMIT 15", "id") or die("selectall failed - " . $db->errstr);
+% foreach my $v (values(%$arr)) {
+<b><a href="<% $v->{"url"} %>"><% $v->{"title"} %></a></b><br>
+% } 
+</td>
+</tr>
+</table>
+
