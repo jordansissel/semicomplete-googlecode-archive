@@ -53,7 +53,7 @@ sub expand_line {
    $sh->fix_inputline();
 }
 
-sub anykey_binding { 
+sub anykey_binding {
 	my $line = $sh->{"input_line"};
 	my $aim = $state->{"aim"};
 	my $sn;
@@ -72,19 +72,18 @@ sub anykey_binding {
 	if ($line =~ s!^/msg\s+!!) {
 		$sn = next_arg(\$line);
 
-		#$sh->out("SN: $sn");
-
 		return unless defined($aim->buddy($sn));
-			
+
 		# We're typing to someone on our buddylist
-		if (length($line) >= 1) {
-			prompter("TARGET", $sn) ;
+		if (length($line) > 0) {
+			prompter("TARGET", $sn);
 
 			# Drop off the first 2 arguments.. this is a lame hack
 			$line = \$sh->{"input_line"};
 			my $chopped = next_arg($line);
 			$chopped .= next_arg($line);
-			$sh->{"input_position"} = 1;
+			$line =~ s/^\s//;
+			$sh->{"input_position"} = 0;
 			#$sh->out("New line: " . $$line . " / " . $sh->{"input_position"} . " / $chopped");
 
 			$state->{"target"} = $sn;
