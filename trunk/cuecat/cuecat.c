@@ -80,17 +80,25 @@ int main(int argc, char **argv) {
 
 	for (;;) {
 		XEvent e;
-		XKeyEvent ke = e.xkey;
 		if (XPending(dpy)) {
-			char keyname[10];
+			char *kp;
+			int keysym;
+				
 			XNextEvent(dpy, &e);
-			strcpy(keyname, XKeysymToString(XKeycodeToKeysym(dpy, ke.keycode, 0)));
+			XKeyEvent ke = e.xkey;
 
-			if (!strcmp(keyname, "F10")) {
+			keysym = XKeycodeToKeysym(dpy, ke.keycode, 0);
+			kp = XKeysymToString(keysym);
+			//strcpy(keyname, XKeysymToString(XKeycodeToKeysym(dpy, ke.keycode, 0)));
+			printf("Sym: %d / %d\n", keysym, XK_F10);
+
+			//if (!strcmp(keyname, "F10")) {
+			if (keysym == XK_F10) {
 				XGrabKeyboard(dpy, root, True, GrabModeSync, GrabModeSync, CurrentTime);
 				inputoffset = 0;
 				memset(input, 0, inputlen);
-			} else if (!strcmp(keyname, "Return")) {
+			//} else if (!strcmp(keyname, "Return")) {
+			} else if (keysym == XK_Return) {
 				printf("Input: '%s'\n", input);
 				XUngrabKeyboard(dpy, CurrentTime);
 			} else {
