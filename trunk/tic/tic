@@ -6,34 +6,28 @@ use IO::Select;
 use Net::OSCAR;
 use POSIX qw(strftime);
 use Term::ReadKey;  #<3 readkey
+use Term::Shelly;
 #use Term::Size;
 
 # Super-magical happy land!
 use Tic::Constants; 
-use Tic::Bindings;
 use Tic::Common;
 use Tic::Commands;
 use Tic::Events;
 
-ReadMode(3);
+# We don't need Bindings anymore, Term::Shelly provides us this :)
+#use Tic::Bindings;
 
 mkdir($ENV{HOME}."/.tic", "0700") unless (-d $ENV{HOME} . "/.tic");
 
 my $aliases = undef;   # Aliases
 my $commands = undef;  # Commands
-my $bindings = DEFAULT_BINDINGS; 
-my $mappings = DEFAULT_MAPPINGS;
 my $config = DEFAULT_OUTPUT;
 my $settings = read_config($ENV{HOME}."/.ticrc");
 
 my $state = undef;     # State information
-$state->{"bindings"} = $bindings; 
-$state->{"mappings"} = $mappings; 
 $state->{"config"} = $config;
 $state->{"settings"} = $settings;
-
-($state->{"termcols"}) = GetTerminalSize(); #Term::Size::chars();
-out("Columns: " . $state->{"termcols"});
 
 my $aim = Net::OSCAR->new();
 #$aim->timeout(1);
@@ -42,45 +36,24 @@ $state->{"aim"} = $aim;
 setup_callbacks();
 setup_commands();
 
+my $sh = new Term::Shelly();
+$state->{"sh"} = $sh;
+
+# Set the callback for when we hit an end of line in input...
+$sh->{"readline_callback"} = \&command;
+$state->{"command_callback"} = \&command;
+
 Tic::Events->set_state($state);
 Tic::Commands->set_state($state);
-Tic::Bindings->set_state($state);
 Tic::Common->set_state($state);
 
 setup_enviroment();
 
-$SIG{WINCH} = sub { ($state->{"termcols"}) = GetTerminalSize(); };
-
-prepare_completion($commands);
-
-# Autoflush stdout.
-$| = 1;
-
 login($settings->{"screenname"}, $settings->{"password"});
 
-# What is this?! ($state->{"aimok"})
-# - When we call check_readline() and there's nothing to read, we want
-#   to allow parsing of aim events.
-# 
-# What for?
-# Without using an "aimok" state (telling when it's ok to process
-# aim events), we will process aim event all the time. This becomes
-# very time consuming; that is, pasting things takes a while.
-# This new state solves it, now pasting things takes no time to process.
-#
-
-$state->{"aimok"} = 1;
-
-# $aim->do_one_loop() sleeps for .01 seconds waiting for data. This is time
-# that could be better spent reading from the input. So, what I did
-# is every time a key is read set $state->{"aimok"} to 0. And any time
-# check_readline() does not read a keypress $state->{"aimok"} is set to 1.
-# This makes it so pasting things is very fast because while you're pasting
-# $aim->do_one_loop() is never called.
-
 while (1) {
-	$aim->do_one_loop() if ($state->{"aimok"});
-	check_readline();
+	$aim->do_one_loop();
+	$sh->do_one_loop();
 }
 
 # init functions
@@ -144,7 +117,7 @@ sub setup_commands {
 
 sub setup_enviroment {
 	foreach my $key (keys(%{$settings})) {
-		out("$key: " . $settings->{$key});
+		#out("$key: " . $settings->{$key});
 		if ($key =~ m/^log\.([^\.]+)$/) {
 			set_config("logging","only specified users");
 			get_config("who_log")->{"$1"} = 1;
@@ -161,204 +134,31 @@ sub setup_enviroment {
 	get_config("who_log");
 }
 
-# Nonblocking readline
-sub check_readline { 
-	my $char;
-
-	# ReadKey(-1) means no timeout waiting for data, thus is nonblocking
-	$char = ReadKey(-1);
-	if (defined($char)) {
-		if ($char eq "\n") {
-			get_config("logging");
-			# 
-			my $line = $state->{"input_line"};
-			real_out("\n");
-			$state->{"input_line"} = undef;
-			$state->{"input_position"} = 0;
-			$state->{"leftcol"} = 0;
-
-			# Instead of printing an EOL, we could have the commands each handle
-			# outputting things themselves, so that things aren't so cluttered 
-			# and messy looking?
-
-			command($line);
-			#$state->{"is_typing"} = 0;
-			$state->{"aimok"} = 1;
-			return;
-		}
-
-		# Returned (string, char, extrahash)
-		my ($ret, $foo, $extra) =  handle_keys($state->{"input_line"},
-								               $state->{"input_position"},
-								               $char);
-		#print STDERR "$ret / $foo / $extra\n";
-		if (defined($ret)) {
-			my $pos = $state->{"input_position"}; 
-			my $back = length($ret) - $pos;
-			if (defined($extra->{"-print"})) {
-				real_out($extra->{"-print"});
-			}
-			if ($state->{"termcols"} < length($ret)) {
-				my $left = length($ret) - $state->{"termcols"};
-				$state->{"leftcol"} = $left;
-			}
-
-			# Determine what the leftmost pos is:
-			my $l = ($state->{"leftcol"} < $state->{"input_position"}) ? 
-				      $state->{"leftcol"} : $state->{"input_position"};
-			real_out("\r\e[2K" . substr($ret,$l, $state->{"termcols"} - 1));
-			real_out("\e[".$back."D") if ($back > 0);
-
-			# Parse line for who this is going to -
-			$state->{"recursion_check"} = 0;
-			my $foo = expand_aliases($state->{"input_line"});
-			if ($foo =~ m!^/msg\s+(\S+)\s!) {
-				$state->{"who_to"} = $1;
-			}
-
-			$state->{"input_line"} = $ret;
-		} else {
-			if (defined($extra->{"-print"})) {
-				real_out($extra->{"-print"});
-			}
-		}
-
-		$state->{"aimok"} = 0;
-		#$state->{"is_typing"} = time();
-	} else {
-		$state->{"aimok"} = 1;
-	}
-}
-
-# Handle keys... and strife!
-sub handle_keys {
-   my ($line, $pos, $char) = @_;
-	my $extra;
-
-	if ($state->{"escape"}) {
-		$state->{"escape_string"} .= $char;
-		if ($state->{"escape_expect_ansi"}) {
-			$state->{"escape_expect_ansi"} = 0 if ($char =~ m/[a-zA-Z]/);
-		}
-		$state->{"escape_expect_ansi"} = 1 if ($char eq '[');
-		$state->{"escape"} = 0 unless ($state->{"escape_expect_ansi"});
-
-		unless ($state->{"escape_expect_ansi"}) {
-			my $estring = $state->{"escape_string"};
-
-			$state->{"escape_string"} = undef;
-			my (@foo) = execute_binding("\e".$estring);
-			#print STDERR "Escape ret: " . scalar(@foo) . "\n";
-			return @foo;
-		}
-		return undef;
-	}
-
-   if ($char eq "\e") {                   # Escape
-		$state->{"escape"} = 1;
-		$state->{"escape_string"} = undef;
-
-		# Return undef becuase we don't know what to do yet.
-		return undef; 
-	} 
-
-	if (ord($char) <= 26) {                # Control characters
-		($line, $char, $extra) = execute_binding($char);
-	}
-
-
-	if ((defined($char)) && (ord($char) >= 32)) {
-		map { delete($state->{"$_"}) } grep(/^complete_/, keys(%{$state}));
-		if ( ($pos == 0) && ($char eq ';') && ($state->{"last_from"} ne '') ) {
-			my $str =  "/msg \"" . $state->{"last_from"} . "\" ";
-			$line =  $str . substr($line,1);
-			$char = '';
-			$state->{"input_position"} += length($str);
-		} else {
-			$line = substr($line,0,$state->{"input_position"}) . $char . 
-					  substr($line,$state->{"input_position"});
-			$state->{"input_position"}++;
-		}
-		#print STDERR "Position: " . $state->{"input_position"} . "\n";
-	}
-
-   return ($line, $char, $extra);
-}
-
 sub command {
 	my ($cmd,$args) = split(/\s+/, $_[0], 2);
 
    if ($cmd =~ s!^/!!) {
-		#out("<$cmd>");
 		if (defined($commands->{$cmd})) { 
 			&{$commands->{$cmd}}($state, $args);
 		} elsif (defined($aliases->{$cmd})) {
 			$state->{"recursion_check"}++;
 			if ($state->{"recursion_check"} > 10) {
-				out("Too much recursion in this alias. Aborting execution");
+				$sh->out("Too much recursion in this alias. Aborting execution");
 				return;
 			}
 			($cmd, $args) = $aliases->{$cmd} . " " . $args;
 			command($cmd,$args);
 			$state->{"recursion_check"}--;
 		} else {
-			out("Unknown command, \"$cmd\"");
+			$sh->out("Unknown command, \"$cmd\"");
 		}
 	} elsif ($cmd ne '') {
-	   if ($_[0] =~ m/^;\s*(.*)$/) {
-			if (($state->{"last_from"}) && ($1 ne '')) {
-				command_msg($state,$state->{"last_from"}, $1);
-				#$aim->send_im($state->{"last_from"}, $1);
-			} else {
-				error("No one has messaged you yet, how am I supposed to know who messaged you last?");
-			}
-		} else {
-			if ($state->{"default"} ne '') {
-				command_msg($state,$state->{"default"}, $_[0]);
-				#$aim->send_im($state->{"default"}, $_[0]);
-			}
+		if ($state->{"default"} ne '') {
+			command_msg($state,$state->{"default"}, $_[0]);
 		}
 	}
 }
 
-sub execute_binding {
-	my ($key) = shift;  # Could be a series, ESC-w
-	$key = prettify_key($key);
-	#print "Prettified key: $key\n";
-	if (defined($bindings->{$key})) {
-		if ($bindings->{$key} !~ m!^complete-!) {
-			map { delete($state->{"$_"}) } grep(/^complete_/, keys(%{$state}));
-		}
-		if (ref($mappings->{$bindings->{$key}}) eq 'CODE') {
-			return &{$mappings->{$bindings->{$key}}}($state);
-		} else {
-			error("Unimplemented function, " . $bindings->{$key});
-		}
-	}
-	return ($state->{"input_line"}, undef, undef);
-}
-
-sub prettify_key {
-	my ($key) = shift;
-
-	# Return ^X for control characters like CTRL+A and such.
-	if (length($key) == 1) {     # Should only ever be control codes...
-		if (ord($key) <= 26) {    # Control codes
-			return "^" . chr(65 + ord($key) - 1);
-		}
-	}
-
-	# Return ESC-X for escape shenanigans, like ESC-w
-	if (length($key) == 2) {
-		my ($p,$k) = split("", $key);
-		if ($p eq "\e") {     # Escape character
-			return "ESC-" . $k;
-		}
-	}
-
-	# Ok, it's not ^X or ESC-X, it's gotta be some ansi funk.
-	return KEY_CONSTANTS->{$key};
-}
 
 sub read_config {
 	my ($file) = shift;
