@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.4  2004/01/19 05:33:46  tristan
+ *   switched to use boolean for client turn
+ *
  *   Revision 1.3  2004/01/19 04:00:35  tristan
  *   subbed out protocol methods.
  *
@@ -27,6 +30,7 @@ public abstract class BSClient extends Thread {
     private String yourName;
     private String otherName;
     private BSGame game;
+    private boolean clientTurn;
 
     /**
      * Initializes the battle ship client
@@ -38,6 +42,7 @@ public abstract class BSClient extends Thread {
         this.game = new BSGame();
         this.yourName = yourName;
         this.otherName = otherName;
+        this.clientTurn = false;
     }
 
     /**
@@ -123,7 +128,15 @@ public abstract class BSClient extends Thread {
      * @return Whether or not it's our turn.
      */
     public boolean isClientTurn() {
-        return true;
+        return clientTurn;
+    }
+
+    /**
+     * Changes the client turn.
+     * @param clientTurn The new client turn var.
+     */
+    public void setClientTurn( boolean clientTurn ) {
+        this.clientTurn = clientTurn;
     }
 
     /**
@@ -147,6 +160,7 @@ public abstract class BSClient extends Thread {
      * Blocks until it's the user's turn
      */
     public void waitForTurn() {
-        
+        // get input from server
+        setClientTurn( true );
     }
 }   // BSClient
