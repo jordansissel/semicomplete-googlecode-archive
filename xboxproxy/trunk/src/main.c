@@ -480,7 +480,7 @@ int main(int argc, char **argv) {
 	pthread_t pcapthread, proxythread;
 
 	/* Argument Processing */
-	while ((ch = getopt(argc, argv, "us:i:d:")) != -1) {
+	while ((ch = getopt(argc, argv, "us:i:d:h?p:")) != -1) {
 		switch (ch) {
 			case 'd':
 				set_log_level(atoi(optarg));
