@@ -93,10 +93,12 @@ static int use_udp = 0;
 static int forwardmulticast = 0;
 static int serverport = SERVER_PORT;
 
-#ifdef LIBNET_VERSION_1_0
+//define HAVE_LIBNET_1_1
+
+#ifdef HAVE_LIBNET_1_0
 struct libnet_link_int *libnet;
 #else
-#	ifdef LIBNET_VERSION_1_1
+#	ifdef HAVE_LIBNET_1_1
 libnet_t *libnet;
 #	endif
 #endif
@@ -368,14 +370,14 @@ void pcap(void *args) {
 		pthread_exit(NULL);
 	}
 
-#ifdef LIBNET_VERSION_1_0
+#ifdef HAVE_LIBNET_1_0
 	libnet = libnet_open_link_interface(pcapdev, errbuf);
 	if (libnet == NULL) {
 		debuglog(0, "libnet_open_link_interface() failed: %s", errbuf);
 		pthread_exit(NULL);
 	}
 #else
-#	ifdef LIBNET_VERSION_1_1
+#	ifdef HAVE_LIBNET_1_1
 	//libnet = libnet_init(LIBNET_LINK, pcapdev, errbuf);
 	libnet = libnet_init(LIBNET_LINK_ADV, pcapdev, errbuf);
 	if (libnet == NULL) {
@@ -682,10 +684,10 @@ void distribute_packet(proxy_t *ppt, char *packet, int pktlen) {
 	debuglog(30, "----- REMOTE PACKET To: %s",
 				ether_ntoa((struct ether_addr *)ETHERCONV(eptr->ether_dhost)));
 
-#ifdef LIBNET_VERSION_1_0
+#ifdef HAVE_LIBNET_1_0
 	bytes = libnet_write_link_layer(libnet, pcapdev, packet, pktlen);
 #else
-#	ifdef LIBNET_VERSION_1_1
+#	ifdef HAVE_LIBNET_1_1
 	bytes = libnet_adv_write_link(libnet, packet, pktlen);
 #	endif
 #endif
