@@ -6,6 +6,9 @@
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.6  2004/01/20 04:30:25  tristan
+ *   fixed syntax errors.
+ *
  *   Revision 1.5  2004/01/20 04:23:33  tristan
  *   updated comments for everything.
  *
@@ -64,7 +67,7 @@ public class TCPServer extends Thread {
 			String line = null;
 			BufferedReader in = new BufferedReader( new InputStreamReader(sock.getInputStream()));
 			PrintWriter out = new PrintWriter( sock.getOutputStream() );
-			bool started = false;
+			boolean started = false;
 
 			// Game hasn't started yet.
 			// Look for hello
@@ -76,7 +79,7 @@ public class TCPServer extends Thread {
 						try {
 							Command foo = Command.parseCommand(line);
 							System.out.println("--> " + foo);
-							if (foo instanceOf HelloCommand) {
+							if (foo instanceof HelloCommand) {
 								if (!hellodone) {
 									hellodone = true;
 									Response resp = new HelloResponse();
@@ -87,8 +90,8 @@ public class TCPServer extends Thread {
 								}
 							}
 
-							if (foo instanceOf StartGameCommand) {
-								if (!isready) && (hellodone) {
+							if (foo instanceof StartGameCommand) {
+								if (!isready && hellodone) {
 									isready = true;
 									Response resp = new StartGameResponse();
 									out.println(resp);
@@ -103,7 +106,7 @@ public class TCPServer extends Thread {
 			}
 
 			// Wait for PlayerFound
-			while (playerWanted() {
+			while (playerWanted()) {
 				yield(50);
 			}
 
