@@ -30,7 +30,7 @@ AC_FUNC_MALLOC
 AC_FUNC_MEMCMP
 AC_FUNC_REALLOC
 AC_FUNC_SELECT_ARGTYPES
-AC_CHECK_FUNCS([gethostbyname inet_ntoa select socket strerror])
+#AC_CHECK_FUNCS([gethostbyname inet_ntoa select socket strerror])
 
 # Check for pcap
 AC_CHECK_HEADERS(pcap.h)
@@ -43,7 +43,7 @@ echo "Host: $host"
 case $host in
 *solaris*)
 	CFLAGS="$CFLAGS -D_POSIX_PTHREAD_SEMANTICS"
-	LDFLAGS="$LDFLAGS -lpthread -mt" ;;
+	LDFLAGS="$LDFLAGS -lpthread" ;;
 *freebsd*)
 	LDFLAGS="-pthread" ;;
 esac
