@@ -8,6 +8,8 @@ use Socket;
 use Symbol;
 use URI;
 
+use HTTP::Handle;
+
 my $stream   = new Audio::Mad::Stream();
 my $frame    = new Audio::Mad::Frame();
 my $synth    = new Audio::Mad::Synth();
@@ -20,53 +22,12 @@ print "Arg: " . $ARGV[0] . "\n";
 if (defined($ARGV[0])) {
 	my $file = $ARGV[0];
 	if ($file =~ m!^http:\/\/!) {
-		#my $u = URI->new("http://69.56.169.210:8080/stream");
-		my $u = URI->new($file);
+		my $http = HTTP::Handle->new();
+		$http->uri($file);
 
-		$PORT = $u->port();
-		$HOST = $u->host();
-		$PATH = $u->path();
+		$http->connect();
 
-CONNECT:
-		socket($fd, PF_INET, SOCK_STREAM, getprotobyname('tcp')) or die("socket(): $!");
-		connect($fd, sockaddr_in($PORT, inet_aton($HOST))) or die("connect(): $!");
-
-		$fd->autoflush(1);
-
-		print $fd "GET $PATH HTTP/1.0\n";
-		print $fd "Host: $HOST\n\n";
-		print "GET $PATH HTTP/1.0\n";
-		print "Host: $HOST\n\n";
-		print "Connected\n";
-
-		chomp(my $resp = <$fd>);
-		my %headers;
-		print "$resp\n";
-
-		while (<$fd>) {
-			chomp();
-			s/
-//;
-			last if (m/^\s*$/);
-			m/(\S+):\s*(.+)\s*/;
-			$headers{$1} = $2;
-			print "[$1] $2\n";
-
-			#print "$_\n";
-		}
-
-		print "\n";
-
-		if ($resp =~ m/^\S+\s+302/) {
-			print "(" . $headers{"Location"} . ")\n";
-			my $u = URI->new($headers{"Location"});
-
-			$PORT = $u->port();
-			$HOST = $u->host();
-			$PATH = $u->path();
-			close($fd);
-			goto CONNECT;
-		}
+		$fd = $http->fd();
 
 	} elsif ($file =~ m!^/!) {
 		open($fd,"< $file") or die ("Failed trying to open $file\n$!");
@@ -108,14 +69,12 @@ while (length($buffer) < 8192) {
 
 FOO:
 while (1) {
-	#if ($select->can_read()) {
-		if (length($buffer) < 65536) {
-			my $foo = sysread($fd, $buffer, $BUFSIZE, length($buffer));
-			if ($foo) {
-				print "$foo = sysread()\n";
-			}
+	if (length($buffer) < 65536) {
+		my $foo = sysread($fd, $buffer, $BUFSIZE, length($buffer));
+		if ($foo) {
+			print "$foo = sysread()\n";
 		}
-	#}
+	}
 
 	if ($frame->decode($stream) == -1) {
 		next if ($stream->err_ok());
@@ -144,21 +103,11 @@ while (1) {
 	if ($fsize - 10 > ($stream->next_frame() - $stream->this_frame())) {
 		$oldbuf = substr($buffer,$stream->this_frame());
 	}
+
+	print "Length: " . $frame->duration() . " - Bytse: " . ($stream->next_frame() - $stream->this_frame()) . "\n";
 	$synth->synth($frame);
 	my $pcm = $dither->dither($resample->resample($synth->samples()));
 	#my $pcm = $dither->dither($synth->samples());
 
 	play($device,$pcm,length($pcm));
 }
-#if (read($fd,$buffer,$BUFSIZE,0)) {
-	#print "Buffer read OK [$tbytes bytes read so far]\n";
-	#$buffer = $oldbuf . $buffer;
-	#$oldbuf = undef;
-	#$stream->buffer($buffer);
-	#$stream->sync();
-	#$tbytes += length($buffer);
-	#goto FOO;
-#}
-
-close_ao($device);
-shutdown_ao;

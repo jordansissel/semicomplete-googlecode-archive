@@ -10,6 +10,7 @@ $h->connect();
 
 my $fd = $h->fd();
 
+exit;
 my $buf;
 while (sysread($fd, $buf, 8192, 0)) {
 	print "$buf";
