@@ -29,6 +29,12 @@ typedef struct busmaster {
 
 } busmaster_t;
 
+typedef struct i2cerror {
+	char srcaddr;
+	char errorcode;
+	char *affected_notes;
+} i2cerror_t;
+
 void busmaster_init();
 
 #endif
