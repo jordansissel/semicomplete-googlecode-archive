@@ -6,6 +6,9 @@
  *
  * Revisions:
  *     $Log$
+ *     Revision 1.20  2004/01/19 21:38:35  tristan
+ *     fixed more constants
+ *
  *     Revision 1.19  2004/01/19 21:32:04  tristan
  *     fixed constants
  *
@@ -90,12 +93,12 @@ public class BSGrid {
             //generate the random values for the ship's
             //start position
             startRowValue = (int)
-            ( Math.ceil( Math.random()*10 ) - 1.0 );
+            ( Math.ceil( Math.random()*ROW_COUNT ) - 1.0 );
             startColValue = (int)
-            ( Math.ceil( Math.random()*10 ) - 1.0 );
+            ( Math.ceil( Math.random()*COL_COUNT ) - 1.0 );
 
             System.out.println( "Random Row Value: " + startRowValue );	
-	    System.out.println( "Random Col Value: " + startColValue );
+            System.out.println( "Random Col Value: " + startColValue );
 
             //gotta set the ship's length
             switch( i ) {
@@ -124,9 +127,11 @@ public class BSGrid {
                 dir = 3;
             } else if( dir == 2 && ( startRowValue - shipLength ) < 0 ) {
                 dir = 4;
-            } else if( dir == 3 && ( startColValue + shipLength ) > 9 ) {
+            } else if( dir == 3 &&
+                       ( startColValue + shipLength ) > COL_COUNT - 1 ) {
                 dir = 1;
-            } else if( dir == 4 && ( startRowValue + shipLength ) > 9 ) {
+            } else if( dir == 4 &&
+                       ( startRowValue + shipLength ) > ROW_COUNT - 1 ) {
                 dir = 2;
             }
 
@@ -141,9 +146,9 @@ public class BSGrid {
             while( overlap ) {
                 //generate the new startValues
                 startRowValue = (int)
-                ( Math.ceil( Math.random()*10 ) - 1.0 );
+                ( Math.ceil( Math.random()*ROW_COUNT ) - 1.0 );
                 startColValue = (int)
-                ( Math.ceil( Math.random()*10 ) - 1.0 );
+                ( Math.ceil( Math.random()*COL_COUNT ) - 1.0 );
 
                 overlap = false;
 
@@ -152,9 +157,11 @@ public class BSGrid {
                     dir = 3;
                 } else if( dir == 2 && ( startRowValue - shipLength ) < 0 ) {
                     dir = 4;
-                } else if( dir == 3 && ( startColValue + shipLength ) > 9 ) {
+                } else if( dir == 3 &&
+                           ( startColValue + shipLength ) > COL_COUNT - 1 ) {
                     dir = 1;
-                } else if( dir == 4 && ( startRowValue + shipLength ) > 9 ) {
+                } else if( dir == 4 &&
+                           ( startRowValue + shipLength ) > ROW_COUNT - 1 ) {
                     dir = 2;
                 }
 
@@ -322,9 +329,9 @@ public class BSGrid {
         gridString.append(
         " 0123456789\n" );
 
-        for( int i = 0; i < 10; i++ ) {
+        for( int i = 0; i < ROW_COUNT; i++ ) {
             gridString.append( letters[ i ] );
-            for( j = 0; j < 10; j++ ) {
+            for( j = 0; j < COL_COUNT; j++ ) {
                 if( grid[ i ][ j ] == 0 ) { //empty
                     gridString.append( "." );
                 } else if( grid[ i ][ j ] == 1 ) { //ship
@@ -334,7 +341,6 @@ public class BSGrid {
                 } else { //hit
                      gridString.append( "X" );
                 }
-
             }
             gridString.append( "\n" );
         }
