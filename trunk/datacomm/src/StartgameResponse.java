@@ -1,11 +1,14 @@
 /*
- * StartGameResponse.java
+ * StartgameResponse.java
  * 
  * Version:
  *   $Id$
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.2  2004/01/26 21:44:40  psionic
+ *   *** empty log message ***
+ *
  *   Revision 1.1  2004/01/26 21:21:28  psionic
  *   - Updated commands framework, added game-starting ability
  *
@@ -21,11 +24,11 @@
  * @author Jordan Sissel
  * @author Nick Johnson
  */
-public class StartGameResponse extends Response {
+public class StartgameResponse extends Response {
     /**
-     * Creates a new StartGameResponse
+     * Creates a new StartgameResponse
      */
-    public StartGameResponse() {
+    public StartgameResponse() {
         super( ProtocolConstants.STARTGAME_RESPONSE, "Start game" );
     }
-}   // StartGameResponse
+}   // StartgameResponse

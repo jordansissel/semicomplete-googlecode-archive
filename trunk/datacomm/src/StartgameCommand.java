@@ -1,11 +1,14 @@
 /*
- * StartGameCommand.java
+ * StartgameCommand.java
   *
  * Version:
  *   $Id$
  *
  * Revisions:
  *   $Log$
+ *   Revision 1.2  2004/01/26 21:44:40  psionic
+ *   *** empty log message ***
+ *
  *   Revision 1.1  2004/01/26 21:21:28  psionic
  *   - Updated commands framework, added game-starting ability
  *
@@ -27,12 +30,12 @@ import java.util.List;
  * @author Jordan Sissel
  * @author Nick Johnson
  */
-public class StartGameCommand extends Command {
+public class StartgameCommand extends Command {
 
     /**
      * Creates a new startgame object.
      */
-	public StartGameCommand() {
+	public StartgameCommand() {
 		super("startgame");
 	}
 
@@ -40,7 +43,7 @@ public class StartGameCommand extends Command {
      * Creates a new startgame with args.
      * @param args The args to set.
      */
-	public StartGameCommand(List args) {
+	public StartgameCommand(List args) {
 		super("startgame", args);
 	}
 
@@ -49,7 +52,7 @@ public class StartGameCommand extends Command {
      * @param args The args to parse.
      * @throws InvalidCommandArgumentsException If there was an error parsing.
      */
-	public StartGameCommand(String args) throws InvalidCommandArgumentsException {
+	public StartgameCommand(String args) throws InvalidCommandArgumentsException {
 		super("startgame");
 		this.args = parseArgs(args);
 	}
@@ -62,7 +65,7 @@ public class StartGameCommand extends Command {
      */
 	public boolean validateArguments(List args)
 	       throws InvalidCommandArgumentsException {
-		System.err.println("StartGameCommand validateArguments()");
+		System.err.println("StartgameCommand validateArguments()");
 
 		// Number of arguments
 		if (args.size() != 2) {
@@ -74,4 +77,4 @@ public class StartGameCommand extends Command {
 
 		return true;
 	}
-} // StartGameCommand
+} // StartgameCommand
