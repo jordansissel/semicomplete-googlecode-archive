@@ -36,6 +36,44 @@ clients.
 Specification
 ------------------------------------
 
+ 1. To start the server:
+
+	Type this on the command prompt and press enter:
+
+	java BattleshipServer <host> <TCPPort> <UDPPort>
+
+    <host> - is the name of the host computer the server
+             will be running on.
+
+    <TCPPort> - is the port at which the server will be recieving 
+                requests via TCP protocol.
+
+    <UDPPort> - is the port at which the client will be receiving
+                requests via UDP protocol.
+
+ 2. To start the client:
+
+    Type this on the command prompt and press enter:
+
+	java BattleshipPlayer <host> <protocol> <port> <yourName> <otherName>
+
+    <host> - the name of the host computer where the server is running.
+
+    <protocol> - is either "TCP" or "UDP". Whichever the client will be using
+                 to communicate with the server.
+
+    <port> - the port on the server with which this client will be
+             communicating.
+
+    <yourName> - is the name of the player that is playing the game on this
+                 particular client computer.
+
+    <otherName> - the name of the player, also connection to the server with
+                  which this client will be playing the game with.
+   
+ 3. The protocol:
+
+
 ------------------------------------
 Feasibility Study
 ------------------------------------
