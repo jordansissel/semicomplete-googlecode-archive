@@ -7,22 +7,22 @@ use Symbol;
 use Socket;
 use strict;
 
+require "userdata.pl";
+
 my $DRINKHOST = "drink.csh.rit.edu";
 my $DRINKPORT = 4242;
 
-my $userdata;
-
+my ($userdata, $clientinfo);
 my %session;
 my ($aim,$conn);
 my $s = IO::Select->new();
 
-include("userdata.pl");
+$userdata = Drink::read_users();
 
 $aim = new Net::AIM;
-$aim->newconn(Screenname => 'CSH Drink', Password => 'cshdrink123');
-my $userdata;
+#$aim->newconn(Screenname => 'CSH Drink', Password => 'cshdrink123');
 #$aim->newconn(Screenname => 'CSH Drink2', Password => 'cshdrink123');
-#$aim->newconn(Screenname => 'mobilesoutherner', Password => 'carleneway');
+$aim->newconn(Screenname => 'mobilesoutherner', Password => 'carleneway');
 
 #Handlers
 $conn = $aim->getconn();
@@ -56,8 +56,8 @@ sub read_from_sessions {
       my $data;
       if (defined($brec)) {
 	 if (length($line) == 0) { 
-	    print "Socket dead, removing...";
-	    sendim($key,"Socket dead.");
+	    print "Socket dead, removing...\n";
+	    sendim($key,"Socket dead. Retry :)");
 	    undef $session{$key};
 	    $s->remove($sock); 
 	    next;
@@ -86,11 +86,6 @@ sub on_im {
 
    my $args = $event->{'args'};
 
-   #foreach (keys(%{$event})) {
-   #   print "$_: " . $event->{$_} . "\n";
-   #}
-
-   #foreach (@{$args}) { print $_ . "\n"; }
    if ($args->[1] eq 'F') {
       handle_message($from,$args->[2]);
    }
@@ -100,7 +95,9 @@ sub on_im {
 sub on_error {
    my ($hash,$event,$from,$to) = @_;
    print STDERR "$from sent error code #".$event->{'args'}->[0] . "\n";
-   print STDERR $aim->trans($event->{'args'}->[0]) . "\n";
+   print STDERR $event->trans($event->{'args'}->[0]) . "\n";
+   print STDERR "Exiting...\n";
+   exit 1;
 }
 
 sub on_warn {
@@ -119,15 +116,24 @@ sub handle_message {
    if (defined($session{$from})) {
       if ($msg =~ /^h(e(l(p)?)?)?$/) {
 	 sendim($from, "This is the AIM Drink Client. The following commands are available: \n     Status\n     Drop\nAlso feel free to type 'help <command>'");
-      } elsif ($msg =~ /^help (.*)$/i) {
-	 if ($1 =~ m/^s(t(a(t(u(s)?)?)?)?)?$/i) {
+      } elsif ($msg =~ /^h(e(l(p)?)?)?.(.*)$/i) {
+	 if ($4 =~ m/^s(t(a(t(u(s)?)?)?)?)?$/i) { #help status
 	    sendim($from,"<b>STATUS</b> - Display the contents of Drink: Available drinks, price, and inventory.");
-	 } elsif ($1 =~ m/^d(r(o(p?)?)?)?$/i) {
+	 } elsif ($4 =~ m/^d(r(o(p?)?)?)?$/i) { #help drop
 	    sendim($from,"<b>DROP <NUM></b> - Drop a drink from the specified slot number.");
 	 }
-      } elsif ($msg =~ /^s(t(a(t(u(s)?)?)?)?)?$/i) {
-	get_drink_stats($session{$from}{'socket'});
-	sendim($from,$STATUS);
+      } elsif ($msg =~ /^s(t(a(t(u(s)?)?)?)?)?$/i) { #status
+	 get_drink_stats($session{$from}{'socket'});
+	 sendim($from,$clientinfo);
+      } elsif ($msg =~ /^d(r(o(p)?)?)?$/i) { #drop
+	 sendim($from,"Not implemented yet.");
+      } elsif ($msg =~ /^s(a(v(e)?)?)?$/i) { #save
+	 Drink::write_users($userdata); 
+      } elsif ($msg =~ /^i(n(f(o)?)?)?$/i) { #info
+	 my $say;
+	 my $data = $session{$from}{'data'};
+	 foreach (keys(%{$data})) { $say .= "<b>$_</b>: " . $data->{$_}."<br>" }
+	 sendim($from,$say);
       }
       
       #send($session{$from}{'socket'},$msg . "\n",0);
@@ -144,6 +150,9 @@ sub handle_message {
       $dconn = connect($sock,sockaddr_in($DRINKPORT, inet_aton($DRINKHOST)));
 
       $session{$from} = { socket => $sock, conn => $dconn };
+      $session{$from}{'data'} = $userdata->{$from};
+
+      print "Session ($from): " . $session{$from}{'data'} ."\n";
 
       #Selection adding
       $s->add($sock);
@@ -209,7 +218,7 @@ sub get_drink_stats {
      $info .= '<b>'.$word[1].'</b>: $0.'.$word[2].' - '.$word[3].' left.<br>';
    }
 
-   $STATUS = $info;
+   $clientinfo = $info;
    $aim->set_info($info);
 }
 

@@ -1,13 +1,16 @@
 #!/usr/bin/perl
 
+package Drink;
+
+use IO;
 use XML::TreeBuilder;
 use XML::Writer;
-use vars qw($DEBUG);
+use vars qw($DEBUG $CONFIG);
 use strict;
 
 my $CONFIG = "data.xml";
 
-unless (defined($DEBUG)) {  $DEBUG = 10; }
+$DEBUG = 3;
 
 #
 #  <user name="PsiKronic">
@@ -15,23 +18,17 @@ unless (defined($DEBUG)) {  $DEBUG = 10; }
 #  </user>
 #
 
-if (! -e "data.xml") {
+if (! -e $CONFIG) {
    print "Config file doesn't exist, creating...";
-   open(NEWCONFIG,"> data.xml") or die("Failed openning data.xml for writing");
-   print NEWCONFIG << "END";
-<?xml version="1.0" encoding="ISO-8859-1" ?>
-
-<data>
-</data>
-END
+   open(NEWCONFIG,"> $CONFIG") or die("Failed opening $CONFIG for writing");
+   print NEWCONFIG "<data>\n</data>";
    close(NEWCONFIG);
-
    print "done.\n";
 }
 
 sub read_users {
-    my $userdata = shift;
     my ($tree,@users);
+    my $userhash = {};
 
     $tree = new XML::TreeBuilder();
     $tree->parse_file($CONFIG);
@@ -45,29 +42,52 @@ sub read_users {
 	  next unless ref($tag); #Ignore empty shit.
 	  print "<".$tag->tag() . ">: " . $tag->as_text() ."\n"
 	     if ($DEBUG >= 2);
-	  $userdata->{$user->attr("name")}{$tag->tag()} = $tag->as_text();
+	  $userhash->{$user->attr("name")}{$tag->tag()} = $tag->as_text();
        }
     }
 
-    return $userdata;
+    return $userhash;
+}
+
+sub find_user {
+   my ($userhash,$user) = @_;
+
+   print "Finding user, $user | $userhash\n";
+   unless (defined($userhash->{$user})) {
+      #Unknown user, create a default 
+      $userhash->{$user} = { 'language' => "default" };
+      print "Def: " . defined($userhash->{$user}) . "\n";
+   }
+   print "Userhash: " .\{$userhash->{$user}}."\n";
+   return $userhash->{$user};
 }
 
 sub write_users {
-    my $userdata = shift;
+   my $userhash = shift;
 
-    print "Writing user data to disk...\n" if ($DEBUG >= 1);
+   print "Writing user data to disk...\n" if ($DEBUG >= 1);
 
-    foreach my $user (sort(keys(%{$userdata}))) {
-       print "User: $user\n" if ($DEBUG >= 2);
-       foreach my $key (keys(%{$userdata->{$user}})) {
-	  print "   $key: " . $userdata->{$user}{$key}."\n"
-	     if ($DEBUG >= 3);
-       }
-    }
+   my $out = new IO::File(">$CONFIG");
+   my $o = new XML::Writer(OUTPUT => $out, DATA_MODE => 1, DATA_INDENT => 3);
 
-    print "Done\n" if ($DEBUG >= 1);
+   $o->startTag("data");
+
+   foreach my $user (sort(keys(%{$userhash}))) {
+      print "User: $user\n" if ($DEBUG >= 2);
+      $o->startTag("user", "name" => "$user");
+      foreach my $key (keys(%{$userhash->{$user}})) {
+	 print "   $key: " . $userhash->{$user}{$key}."\n" if ($DEBUG >= 3);
+	 $o->startTag("$key");
+	 $o->characters($userhash->{$user}{$key});
+	 $o->endTag("$key");
+      }
+      $o->endTag("user");
+   }
+
+   $o->endTag("data");
+   $o->end();
+   $out->close();
+
+   print "Done\n" if ($DEBUG >= 1);
 }
-
-#my $userdata;
-#$userdata = read_users();
-#write_users($userdata);
+1;
