@@ -61,9 +61,10 @@ HELP
 
 	my ($args) = @_;
 	my ($sn, $msg);
+	out(join(" / ", @_));
   
 	if (scalar(@_) == 1) {
-		($sn, $msg) = split(/\s+/, $args, 2);
+		($sn, $msg) = split(/\s/, $args, 2);
 	} else {
 		($sn, $msg) = @_;
 	} 
@@ -449,8 +450,8 @@ HELP
 			$e .= "idle, " if ($bud->{"idle"});
 			$e =~ s/, $//;
 
-			out("    $b ($e)");
-
+			out("    $b ($e)")
+			#if (($args =~ m/\b$type\b/) && ($e =~ m/\b$type\b/));
 		}
 	}
 }
