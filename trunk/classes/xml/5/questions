@@ -1,0 +1,67 @@
+Default templates:
+	- match="text()|@*"
+		output the value of each node having text and/or attributes.
+	- match="*|/"
+		Apply templates on all elements including the root node. Very important.
+	- match="processing-instruction( )|comment( )"
+		Handles comments and processing instructions (duh). Default is to more-or-less ignore them.
+
+-------
+
+for-each vs apply-templates
+
+for-each and apply-templates are similar, but different. Here's an example of how they can be used interchangeably
+
+<xsl:for-each select="//element">
+   <xsl:value-of select="@name" />
+</xsl:for-each>
+
+
+vs
+
+<xsl:apply-templates select="//element" />
+
+<xsl:template match="element">
+	<xsl:value-of select="@name" />
+</xsl:template>
+
+
+--------
+
+I would choose for-each if I were writing something that didn't need to be
+reused elsewhere. I would use a template if I needed to "call" the same segment
+of code from different locations in the xsl.
+
+--------
+
+Scope and lifetime of a variable is similar to most other languages. Variables
+created in one scope will no longer exist in an outer scope. This is nested scope.
+
+--------
+
+XML:
+<element name="foo">
+	<element name="bar"/>
+	<element name="baz"/>
+</element>
+
+XSL:
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+<xsl:template match="/">
+
+<xsl:text>Example of 'copy'</xsl:text> <xsl:text>&#010;</xsl:text>
+<xsl:for-each select="//element[@name = 'foo']">
+        <xsl:copy />
+</xsl:for-each>
+
+<xsl:text>&#010;</xsl:text>
+
+<xsl:text>Example of 'copy-of'</xsl:text> <xsl:text>&#010;</xsl:text>
+<xsl:copy-of select="//element[@name = 'foo']" />
+</xsl:template>
+</xsl:stylesheet>
+
+'copy' will copy the current node (without attributes, unless specified), to output. This does not include children. 'copy-of' will copy children AND attributes, and allows for a 'select' clause. 'copy' doesn't have a select clause, and only has the context of the current node.
+
+-----------
+
