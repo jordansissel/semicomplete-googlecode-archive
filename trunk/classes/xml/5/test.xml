@@ -1,0 +1,4 @@
+<element name="foo">
+	<element name="bar"/>
+	<element name="baz"/>
+</element>

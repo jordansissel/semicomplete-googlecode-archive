@@ -5,9 +5,10 @@
 </xsl:template>
 
 <xsl:template match="*[@id]">
+	<xsl:apply-templates select="child::*[1]" />
 	<xsl:value-of select="@id" />
 	<xsl:text>&#010;</xsl:text>
-	<xsl:apply-templates select="child::*" />
+	<xsl:apply-templates select="child::*[2]" />
 </xsl:template>
 
 </xsl:stylesheet>

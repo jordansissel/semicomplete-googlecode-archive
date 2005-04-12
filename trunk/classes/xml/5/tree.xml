@@ -1,0 +1,28 @@
+<!DOCTYPE document [
+  <!ELEMENT document (chapter, chapter)> <!ATTLIST document id ID #REQUIRED>
+  <!ELEMENT chapter (section, section)>  <!ATTLIST chapter id ID #REQUIRED>
+  <!ELEMENT section (topic, topic)>      <!ATTLIST section id ID #REQUIRED>
+  <!ELEMENT topic EMPTY>                 <!ATTLIST topic id ID #REQUIRED>
+]>
+<document id='d'>
+  <chapter id='dc1'>
+    <section id='dc1s1'>
+      <topic id='dc1s1t1'/>
+      <topic id='dc1s1t2'/>
+    </section>
+    <section id='dc1s2'>
+      <topic id='dc1s2t1'/>
+      <topic id='dc1s2t2'/>
+    </section>
+  </chapter>
+  <chapter id='dc2'>
+    <section id='dc2s1'>
+      <topic id='dc2s1t1'/>
+      <topic id='dc2s1t2'/>
+    </section>
+    <section id='dc2s2'>
+      <topic id='dc2s2t1'/>
+      <topic id='dc2s2t2'/>
+    </section>
+  </chapter>
+</document>
