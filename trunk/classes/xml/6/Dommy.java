@@ -27,7 +27,12 @@ public class Dommy extends DefaultHandler {
 		Element e; 
 		e = doc.createElement(qname);
 		Node n = (Node) stack.getLast();
-		System.out.println("<" + qname + "> / parent: " + n);
+		//System.out.println("<" + qname + "> / parent: " + n);
+
+		for (int i = 0; i < attributes.getLength(); i++) {
+			e.setAttribute(attributes.getQName(i), attributes.getValue(i));
+		}
+		
 		n.appendChild(e);
 		stack.add(e);
 	}
@@ -40,8 +45,8 @@ public class Dommy extends DefaultHandler {
 		n.appendChild(t);
 	}
 
-	public void closeElement(String uri, String localname, String qname) {
-		System.out.println("</" + qname + ">");
+	public void endElement(String uri, String localname, String qname) {
+		//System.out.println("</" + qname + ">");
 		stack.removeLast();
 	}
 
