@@ -31,7 +31,7 @@
 	<xsl:variable name="albumcounts">
 		<xsl:for-each select="//key[text() = 'Album']/following-sibling::string[1][generate-id()=generate-id(key('stringy', .))]">
 			<xsl:variable name="albumname" select="text()" />
-			<xsl:variable name="count" select="count(//key[text() = 'Album']/following-sibling::string[1][generate-id()=generate-id(key('stringy', .))])"/>
+			<xsl:variable name="count" select="count(//key[text() = 'Album']/following-sibling::string[1][generate-id()=generate-id(key('stringy', .)) and text() = $albumname])"/>
 			<album name="{text()}" count="{$count}" />
 		</xsl:for-each>
 	</xsl:variable>
