@@ -1,0 +1,15 @@
+test { "foo bar baz"; };
+
+test { foo { "bar"; }; baz { "fizzle dizzle"; }; FIZZLE { DIZZLE { "fo shizzle"; }; }; };
+
+one { two { three { "four"; }; }; };
+test foo = "baz"; { one { "two"; }; };
+test foo = "baz"; fizz = "blaz"; { "one"; };
+
+test a = "b"; b = "c"; d = "f"; fizz = "blaz"; { "one"; };
+
+test { };
+
+test foo = "bar"; { one attr1 = "foobie"; { }; fizzle { fazzle { "rangle"; }; "fangle"; }; };
+
+foo { "bar"; ONE { "two;"; }; "baz"; "fizz"; };
