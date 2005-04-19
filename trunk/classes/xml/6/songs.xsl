@@ -4,7 +4,6 @@
 <xsl:key name="stringy" match="string" use="." />
 
 <xsl:template match="/">
-<!--
 	<xsl:text>Total tracks: </xsl:text>
 	<xsl:value-of select="count(//key[text() = 'Tracks']/following-sibling::dict[1]/key)" />
 	<xsl:text>&#10;</xsl:text>
@@ -16,27 +15,36 @@
 	<xsl:text>Total albums: </xsl:text>
 	<xsl:value-of select="count(//key[text() = 'Album']/following-sibling::string[1][generate-id()=generate-id(key('stringy', .))])" />
 	<xsl:text>&#10;</xsl:text>
--->
 
-	<xsl:text>Most used album title: </xsl:text>
+	<!-- UNCOMMENT THIS IF YOU WISH TO SEE ALL DISTINCT ALBUM TITLES -->
 	<!--
-	<xsl:value-of select="//key[text() = 'Album']/following-sibling::string[1][count(//key[text() = 'Album']/following-sibling::string[1][generate-id()=generate-id(key('stringy', .))]) > 
-	count(//key[text() = 'Album']/following-sibling::string[1][
-	]" />
+	<xsl:text>Distinct album titles: </xsl:text>
+	<xsl:for-each select="//key[text() = 'Album']/following-sibling::string[1][generate-id()=generate-id(key('stringy', .))]">
+		<xsl:value-of select="text()" /> 
+		<xsl:text>&#10;</xsl:text>
+	</xsl:for-each>
+	<xsl:text>&#10;</xsl:text>
 	-->
 
-	<xsl:text>Album: </xsl:text>
-	<!-- <xsl:variable name="albumcounts">  -->
+	<xsl:text>Most often used Album: </xsl:text>
+	<xsl:text>&#010;</xsl:text>
+	<xsl:variable name="albumcounts">
 		<xsl:for-each select="//key[text() = 'Album']/following-sibling::string[1][generate-id()=generate-id(key('stringy', .))]">
 			<xsl:variable name="albumname" select="text()" />
-			<xsl:value-of select="count(//key[text() = 'Album']/following-sibling::string[1][generate-id()=generate-id(key('stringy', .)) and text() = $albumname])" />
-			<xsl:text>	</xsl:text>
-			<xsl:value-of select="$albumname" />
-			<xsl:text>&#10;</xsl:text>
+			<xsl:variable name="count" select="count(//key[text() = 'Album']/following-sibling::string[1][text() = $albumname])"/>
+			<album name="{text()}" count="{$count}" />
 		</xsl:for-each>
-	<!-- </xsl:variable> -->
+	</xsl:variable>
 
-	
+	<xsl:for-each select="$albumcounts/*">
+		<xsl:sort select="@count" data-type="number" order="descending" />
+		<xsl:if test="position() = 1">
+			<xsl:value-of select="@name" />
+			<xsl:text>	</xsl:text>
+			<xsl:value-of select="@count" />
+			<xsl:text>&#10;</xsl:text>
+		</xsl:if>
+	</xsl:for-each>
 
 	<xsl:text>&#10;</xsl:text>
 </xsl:template>
