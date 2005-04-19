@@ -1,0 +1,21 @@
+Part 1 files:
+	songs.xsl
+
+	Use:
+	java -jar saxon8.jar iTunes.xml songs.xsl
+
+xsltproc will not work with this xsl file, It complains about an invalid
+XPath type for the last solution to part 1.
+
+Part 2 files:
+Dommy.java
+main.java
+
+Compile with:
+javac main.java Dommy.java
+Run with:
+
+java main < somefile.input
+
+reads from standard input, attempting to specify a filename on the
+commandline will fail
