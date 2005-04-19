@@ -81,9 +81,14 @@ public class main {
 
 		//System.out.println(" --- st: " + (char)st.ttype);
 		if ('"' == st.ttype) {
-			//System.out.println("Content: " + st.sval);
-			/* This is the start of a string */
+			/* This is a string node */
 			d.characters(st.sval.toCharArray(), 0, st.sval.length());
+
+			/* Expect semicolon */
+			st.nextToken();
+			if (st.TT_EOF == st.ttype) throw new UnexpectedEOFException();
+			if (';' != st.ttype) throw new OMGParseException(";");
+
 		} else if ('}' == st.ttype) {
 			/* Empty element??? */
 		} else {
