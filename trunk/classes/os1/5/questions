@@ -6,13 +6,25 @@ queue.size() >= MAX and we are in produce(...)
 Steps
 produce will call wait() because queue.size() >= MAX
 
-consume will then check if queue.size() >= MAX, which it isn't yet true, 
-	so it will check if queue.size() < MIN, which isn't true.
+consume will then check if queue.size() >= MAX, which is currently true.
 
 At this point, queue.size() can only decrease because consume() will 
 remove things from the ArrayList. This means consume(...)'s check of
 queue.size() >= MAX will always be false, so eventually queue.size() will be
 less than MIN, at which point consume will wait() and we have deadlock
+
+The fix is to change the first conditional in consume() to
+
+if (queue.size() < MAX)
+	notifyAll();
+
+and remove the else line only, it should look like this:
+
+if (queue.size() < MAX)
+	notifyAll();
+while (queue.size() < MIN)
+	wait();
+
 
 -------------------------------------------
 
@@ -38,6 +50,38 @@ Performance again like (a) is suboptimal. More threads exist wanting to run than
 
 5.4)
 a) 
++----------------------------------------------------------------------------------------------+
+|    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |
++----------------------------------------------------------------------------------------------+
+0                        5                        10                       15                  19
+
+
+FCFS
++----------------------------------------------------------------------------------------------+
+|         P1                                      | P2 |   P3    | P4 |       P5               |
++----------------------------------------------------------------------------------------------+
+0                        5                        10                       15                  19
+
+
+RR
++----------------------------------------------------------------------------------------------+
+| P1 | P2 | P3 | P4 | P5 | P1 | P3 | P5 | P1 | P5 | P1 | P5 | P1 | P5 | P1 | P1 | P1 | P1 | P1 |
++----------------------------------------------------------------------------------------------+
+0                        5                        10                       15                  19
+
+STP
++----------------------------------------------------------------------------------------------+
+| P2 | P4 |    P3   |       P9               |                P1                                 |
++----------------------------------------------------------------------------------------------+
+0                   4    5                   9    10                       15                  19
+
+
+Priority -based
++----------------------------------------------------------------------------------------------+
+| P2 |          P5            |                   P1                            |  P3     | P4 |
++----------------------------------------------------------------------------------------------+
+0                        5    6                   10                       15  16              19
+
 
 b) turnaround times
 
