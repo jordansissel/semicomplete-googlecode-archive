@@ -3,53 +3,48 @@
 /* This is an object we can instantiate, and send() and receive() are non-static methods.
  * therefore there can be more than one independent channel */
 public class Channel<E> {
+
+	/* Message can be null because it's value is nothing special */
 	private E message;
 
+	/* Locker objects */
 	private Object sent = new Object(), received = new Object();
-	private Boolean message_sent = new Boolean(false);
-	private Boolean message_received = new Boolean(false);
+
+	/* State */
+	private boolean message_sent = false;
+	private boolean message_received = false;
 
 	/* These methods are synchronized, therefore only one thread can access each
 	 * method at a time */
 	public void send(E message) {
-		synchronized (sent) {
-
-			message_sent = Boolean.FALSE;
-			/* Notify a receiver, if any, that we have sent a message */
-			synchronized (this) { 
-				/* "Send" the message */
-				this.message = message;
+		synchronized (sent) { /* sync on sent to limit to one thread */
+			synchronized (this) { /* sync on this so we can wait() and notify() on it */
+				this.message = message; /* "Send" the message */
 
 				/* Specify that our message has been sent */
-				message_sent = Boolean.TRUE; /* Needed if no receiver yet */
+				message_sent = true; /* Needed if no receiver yet */
 				notify();  /* Wake up the receiver if there is one */
 
 				/* If the message has not been received yet, then indicate the message has been sent
 				 * and wait for a notification of reception */
-				System.out.println(Thread.currentThread().getId() + " waiting on receiver");
-				while (! message_received.booleanValue()) {
+				while (!message_received) {
 					try {
-						this.wait(); /* On a receiver */
-						System.out.println(Thread.currentThread().getId() + " wakeup - message_received = " + message_received);
+						wait(); /* On a receiver */
 					} catch (Exception e) { }
 				}
-				System.out.println(Thread.currentThread().getId() + " receiver notified me");
-				notify();
+				message_received = false;
 			}
-
 		} 
 	}
 
 	/* This method is also synchronized, so only one thread can receive at a time */
 	public E receive() {
-		synchronized (received) {
-			message_received = Boolean.FALSE;
-			System.out.println(Thread.currentThread().getId() + " ENTER");
+		synchronized (received) { /* Synchronize on received so only one thread can access us */
+			synchronized (this) { /* Synchronize on this so we can lock on it */
+				E mymessage;
 
-			synchronized (this) {
 				/* If no message was sent wait for a message to come in */
-				if (! message_sent.booleanValue()) {
-
+				while (!message_sent) {
 					/* Wait until a message arrives */
 					try {
 						wait(); /* On a sender */
@@ -57,34 +52,34 @@ public class Channel<E> {
 				}
 
 				/* Sender will not wait if message_received is true */
-				System.out.println(Thread.currentThread().getId() + " Setting received to true");
-				message_received = Boolean.TRUE;
-				System.out.println(Thread.currentThread().getId() + " THIS VALUE IS TRUE: " + message_received);
-
-				/* Wake up sender */
+				mymessage = message;
+				message_received = true;
+				message_sent = false;
 				notify(); /* the sender */
-
-				/* acknowledge the recept */
-				try {
-					this.wait(); /* On a receiver */
-					System.out.println(Thread.currentThread().getId() + " waiting on sender");
-				} catch (Exception e) { }
+				return mymessage;
 			}
-
-			System.out.println(Thread.currentThread().getId() + " LEAVE");
-			return message;
 		}
 	}
 
 
-	public static void main(String[] args) {
-		final Channel channel = new Channel();
+	/* We'll pretend that this isn't test code */
 
-		for(int i = 0; i < 4; i++) {
+	/* 
+	 *
+	 *
+	 * no really.. there is no test code here.
+	 *
+	 *
+	 */
+	public static void main(String[] args) {
+		final Channel<Integer> channel = new Channel<Integer>();
+
+		for(int i = 0; i < 300; i++) {
+			final int x = i; /* anonymous classes like final */
 			new Thread(new Runnable() {
 				public void run() {
-					//System.out.println(Thread.currentThread().getId() + " sending...");
-					channel.send("hi");
+					//System.out.println(Thread.currentThread().getId() + " sending: " + MESSAGE);
+					channel.send(new Integer(x));
 					//System.out.println(Thread.currentThread().getId() + " sending done");
 				}
 			}).start();
@@ -98,6 +93,5 @@ public class Channel<E> {
 			}).start();
 		}
 	}
-
 
 }
