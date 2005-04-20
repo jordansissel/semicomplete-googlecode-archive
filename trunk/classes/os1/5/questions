@@ -1,0 +1,66 @@
+Fib.java
+
+This program will deadlock when:
+queue.size() >= MAX and we are in produce(...)
+
+Steps
+produce will call wait() because queue.size() >= MAX
+
+consume will then check if queue.size() >= MAX, which it isn't yet true, 
+	so it will check if queue.size() < MIN, which isn't true.
+
+At this point, queue.size() can only decrease because consume() will 
+remove things from the ArrayList. This means consume(...)'s check of
+queue.size() >= MAX will always be false, so eventually queue.size() will be
+less than MIN, at which point consume will wait() and we have deadlock
+
+-------------------------------------------
+
+4.8)
+
+a) number of kernel threads < number of processors
+
+With more processors than kernel threads, you will likely have idle an processor or more, depending on the ratio.
+
+b) The number of kernel threads allocated to the program is equal to the number of processors.
+
+Performance should be optimal here, since there is an equal number of threads wanting to be run as the number of processors available
+
+c) The number of kernel threads allocated to the program is greater than the number of processors but less than the number of user-level threads.
+
+Performance again like (a) is suboptimal. More threads exist wanting to run than there are potential processors, so threads will be waiting in the ready queue some of the time.
+
+------------
+
+5.2)
+
+-----------
+
+5.4)
+a) 
+
+b) turnaround times
+
+	FCFS	RR	SJF	PRIO
+P1	10	19	19	16
+P2	11	2	1	1
+P3	13	7	4	18
+P4	14	4	2	19
+P5	19	14	9	6
+
+c) waiting times
+	FCFS	RR	SJF	PRIO
+P1	0	9	9	6
+P2	10	1	0	0
+P3	11	5	2	16
+P4	13	3	1	18
+P5	14	9	4	1
+
+d) average wait time
+
+FCFS	9.6
+RR	5.4
+SJF	3.2
+PRIO	8.2
+
+SJF is results in smallest average wait time
