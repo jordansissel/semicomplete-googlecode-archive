@@ -1,0 +1,103 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Symbol;
+
+# pragma - allow (?{ code }) assertions in
+# dynamically generated regexen.
+use re 'eval';
+
+use File::Tail;
+use Regexp::Common qw(RE_ALL);
+
+my @lognames = qw(/var/log/auth.log);
+my @logrefs;
+
+my $PATTERNS = {
+	"/var/log/auth.log" => {
+		'Illegal user %USERNAME% from %IP%' => "bad username",
+		'Failed password for (illegal user)? %USERNAME% from %IP% port %PORT%' => "failed password",
+		'Failed none for illegal user %USERNAME% from %IP% port %PORT%' => "bad username",
+		'last message repeated %COUNT% times' => "syslog repeat"
+	},
+};
+
+my $HANDLERS = {
+	"bad username" => \&bad_username,
+	"failed password" => \&failed_password,
+	"syslog repeat" => \&syslog_repeat,
+};
+	
+# Pattern-space wildcards, used as %WILDCARD% in the pattern config
+my %MATCH = (
+	USERNAME => '\\w+',
+	IP => $RE{net}{IPv4},
+	PORT => '\\d+',
+	COUNT => '\\d+',
+);
+
+foreach (@lognames) {
+	push(@logrefs, File::Tail->new(name => "$_", maxinterval => 1, interval => 1));
+}
+
+while(1) {
+	my ($num,$timeleft,@pending) = File::Tail::select(undef,undef,undef,1,@logrefs);
+	if ($num) {
+		foreach (@pending) {
+			handle($_);
+		}
+	}
+}
+
+sub handle {
+	my ($log) = shift;
+	my $line = $log->read();
+	#print $log->{"input"} . "> " . $line;
+	my $last = { line => $line };
+	foreach my $pattern (keys(%{$PATTERNS->{$log->{"input"}}})) {
+		# "fix" the line, turn it into a regex.
+		my $regex = pattern2regex($pattern);
+
+		# The regex match will store keys in this hash
+		my %values;
+		if ($line =~ /$regex/) { 
+			$HANDLERS->{$PATTERNS->{$log->{"input"}}->{$pattern}}->(\%values, $log);
+			$last->{"values"} = %values;
+			$last->{"handler"} = $PATTERNS->{$log->{"input"}}->{$pattern};
+		}
+	}
+	$log->{"last"} = $last;
+}
+
+sub bad_username {
+	my $values = shift;
+
+	print "Bad username, '" . $values->{"USERNAME"} . "' [" . $values->{"IP"} . "]\n";
+}
+
+sub failed_password {
+	my $values = shift;
+	print "Failed password for user , '" . $values->{"USERNAME"} . "' [" . $values->{"IP"} . "]\n";
+}
+
+sub syslog_repeat {
+	my $values = shift;
+	my $log = shift;
+	print "Last message repeated < " . $values->{"COUNT"} . " > times\n";
+	print "Message was: " . $log->{"last"}->{"line"};
+}
+
+sub pattern2regex {
+	my $pattern = shift;
+	my $regex = $pattern;
+
+	map { $regex =~ s/%($_)%/($MATCH{$_})(?{\$values{$1} = \$^N})/g; } keys(%MATCH);
+
+	#print "\n";
+	#print "Pattern: $pattern\n";
+	#print "Regex: $regex\n";
+	#print "\n";
+
+	return $regex;
+}
