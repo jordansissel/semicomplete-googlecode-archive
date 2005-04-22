@@ -3,13 +3,16 @@
 use strict;
 use warnings;
 use Symbol;
+use Data::Dumper;
 
 # pragma - allow (?{ code }) assertions in
 # dynamically generated regexen.
 use re 'eval';
 
+# Things you'll need to have installed:
 use File::Tail;
 use Regexp::Common qw(RE_ALL);
+use Parse::RecDescent;
 
 my @lognames = qw(/var/log/auth.log);
 my @logrefs;
@@ -37,6 +40,12 @@ my %MATCH = (
 	COUNT => '\\d+',
 );
 
+my $config = readconfig();
+$config = processconfig($config);
+setup($config);
+
+my $state;
+
 foreach (@lognames) {
 	push(@logrefs, File::Tail->new(name => "$_", maxinterval => 1, interval => 1));
 }
@@ -55,14 +64,35 @@ sub handle {
 	my $line = $log->read();
 	#print $log->{"input"} . "> " . $line;
 	my $last = { line => $line };
-	foreach my $pattern (keys(%{$PATTERNS->{$log->{"input"}}})) {
+	my $patterns = $PATTERNS->{$log->{"input"}};
+	foreach my $pattern (keys(%{$patterns})) {
 		# "fix" the line, turn it into a regex.
 		my $regex = pattern2regex($pattern);
+		#print "\n";
+		#print "Line: $line\n";
+		#print "Pattern: $pattern\n";
+		#print "Regex: $regex\n";
 
 		# The regex match will store keys in this hash
 		my %values;
 		if ($line =~ /$regex/) { 
-			$HANDLERS->{$PATTERNS->{$log->{"input"}}->{$pattern}}->(\%values, $log);
+			# Handle if we're over the threshold
+			my $pat = $PATTERNS->{$log->{"input"}}->{$pattern};
+			my $keyname = "$pat / $values{IP}";
+			$state->{$keyname}->{"time"} ||= time();
+			$state->{$keyname}->{"count"}++;
+
+			print "Matched $keyname\n";
+
+			my $fileconf = $config->{$log->{"input"}}->{"matches"}->{$pat};
+			if ($state->{$keyname}->{"count"} > $fileconf->{"threshold"})  {
+				if (time() - ($state->{$keyname}->{"time"}) < $fileconf->{"interval"}) { 
+					$HANDLERS->{$pat}->(\%values, $log);
+				} else { 
+					$state->{$keyname}->{"time"} = time();
+				}
+				$state->{$keyname}->{"count"} = 0;
+			}
 			$last->{"values"} = %values;
 			$last->{"handler"} = $PATTERNS->{$log->{"input"}}->{$pattern};
 		}
@@ -73,6 +103,7 @@ sub handle {
 sub bad_username {
 	my $values = shift;
 
+	print "TRIGGERED ACTION!\n";
 	print "Bad username, '" . $values->{"USERNAME"} . "' [" . $values->{"IP"} . "]\n";
 }
 
@@ -100,4 +131,93 @@ sub pattern2regex {
 	#print "\n";
 
 	return $regex;
+}
+
+sub readconfig {
+	my $cfname = "logwatch.conf";
+	my $grammar = << 'GRAMMAR';
+config: (ignorable | file)(s) /\Z/ { $return = $item[1] }
+ignorable: (comment | blankline)(s)
+comment: /#[^\n]*/
+blankline: /^\s+?\n/
+
+string: /"([^"]+)"/ { $return = $1 }
+number: /\d+/
+
+file: 'file' filename '{' file_entry(?) '}' ';' { $return = { file => $item[2], entry => $item[4] } }
+filename: string
+file_entry: (file_entry_line | ignorable)(s) { $return = $item[1] }
+file_entry_line: (syslog | type) ';' { print "\n"; $return = $item[1] }
+
+syslog: 'syslog' '=' number { print "Syslog: $item[3]\n"; $return = { "syslog" => $item[3] } }
+
+type: 'type' typename '{' type_entry '}' { $return = { "name" => $item[2], "conf" => $item[4] } }
+typename: string
+type_entry: (((match | threshold | interval) { $return = $item[1]; } ';') | ignorable)(s)
+
+match: 'match' '=' string { print "Match: $item[3]\n"; $return = { match => $item[3] } }
+threshold: 'threshold' '=' number { print "Threshold: $item[3]\n"; $return = { threshold => $item[3] } }
+interval: 'interval' '=' number { print "Interval: $item[3]\n"; $return = { interval =>$item[3] } }
+GRAMMAR
+
+	my $parser = Parse::RecDescent->new($grammar);
+	my $config;
+	open(CONFIG, "logwatch.conf") or return;
+	undef $/;
+	$config = $parser->config(<CONFIG>);
+	close(CONFIG);
+
+	return $config;
+}
+
+sub processconfig {
+	my $config = shift;
+	my $newconf;
+
+	foreach my $entry (@$config) {
+		if (ref($entry) ne 'HASH') {
+			die "Unexpected value, was looking for HASHREF - " . ref($entry);
+		}
+		my $newentry;
+
+		foreach my $data (@{$entry->{"entry"}->[0]}) {
+			# if $data is an ARRAYREF then $data->[0] is a comment
+			if (ref($data) eq 'HASH') {
+				my $newdata;
+				if (exists($data->{"conf"})) {
+					foreach (@{$data->{"conf"}}) {
+						my ($key) = keys(%$_); 
+						if ($key eq 'match') {
+							push(@{$newdata->{$key}}, $_->{$key});
+						} else {
+							$newdata->{$key} = $_->{$key};
+						}
+					}
+					$newentry->{"matches"}->{$data->{"name"}} = $newdata;
+				} else {
+					my ($key) = keys(%$data);
+					$newentry->{$key} = $data->{$key};
+				}
+			}
+		}
+		$newconf->{$entry->{"file"}} = $newentry;
+	}
+
+	return $newconf;
+}
+
+sub setup {
+	my $config = shift;
+	print Dumper($config);
+	foreach my $file (keys(%{$config})) {
+		print "File: $file\n";
+		my $matches = $config->{$file}->{"matches"};
+		my $matchhash;
+		foreach my $match (keys(%{$matches})) {
+			foreach my $string (@{$matches->{$match}->{"match"}}) {
+				$matchhash->{$string} = $match;
+			}
+		}
+		$PATTERNS->{$file} = $matchhash;
+	}
 }
