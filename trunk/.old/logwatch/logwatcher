@@ -17,14 +17,7 @@ use Parse::RecDescent;
 my @lognames = qw(/var/log/auth.log);
 my @logrefs;
 
-my $PATTERNS = {
-	"/var/log/auth.log" => {
-		'Illegal user %USERNAME% from %IP%' => "bad username",
-		'Failed password for (illegal user)? %USERNAME% from %IP% port %PORT%' => "failed password",
-		'Failed none for illegal user %USERNAME% from %IP% port %PORT%' => "bad username",
-		'last message repeated %COUNT% times' => "syslog repeat"
-	},
-};
+my $PATTERNS;
 	
 # Pattern-space wildcards, used as %WILDCARD% in the pattern config
 my %MATCH = (
@@ -38,6 +31,7 @@ my $config = readconfig();
 $config = processconfig($config);
 setup($config);
 
+# Keep state
 my $state;
 
 foreach (@lognames) {
