@@ -25,12 +25,6 @@ my $PATTERNS = {
 		'last message repeated %COUNT% times' => "syslog repeat"
 	},
 };
-
-my $HANDLERS = {
-	"bad username" => \&bad_username,
-	"failed password" => \&failed_password,
-	"syslog repeat" => \&syslog_repeat,
-};
 	
 # Pattern-space wildcards, used as %WILDCARD% in the pattern config
 my %MATCH = (
@@ -85,9 +79,14 @@ sub handle {
 			print "Matched $keyname\n";
 
 			my $fileconf = $config->{$log->{"input"}}->{"matches"}->{$pat};
-			if ($state->{$keyname}->{"count"} > $fileconf->{"threshold"})  {
-				if (time() - ($state->{$keyname}->{"time"}) < $fileconf->{"interval"}) { 
-					$HANDLERS->{$pat}->(\%values, $log);
+			if ($state->{$keyname}->{"count"} >= $fileconf->{"threshold"})  {
+				if (time() - ($state->{$keyname}->{"time"}) <= $fileconf->{"interval"}) { 
+					#print "Reaction: " . $fileconf->{"reaction"} . "\n";
+					my $reaction = $fileconf->{"reaction"};
+					print "Reaction: $reaction\n";
+					$reaction = meta2string($reaction, \%values);
+					print "Processed: $reaction\n";
+					system($reaction);
 				} else { 
 					$state->{$keyname}->{"time"} = time();
 				}
@@ -100,37 +99,22 @@ sub handle {
 	$log->{"last"} = $last;
 }
 
-sub bad_username {
-	my $values = shift;
-
-	print "TRIGGERED ACTION!\n";
-	print "Bad username, '" . $values->{"USERNAME"} . "' [" . $values->{"IP"} . "]\n";
-}
-
-sub failed_password {
-	my $values = shift;
-	print "Failed password for user , '" . $values->{"USERNAME"} . "' [" . $values->{"IP"} . "]\n";
-}
-
-sub syslog_repeat {
-	my $values = shift;
-	my $log = shift;
-	print "Last message repeated < " . $values->{"COUNT"} . " > times\n";
-	print "Message was: " . $log->{"last"}->{"line"};
-}
-
 sub pattern2regex {
 	my $pattern = shift;
 	my $regex = $pattern;
 
 	map { $regex =~ s/%($_)%/($MATCH{$_})(?{\$values{$1} = \$^N})/g; } keys(%MATCH);
 
-	#print "\n";
-	#print "Pattern: $pattern\n";
-	#print "Regex: $regex\n";
-	#print "\n";
-
 	return $regex;
+}
+
+sub meta2string {
+	my $meta = shift;
+	my $values = shift;
+
+	map { $meta =~ s/%($_)%/$values->{$_}/g; } keys(%MATCH);
+
+	return $meta;
 }
 
 sub readconfig {
@@ -153,11 +137,12 @@ syslog: 'syslog' '=' number { print "Syslog: $item[3]\n"; $return = { "syslog" =
 
 type: 'type' typename '{' type_entry '}' { $return = { "name" => $item[2], "conf" => $item[4] } }
 typename: string
-type_entry: (((match | threshold | interval) { $return = $item[1]; } ';') | ignorable)(s)
+type_entry: (((match | threshold | interval | reaction) { $return = $item[1]; } ';') | ignorable)(s)
 
 match: 'match' '=' string { print "Match: $item[3]\n"; $return = { match => $item[3] } }
 threshold: 'threshold' '=' number { print "Threshold: $item[3]\n"; $return = { threshold => $item[3] } }
-interval: 'interval' '=' number { print "Interval: $item[3]\n"; $return = { interval =>$item[3] } }
+interval: 'interval' '=' number { print "Interval: $item[3]\n"; $return = { interval => $item[3] } }
+reaction: 'reaction' '=' string { print "Reaction: $item[3]\n"; $return = { reaction => $item[3] } }
 GRAMMAR
 
 	my $parser = Parse::RecDescent->new($grammar);
