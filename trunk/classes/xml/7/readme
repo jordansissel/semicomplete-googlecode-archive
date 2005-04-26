@@ -1,0 +1,69 @@
+
+
+Files: (as usual, can be discovered with 'jar tf lab7.jar')
+readme
+MyXSL.java
+
+Compile:
+javac MyXSL.java
+
+------------------------
+
+Part 2 question 8
+
+inorder
+
+xsl:stylesheet version="1.0" {
+	xsl:output method="text";
+	xsl:template match="*" {
+		xsl:apply-templates select="*[1]";
+		xsl:value-of select="@id";
+		xsl:text { "&#10;" }
+		xsl:apply-templates select="*[2]";
+	}
+}
+
+preorder
+
+xsl:stylsheet version="1.0" {
+	xsl:output method="text";
+	xsl:template match="/" {
+		# display from the flat list
+		xsl:for-each select="//*" {
+			at = 'position()';
+			xsl:value-of select="@id";
+			xsl:text { "	" }
+			xsl:value-of select="(//*)[$at -1]/@id";
+			xsl:text { "	" }
+			xsl:value-of select="(//*)[$at -+]/@id";
+			xsl:text { "&#10;" }
+		}
+	}
+}
+
+
+postorder
+
+# display postorder navigation
+xsl:stylesheet version="1.1" {
+	xsl:output method="text";
+	xsl:template match="/" {
+		# collect the nodes into a flat list
+		nodes = { xsl:apply-templates; }
+		# display from the flat list
+		xsl:for-each select="$nodes/*" {
+			# save position of . in the list
+			at = 'position()';
+			xsl:value-of select="@id";
+			xsl:text { "	" }
+			xsl:value-of select="($nodes/*)[$at-1]/@id";
+			xsl:text { "	" }
+			xsl:value-of select="($nodes/*)[$at+1]/@id";
+			xsl:text { "&#10;" }
+		}
+	}
+	xsl:template match="*" {
+		xsl:apply-templates;
+		<node id="{@id}"/>
+	}
+}
