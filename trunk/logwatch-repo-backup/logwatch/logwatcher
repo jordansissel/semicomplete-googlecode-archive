@@ -71,6 +71,8 @@ sub handle {
 			$state->{$keyname}->{"count"}++;
 
 			print "Matched $keyname\n";
+			print "Pattern: $pattern\n";
+			print "Regex: $regex\n";
 
 			my $fileconf = $config->{$log->{"input"}}->{"matches"}->{$pat};
 			if ($state->{$keyname}->{"count"} >= $fileconf->{"threshold"})  {
