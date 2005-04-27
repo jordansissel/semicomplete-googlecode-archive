@@ -1,3 +1,8 @@
+/*
+ * Sleeping Barber problem
+ *
+ * $Id$
+ */
 
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -171,17 +176,18 @@ public class SleepingBarber {
 			shop = bs;
 		}
 
-		public setFinished(boolean f) {
+		public void setFinished(boolean f) {
 			done = f;
 		}
 
 		public void run() {
-			while (!done) {
+			while ((shop.numChairsEmpty() > 0) || !done) {
 				Customer c = null;
 				while (null == c) {
 					try {
 						c = shop.getNextCustomer();
 					} catch (EmptyBarberShopException e) {
+						if (done) break;
 						shop.print("sleeps");
 						synchronized (shop) { 
 							try {
@@ -192,6 +198,8 @@ public class SleepingBarber {
 						}
 					}
 				}
+
+				if (done && (c == null)) break;
 
 				/* Now we have a valid customer, Shave him! */
 				//shop.print("--> shaving " + c);
