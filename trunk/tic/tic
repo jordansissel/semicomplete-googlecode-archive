@@ -7,7 +7,8 @@ use Net::OSCAR qw/:standard/;
 use POSIX qw(strftime);
 use Term::Shelly;
 use Exporter;
-use lib '/home/psionic/projects/tic';
+use lib '/u9/psionic/projects/tic';
+use lib '/u9/psionic/projects/';
 
 # Super-magical happy land!
 use Tic::Constants; 

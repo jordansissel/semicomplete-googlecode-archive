@@ -17,7 +17,8 @@ use Exporter;
 						event_buddylist_error      event_im_in
 						event_buddylist_ok         event_im_ok
 						event_chat_buddy_in        event_rate_alert
-						event_chat_buddy_out       event_signon_done );
+						event_chat_buddy_out       event_signon_done 
+						event_chat_invite);
 
 my $state;
 my $sh;
@@ -114,6 +115,11 @@ sub event_buddylist_ok {
 sub event_chat_buddy_in {
 	my ($aim, $sn, $chat, $data) = @_;
 	prettyprint($state, "chat_buddy_in", { sn => $sn, chat => $chat } );
+}
+
+sub event_chat_invite {
+	my ($aim, $sn, $chat, $data) = @_;
+	prettyprint($state, "chat_invite", { sn => $sn, chat => $chat } );
 }
 
 sub event_chat_buddy_out {

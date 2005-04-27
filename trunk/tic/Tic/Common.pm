@@ -222,7 +222,7 @@ sub do_login {
 	my %hash = ( screenname => $user, 
 					 password => $pass );
 	$hash{"port"} = $state->{"settings"}->{"port"} || "5190";
-	$hash{"host"} = $state->{"settings"}->{"host"} || "login.oscar.aol.com";
+	$hash{"host"} = $state->{"settings"}->{"server"} || "login.oscar.aol.com";
 
 	$sh->out("Connecting to " . $hash{"host"} . ":" . $hash{"port"} . " as " . $hash{"screenname"});
 	$state->{"aim"}->signon(%hash);
