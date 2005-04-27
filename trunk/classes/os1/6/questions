@@ -1,0 +1,12 @@
+6.3]
+Busy waiting is when a process loops continuously trying for a lock to enter a critical section. There are other kinds of waits, such as blocked waits. Yes, busylocks can be removed all-together in the form of monitors (java's wait/notify, for example).
+
+6.9] 
+If the P (wait) operation on a semaphor is not atomic, then it is possible that two P operations could both leave the spin loop at the same time becuase they are allowed to execute in the same code segment at the same time because P is no longer atomic, meaning it can be preempted before it's completion. Therefore, two or more wait calls could theoretically return when only one should have.
+
+7.1]
+a) The locks will be on the intersections. Locks are granted to individual cars as they pass through, but when there are multiple cars waiting on the locks, traffic backs up, eventually forcing a car further back to hog its lock on the intersection it is stuck in the middle of. This propogates across all intersections and you have deadlock.
+b) A simple rule to avoid this would be only allow parallel roads to be locked simultaneously. This will prevent one car going south from blocking the cars trying to go west, which causes a westbound car to get stuck in the northbound intersection holding the north/westbound intersection's lock, etc.
+
+7.6] 
+Resource availability is, in total, 4. All processes can successfully grab one resource each. Then individual processes can fight for the last remaining resource, which will be given up at the completion of the process, allowing the remaining processes to grab it.
