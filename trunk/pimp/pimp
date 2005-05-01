@@ -241,6 +241,7 @@ sub read_playlist() {
 	}
 
 	$pimp->{"playlist_count"} = $idx;
+	print "Size: " . scalar(keys(%{$pimp->{"playlist"}})) . "\n";
 	close(LIST);
 } #}}}
 
@@ -294,8 +295,8 @@ sub play_to_clients() {
 
 		if (scalar(@$obuf) > 5) {
 			$bcnt++;
-			print "Chunks remaining for " . sock2addr($sock) . ": " . 
-				scalar(@$obuf) . "\n";
+			#print "Chunks remaining for " . sock2addr($sock) . ": " . 
+				#scalar(@$obuf) . "\n";
 			splice(@$obuf, 300) if (scalar(@$obuf) > 300);
 		}
 		$hcnt++;
@@ -580,7 +581,8 @@ sub song_control() {
 			 (scalar(@{$pimp->{"song_queue"}}) > 0)) {
 			$newsong = shift(@{$pimp->{"song_queue"}});
 		}  else {
-			$newsong = $playlist->{int(rand() * $pimp->{"playlist_count"})};
+			my @keys = keys(%$playlist);
+			$newsong = $playlist->{$keys[int(rand() * scalar(@keys))]};
 			#$newsong = $playlist[ (int(rand() * scalar(@playlist))) ];
 		}
 		print STDERR "New song: $newsong / " . $newsong->{"file"} . "\n";
@@ -735,7 +737,7 @@ sub get_tag(;$) {
 	$song->{"artist"} = $id->artist();
 	$song->{"album"} = $id->album();
 
-	store($pimp->{"playlist"}, $pimp->{"tagfile"});
+	#store($pimp->{"playlist"}, $pimp->{"tagfile"});
 	$id->close();
 } #}}}
 
