@@ -6,7 +6,7 @@ use Data::Dumper;
 use strict;
 
 my $hash;
-$hash = retrieve($ENV{HOME} . "/.pimp/tags");
+$hash = retrieve($ENV{HOME} . "/.pimp/id3tags");
 
 #nstore($hash, $ENV{HOME} . "/.pimp/tags");
 

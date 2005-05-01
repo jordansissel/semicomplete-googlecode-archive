@@ -13,35 +13,10 @@ open(FILES, "< $ENV{HOME}/foo.m3u") or die ($!);
 my $time = time() - 1;
 my @foo = <FILES>;
 
-my $forks = $ARGV[0] || 2;
-
 my @list;
-my $size = int(scalar(@foo) / $forks) + 1;
 my $total = scalar(@foo);
 
-for (my $s = 0; $s < $total; $s += $size) {
-	push(@list, [ splice(@foo,0,$size) ] );
-}
-
-#rabble(\@foo);
-
-my %pids;
-
-$SIG{CHLD} = sub { my $p = waitpid(-1,0); delete($pids{$p}); };
-
-foreach (@list) {
-	if (my $pid = fork()) {
-		$pids{$pid} = 1;
-	} else {
-		print "$$ ; " . ref($_) . "\n";
-		rabble($_);
-		exit(0);
-	} 
-}
-
-while (keys(%pids) > 0) {
-	 sleep(3);
-}
+rabble(\@foo);
 
 sub rabble {
 	my $razzle = shift;
