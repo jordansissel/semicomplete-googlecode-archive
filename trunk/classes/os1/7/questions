@@ -1,0 +1,14 @@
+9.3) 
+Copy-on-write makes forking processes much much faster. It only copies new memory segments to the child upon writing to those memory segments. This is beneficial because forking no longer requires copying of all the memory allocated to a program during the fork() call. Hardware support is required in the memory controller to do this when the child tries to write to a memory segment that hasn't been copied over yet.
+
+9.7) Least frequently used can generate fewer page faults than Least Recently Used becuase you can swap out pages that are only accessed a few number of times over a long period. This allows us to track data use patterns over time. So pages only accessed once every few hours can be swapped out in favor of those accessed more often, leading to fewer page faults for the in-higher-need data. 
+
+9.8) 
+
+9.13) The initial value of the counters shall be 0. Counters will be incremented on a per-access basis. Counters will be decremented after a specified time interval and when paged out. This will ensure heavily-used pages maintain a high counter while lesser-used pages will have a medium-to-low number, and seldom used pages will have a low count, possibly 0. Page replacement selection will be to choose the first lowest value of counters whos pages are in memory.
+
+b) 11 page faults.
+
+c) 7 page faults are optimal.
+
+
