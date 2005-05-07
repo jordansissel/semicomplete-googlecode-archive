@@ -28,6 +28,7 @@ my %MATCH = (
 );
 
 my $config = readconfig();
+print Dumper($config);
 $config = processconfig($config);
 setup($config);
 
@@ -116,13 +117,20 @@ sub meta2string {
 sub readconfig {
 	my $cfname = "logwatch.conf";
 	my $grammar = << 'GRAMMAR';
-config: (ignorable | file)(s) /\Z/ { $return = $item[1] }
+config: (ignorable | file | pattern)(s) /\Z/ { $return = $item[1] }
 ignorable: (comment | blankline)(s)
 comment: /#[^\n]*/
 blankline: /^\s+?\n/
 
-string: /"([^"]+)"/ { $return = $1 }
+string: /((?:\")(?:[^\\\"]*(?:\\.[^\\\"]*)*)(?:\")|(?:\')(?:[^\\\']*(?:\\.[^\\\']*)*)(?:\')|(?:\`)(?:[^\\\`]*(?:\\.[^\\\`]*)*)(?:\`))/ { print "String: $item[1]\n"; $return = substr($item[1],1,-1) }
 number: /\d+/
+word: /\w+/
+
+pattern: <rulevar: local $pattern = { }>
+pattern: 'patterns' '{' (pattern_entry)(s) '}' ';' { $return = { "pattern" => $pattern } }
+pattern_entry: pattern_name '=' pattern_string ';' { $pattern->{$item[1]} = $item[3] }
+pattern_name: word
+pattern_string: string
 
 file: 'file' filename '{' file_entry(?) '}' ';' { $return = { file => $item[2], entry => $item[4] } }
 filename: string
