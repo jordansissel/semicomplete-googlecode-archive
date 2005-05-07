@@ -29,7 +29,6 @@ my %MATCH = (
 
 my $config = readconfig();
 print Dumper($config);
-$config = processconfig($config);
 setup($config);
 
 # Keep state
@@ -75,7 +74,7 @@ sub handle {
 			print "Pattern: $pattern\n";
 			#print "Regex: $regex\n";
 
-			my $fileconf = $config->{$log->{"input"}}->{"matches"}->{$pat};
+			my $fileconf = $config->{$log->{"input"}}->{"types"}->{$pat};
 			if ($state->{$keyname}->{"count"} >= $fileconf->{"threshold"})  {
 				if (time() - ($state->{$keyname}->{"time"}) <= $fileconf->{"interval"}) { 
 					#print "Reaction: " . $fileconf->{"reaction"} . "\n";
@@ -117,7 +116,8 @@ sub meta2string {
 sub readconfig {
 	my $cfname = "logwatch.conf";
 	my $grammar = << 'GRAMMAR';
-config: (ignorable | file | pattern)(s) /\Z/ { $return = $item[1] }
+config: <rulevar: local $config = { }>
+config: (ignorable | file | pattern)(s) /\Z/ { $return = $config }
 ignorable: (comment | blankline)(s)
 comment: /#[^\n]*/
 blankline: /^\s+?\n/
@@ -127,26 +127,28 @@ number: /\d+/
 word: /\w+/
 
 pattern: <rulevar: local $pattern = { }>
-pattern: 'patterns' '{' (pattern_entry)(s) '}' ';' { $return = { "pattern" => $pattern } }
+pattern: 'patterns' '{' (pattern_entry)(s) '}' ';' { $config->{"patterns"} => $pattern }
 pattern_entry: pattern_name '=' pattern_string ';' { $pattern->{$item[1]} = $item[3] }
 pattern_name: word
 pattern_string: string
 
-file: 'file' filename '{' file_entry(?) '}' ';' { $return = { file => $item[2], entry => $item[4] } }
+file: <rulevar: local $file = { }>
+file: 'file' filename '{' file_entry(?) '}' ';' { $config->{$item[2]} = $file }
 filename: string
-file_entry: (file_entry_line | ignorable)(s) { $return = $item[1] }
-file_entry_line: (syslog | type) ';' { $return = $item[1] }
+file_entry: (file_entry_line | ignorable)(s)
+file_entry_line: (syslog | type) ';'
 
-syslog: 'syslog' '=' number { $return = { "syslog" => $item[3] } }
+syslog: 'syslog' '=' number { $file->{"syslog"} = $item[3] }
 
-type: 'type' typename '{' type_entry '}' { $return = { "name" => $item[2], "conf" => $item[4] } }
+type: <rulevar: local $type = { }>
+type: 'type' typename '{' type_entry '}' { $file->{"types"}->{$item[2]} = $type }
 typename: string
-type_entry: (((match | threshold | interval | reaction) { $return = $item[1]; } ';') | ignorable)(s)
+type_entry: (((match | threshold | interval | reaction) ';') | ignorable)(s)
 
-match: 'match' '=' string { $return = { match => $item[3] } }
-threshold: 'threshold' '=' number { $return = { threshold => $item[3] } }
-interval: 'interval' '=' number { $return = { interval => $item[3] } }
-reaction: 'reaction' '=' string { $return = { reaction => $item[3] } }
+match: 'match' '=' string { push(@{$type->{"matches"}},$item[3]) }
+threshold: 'threshold' '=' number { $type->{"threshold"} = $item[3] }
+interval: 'interval' '=' number { $type->{"interval"} = $item[3] }
+reaction: 'reaction' '=' string { $type->{"reaction"} = $item[3] }
 GRAMMAR
 
 	my $parser = Parse::RecDescent->new($grammar);
@@ -159,51 +161,17 @@ GRAMMAR
 	return $config;
 }
 
-sub processconfig {
-	my $config = shift;
-	my $newconf;
-
-	foreach my $entry (@$config) {
-		if (ref($entry) ne 'HASH') {
-			die "Unexpected value, was looking for HASHREF - " . ref($entry);
-		}
-		my $newentry;
-
-		foreach my $data (@{$entry->{"entry"}->[0]}) {
-			# if $data is an ARRAYREF then $data->[0] is a comment
-			if (ref($data) eq 'HASH') {
-				my $newdata;
-				if (exists($data->{"conf"})) {
-					foreach (@{$data->{"conf"}}) {
-						my ($key) = keys(%$_); 
-						if ($key eq 'match') {
-							push(@{$newdata->{$key}}, $_->{$key});
-						} else {
-							$newdata->{$key} = $_->{$key};
-						}
-					}
-					$newentry->{"matches"}->{$data->{"name"}} = $newdata;
-				} else {
-					my ($key) = keys(%$data);
-					$newentry->{$key} = $data->{$key};
-				}
-			}
-		}
-		$newconf->{$entry->{"file"}} = $newentry;
-	}
-
-	return $newconf;
-}
-
 sub setup {
 	my $config = shift;
 	print "Files to watch: " . join(", ", keys(%$config)) . "\n";
 	foreach my $file (keys(%{$config})) {
-		#print "File: $file\n";
-		my $matches = $config->{$file}->{"matches"};
+		print "File: $file\n";
+		my $matches = $config->{$file}->{"types"};
 		my $matchhash;
 		foreach my $match (keys(%{$matches})) {
-			foreach my $string (@{$matches->{$match}->{"match"}}) {
+			print "Match: $match\n";
+			foreach my $string (@{$matches->{$match}->{"matches"}}) {
+				print "String: $string\n";
 				$matchhash->{$string} = $match;
 			}
 		}
