@@ -98,8 +98,19 @@ sub handle {
 sub pattern2regex {
 	my $pattern = shift;
 	my $regex = $pattern;
+	my $orig = $pattern;
 
-	map { $regex =~ s/%($_)%/($MATCH{$_})(?{\$values{$1} = \$^N})/g; } keys(%MATCH);
+	my $rounds = 0;
+	my $count;
+	do {
+		$count = 0;
+		map { $regex =~ s/%($_)%/($MATCH{$_})(?{\$values{$1} = \$^N})/g; } keys(%MATCH);
+		$rounds++;
+		if ($rounds > 10) {
+			print STDERR "!!! Deep recursion translating '$orig'\n";
+			last;
+		}
+	} while ($count > 0);
 
 	return $regex;
 }
@@ -107,8 +118,19 @@ sub pattern2regex {
 sub meta2string {
 	my $meta = shift;
 	my $values = shift;
+	my $orig = $meta;
 
-	map { $meta =~ s/%($_)%/$values->{$_}/g; } keys(%MATCH);
+	my $rounds = 0;
+	my $count;
+	do {
+		$count = 0;
+		map { $count += $meta =~ s/%($_)%/$values->{$_}/g; } keys(%MATCH);
+		$rounds++;
+		if ($rounds > 10) {
+			print STDERR "!!! Deep recursion translating '$orig'\n";
+			last;
+		}
+	} while ($count > 0);
 
 	return $meta;
 }
@@ -122,12 +144,12 @@ ignorable: (comment | blankline)(s)
 comment: /#[^\n]*/
 blankline: /^\s+?\n/
 
-string: /((?:\")(?:[^\\\"]*(?:\\.[^\\\"]*)*)(?:\")|(?:\')(?:[^\\\']*(?:\\.[^\\\']*)*)(?:\')|(?:\`)(?:[^\\\`]*(?:\\.[^\\\`]*)*)(?:\`))/ { print "String: $item[1]\n"; $return = substr($item[1],1,-1) }
+string: /((?:\")(?:[^\\\"]*(?:\\.[^\\\"]*)*)(?:\")|(?:\')(?:[^\\\']*(?:\\.[^\\\']*)*)(?:\')|(?:\`)(?:[^\\\`]*(?:\\.[^\\\`]*)*)(?:\`))/ { $return = substr($item[1],1,-1) }
 number: /\d+/
 word: /\w+/
 
 pattern: <rulevar: local $pattern = { }>
-pattern: 'patterns' '{' (pattern_entry)(s) '}' ';' { $config->{"patterns"} => $pattern }
+pattern: 'patterns' '{' (pattern_entry)(s) '}' ';' { $config->{"patterns"} = $pattern }
 pattern_entry: pattern_name '=' pattern_string ';' { $pattern->{$item[1]} = $item[3] }
 pattern_name: word
 pattern_string: string
@@ -176,5 +198,9 @@ sub setup {
 			}
 		}
 		$PATTERNS->{$file} = $matchhash;
+	}
+
+	foreach my $pattern (keys(%{$config->{"patterns"}})) {
+		$MATCH{$pattern} = $config->{"patterns"}->{$pattern};
 	}
 }
