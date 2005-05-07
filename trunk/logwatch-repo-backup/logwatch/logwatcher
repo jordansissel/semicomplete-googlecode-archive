@@ -14,7 +14,6 @@ use File::Tail;
 use Regexp::Common qw(RE_ALL);
 use Parse::RecDescent;
 
-my @lognames = qw(/var/log/auth.log);
 my @logrefs;
 
 my $PATTERNS;
@@ -28,13 +27,15 @@ my %MATCH = (
 );
 
 my $config = readconfig();
-print Dumper($config);
+#print Dumper($config);
 setup($config);
 
 # Keep state
 my $state;
 
-foreach (@lognames) {
+foreach (keys(%$config)) {
+	next if ($_ eq "patterns");
+	print "Opening $_\n";
 	push(@logrefs, File::Tail->new(name => "$_", maxinterval => 1, interval => 1));
 }
 
@@ -57,9 +58,9 @@ sub handle {
 		# "fix" the line, turn it into a regex.
 		my $regex = pattern2regex($pattern);
 		#print "\n";
-		print "Line: $line\n";
-		print "Pattern: $pattern\n";
-		print "Regex: $regex\n";
+		#print "Line: $line\n";
+		#print "Pattern: $pattern\n";
+		#print "Regex: $regex\n";
 
 		# The regex match will store keys in this hash
 		my %values;
