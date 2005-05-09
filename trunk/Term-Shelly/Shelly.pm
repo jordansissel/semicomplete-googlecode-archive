@@ -100,7 +100,7 @@ sub new ($) {
 
 	($self->{"termcols"}) = GetTerminalSize();
 	$SIG{WINCH} = sub { ($self->{"termcols"}) = GetTerminalSize(); $self->fix_inputline() };
-	$SIG{CONT} = sub { $self->fix_inputline; };
+	$SIG{CONT} = sub { ReadMode 3; $self->fix_inputline; };
 
 	$self->{"select"} = new IO::Select(\*STDIN);
 
