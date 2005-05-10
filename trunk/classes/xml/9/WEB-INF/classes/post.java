@@ -26,10 +26,14 @@ public class post  extends HttpServlet
 	public void createNew(HttpServletRequest req, HttpServletResponse resp) { 
 		try {
 			FileWriter db = new FileWriter(DB_FILE, true);
-			db.write("<foo>");
-			db.write("<a/>");
-			db.write("</foo>");
-			db.close();
+			Enumeration enoom = req.getParameterNames();
+			db.write("<entry>\n");
+			while (enoom.hasMoreElements()) {
+				String key = (String) enoom.nextElement();
+				String value = req.getParameterValues(key)[0];  
+				db.write("<" + key + ">" + value + "</" + key + ">\n");
+			}
+			db.write("</entry>\n");
 		} catch (Exception e) {
 			try {
 				resp.sendError(resp.SC_INTERNAL_SERVER_ERROR, e.getMessage());
@@ -91,7 +95,7 @@ public class post  extends HttpServlet
 				if( tmp.equals("submit") ){
 					value = req.getParameterValues("form")[0];  
 				} else {
-					html = "<html> error in requests first param please contact administrator </html>";
+					out.println("error in requests first param please contact administrator";
 				}
 			}
 			if( file.equals("")){
@@ -105,9 +109,8 @@ public class post  extends HttpServlet
 					}
 				} 
 			} else {
-				if (file.contains(".")) {
-					resp.setError(resp.SC_FORBIDDEN);
-				}
+				if (file.contains(".."))
+					res.sendError(res.SC_FORBIDDEN, "File: " + file + " is not allowed");
 				outputFile("forms/" + file, out);
 			}
 			out.println("</body>");
