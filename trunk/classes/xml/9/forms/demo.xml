@@ -1,0 +1,44 @@
+<!-- new/search form description for example database -->
+
+<form title='Phonebook Demo'>
+
+  <!-- database name (stem) -->
+  <input type='hidden' name='db' value='demo'/>
+
+  <!-- record tag -->
+  <input type='hidden' name='record' value='record'/>
+
+  <!-- name of date stamp attribute, if any -->
+  <input type='hidden' name='date' value='date'/>
+
+  <!-- prefix to mark record attributes -->
+  <input type='hidden' name='prefix' value='r-'/>
+
+  <!-- name of submit=new reply script -->
+  <input type='hidden' name='new' value='reply.xsl'/>
+
+  <!-- visible query fields -->
+  <input type='text' label='first name' name='firstName'/>
+  <input type='text' label='last name' name='lastName'/>
+  <input type='text' label='number' name='number'/>
+  <select label='type' name='type' size='1'>
+    <option>analog</option>
+    <option>digital</option>
+  </select>
+
+  <!-- XPaths for selections and sorting -->
+  <input type='hidden' name='records'
+         value='*[($firstName != "" and contains(firstName, $firstName))
+                  or ($lastName != "" and contains(lastName, $lastName))
+                  or ($number != "" and contains(number, $number))
+                  or (concat($firstName, $lastName, $number) = ""
+                      and $type = type)]'/>
+
+  <input type='hidden' name='recordsBy' value='lastName'/>
+
+  <input type='hidden' name='attributes'
+         value='*[name() != "type"] | @*'/>
+
+  <input type='hidden' name='attributesBy' value='name()'/>
+
+</form>
