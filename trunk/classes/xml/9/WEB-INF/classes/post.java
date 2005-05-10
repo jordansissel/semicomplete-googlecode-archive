@@ -4,6 +4,17 @@ import javax.servlet.http.*;
 import java.io.*;
 import java.util.Enumeration;
 
+
+import javax.xml.transform.Source;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import java.io.*;
+
+
 public class post  extends HttpServlet
 {
 	private final String DB_FILE = "db.xmlish";
@@ -28,35 +39,40 @@ public class post  extends HttpServlet
 			}
 		}
 	}
-	private String getFile(String file2) {
-		String toReturn = "";
+
+	private void outputFile(String file2, PrintWriter ow) {
 		String output = "";
 		String tmp = "";
 		try {
-			BufferedReader in = new BufferedReader(new FileReader("forms/" + file2));
-			output = in.readLine(); 
-			while( !output.equals("")){
-				output = in.readLine();
-				if ( output.contains("text") ){
-					tmp = output.substring(output.indexOf("name=")+6);
-					toReturn += output.substring(0,output.indexOf("\""));
-					toReturn += output;
-					toReturn += "</br>";
-				} else {
-					toReturn += output;
-				}
+			File xmlFile = new File(file2);
+			File xsltFile = new File(file2 + ".xsl");
+
+			if (!xmlFile.exists()) {
+				throw new FileNotFoundException(file2);
 			}
+
+			// JAXP reads data using the Source interface
+			Source xmlSource = new StreamSource(xmlFile);
+			Source xsltSource = new StreamSource(xsltFile);
+
+			// the factory pattern supports different XSLT processors
+			TransformerFactory transFact =
+				TransformerFactory.newInstance();
+			Transformer trans = transFact.newTransformer(xsltSource);
+
+			trans.transform(xmlSource, new StreamResult(ow));
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
-			return " Requested form does not exist please contact administrator </html>";
-
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
+			ow.println(" Requested form (" + e + ") does not exist please contact administrator </html>");
+		} catch (TransformerConfigurationException e) {
 			e.printStackTrace();
-			return " I/O error please contact administrator </html>";
-
+			ow.println(" error: " + e);
+		} catch (TransformerException e) {
+			e.printStackTrace();
+			ow.println("error: " + e);
 		}
-		return toReturn;
+
+
 	}
 
 	protected void doGet(HttpServletRequest req,
@@ -65,7 +81,8 @@ public class post  extends HttpServlet
 		{
 			res.setContentType("text/html");
 			PrintWriter out = res.getWriter();
-			html = "<HTML>";
+			out.println("<html>");
+			out.println("<body>");
 			Enumeration enoom = req.getParameterNames();
 			String tmp = (String) enoom.nextElement();
 			if( tmp.equals("form") ){
@@ -79,27 +96,24 @@ public class post  extends HttpServlet
 			}
 			if( file.equals("")){
 				if( value.equals("new")){
-					html ="";
 					createNew(req, res);
 				}else {
 					if( value.equals("search")){
-						html ="";
 						search( req, res );
 					}else {
-						html = "<html> error in requests first param value please contact administrator </html>";
+						out.println("error in requests first param value please contact administraotr");
 					}
 				} 
 			} else {
-				html += getFile(file);
+				if (file.contains(".")) {
+					resp.setError(resp.SC_FORBIDDEN);
+				}
+				outputFile("forms/" + file, out);
 			}
-			out.println(html);
+			out.println("</body>");
+			out.println("</html>");
 			out.close();
 		}
-
-	private String getFile() {
-		// TODO Auto-generated method stub
-		return null;
-	}
 
 	private String createNew() {
 		// TODO Auto-generated method stub
