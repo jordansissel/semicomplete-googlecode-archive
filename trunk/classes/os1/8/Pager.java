@@ -3,10 +3,12 @@ import java.util.Scanner;
 import java.util.LinkedList;
 import java.util.InputMismatchException;
 import java.util.NoSuchElementException;
+import java.util.Iterator;
 
 public class Pager {
 
-	PageReplacer p;
+	public PageReplacer p;
+	public static Scanner scanner = new Scanner(System.in);
 
 	private class InvalidPagerTypeException extends Exception { 
 		public InvalidPagerTypeException() { super(); }
@@ -23,70 +25,118 @@ public class Pager {
 	}
 
 	public void run() {
-		Scanner s = new Scanner(System.in);
+		//Scanner s = new Scanner(System.in);
+		//System.out.println("RUN!");
 
 		try {
-			while (s.hasNextInt()) {
-				int input = s.nextInt();
+			while (true) {
+				int input = scanner.nextInt();
+				//System.out.println("Input: " + input);
 				p.access(input);
 			}
-		} 
+		} catch (InputMismatchException e) {
+			System.err.println("Invalid input");
+			System.exit(1);
+		} catch (NoSuchElementException e) {
+			/* End of input, throw this exception out */
+		}
 
-		System.out.println("
+		System.out.println("Page faults: " + p.pagefaults);
 	}
 
 	private abstract class PageReplacer {
 		protected int numframes;
 		protected int pagefaults;
+		protected LinkedList<Frame> list;
+
+		public PageReplacer(int numframes) {
+			this.numframes = numframes;
+			pagefaults = 0;
+			list = new LinkedList<Frame>();
+			for (int x = 0; x < numframes; x++) {
+				list.add(new Frame(x));
+			}
+		}
+
 		public abstract void access(int page);
 	}
 
 	private class Frame {
+		protected int framenum = -1;
 		protected int page = 0;
 		protected int counter = 0;
+		public Frame(int framenum) { 
+			this.framenum = framenum; 
+		}
+
+		public String toString() {
+			return framenum + ":" + page;
+		}
 	}
 
 	private class FIFOReplacer extends PageReplacer {
-		protected LinkedList<Frame> fifo;
 		public FIFOReplacer(int numframes) { 
-			this.numframes = numframes;
-			pagefaults = 0;
-			fifo = new LinkedList<Frame>();
-			for (int x = 0; x < numframes; x++) {
-				fifo.add(new Frame());
-			}
+			super(numframes);
 		}
 
 		public void access(int page) {
 			/* Take first frame and use it */
 			Frame f;
-			Iterator i = fifo.iterator();
+			Iterator<Frame> i = list.iterator();
 
+			//System.out.println("Page: " + page);
 			while (i.hasNext()) {
 				Frame fr = i.next();
-				if (fr.page = page) {
+				if (fr.page == page) {
 					return;
 				}
 			}
 			
-			f = fifo.remove();
-			fifo.add(f); /* Put it back on the end */
+			f = list.remove();
+			list.add(f); /* Put it back on the end */
+			f.page = page;
+			System.out.println(list);
 
-			if (f.counter)
+			if (f.counter > 0)
 				pagefaults++;
 
-			f.counter++
+			f.counter++;
 		}
 	}
 
 	private class LRUReplacer extends PageReplacer {
-		public void access(int page) {
+		public LRUReplacer(int numframes) {
+			super(numframes);
+		}
 
+		public void access(int page) {
+			/* Take first frame and use it */
+			Frame f;
+			Iterator<Frame> i = list.iterator();
+
+			//System.out.println("Page: " + page);
+			while (i.hasNext()) {
+				Frame fr = i.next();
+				if (fr.page == page) {
+					f = list.remove();
+					list.add(f); /* Put it back on the end */
+					return;
+				}
+			}
+			
+			f = list.remove();
+			list.add(f); /* Put it back on the end */
+			f.page = page;
+			System.out.println(list);
+
+			if (f.counter > 0)
+				pagefaults++;
+
+			f.counter++;
 		}
 	}
 
 	public static void main(String args[]) {
-		Scanner s = new Scanner(System.in);
 		if (args.length != 1) {
 			System.err.println("Invalid parameters.");
 			System.err.println("Usage: java Pager <lru | fifo>");
@@ -94,7 +144,7 @@ public class Pager {
 		}
 
 		try {
-			int numframes = s.nextInt();
+			int numframes = scanner.nextInt();
 			Pager pg = new Pager(args[0], numframes);
 			pg.run();
 		} catch (InvalidPagerTypeException e) {
