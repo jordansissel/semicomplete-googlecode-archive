@@ -25,9 +25,6 @@ public class Pager {
 	}
 
 	public void run() {
-		//Scanner s = new Scanner(System.in);
-		//System.out.println("RUN!");
-
 		try {
 			while (true) {
 				int input = scanner.nextInt();

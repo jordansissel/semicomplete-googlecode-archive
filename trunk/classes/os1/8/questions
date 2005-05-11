@@ -1,0 +1,38 @@
+9.10)
+
+My answers assume the amount of work that can be done per unit time is not yet maximized.
+a) a faster cpu will improve cpu utilization becuase there will be more work
+that can be done on the cpu in less time.
+b) bigger disk probably won't increase cpu utilization because it will not
+likely have an affect on 2paging disk io - with one small exception that there
+is more data that can be put on the outer edges of the disk, allowing faster
+reads for a possibly trivial size of data, so overall paging disk utilization
+might decrease bht only minimally so.
+c) Increasing the degree of multiprogramming may or may not affect cpu
+utilization positively. If we have underused CPUs then increasing the degree of
+multiprogramming will likely increase cpu utilization, because more work can be
+done on the cpu. However, if the CPU is maximized already, increased
+multiprogramming will likely decrease cpu utilization.
+d) The opposite is true for decreasing multiprogramming. If the cpu is
+overtaxed due to the number of tasks needing cpu, decreasing the degree of
+multiprogramming  will likely increase cpu utilization. However, if the cpu is
+not overtaxed, decreasing the degree of multiprogramming will likely decrease
+cpu utilization
+e) Installing more main memory will likely increase cpu utilization because the
+system will page less frequently  due to having more memory space.
+f) Upgrading the speed of harddrives or its controllers will decrease paging
+disk utilization, allowing for higher cpu utilization, becuase less things are
+waiting on I/O.
+g)
+h) Increasing the page size may or may not have a positive effect on cpu
+utilization. If the page currently used is not the same size as a disk block,
+for example, then having a page size the same as your block size will allow
+your memory and disk controllers to speak the same block size, increasing the
+speed of accesses to the paging disk, and likely increasing cpu utilization.
+However, a block size to small or to large will cause the disk to spend more
+time processing the wrong size blocks (in buffers, etc) increasing disk
+utilization and decreasing cpu utilization as a result becuase I/O operations
+will take longer.
+
+
+
