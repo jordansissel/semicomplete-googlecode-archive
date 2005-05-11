@@ -23,7 +23,9 @@ system will page less frequently  due to having more memory space.
 f) Upgrading the speed of harddrives or its controllers will decrease paging
 disk utilization, allowing for higher cpu utilization, becuase less things are
 waiting on I/O.
-g)
+g) Prepaging will likely decrease paging disk utilization becuase it will load
+the processes's working set into physical memory before the process is started
+again, allowing an increase in cpu utilization.
 h) Increasing the page size may or may not have a positive effect on cpu
 utilization. If the page currently used is not the same size as a disk block,
 for example, then having a page size the same as your block size will allow
@@ -35,4 +37,5 @@ utilization and decreasing cpu utilization as a result becuase I/O operations
 will take longer.
 
 
-
+9.14) .80(1 microsecond) + .02(20000 microseconds) + .18(2 microseconds)
+	= 401.16 microseconds effective access time

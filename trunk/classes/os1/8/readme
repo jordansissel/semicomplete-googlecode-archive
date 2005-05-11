@@ -1,0 +1,10 @@
+Files: Pager.java questions
+
+Compile:
+javac Pager.java
+
+Run:
+
+java Pager <fifo | lru>
+
+Send data on standard input, first number is the number of pages, after that is the page to be accessed.

@@ -28,7 +28,6 @@ public class Pager {
 		try {
 			while (true) {
 				int input = scanner.nextInt();
-				//System.out.println("Input: " + input);
 				p.access(input);
 			}
 		} catch (InputMismatchException e) {
@@ -92,7 +91,7 @@ public class Pager {
 			f = list.remove();
 			list.add(f); /* Put it back on the end */
 			f.page = page;
-			System.out.println(list);
+			//System.out.println(list);
 
 			if (f.counter > 0)
 				pagefaults++;
@@ -124,7 +123,7 @@ public class Pager {
 			f = list.remove();
 			list.add(f); /* Put it back on the end */
 			f.page = page;
-			System.out.println(list);
+			//System.out.println(list);
 
 			if (f.counter > 0)
 				pagefaults++;
