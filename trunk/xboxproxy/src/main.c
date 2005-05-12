@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
-#include "config.h"
+#include "../config.h"
 
 #include <stdlib.h>
 #include <unistd.h>
