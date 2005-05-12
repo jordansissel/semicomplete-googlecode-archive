@@ -63,6 +63,7 @@ AC_ARG_WITH([pcap],
 
 PCAP_FOUND=0
 
+# Checking for paths for pcap
 AC_CHECK_PATHS([/usr /usr/local], 
 					[
 					AC_CHECK_FILE([${dirname}/lib/libpcap.a], [AC_PATH_FOUND])
