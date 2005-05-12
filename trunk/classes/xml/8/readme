@@ -1,0 +1,29 @@
+Compilation instructions:
+javac -classpath /path/to/xerces ValidatorThing.java
+
+Running instructions:
+java -classpath /path/to/xerces ValidatorThing <schema file> <xml file>
+
+Creating the schema from a dtd: (Requires dtd2xs)
+java dtdxsd xdtd.dtd  > xdtd.xsd
+
+Validation:
+java -classpath /path/to/xerces ValidatorThing xdtd.xsd code.xdtd
+java -classpath /path/to/xerces ValidatorThing xdtd.xsd languages.xdtd
+
+etc...
+
+
+Design for poor man's database:
+
+3) Typical key/value pairs:
+	Date/Time of occurance, Person's name, Course, Lab number, punishment
+  (hopefully course failure)
+4) Database will contain "many" cheating records per person. Each record may have many attributes, those being key-value pairs containing data. Searching can be done on attributes within records on the database.
+5) Layout of the servlet tree:
+	.../cheatingdb/recordname.xml
+	where recordname is an identifier of a person.
+6) Record and search formatting will be done with xslt, becuase xml is tasty.
+7) What can be configured in the system: possibly required attributes, optional attributes, invalid attributes are alloewd or not, etc
+8) Defend against trojan attacks? Assuming the only people who will have access to this system will be professors, why would a professor input data which is malignant? I am confused as to what you relaly mean by "trojan" - in the security/virus world a 'trojan' is something that pretends to be benign but is secretly malignant to the user or possibly others..
+Perhaps you mean the possiblity of inserting (whether accidentally or not) invalid xml as part of the record. This can easily be fixed by encapsulating any foreign text data in CDATA blocks.
