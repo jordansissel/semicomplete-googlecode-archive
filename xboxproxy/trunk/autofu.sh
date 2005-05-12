@@ -4,5 +4,5 @@ touch NEWS README AUTHORS ChangeLog depcomp
 aclocal15 || aclocal19 || aclocal
 autoheader259 || autoheader
 autoconf259 || autoconf
-automake15 || automake || automake19
+automake15 -a || automake -a || automake19 -a
 
