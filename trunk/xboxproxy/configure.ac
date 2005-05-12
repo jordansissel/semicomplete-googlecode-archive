@@ -88,6 +88,7 @@ AC_ARG_WITH([libnet],
 				[ LIBNET_PREFIX=/usr/local ])
 
 LIBNET_FOUND=0
+LIBS="$LIBS -lnet"
 
 AC_CHECK_PATHS([/usr /usr/local], 
 					[
