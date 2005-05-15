@@ -426,8 +426,10 @@ void pcap(void *args) {
 	if (forwardmulticast)
 		sprintf(bpf_filter + strlen(bpf_filter), "(src net %s mask %s and (multicast))", netstring, maskstring);
 
+	if (forwardmulticast && forwardxbox)
+		sprintf(bpf_filter + strlen(bpf_filter), " or ");
 	if (forwardxbox)
-		sprintf(bpf_filter + strlen(bpf_filter), "or (host 0.0.0.1)");
+		sprintf(bpf_filter + strlen(bpf_filter), "(broadcast and host 0.0.0.1)");
 
 	debuglog(10, "pcap filter: %s", bpf_filter);
 	pcap_compile(handle, &filter, bpf_filter, 1, net);
