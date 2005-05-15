@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(proxy, 1.2, psionic@csh.rit.edu)
-AM_INIT_AUTOMAKE(proxy, 1.2)
+AC_INIT(proxy, 1.3, psionic@csh.rit.edu)
+AM_INIT_AUTOMAKE(proxy, 1.3)
 #AC_CONFIG_SRCDIR([src/main.c])
 
 # Checks for programs.
@@ -98,6 +98,7 @@ AC_CHECK_PATHS([/usr /usr/local],
 					LDFLAGS="$LDFLAGS -L${dirname}/lib"
 					CFLAGS="$CFLAGS -I${dirname}/include"
 					LIBNET_PREFIX=$dirname
+					LIBS="$LIBS -lnet"
 					],
 					[ AC_MSG_ERROR([Unable to find libnet.a. Specify path wth --with-libnet ]) ]
 				  )

@@ -2,8 +2,8 @@ set -x
 set -e
 touch NEWS README AUTHORS ChangeLog
 
-aclocal15 || aclocal19 || aclocal
+aclocal19 || aclocal15 || aclocal
 autoheader259 || autoheader
 autoconf259 || autoconf
-automake15 -a || automake -a || automake19 -a
+automake19 -a || automake15 -a || automake -a
 
