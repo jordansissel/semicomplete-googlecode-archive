@@ -237,7 +237,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 			if ((hash_lookup(p->xboxen, ETHERCONV(eptr->ether_shost)) != NULL))
 				continue;
 
-			debuglog(3, "Sending ethernet packet to %s", inet_ntoa(p->addr));
+			debuglog(3, "Sending ethernet packet to %s [Length: %d]", inet_ntoa(p->addr), head->caplen);
 
 			if (use_udp) {
 				struct sockaddr_in to;
