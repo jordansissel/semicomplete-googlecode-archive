@@ -422,14 +422,16 @@ void pcap(void *args) {
 	bpf_filter = malloc(1024);
 	memset(bpf_filter, 0, 1024);
 
+	sprintf(bpf_filter + strlen(bpf_filter), "broadcast");
+
 	/* Build the pcap bpf filter string */
 	if (forwardmulticast)
-		sprintf(bpf_filter + strlen(bpf_filter), "(src net %s mask %s and (multicast))", netstring, maskstring);
+		sprintf(bpf_filter + strlen(bpf_filter), "or (src net %s mask %s and (multicast))", netstring, maskstring);
 
 	if (forwardmulticast && forwardxbox)
 		sprintf(bpf_filter + strlen(bpf_filter), " or ");
 	if (forwardxbox)
-		sprintf(bpf_filter + strlen(bpf_filter), "(broadcast and host 0.0.0.1)");
+		sprintf(bpf_filter + strlen(bpf_filter), "(host 0.0.0.1)");
 
 	debuglog(10, "pcap filter: %s", bpf_filter);
 	pcap_compile(handle, &filter, bpf_filter, 1, net);
