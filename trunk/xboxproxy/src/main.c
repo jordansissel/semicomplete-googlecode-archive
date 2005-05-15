@@ -50,6 +50,7 @@
 #include "hash.h"
 
 #define SERVER_PORT 3434
+#define HASHSIZE 512
 
 /* The xbox network stuff only uses an ip of 0.0.0.1 */
 static char filter_app[] = "host 0.0.0.1 or (src net 129.21.60.0/23 and port 5353 and (multicast or broadcast))";
@@ -309,7 +310,7 @@ proxy_t *addproxy(struct sockaddr_in *addr, int sock) {
 		newproxy->ip = (int) addr->sin_addr.s_addr;
 		newproxy->addr = addr->sin_addr;
 		newproxy->fd = sock;
-		newproxy->xboxen = hash_create(64, comparemac, hashmac);
+		newproxy->xboxen = hash_create(HASHSIZE, comparemac, hashmac);
 
 		debuglog(1, "NEW PROXY FOUND: %s", inet_ntoa(addr->sin_addr));
 		hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
@@ -422,7 +423,7 @@ void pcap(void *args) {
 	bpf_filter = malloc(1024);
 	memset(bpf_filter, 0, 1024);
 
-	sprintf(bpf_filter + strlen(bpf_filter), "broadcast");
+	//sprintf(bpf_filter + strlen(bpf_filter), "broadcast");
 
 	/* Build the pcap bpf filter string */
 	if (forwardmulticast)
@@ -430,6 +431,7 @@ void pcap(void *args) {
 
 	if (forwardmulticast && forwardxbox)
 		sprintf(bpf_filter + strlen(bpf_filter), " or ");
+
 	if (forwardxbox)
 		sprintf(bpf_filter + strlen(bpf_filter), "(host 0.0.0.1)");
 
@@ -567,7 +569,7 @@ void proxy(void *args) {
 					 newproxy->ip = (int) srcaddr.sin_addr.s_addr;
 					 newproxy->addr = srcaddr.sin_addr;
 					 newproxy->fd = fd;
-					 newproxy->xboxen = hash_create(64, comparemac, hashmac);
+					 newproxy->xboxen = hash_create(HASHSIZE, comparemac, hashmac);
 
 					 hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
 					 */
@@ -639,7 +641,7 @@ void connect_to_proxy() {
 	 newproxy->ip = (int) destaddr.sin_addr.s_addr;
 	 newproxy->addr = destaddr.sin_addr;
 	 newproxy->fd = sock;
-	 newproxy->xboxen = hash_create(64, comparemac, hashmac);
+	 newproxy->xboxen = hash_create(HASHSIZE, comparemac, hashmac);
 
 	 hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
 	 */
@@ -773,8 +775,8 @@ int main(int argc, char **argv) {
 	progname = argv[0];
 
 	/* Initialization and Defaults */
-	xboxen = hash_create(64, comparemac, hashmac);
-	proxies = hash_create(64, compareip, haship);
+	xboxen = hash_create(HASHSIZE, comparemac, hashmac);
+	proxies = hash_create(HASHSIZE, compareip, haship);
 	set_log_level(0);
 
 	pthread_t pcapthread, proxythread;
