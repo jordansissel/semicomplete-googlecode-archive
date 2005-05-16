@@ -55,6 +55,8 @@
 /* The xbox network stuff only uses an ip of 0.0.0.1 */
 static char filter_app[] = "host 0.0.0.1 or (src net 129.21.60.0/23 and port 5353 and (multicast or broadcast))";
 
+static char *user_filter = NULL;
+
 /* xbox broadcasts to FF:FF:FF:FF:FF:FF */
 static char broadcastmac[ETHER_ADDR_LEN] = { 
 	0xFF, 0xFF, 0xFF, 
@@ -96,6 +98,7 @@ static char *proxyserver = NULL;
 /* Some defaults */
 static int use_udp = 1;
 static int forwardmulticast = 0;
+static int forwardbroadcast = 0;
 static int forwardxbox = 1;
 static int serverport = SERVER_PORT;
 
@@ -119,16 +122,18 @@ int recv_from_proxy(proxy_t *ppt);
 void distribute_packet(proxy_t *ppt, char *packet, int pktlen);
 
 void usage() {
-	debuglog(0, "Usage: %s [-xm] [-u] [-s <server>] [-i <dev>] [-d <debuglevel>] [-p <port>] [-h]",
+	debuglog(0, "Usage: %s [-bxm] [-u] [-s <server>] [-i <dev>] [-d <debuglevel>] [-p <port>] [-h]",
 				progname);
-	debuglog(0, "-x          forward xbox system link packets");
-	debuglog(0, "-m          forward multicast packets");
-	debuglog(0, "-u          use udp encapsulation instead of tcp (default)");
-	debuglog(0, "-s <server> specify another proxy to send packets to");
-	debuglog(0, "-i <dev>    ethernet device to sniff packets on");
-	debuglog(0, "-d <level>  specify debug level, (0-1000)");
-	debuglog(0, "-p <port>   which port to send data on when talkin to other proxies");
-	debuglog(0, "-h          this message");
+	debuglog(0, "-x              forward xbox system link packets");
+	debuglog(0, "-b              forward broadcast traffic");
+	debuglog(0, "-m              forward multicast packets");
+	debuglog(0, "-u              use udp encapsulation instead of tcp (default)");
+	debuglog(0, "-s <server>     specify another proxy to send packets to");
+	debuglog(0, "-i <dev>        ethernet device to sniff packets on");
+	debuglog(0, "-d <level>      specify debug level, (0-1000)");
+	debuglog(0, "-p <port>       which port to send data on when talkin to other proxies");
+	debuglog(0, "-f <bpf filter> an additional bpf filter string you wish to use");
+	debuglog(0, "-h              this message!");
 }
 
 int comparemac(const void *k1, const void *k2) {
@@ -423,22 +428,43 @@ void pcap(void *args) {
 	bpf_filter = malloc(1024);
 	memset(bpf_filter, 0, 1024);
 
-	//sprintf(bpf_filter + strlen(bpf_filter), "broadcast");
+	if (user_filter != NULL) {
+		sprintf(bpf_filter, "(%s)", user_filter);
+		if (forwardmulticast || forwardbroadcast || forwardxbox)
+			sprintf(bpf_filter + strlen(bpf_filter), " or ");
+	}
 
 	/* Build the pcap bpf filter string */
-	if (forwardmulticast)
-		sprintf(bpf_filter + strlen(bpf_filter), "or (src net %s mask %s and (multicast))", netstring, maskstring);
+	if (forwardmulticast) {
+		sprintf(bpf_filter + strlen(bpf_filter), "(src net %s mask %s and (multicast))", netstring, maskstring);
+		if (forwardbroadcast || forwardxbox)
+			sprintf(bpf_filter + strlen(bpf_filter), " or ");
+	}
 
-	if (forwardmulticast && forwardxbox)
-		sprintf(bpf_filter + strlen(bpf_filter), " or ");
+	/* XXX: Should this match any broadcast? Ether broadcast? or just ip broadcast? */
+	if (forwardbroadcast) {
+		sprintf(bpf_filter + strlen(bpf_filter), "(ip broadcast)");
+		if (forwardxbox) 
+			sprintf(bpf_filter + strlen(bpf_filter), " or ");
+	}
 
 	if (forwardxbox)
 		sprintf(bpf_filter + strlen(bpf_filter), "(host 0.0.0.1)");
 
-	debuglog(10, "pcap filter: %s", bpf_filter);
-	pcap_compile(handle, &filter, bpf_filter, 1, net);
+	if (-1 == pcap_compile(handle, &filter, bpf_filter, 1, net)) {
+		debuglog(0, "%s: %s", progname, pcap_geterr(handle));
+		if (user_filter != NULL) {
+			debuglog(0, "%s: You specified an additional packet filter, it probably has an error", 
+						progname);
+			debuglog(0, "%s: The filter is '%s'", progname, user_filter);
+			debuglog(5, "%s: Generated filter: %s", progname, bpf_filter);
+		}
+		exit(-1);
+	}
 	pcap_setfilter(handle, &filter);
 	pcap_loop(handle, -1, packet_handler, NULL);
+
+	debuglog(10, "pcap filter: %s", bpf_filter);
 
 	pcap_close(handle);
 
@@ -782,36 +808,44 @@ int main(int argc, char **argv) {
 	pthread_t pcapthread, proxythread;
 
 	/* Argument Processing */
-	while ((ch = getopt(argc, argv, "xmus:i:d:h?p:")) != -1) {
+	while ((ch = getopt(argc, argv, "bxmus:i:d:h?p:f:")) != -1) {
 		switch (ch) {
-			case 'x':
-				debuglog(10, "-x flag, enabling xbox system link forwarding");
-				forwardxbox = 1;
-				break;
-			case 'm':
-				debuglog(10, "-m flag, enabling multicast forwarding");
-				forwardmulticast = 1;
+			case 'b':
+				debuglog(10, "-b flag, enabling broadcast forwarding");
+				forwardbroadcast = 1;
 				break;
 			case 'd':
-				set_log_level(atoi(optarg));
+				set_log_level(optind);
 				break;
-			case 'u':
-				debuglog(10, "-u flag, enabling udp");
-				use_udp = 1;
+			case 'f':
+				user_filter = malloc(strlen(optarg));
+				strcpy(user_filter, optarg);
 				break;
 			case 'i':
 				pcapdev = malloc(strlen(optarg) + 1);
 				strlcpy(pcapdev,optarg,strlen(optarg) + 1);
 				debuglog(10, "-i flag, setting device to %s", pcapdev);
 				break;
+			case 'm':
+				debuglog(10, "-m flag, enabling multicast forwarding");
+				forwardmulticast = 1;
+				break;
+			case 'p':
+				serverport = optind;
+				debuglog(10, "-p flag, setting proxy port to %d", serverport);
+				break;
 			case 's':
 				proxyserver = malloc(strlen(optarg) + 1);
 				strlcpy(proxyserver,optarg,strlen(optarg) + 1);
 				debuglog(10, "-s flag, setting proxy server to %s", proxyserver);
 				break;
-			case 'p':
-				serverport = atoi(optarg);
-				debuglog(10, "-p flag, setting proxy port to %d", serverport);
+			case 'u':
+				debuglog(10, "-u flag, enabling udp");
+				use_udp = 1;
+				break;
+			case 'x':
+				debuglog(10, "-x flag, enabling xbox system link forwarding");
+				forwardxbox = 1;
 				break;
 			case 'h':
 			case '?':
