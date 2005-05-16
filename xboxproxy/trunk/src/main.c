@@ -461,10 +461,11 @@ void pcap(void *args) {
 		}
 		exit(-1);
 	}
-	pcap_setfilter(handle, &filter);
-	pcap_loop(handle, -1, packet_handler, NULL);
 
 	debuglog(10, "pcap filter: %s", bpf_filter);
+
+	pcap_setfilter(handle, &filter);
+	pcap_loop(handle, -1, packet_handler, NULL);
 
 	pcap_close(handle);
 
