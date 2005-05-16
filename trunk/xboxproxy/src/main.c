@@ -431,7 +431,7 @@ void pcap(void *args) {
 	if (user_filter != NULL) {
 		sprintf(bpf_filter, "(%s)", user_filter);
 		if (forwardmulticast || forwardbroadcast || forwardxbox)
-			sprintf(bpf_filter + strlen(bpf_filter), " or ");
+			sprintf(bpf_filter + strlen(bpf_filter), " and (");
 	}
 
 	/* Build the pcap bpf filter string */
@@ -451,7 +451,10 @@ void pcap(void *args) {
 	if (forwardxbox)
 		sprintf(bpf_filter + strlen(bpf_filter), "(host 0.0.0.1)");
 
-	debuglog(10, "pcap filter: %s", bpf_filter);
+	if (user_filter != NULL)
+		sprintf(bpf_filter + strlen(bpf_filter), ")");
+
+	debuglog(0, "pcap filter: %s", bpf_filter);
 
 	if (-1 == pcap_compile(handle, &filter, bpf_filter, 1, net)) {
 		debuglog(0, "%s: %s", progname, pcap_geterr(handle));
