@@ -451,6 +451,8 @@ void pcap(void *args) {
 	if (forwardxbox)
 		sprintf(bpf_filter + strlen(bpf_filter), "(host 0.0.0.1)");
 
+	debuglog(10, "pcap filter: %s", bpf_filter);
+
 	if (-1 == pcap_compile(handle, &filter, bpf_filter, 1, net)) {
 		debuglog(0, "%s: %s", progname, pcap_geterr(handle));
 		if (user_filter != NULL) {
@@ -462,7 +464,6 @@ void pcap(void *args) {
 		exit(-1);
 	}
 
-	debuglog(10, "pcap filter: %s", bpf_filter);
 
 	pcap_setfilter(handle, &filter);
 	pcap_loop(handle, -1, packet_handler, NULL);
