@@ -599,15 +599,6 @@ void proxy(void *args) {
 					debuglog(1, "New proxy connection from %s:%d",
 								inet_ntoa(srcaddr.sin_addr), htons(srcaddr.sin_port));
 
-					/*
-					 newproxy = malloc(sizeof(proxy_t));
-					 newproxy->ip = (int) srcaddr.sin_addr.s_addr;
-					 newproxy->addr = srcaddr.sin_addr;
-					 newproxy->fd = fd;
-					 newproxy->xboxen = hash_create(HASHSIZE, comparemac, hashmac);
-
-					 hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
-					 */
 					addproxy(&srcaddr, fd);
 					FD_SET(fd, &proxysocks);
 				} 
@@ -635,6 +626,8 @@ void connect_to_proxy() {
 			pthread_exit(NULL);
 		}
 	}
+
+	/* XXX: Should we bind the socket here to port 3434? */
 
 	if ((hostdata = gethostbyname(proxyserver))== NULL) {
 		debuglog(0, "gethostbyname() failed: %s", strerror(errno));
@@ -670,15 +663,6 @@ void connect_to_proxy() {
 	 * we should completely forget about this relationship 
 	 * (us being the client). Now, add it to the list of
 	 * known proxies and move along.
-	 */
-	/*
-	 newproxy = malloc(sizeof(proxy_t));
-	 newproxy->ip = (int) destaddr.sin_addr.s_addr;
-	 newproxy->addr = destaddr.sin_addr;
-	 newproxy->fd = sock;
-	 newproxy->xboxen = hash_create(HASHSIZE, comparemac, hashmac);
-
-	 hash_alloc_insert(proxies, &(newproxy->ip), newproxy);
 	 */
 	addproxy(&destaddr, sock);
 	FD_SET(sock, &proxysocks);
@@ -749,6 +733,8 @@ int recv_from_proxy(proxy_t *ppt) {
 	}
 
 	distribute_packet(ppt, packet, bytes);
+
+	free(packet);
 
 	return bytes;
 }
