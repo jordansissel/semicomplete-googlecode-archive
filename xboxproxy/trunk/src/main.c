@@ -83,6 +83,7 @@ static hash_t *xboxen = NULL;
 typedef struct proxy {
 	int ip; /* The ip address of this proxy */
 	struct in_addr addr;
+	int port; /* The port! */
 	int fd; /* File descriptor for the connection to this proxy */
 	hash_t *xboxen; /* Table containing known xboxes on this proxy */
 } proxy_t;
@@ -248,7 +249,8 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 			if (use_udp) {
 				struct sockaddr_in to;
 				to.sin_addr = p->addr;
-				to.sin_port = htons(serverport);
+				//to.sin_port = htons(serverport);
+				to.sin_port = p->port;
 				to.sin_family = PF_INET;
 
 				//sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
@@ -286,7 +288,8 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 		if (use_udp) {
 			struct sockaddr_in to;
 			to.sin_addr = p->addr;
-			to.sin_port = htons(serverport);
+			//to.sin_port = htons(serverport);
+			to.sin_port = p->port;
 			to.sin_family = PF_INET;
 
 			//sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
@@ -314,6 +317,7 @@ proxy_t *addproxy(struct sockaddr_in *addr, int sock) {
 		newproxy = malloc(sizeof(proxy_t));
 		newproxy->ip = (int) addr->sin_addr.s_addr;
 		newproxy->addr = addr->sin_addr;
+		newproxy->port = addr->sin_port;
 		newproxy->fd = sock;
 		newproxy->xboxen = hash_create(HASHSIZE, comparemac, hashmac);
 
