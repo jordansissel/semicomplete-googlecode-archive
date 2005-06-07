@@ -42,6 +42,7 @@
 #include <libnet.h>
 
 
+static int BIGSERVER;
 #ifndef ETHER_ADDR_LEN
 #define ETHER_ADDR_LEN 6
 #endif
@@ -249,8 +250,8 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 			if (use_udp) {
 				struct sockaddr_in to;
 				to.sin_addr = p->addr;
-				//to.sin_port = htons(serverport);
-				to.sin_port = p->port;
+				to.sin_port = htons(serverport);
+				//to.sin_port = p->port;
 				to.sin_family = PF_INET;
 
 				//sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
@@ -288,8 +289,8 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 		if (use_udp) {
 			struct sockaddr_in to;
 			to.sin_addr = p->addr;
-			//to.sin_port = htons(serverport);
-			to.sin_port = p->port;
+			to.sin_port = htons(serverport);
+			//to.sin_port = p->port;
 			to.sin_family = PF_INET;
 
 			//sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
@@ -491,6 +492,7 @@ void proxy(void *args) {
 	} else {
 		server = socket(PF_INET, SOCK_STREAM, 0);
 	}
+	BIGSERVER = server;
 	serveraddr.sin_family = PF_INET;
 	serveraddr.sin_addr.s_addr = INADDR_ANY;
 	serveraddr.sin_port = htons(serverport);
@@ -646,7 +648,7 @@ void connect_to_proxy() {
 
 	if (use_udp) {
 		debuglog(30, "Sending UDP hello packet to %s", proxyserver);
-		if (sendto(sock, NULL, 0, 0, (struct sockaddr *)&destaddr, sizeof(struct sockaddr)) < 0) {
+		if (sendto(BIGSERVER, NULL, 0, 0, (struct sockaddr *)&destaddr, sizeof(struct sockaddr)) < 0) {
 			debuglog(0, "sendto() failed [while saying hi]: %s", strerror(errno));
 			pthread_exit(NULL);
 		}
