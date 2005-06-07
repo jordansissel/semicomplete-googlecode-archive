@@ -249,8 +249,8 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 			if (use_udp) {
 				struct sockaddr_in to;
 				to.sin_addr = p->addr;
-				to.sin_port = htons(serverport);
-				//to.sin_port = p->port;
+				//to.sin_port = htons(serverport);
+				to.sin_port = p->port;
 				to.sin_family = PF_INET;
 
 				//sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
@@ -288,8 +288,8 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 		if (use_udp) {
 			struct sockaddr_in to;
 			to.sin_addr = p->addr;
-			to.sin_port = htons(serverport);
-			//to.sin_port = p->port;
+			//to.sin_port = htons(serverport);
+			to.sin_port = p->port;
 			to.sin_family = PF_INET;
 
 			//sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
