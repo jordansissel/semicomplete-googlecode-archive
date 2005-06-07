@@ -319,7 +319,9 @@ proxy_t *addproxy(struct sockaddr_in *addr, int sock) {
 		newproxy->ip = (int) addr->sin_addr.s_addr;
 		newproxy->addr = addr->sin_addr;
 		newproxy->port = addr->sin_port;
-		newproxy->fd = sock;
+		/* XXX: Is this correct? */
+		//newproxy->fd = sock;
+		newproxy->fd = BIGSERVER;
 		newproxy->xboxen = hash_create(HASHSIZE, comparemac, hashmac);
 
 		debuglog(1, "NEW PROXY FOUND: %s", inet_ntoa(addr->sin_addr));
