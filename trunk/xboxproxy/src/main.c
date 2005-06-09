@@ -41,8 +41,10 @@
 #include <pcap.h>
 #include <libnet.h>
 
+#include "ugly.h"
 
 static int BIGSERVER;
+
 #ifndef ETHER_ADDR_LEN
 #define ETHER_ADDR_LEN 6
 #endif
@@ -53,19 +55,14 @@ static int BIGSERVER;
 #define SERVER_PORT 3434
 #define HASHSIZE 512
 
-/* The xbox network stuff only uses an ip of 0.0.0.1 */
-static char filter_app[] = "host 0.0.0.1 or (src net 129.21.60.0/23 and port 5353 and (multicast or broadcast))";
-
-static char *user_filter = NULL;
-
 /* xbox broadcasts to FF:FF:FF:FF:FF:FF */
-static char broadcastmac[ETHER_ADDR_LEN] = { 
+static const char broadcastmac[ETHER_ADDR_LEN] = { 
 	0xFF, 0xFF, 0xFF, 
 	0xFF, 0xFF, 0xFF
 };
 
 /* multicast mac address is 01:00:5E:XX:XX:XX */
-static char multicastmac[ETHER_ADDR_LEN] = {
+static const char multicastmac[ETHER_ADDR_LEN] = {
 	0x01, 0x00, 0x5E,
 	0x00, 0x00, 0x00, /* Last 3 octets are unknown and don't matter */
 };
@@ -103,16 +100,9 @@ static int forwardmulticast = 0;
 static int forwardbroadcast = 0;
 static int forwardxbox = 1;
 static int serverport = SERVER_PORT;
+static char *user_filter = NULL;
 
-//define HAVE_LIBNET_1_1
-
-#ifdef HAVE_LIBNET_1_0
-struct libnet_link_int *libnet;
-#else
-#	ifdef HAVE_LIBNET_1_1
-libnet_t *libnet;
-#	endif
-#endif
+my_libnet_t *libnet;
 
 void addxbox(MACTYPE *macaddr, proxy_t *ppt);
 proxy_t *addproxy(struct sockaddr_in *addr, int sock);
@@ -124,7 +114,8 @@ int recv_from_proxy(proxy_t *ppt);
 void distribute_packet(proxy_t *ppt, char *packet, int pktlen);
 
 void usage() {
-	debuglog(0, "Usage: %s [-bxm] [-u] [-s <server>] [-i <dev>] [-d <debuglevel>] [-p <port>] [-h]",
+	debuglog(0, 
+"Usage: %s [-bxm] [-u] [-s <server>] [-i <dev>] [-d <debuglevel>] [-p <port>] [-h]",
 				progname);
 	debuglog(0, "-x              forward xbox system link packets");
 	debuglog(0, "-b              forward broadcast traffic");
@@ -413,22 +404,11 @@ void pcap(void *args) {
 		pthread_exit(NULL);
 	}
 
-#ifdef HAVE_LIBNET_1_0
-	libnet = libnet_open_link_interface(pcapdev, errbuf);
-	if (libnet == NULL) {
-		debuglog(0, "libnet_open_link_interface() failed: %s", errbuf);
-		pthread_exit(NULL);
-	}
-#else
-#	ifdef HAVE_LIBNET_1_1
-	//libnet = libnet_init(LIBNET_LINK, pcapdev, errbuf);
-	libnet = libnet_init(LIBNET_LINK_ADV, pcapdev, errbuf);
+	libnet = my_libnet_init(pcapdev, errbuf);
 	if (libnet == NULL) {
 		debuglog(0, "libnet_init() failed: %s", errbuf);
 		pthread_exit(NULL);
 	}
-#	endif
-#endif
 
 	debuglog(2, "Opened %s, listening for xbox traffic", pcapdev);
 
@@ -756,13 +736,7 @@ void distribute_packet(proxy_t *ppt, char *packet, int pktlen) {
 	debuglog(30, "----- REMOTE PACKET To: %s",
 				ether_ntoa((struct ether_addr *)ETHERCONV(eptr->ether_dhost)));
 
-#ifdef HAVE_LIBNET_1_0
-	bytes = libnet_write_link_layer(libnet, pcapdev, packet, pktlen);
-#else
-#	ifdef HAVE_LIBNET_1_1
-	bytes = libnet_adv_write_link(libnet, packet, pktlen);
-#	endif
-#endif
+	bytes = my_libnet_write_link_layer(libnet,pcapdev,packet,pktlen);
 
 	if (bytes < 0) {
 		debuglog(0, "FATAL ERROR WRITING RAW PACKET TO DEVICE");
