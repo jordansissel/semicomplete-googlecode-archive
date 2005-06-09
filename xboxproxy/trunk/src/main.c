@@ -241,11 +241,10 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 			if (use_udp) {
 				struct sockaddr_in to;
 				to.sin_addr = p->addr;
-				to.sin_port = htons(serverport);
-				//to.sin_port = p->port;
+				//to.sin_port = htons(serverport);
+				to.sin_port = p->port;
 				to.sin_family = PF_INET;
 
-				//sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
 				sendto(p->fd, packet, head->caplen, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
 			} else {
 				write(p->fd, &(head->caplen), 4); /* First 4 bytes is the size */
@@ -280,11 +279,10 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 		if (use_udp) {
 			struct sockaddr_in to;
 			to.sin_addr = p->addr;
-			to.sin_port = htons(serverport);
-			//to.sin_port = p->port;
+			//to.sin_port = htons(serverport);
+			to.sin_port = p->port;
 			to.sin_family = PF_INET;
 
-			//sendto(p->fd, &(head->caplen), 4, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
 			sendto(p->fd, packet, head->caplen, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
 		} else {
 			write(p->fd, &(head->caplen), 4); /* First 4 bytes is the size */
@@ -310,9 +308,10 @@ proxy_t *addproxy(struct sockaddr_in *addr, int sock) {
 		newproxy->ip = (int) addr->sin_addr.s_addr;
 		newproxy->addr = addr->sin_addr;
 		newproxy->port = addr->sin_port;
-		/* XXX: Is this correct? */
-		//newproxy->fd = sock;
-		newproxy->fd = BIGSERVER;
+		/* XXX: Is this correct?
+		 * If we're using UDP, 'sock' is the server udp socket, so this is correct
+		 * If we're using TCP, well... tcp doesn't work properly yet.  */
+		newproxy->fd = sock;
 		newproxy->xboxen = hash_create(HASHSIZE, comparemac, hashmac);
 
 		debuglog(1, "NEW PROXY FOUND: %s", inet_ntoa(addr->sin_addr));
