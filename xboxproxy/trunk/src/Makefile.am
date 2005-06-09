@@ -1,5 +1,5 @@
 bin_PROGRAMS = proxy
-proxy_SOURCES= main.c hash.c log.c hash.h log.h
+proxy_SOURCES= main.c hash.c log.c ugly.c ugly.h hash.h log.h
 
 CC = @CC@
 AM_CFLAGS = -I. @LIBNET_CFLAGS@ -I@PCAP_PREFIX@
