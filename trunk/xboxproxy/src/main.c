@@ -331,7 +331,11 @@ proxy_t *addproxy(struct sockaddr_in *addr, int sock) {
 
 		return newproxy;
 	} else {
+		proxy_t *p = proxy->hash_data;
 		debuglog(15, "Packet from known proxy...");
+		debuglog(5, "Port changed on client %s, %d -> %d", inet_ntoa(addr->sin_addr), 
+					p->port, htons(addr->sin_port));
+		p->port = addr->sin_port;
 		return (proxy->hash_data);
 	}
 }
