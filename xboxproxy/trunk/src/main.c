@@ -247,8 +247,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 
 				sendto(p->fd, packet, head->caplen, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
 			} else {
-				write(p->fd, &(head->caplen), 4); /* First 4 bytes is the size */
-				write(p->fd, packet, head->caplen);
+				/* TCP */
 			}
 		}
 	} else {
@@ -285,12 +284,9 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 
 			sendto(p->fd, packet, head->caplen, 0, (struct sockaddr *)&to, sizeof(struct sockaddr));
 		} else {
-			write(p->fd, &(head->caplen), 4); /* First 4 bytes is the size */
-			write(p->fd, packet, head->caplen);
+			/* TCP */
 		}
-
 	}
-
 }
 
 proxy_t *addproxy(struct sockaddr_in *addr, int sock) {
@@ -333,9 +329,11 @@ proxy_t *addproxy(struct sockaddr_in *addr, int sock) {
 	} else {
 		proxy_t *p = proxy->hash_data;
 		debuglog(15, "Packet from known proxy...");
-		debuglog(5, "Port changed on client %s, %d -> %d", inet_ntoa(addr->sin_addr), 
-					p->port, htons(addr->sin_port));
-		p->port = addr->sin_port;
+		if (p->port != addr->sin_port) {
+			debuglog(0, "Port changed on client %s (%d -> %d)", inet_ntoa(addr->sin_addr), 
+						p->port, addr->sin_port);
+			p->port = addr->sin_port;
+		}
 		return (proxy->hash_data);
 	}
 }
@@ -547,49 +545,8 @@ void proxy(void *args) {
 					FD_SET(server, &proxysocks);
 				}
 
-			} else { /* if using tcp... */
-				/* Check known proxy connections for data */
-				hash_scan_begin(&hs, proxies);
-				while ((node = hash_scan_next(&hs))) {
-					proxy_t *p = (proxy_t *)(node->hash_data);
-					if (FD_ISSET(p->fd, &proxysocks)) {
-						debuglog(13, "Data received from %s", inet_ntoa(p->addr));
-						if (recv_from_proxy(p) > 0 )
-							FD_SET(p->fd, &proxysocks);
-						else
-							FD_CLR(p->fd, &proxysocks);
-					} else {
-						FD_SET(p->fd, &proxysocks);
-					}
-				}
-
-				debuglog(14,"Data from a connected proxy client!");
-				if (FD_ISSET(server, &proxysocks)) {
-					//proxy_t *newproxy;
-
-					if ((fd = accept(server, (struct sockaddr *)&srcaddr, &size)) < 0) {
-						debuglog(0, "accept() failed: %s", strerror(errno));
-						pthread_exit(NULL);
-					}
-
-					/* Check bufsize... */
-					do {
-						int bufsiz;
-						int sizeofthing = 4;
-						getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &bufsiz, &sizeofthing);
-						debuglog(0, "Socket rcvbuf: %d", bufsiz);
-						getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &bufsiz, &sizeofthing);
-						debuglog(0, "Socket sndbuf: %d", bufsiz);
-					} while (0);
-
-
-					debuglog(1, "New proxy connection from %s:%d",
-								inet_ntoa(srcaddr.sin_addr), htons(srcaddr.sin_port));
-
-					addproxy(&srcaddr, fd);
-					FD_SET(fd, &proxysocks);
-				} 
-			} /* else if using udp */
+			} else { /* if using TCP... */
+			} 
 		} /* else, selected data is available */
 	} /* infinite loop */
 }
@@ -637,12 +594,7 @@ void connect_to_proxy() {
 			debuglog(0, "sendto() failed [while saying hi]: %s", strerror(errno));
 			pthread_exit(NULL);
 		}
-	} else {
-		debuglog(30, "Sending TCP hello to %s", proxyserver);
-		if (connect(sock, (struct sockaddr *)&destaddr, sizeof(struct sockaddr))) {
-			debuglog(0, "connect() failed: %s", strerror(errno));
-			pthread_exit(NULL);
-		}
+	} else { /* TCP */
 	} 
 
 
@@ -791,7 +743,7 @@ int main(int argc, char **argv) {
 				forwardbroadcast = 1;
 				break;
 			case 'd':
-				set_log_level(optind);
+				set_log_level(atoi(optarg));
 				break;
 			case 'f':
 				user_filter = malloc(strlen(optarg));
@@ -807,7 +759,7 @@ int main(int argc, char **argv) {
 				forwardmulticast = 1;
 				break;
 			case 'p':
-				serverport = optind;
+				serverport = atoi(optarg);
 				debuglog(10, "-p flag, setting proxy port to %d", serverport);
 				break;
 			case 's':
