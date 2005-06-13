@@ -145,7 +145,7 @@ int compareip(const void *k1, const void *k2) {
 	a = *(unsigned int *)k1;
 	b = *(unsigned int *)k2;
 
-	debuglog(20, "compareip: %08x vs %08x = %d", a, b, (a < b ? -1 : (a > b ? 1 : 0)) );
+	debuglog(30, "compareip: %08x vs %08x = %d", a, b, (a < b ? -1 : (a > b ? 1 : 0)) );
 
 	return (a < b ? -1 : (a > b ? 1 : 0));
 }
@@ -236,7 +236,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *head,
 			if ((hash_lookup(p->xboxen, ETHERCONV(eptr->ether_shost)) != NULL))
 				continue;
 
-			debuglog(3, "Sending ethernet packet to %s [Length: %d]", inet_ntoa(p->addr), head->caplen);
+			debuglog(3, "Sending ethernet packet to %s:%d [Length: %d]", inet_ntoa(p->addr), htons(p->port), head->caplen);
 
 			if (use_udp) {
 				struct sockaddr_in to;
@@ -603,7 +603,7 @@ void connect_to_proxy() {
 	 * (us being the client). Now, add it to the list of
 	 * known proxies and move along.
 	 */
-	addproxy(&destaddr, sock);
+	addproxy(&destaddr, BIGSERVER);
 	FD_SET(sock, &proxysocks);
 }
 
