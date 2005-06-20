@@ -13,17 +13,21 @@ void slave();
 char myhost[150];
 int myrank;
 
-void debug(int level, const char *format, ...) {
+#define SLEEP 1
+#define ITERATIONS 100000
+
+void debug(const char *format, ...) {
 	char str[1024];
+	char msg[1024];
 	char host[150];
 	va_list args;
-	snprintf(str, 1024, "%s[%d]: %s", myhost, myrank, format);
+
 	va_start(args,format);
-	printf("\nTEST: ");
-	printf(str, args);
-	printf("\n\n");
-	debuglog(level, str, args);
+	vsnprintf(msg, 1024, format, args);
 	va_end(args);
+
+	printf("%s[%d]: %s\n", myhost, myrank, msg);
+	fflush(stdout);
 }
 
 
@@ -38,47 +42,39 @@ int main(int argc, char **argv) {
 
 	strcpy(myhost,host);
 	myrank = rank;
-	debug(0, "Hello!");
-	printf("Hello world (Rank: %d / Host: %s)\n", rank, host);
+	debug("Hello World!", rank, host);
 	if (rank == 0) master();
 	else slave();
 
+	debug("Finalizing!");
 	MPI_Finalize();
 	return 0;
 }
 
 void master() {
 	int nodes;
-	int result[16];
-	memset(result, 0, 16 * sizeof(int));
+	int count;
+	int result;
 
 	MPI_Comm_size(MPI_COMM_WORLD, &nodes);
-	debug(0, "EXAMPLE VALUE: %d", result[5]);
-	debuglog(0, "EXAMPLE VALUE: %d", result[5]);
+	debug("EXAMPLE VALUE: %d", 15);
 
-	while (1) {
+	for (count = 0; count < ITERATIONS; count++) {
 		int x = 0;
 		MPI_Status status;
-		debug(0, "Waiting for data...");
+		debug("Waiting for data...");
 		for (x = 1; x < nodes; x++) {
-			MPI_Recv(result, 16, MPI_INT, x, 1, MPI_COMM_WORLD, &status);
-			debug(0, "Got: %d (%d)", result[5], status.MPI_SOURCE);
+			MPI_Recv(&result, 1, MPI_INT, x, 1, MPI_COMM_WORLD, &status);
+			debug("Got %d from %d", result, status.MPI_SOURCE);
 		}
-		sleep(1);
 	}
 }
 
 void slave() {
-	while (1) {
-		int values[16];
-		int x;
-		for (x = 0; x < 16; x++) {
-			values[x] = x;
-		}
-
-		debug(0, "Sending data...");
-		MPI_Send(values, 16, MPI_INT, 0, 1, MPI_COMM_WORLD);
-		sleep(1);
+	int value;
+	for (value = 0; value < ITERATIONS; value++) {
+		debug("Sending %d", value); 
+		MPI_Send(&value, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
 	}
 }
 	
