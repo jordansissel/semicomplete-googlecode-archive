@@ -13,8 +13,14 @@
 		<head>
 			<xsl:apply-templates select="title" />
 			<link rel="stylesheet" type="text/css" href="presenter.css"/>
+			<script src="presenter.js" />
 		</head>
 		<body>
+			<!-- Add the controller div -->
+			<div class="control-panel">
+				<div class="prev">Prev</div>
+				<div class="next">Next</div>
+			</div>
 			<xsl:apply-templates select="slide" />
 		</body>
 	</html>
@@ -51,16 +57,26 @@
 
 <xsl:template match="slide">
 	<xsl:variable name="slideid" select="generate-id(.)" />
-	<div id="{$slideid}" class="slide">
+	<xsl:variable name="nextslide" select="generate-id(following-sibling::*[1])" />
+	<xsl:variable name="visibility">
+		<xsl:choose>
+			<xsl:when test="count(preceding-sibling::slide) > 0">
+				display: none;
+			</xsl:when>
+			<xsl:otherwise>
+				display: block;
+			</xsl:otherwise>
+		</xsl:choose>
+	</xsl:variable>
+	<div id="{$slideid}" class="slide" style="{$visibility}">
 		<!-- 
 		Somehow apply this slide over whatever theme is selected 
 		for this particular slide.
 		XXX: Figure out some sort of theme coolness, perhaps
 		     xinclude will be useful here?
 		-->
-
 		<h1 class="slide-title">
-		<xsl:value-of select="title" />
+			<xsl:value-of select="title" />
 		</h1>
 		<xsl:apply-templates select="body"/>
 	</div>
