@@ -12,13 +12,37 @@
 	<html>
 		<head>
 			<xsl:apply-templates select="title" />
-			<link rel="stylesheet" type="text/css" href="presenter.css" />
+			<link rel="stylesheet" type="text/css" href="presenter.css"/>
 		</head>
 		<body>
 			<xsl:apply-templates select="slide" />
-			<xi:include href="test.xml" />
 		</body>
 	</html>
+</xsl:template>
+
+<!-- Copy the tree downward, we'll apply specific templates as necessary -->
+<xsl:template match="/slideshow/slide/body//*[name() != 'code']">
+   <xsl:copy>
+      <xsl:for-each select="@*">
+         <xsl:variable name="key" select="name()" />
+         <xsl:attribute name="{$key}">
+            <xsl:value-of select="normalize-space(.)" />
+         </xsl:attribute>
+      </xsl:for-each>
+      <xsl:apply-templates />
+   </xsl:copy>
+</xsl:template>
+
+<!-- Keep text as-is -->
+<xsl:template match="/slideshow/slide/body//text()">
+	<xsl:value-of select="." />
+</xsl:template>
+
+<!-- Special tag 'code' -->
+<xsl:template match="/slideshow/slide/body//code">
+	<pre class="code">
+		<xsl:apply-templates />
+	</pre>
 </xsl:template>
 
 <xsl:template match="/slideshow/title">
@@ -35,10 +59,11 @@
 		     xpointer will be useful here?
 		-->
 
-		<h3>
+		<h1 class="slide-title">
 		<xsl:value-of select="title" />
-		</h3>
-		<xsl:apply-templates select="body/* | body/text()" />
+		</h1>
+		<!--xsl:copy-of select="body/* | body/text()" /-->
+		<xsl:apply-templates />
 	</div>
 </xsl:template>
 

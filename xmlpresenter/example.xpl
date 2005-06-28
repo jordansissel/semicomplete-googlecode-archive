@@ -8,7 +8,13 @@
 		</body>
 	</slide>
 	<slide>
-		<title> Happy slide 2 </title>
+		<title> Slide XML </title>
+		<body>
+			<code>
+<![CDATA[
 
+]]>
+			</code>
+		</body>
 	</slide>
 </slideshow>

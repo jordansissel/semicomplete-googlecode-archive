@@ -1,0 +1,27 @@
+body {
+	margin: 0px;
+	padding: 0px;
+	height: 100%;
+}
+
+.slide {
+	border: 1px solid black;
+	height: 100%;
+	padding: 5px;
+}
+
+.slide-title {
+	text-align: center;
+	margin-top: 0px;
+	padding-top: 0px;
+}
+
+pre.code {
+	border: 1px solid #AACCDD;
+	background-color: #C8EAF8;
+	margin-left: 15px;
+	margin-right: 15px;
+	padding: 3px;
+}
+
+
