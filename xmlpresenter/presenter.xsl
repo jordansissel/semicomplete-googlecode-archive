@@ -56,16 +56,14 @@
 		Somehow apply this slide over whatever theme is selected 
 		for this particular slide.
 		XXX: Figure out some sort of theme coolness, perhaps
-		     xpointer will be useful here?
+		     xinclude will be useful here?
 		-->
 
 		<h1 class="slide-title">
 		<xsl:value-of select="title" />
 		</h1>
-		<!--xsl:copy-of select="body/* | body/text()" /-->
-		<xsl:apply-templates />
+		<xsl:apply-templates select="body"/>
 	</div>
 </xsl:template>
-
 
 </xsl:stylesheet>
