@@ -21,8 +21,7 @@
 		<body>
 			<!-- Add the controller div -->
 			<div id="control-panel">
-				<!-- These appear in reverse order on the page due to how the float style works -->
-				<!-- right arrow is disabled by default, becuase we start on the first page -->
+				<!-- left (previus) arrow is disabled by default, becuase we start on the first page -->
 				<div id="prev" onclick="button_prev()">
 					<img id="id_button_prev" src="images/leftarrow-disabled.png" alt="Previous Slide" />
 				</div>
@@ -93,6 +92,7 @@
 	</div>
 </xsl:template>
 
+<!-- Generate the javascript containing the slides array definition -->
 <xsl:template name="generate-slidelist">
 	<xsl:text>var slides = new Array();</xsl:text>
 	<xsl:for-each select="/slideshow/slide">

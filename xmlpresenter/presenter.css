@@ -46,13 +46,13 @@ body {
 
 .slide_content {
 	padding:15px;
-	padding-top: 50px;
+	padding-top: 4em;
 }
 
 .slide-title {
 	text-align: center;
 	margin-top: 0px;
-	padding-top: 0px;
+	padding-top: 15px;
 	background-color: white;
 	position: fixed;
 	top: 0px;

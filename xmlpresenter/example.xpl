@@ -211,9 +211,9 @@ main(int argc, char **argv)
 			<i>NOTE: If your browser renders example.xpl as a presentation, that's because your browser supports local xslt translations (which is a very nice feature!). Simply download it manually or use 'view source' from your browser to see the underlying XML.</i>
 			<ul>
 				<li><a href="/~psionic/projects/xmlpresenter/example.xpl">example.xpl</a></li>
-				<li><a href="/~psionic/projects/xmlpresenter/presentation.xsl">presentation.xsl</a></li>
-				<li><a href="/~psionic/projects/xmlpresenter/presentation.css">presentation.css</a></li>
-				<li><a href="/~psionic/projects/xmlpresenter/presentation.js">presentation.js</a></li>
+				<li><a href="/~psionic/projects/xmlpresenter/presenter.xsl">presenter.xsl</a></li>
+				<li><a href="/~psionic/projects/xmlpresenter/presenter.css">presenter.css</a></li>
+				<li><a href="/~psionic/projects/xmlpresenter/presenter.js">presenter.js</a></li>
 			</ul>
 		</body>
 	</slide>

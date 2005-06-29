@@ -21,12 +21,6 @@ function showslide(id) {
 }
 
 function watchurl() {
-	/* If oldhash is unset, set it to nothing */
-	if (!oldurl) { 
-		var u = location.href;
-		oldurl = u;
-	}
-
 	if (oldurl != location.href) {
 		//alert("URL CHANGED: \n" + location.href + "\n vs \n" + oldurl);
 		oldurl = location.href;
