@@ -32,6 +32,7 @@ AC_FUNC_MEMCMP
 AC_FUNC_REALLOC
 AC_FUNC_SELECT_ARGTYPES
 #AC_CHECK_FUNCS([gethostbyname inet_ntoa select socket strerror])
+AC_CHECK_FUNCS([strlcpy])
 
 AC_CANONICAL_HOST
 
@@ -42,12 +43,20 @@ case $host in
 	CFLAGS="$CFLAGS -D_POSIX_PTHREAD_SEMANTICS"
 	LDFLAGS="$LDFLAGS -lpthread -lnsl -lsocket" ;;
 *freebsd*)
-	LDFLAGS="-pthread" ;;
+	LDFLAGS="$LDFLAGS -pthread" ;;
+*linux*)
+	LDFLAGS="$LDFLAGS -lpthread" ;;
 *)
 	AC_CHECK_LIB(pthread,pthread_create,
 					 [LD_FLAGS="$LDFLAGS -lpthread"],
 					 [AC_MSG_ERROR([pthread library not found... perhaps you should fix that?])]
 					)
+esac
+
+# 64bit check
+case $host in
+x86_64*)
+	LDFLAGS="$LDFLAGS -L/usr/lib64";;
 esac
 
 AC_ARG_WITH([debug], 
