@@ -5,35 +5,47 @@ body {
 	width: 100%;
 }
 
-.control-panel {
+#control-panel {
 	position: absolute;
 	z-index: 3;
 	top: 0px;
-	right: 0px;
+	left: 0px;
 }
 
-.control-panel .prev {
-	background-color: #FFBBAA;
-	padding: 10px;
-	float:right;
+#control-panel #prev,#next {
+	float:left;
+	padding: 5px;
+	padding-left: 10px;
+	padding-right: 10px;
+	cursor: pointer;
+	font-weight: bold;
+	font-size: .8em;
+	background-color: #EAECDB;
 }
 
-.control-panel .next {
-	background-color: #FFBBAA;
-	float:right;
-	padding: 10px;
+#control-panel #prev {
+	border-bottom: 1px solid #A2A969;
+	border-right: 1px solid #C4C99C;
+}
+
+#control-panel #next {
+	border-right: 1px solid #A2A969;
+	border-bottom: 1px solid #A2A969;
 }
 
 .slide {
 	background-color: white;
 	height: 100%;
 	width: 100%;
-	/* padding: 5px; */
 
 	position: absolute;
 	top: 0px;
 	left: 0px;
 	z-index: 0;
+}
+
+.slide_content {
+	padding:15px;
 }
 
 .slide-title {

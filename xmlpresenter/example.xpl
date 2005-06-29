@@ -1,15 +1,15 @@
 <slideshow>
 	<title> Example Slideshow/Presentation </title>
 	<slide>
-		<title> Slide XML </title>
+		<title> This is the first slide.</title>
 		<body>
+			This is an xml-based website slideshow tool.<p/>
+
+			Features:
 			<ul>
-			<li> Testing</li>
-			<li> Foobie </li>
+			<li> Slide content <i>is</i> HTML!</li>
+			<li> The XML format for the slideshow is easy to use</li>
 			</ul>
-			<code><![CDATA[
-foobie
-]]></code>
 		</body>
 	</slide>
 
