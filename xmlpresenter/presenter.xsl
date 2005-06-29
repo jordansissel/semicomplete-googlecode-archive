@@ -16,9 +16,19 @@
 			<script>
 				<xsl:call-template name="generate-slidelist" />
 			</script>
-			<script src="presenter.js"/>
+			<script src="js/accelimation.js"/>
+			<script src="js/dom-drag.js"/>
+			<script src="js/presenter.js"/>
 		</head>
 		<body>
+
+			<!-- Table of Contents pane -->
+			<div id="slidelist-panel">
+				<xsl:call-template name="generate-slidelist-table" />
+			</div>
+			<div id="slidelist-expander"></div>
+
+			<div id="slide-container">
 			<!-- Add the controller div -->
 			<div id="control-panel">
 				<!-- left (previus) arrow is disabled by default, becuase we start on the first page -->
@@ -29,7 +39,9 @@
 					<img id="id_button_next" src="images/rightarrow.png" alt="Next Slide" />
 				</div>
 			</div>
-			<xsl:apply-templates select="slide" />
+
+				<xsl:apply-templates select="slide" />
+			</div>
 		</body>
 	</html>
 </xsl:template>
@@ -99,5 +111,15 @@
 		slides.push("slide_<xsl:value-of select="position() - 1"/>");
 	</xsl:for-each>
 </xsl:template>
+
+<!-- Generate the table of contents -->
+<xsl:template name="generate-slidelist-table">
+	<ul class="table-of-contents">
+	<xsl:for-each select="/slideshow/slide">
+		<li id="toc_slide_{position()-1}" onclick="showslide('slide_{position() - 1}')"><xsl:value-of select="title" /></li>
+	</xsl:for-each>
+	</ul>
+</xsl:template>
+
 
 </xsl:stylesheet>
