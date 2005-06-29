@@ -33,8 +33,12 @@
 #ifdef HAVE_NETINET_IF_ETHER_H
 #include <net/if.h>
 #include <netinet/if_ether.h>
+#ifndef MACTYPE
 #define MACTYPE uchar_t
+#endif
+#ifndef ETHERCONV
 #define ETHERCONV(ether) (&((ether).ether_addr_octet))
+#endif
 #endif
 
 #include <pthread.h>
@@ -751,7 +755,9 @@ int main(int argc, char **argv) {
 				break;
 			case 'i':
 				pcapdev = malloc(strlen(optarg) + 1);
-				strlcpy(pcapdev,optarg,strlen(optarg) + 1);
+				memset(pcapdev,0,strlen(optarg) + 1);
+				//strlcpy(pcapdev,optarg,strlen(optarg) + 1);
+				strncpy(pcapdev,optarg,strlen(optarg));
 				debuglog(10, "-i flag, setting device to %s", pcapdev);
 				break;
 			case 'm':
@@ -764,7 +770,9 @@ int main(int argc, char **argv) {
 				break;
 			case 's':
 				proxyserver = malloc(strlen(optarg) + 1);
-				strlcpy(proxyserver,optarg,strlen(optarg) + 1);
+				memset(proxyserver,0,strlen(optarg) + 1);
+				//strlcpy(proxyserver,optarg,strlen(optarg) + 1);
+				strncpy(proxyserver,optarg,strlen(optarg));
 				debuglog(10, "-s flag, setting proxy server to %s", proxyserver);
 				break;
 			case 'u':
