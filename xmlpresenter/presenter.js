@@ -10,29 +10,30 @@ function showslide(id) {
 	if (!lastslide)
 		lastslide = slides[0];
 
-	window.location.hash = "#" + id;
-	//oldurl = location.href;
-	oldhash = window.location.hash;
+	window.location.hash = id;
+	oldurl = location.href;
+	//oldhash = window.location.hash;
 	document.getElementById(lastslide).style.display = "none";
 	x.style.display = "block";
 	
 	lastslide = id;
+	fix_buttons();
 }
 
 function watchurl() {
 	/* If oldhash is unset, set it to nothing */
-	if (!oldhash) { 
-		var u = location.hash;
-		oldhash = u;
+	if (!oldurl) { 
+		var u = location.href;
+		oldurl = u;
 	}
 
-	if (oldhash != location.hash) {
+	if (oldurl != location.href) {
 		//alert("URL CHANGED: \n" + location.href + "\n vs \n" + oldurl);
-		oldhash = location.hash;
+		oldurl = location.href;
 
-		var i = oldhash.indexOf("#");
+		var i = oldurl.indexOf("#");
 		if (i >= 0) {
-			var id = oldhash.substring(i + 1, oldhash.length);
+			var id = oldurl.substring(i + 1, oldurl.length);
 			currentslide = id.substring(id.indexOf("_")+1, id.length);
 			currentslide = parseInt(currentslide);
 			if (isNaN(currentslide)) {
@@ -53,7 +54,6 @@ function watchurl() {
 }
 
 function loaded() {
-
 	watchurl();
 	if (!lastslide)
 		lastslide = "slide_0";
