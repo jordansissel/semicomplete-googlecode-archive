@@ -32,9 +32,9 @@
 			Browser Support List:
 			<ul>
 			<li> Mozilla Family: 100% works </li>
-			<li> Opera 8: Navigation works, "back" and "forward" buttons from the history do not.</li>
-			<li> Internet Explorer 5: Navigation works. History does not.</li>
 			<li> Konqueror 3.4.0: 100% works </li>
+			<li> Opera 8: Everything works except browser back/forward (history) </li>
+			<li> Internet Explorer 5: Navigation works kind of works, something's busted. </li>
 			<li> Safari: Doesn't work at all. Safari is crap anyway, don't use it. </li>
 			</ul>
 		</body>
