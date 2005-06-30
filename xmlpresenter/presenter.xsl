@@ -32,10 +32,10 @@
 			<!-- Add the controller div -->
 			<div id="control-panel">
 				<!-- left (previus) arrow is disabled by default, becuase we start on the first page -->
-				<div id="prev" onclick="button_prev()">
+				<div id="prev" onclick="button_prev(); return false;">
 					<img id="id_button_prev" src="images/leftarrow-disabled.png" alt="Previous Slide" />
 				</div>
-				<div id="next" onclick="button_next()">
+				<div id="next" onclick="button_next(); return false;">
 					<img id="id_button_next" src="images/rightarrow.png" alt="Next Slide" />
 				</div>
 			</div>
@@ -116,7 +116,7 @@
 <xsl:template name="generate-slidelist-table">
 	<ul class="table-of-contents">
 	<xsl:for-each select="/slideshow/slide">
-		<li id="toc_slide_{position()-1}" onclick="showslide('slide_{position() - 1}')"><xsl:value-of select="title" /></li>
+		<li id="toc_slide_{position()-1}" onclick="showslide('slide_{position() - 1}'); return false"><xsl:value-of select="title" /></li>
 	</xsl:for-each>
 	</ul>
 </xsl:template>

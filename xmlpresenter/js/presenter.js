@@ -23,6 +23,7 @@ function showslide(id) {
 	toc.style.backgroundColor = "#E8FFE8";
 	
 	lastslide = id;
+	currentslide = (id.indexOf("#") == -1 ? "0" : id.substring(id.indexOf("#")+1,id.length));
 	fix_buttons();
 }
 
@@ -74,7 +75,7 @@ function loaded() {
 	
 	setsidelistwidth(getCookie("sidebarwidth"));
 	for (var i = 0; i < slides.length; i++) {
-		document.getElementById("slide_"+i).style.paddingLeft = x + 12 + "px";
+		document.getElementById("slide_"+i).style.paddingLeft = parseInt(getCookie("sidebarwidth")) + 12 + "px";
 	}
 }
 
