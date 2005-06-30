@@ -23,7 +23,7 @@ function showslide(id) {
 	toc.style.backgroundColor = "#E8FFE8";
 	
 	lastslide = id;
-	currentslide = (id.indexOf("#") == -1 ? "0" : id.substring(id.indexOf("#")+1,id.length));
+	currentslide = (id.indexOf("_") == -1 ? "0" : id.substring(id.indexOf("_")+1,id.length));
 	fix_buttons();
 }
 
