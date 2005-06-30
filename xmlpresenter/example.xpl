@@ -13,17 +13,20 @@
 			<li> The XML format for the slideshow is easy to use</li>
 			<li> Slides can be longer than the viewport of the browser</li>
 			<li> Slides can be instantly referenced using anchors, such as #slide_3
-			<ul>
-				<li>
+				<ul> <li>
 					For example, you can visit slide #2 by
 					<a href="#slide_2">clicking here</a>
-				</li>
-			</ul>
+				</li> </ul>
 			</li>
+			<li> The slides pane on the left remembers where you put it across page loads (cookies!) </li>
 
 			<li> Mozilla browsers have history support. The "back" button should work!</li>
 			<li> Navigation buttons at the top-left of the page let you control the direction of your slideshow.</li>
 			</ul>
+
+			<p/>
+
+			If your browser doesn't suck, you should see a thin bar at the left of the window saying 'SLIDES'. You can drag this outward to reveal a list of all the slides in your presentation. The current one is highlighted. You can click on others in this list and they will be shown.
 
 			<p/>
 			Browser Support List:
