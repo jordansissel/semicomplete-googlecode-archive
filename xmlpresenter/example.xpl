@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <?xml-stylesheet type="text/xml" href="presenter.xsl"?>
+<!-- $Id$ -->
 <slideshow>
 	<title> Example Slideshow/Presentation </title>
 	<slide>
