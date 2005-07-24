@@ -25,31 +25,16 @@
 
 #define PSMCPNP_DRIVER_NAME "psmcpnp"
 
-/* driver state flags (state) */
-#define PSM_VALID    0x80
-#define PSM_OPEN     1  /* Device is open */
-#define PSM_ASLP     2  /* Waiting for mouse data */
-#define PSM_SOFTARMED      4  /* Software interrupt armed */
-#define PSM_NEED_SYNCBITS  8  /* Set syncbits using next data pkt */
-
-
-/* Debugging */
-#ifndef PSM_DEBUG
-#define PSM_DEBUG 0 /* XXX: Document this value */
-#endif
-#define VLOG(level, args)  \
-do {           \
-	if (verbose >= level)   \
-		log args;   \
+#define endprobe(v)  do { \
+	kbdc_lock(sc->kbdc, FALSE); \
+	return (v); \
 } while (0)
 
-#ifndef PSM_INPUT_TIMEOUT
-#define PSM_INPUT_TIMEOUT  2000000  /* 2 sec */
-#endif
 
-#ifndef PSM_PACKETQUEUE
-#define PSM_PACKETQUEUE 128
-#endif
+/* Debugging sysctls */
+SYSCTL_NODE(_debug, OID_AUTO, newpsm, CTLFLAG_RD, 0, "newpsm ps/2 mouse");
+
+SYSCTL_INT(_debug_psm, OID_AUTO, loglevel, CTLFLAG_RW, &verbose, 0, "PS/2 Debugging Level");
 
 void newpsm_identify(driver_t *, device_t);
 int newpsm_probe(device_t);
@@ -64,15 +49,17 @@ d_read_t newpsm_read;
 d_ioctl_t newpsm_ioctl;
 d_poll_t newpsm_poll;
 
+/* Helper Functions */
+int restore_controller(KBDC kbdc, int command_byte);
 
 /* NEWPSM_SOFTC */
 /* XXX: Document these */
 struct newpsm_softc {
-	int unit;
-	struct cdev *dev;
+	int unit;                   /* newpsmX device number */
+	struct cdev *dev;           /* Our friend, the device */
 
-	struct resource *intr;
-	KBDC kbdc;
+	struct resource *intr;      /* The interrupt resource */
+	KBDC kbdc;                  /* Keyboard device doohickey */
 	int config;
 	int flags;
 	void *ih;
@@ -115,17 +102,25 @@ newpsm_identify(driver_t *driver, device_t parent)
 	device_t psm;
 	device_t psmc;
 	u_long irq;
-	int unit = device_get_unit(parent);
+	int unit;
+  
+	unit = device_get_unit(parent);
 
 	uprintf("newpsm_identify\n");
+
+	/* Look for a mouse on the ps/2 aux port */
 
 	psm = BUS_ADD_CHILD(parent, KBDC_RID_AUX, "newpsm", -1);
 	if (psm == NULL)
 		return;
 
 	irq = bus_get_resource_start(psm, SYS_RES_IRQ, KBDC_RID_AUX);
-	if (irq > 0) 
+	if (irq > 0)  {
 		uprintf("success!\n");
+		return;
+	} 
+
+	/* No mouse found yet, maybe psmcpnp found it earlier */
 
 	psmc = device_find_child(device_get_parent(parent), PSMCPNP_DRIVER_NAME, unit);
 
@@ -146,8 +141,113 @@ newpsm_identify(driver_t *driver, device_t parent)
 int
 newpsm_probe(device_t dev)
 {
-	uprintf("newpsm_probe\n");
+	int unit;
+	struct newpsm_softc *sc;
+	int rid;
+	int mask;
+	int control_byte;
+	int i; /* Used to store test_aux_port()'s return value */
 
+	uprintf("newpsm_probe\n");
+	unit = device_get_unit(dev);
+	sc = device_get_softc(dev);
+
+	rid = KBDC_RID_AUX;
+	sc->intr = bus_alloc_resource_any(dev, SYS_RES_IRQ, &rid, RF_SHAREABLE | RF_ACTIVE);
+
+	if (sc->intr == NULL) {
+		return ENXIO;
+	}
+
+	bus_release_resource(dev, SYS_RES_IRQ, rid, sc->intr);
+
+	sc->unit = unit;
+	sc->kbdc == atkbdc_open(device_get_unit(device_get_parent(dev)));
+
+	device_set_desc(dev, "PS/2 Mouse [newpsm]");
+
+	/* Now that we have a device to talk to , let's make sure it's a mouse? */
+
+	if (!kbdc_lock(sc->kbdc, TRUE)) {
+		uprintf("psm%d: unable to lock the controller.\n", unit);
+		return ENXIO;
+	}
+
+	/* wipe out both keyboard and aux buffers */
+	empty_both_buffers(sc->kbdc, 10);
+
+	mask = kbdc_get_device_mask(sc->kbdc) & ~KBD_AUX_CONTROL_BITS;
+	command_byte = get_controller_command_byte(sc->kbdc);
+
+	if (verbose)
+		printf("psm%d: current command byte %04x\n", unit, command_byte);
+
+	if (command_byte == -1) {
+		printf("psm%d: unable to get current command byte value.\n", unit);
+		endprobe(ENXIO);
+	}
+
+	/*
+	 * disable the keyboard port while probing the aux port.
+	 * Also, enable the aux port so we can use it during the probe
+	 */
+	if (!set_controller_command_byte(sc->kbdc, 
+		 KBD_KBD_CONTROL_BITS | KBD_AUX_CONTROL_BITS,
+		 KBD_DISABLE_KBD_PORT | KBD_DISABLE_KBD_INT
+		   | KBD_ENABLE_AUX_PORT | KBD_DISABLE_AUX_INT)) {
+		/* Controller error if we end up in this block. */
+
+		restore_controller(sc->kbdc, command_byte);
+		printf("psm%d: unable to send the command byte.\n", unit);
+		endprobe(ENXIO);
+	}
+
+	/* Enable the aux port */
+	write_controller_command(sc->kbdc, KBDC_ENABLE_AUX_PORT);
+
+	/*
+	 * NOTE: `test_aux_port()' is designed to return with zero if the aux
+	 * port exists and is functioning. However, some controllers appears
+	 * to respond with zero even when the aux port doesn't exist. (It may
+	 * be that this is only the case when the controller DOES have the aux
+	 * port but the port is not wired on the motherboard.) The keyboard
+	 * controllers without the port, such as the original AT, are
+	 * supporsed to return with an error code or simply time out. In any
+	 * case, we have to continue probing the port even when the controller
+	 * passes this test.
+	 *
+	 * XXX: some controllers erroneously return the error code 1, 2 or 3
+	 * when it has the perfectly functional aux port. We have to ignore
+	 * this error code. Even if the controller HAS error with the aux
+	 * port, it will be detected later...
+	 * XXX: another incompatible controller returns PSM_ACK (0xfa)...
+	 */
+
+	switch((i = test_aux_port(sc->kbdc))) {
+		case 1:
+		case 2:
+		case 3:
+		case PSM_ACK:
+			if (verbose)
+				printf("psm%d: strange result for test_aux_port (%d).\n", unit, i);
+			break;
+		case 0:       /* No Error */
+			break;
+		case -1:      /* Timeout */
+		default:      /* Error */
+			recover_from_error(sc->kbdc);
+			/* XXX: Define PSM_CONFIG_IGNPORTERROR */
+			/*
+			 if (sc->config & PSM_CONFIG_IGNPORTERROR);
+			 break;
+			 */
+			restore_controller(sc->kbdc, command_byte);
+			if (verbose)
+				printf("psm%d: the aux port is not functioning (%d).\n", unit, i);
+			endprobe(ENXIO);
+	}
+
+	kbdc_lock(sc->kbdc, FALSE);
 	return 0;
 }
 
@@ -213,3 +313,26 @@ int newpsm_poll(struct cdev *dev, int events, struct thread *td) {
 }
 
 DRIVER_MODULE(newpsm, atkbdc, newpsm_driver, newpsm_devclass, 0, 0);
+
+
+/* Helper Functions */
+
+/* 
+ * Try and restor the controller to the state it was at before we
+ * started poking it 
+ */
+int
+restore_controller(KBDC kbdc, int command_byte)
+{
+	empty_both_buffers(kbdc, 10);
+
+	if (!set_controller_command_byte(kbdc, 0xff, command_byte)) {
+		log(LOG_ERR, "psm: failed to restore the keyboard controller command byte.\n");
+		empty_both_buffers(kbdc, 10);
+		return FALSE;
+	} else {
+		empty_both_buffers(kbdc, 10);
+		return TRUE;
+	}
+}
+
