@@ -180,7 +180,7 @@ newpsm_probe(device_t dev)
 	bus_release_resource(dev, SYS_RES_IRQ, rid, sc->intr);
 
 	sc->unit = unit;
-	sc->kbdc == atkbdc_open(device_get_unit(device_get_parent(dev)));
+	sc->kbdc = atkbdc_open(device_get_unit(device_get_parent(dev)));
 
 	device_set_desc(dev, "PS/2 Mouse [newpsm]");
 
