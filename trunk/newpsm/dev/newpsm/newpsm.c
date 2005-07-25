@@ -53,28 +53,6 @@
 static int verbose = 0;
 //SYSCTL_INT(_debug_psm, OID_AUTO, loglevel, CTLFLAG_RW, &verbose, 0, "PS/2 Debugging Level");
 
-static void newpsm_identify(driver_t *, device_t);
-static int newpsm_probe(device_t);
-static int newpsm_attach(device_t);
-static int newpsm_detach(device_t);
-static int newpsm_resume(device_t);
-static int newpsm_shutdown(device_t);
-static void newpsm_intr(void *);
-
-static d_open_t newpsm_open;
-static d_close_t newpsm_close;
-static d_read_t newpsm_read;
-static d_ioctl_t newpsm_ioctl;
-static d_poll_t newpsm_poll;
-
-/* Helper Functions */
-static int restore_controller(KBDC kbdc, int command_byte);
-static int get_aux_id(KBDC kbdc);
-//static int get_mouse_status(KBDC kbdc, int *status, int flag, int len);
-static void recover_from_error(KBDC kbdc);
-static int enable_aux_dev(KBDC kbdc);
-static int disable_aux_dev(KBDC kbdc);
-
 /* mouse data buffer */
 typedef struct packetbuf {
 	unsigned char ipacket[16]; /* interim input buffer */
@@ -111,6 +89,31 @@ struct newpsm_softc {
 	int pqueue_end;
 	ringbuf_t queue;
 };
+
+static void newpsm_identify(driver_t *, device_t);
+static int newpsm_probe(device_t);
+static int newpsm_attach(device_t);
+static int newpsm_detach(device_t);
+static int newpsm_resume(device_t);
+static int newpsm_shutdown(device_t);
+static void newpsm_intr(void *);
+
+static d_open_t newpsm_open;
+static d_close_t newpsm_close;
+static d_read_t newpsm_read;
+static d_ioctl_t newpsm_ioctl;
+static d_poll_t newpsm_poll;
+
+/* Helper Functions */
+static int restore_controller(KBDC kbdc, int command_byte);
+static int get_aux_id(KBDC kbdc);
+//static int get_mouse_status(KBDC kbdc, int *status, int flag, int len);
+static void recover_from_error(KBDC kbdc);
+static int enable_aux_dev(KBDC kbdc);
+static int disable_aux_dev(KBDC kbdc);
+static int doopen(struct newpsm_softc *sc, int command_byte);
+static void dropqueue(struct newpsm_softc *);
+static void flushpackets(struct newpsm_softc *);
 
 static device_method_t newpsm_methods[] = {
 	DEVMETHOD(device_identify, newpsm_identify),
@@ -456,7 +459,60 @@ newpsm_intr(void *arg)
 static int 
 newpsm_open(struct cdev *dev, int flag, int fmt, struct thread *td) 
 {
-	return 0;
+	int unit = PSM_UNIT(dev);
+	struct newpsm_softc *sc;
+	int command_byte;
+	int err;
+	int s;
+
+	sc = PSM_SOFTC(unit);
+
+	/* Make sure this device is still valid */
+	if ((sc == NULL) || (sc->state & PSM_VALID) == 0)
+		return (ENXIO);
+
+	/* Disallow multiple opens */
+	if (sc->state & PSM_OPEN)
+		return EBUSY;
+
+	device_busy(devclass_get_device(newpsm_devclass, unit));
+	
+	/* Initialize State */
+	sc->packetsize = 3;
+	sc->queue.count = 0;
+	sc->queue.head = 0;
+	sc->queue.tail = 0;
+	sc->pqueue_start = 0;
+	sc->pqueue_end = 0;
+
+	flushpackets(sc);
+
+	if (!kbdc_lock(sc->kbdc, TRUE))
+		return EIO;
+
+	s = spltty();
+	command_byte = get_controller_command_byte(sc->kbdc);
+
+	/* enable aux port and temporarily disable the keyboard */
+	if ((command_byte == -1) 
+		 || !set_controller_command_byte(sc->kbdc,
+				kbdc_get_device_mask(sc->kbdc),
+				KBD_DISABLE_KBD_PORT | KBD_DISABLE_KBD_INT
+				| KBD_ENABLE_AUX_PORT | KBD_DISABLE_AUX_INT)) {
+		kbdc_lock(sc->kbdc, FALSE);
+		splx(s);
+		log(LOG_ERR, "newpsm%d: unable to set the command byte (newpsm_open).\n", unit);
+		return EIO;
+	}
+
+	splx(s);
+
+	err = doopen(sc, command_byte);
+
+	if (err == 0)
+		sc->state |= PSM_OPEN;
+	kbdc_lock(sc->kbdc, FALSE);
+	return err;
 }
 
 static int 
@@ -651,5 +707,63 @@ disable_aux_dev(KBDC kbdc)
 	log(LOG_DEBUG, "newpsm: DISABLE_DEV return code:%04x\n", res);
 
 	return (res == PSM_ACK);
+}
+
+
+static int
+doopen(struct newpsm_softc *sc, int command_byte) 
+{
+	//int stat[3];
+
+	/* enable the mouse device*/
+	if (!enable_aux_dev(sc->kbdc)) {
+		recover_from_error(sc->kbdc);
+		restore_controller(sc->kbdc, command_byte);
+		sc->state &= ~PSM_VALID;
+		log(LOG_ERR, "newpsm%d: failed to enable the device (doopen).\n", sc->unit);
+		return EIO;
+	}
+
+	/* XXX: Deprecated? */
+	/*
+	if (get_mouse_status(sc->kbdc, stat, 0, 3) < 3)
+		log(LOG_DEBUG, "newpsm%d: failed to get status (doopen).\n", sc->unit);
+	*/
+
+	/* enable the aux port and interrupt */
+	if (!set_controller_command_byte(sc->kbdc,
+       kbdc_get_device_mask(sc->kbdc),
+       (command_byte & KBD_KBD_CONTROL_BITS)
+      | KBD_ENABLE_AUX_PORT | KBD_ENABLE_AUX_INT)) {
+		disable_aux_dev(sc->kbdc);
+		restore_controller(sc->kbdc, command_byte);
+		log(LOG_ERR, "newpsm%d: failed to enable the aux interrupt (doopen).\n", sc->unit);
+		return EIO;
+	}
+
+	return 0;
+}
+
+static void
+dropqueue(struct newpsm_softc *sc)
+{
+	sc->queue.count = 0;
+	sc->queue.head = 0;
+	sc->queue.tail = 0;
+	/*
+	if ((sc->state & PSM_SOFTARMED) != 0) {
+		sc->state &= ~PSM_SOFTARMED;
+		untimeout(psmsoftintr, (void *)(uintptr_t)sc, sc->softcallout);
+	}
+	*/
+	sc->pqueue_start = sc->pqueue_end;
+}
+
+static void
+flushpackets(struct newpsm_softc *sc)
+{
+
+	dropqueue(sc);
+	bzero(&sc->pqueue, sizeof(sc->pqueue));
 }
 
