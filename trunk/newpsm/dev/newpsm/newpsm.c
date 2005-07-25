@@ -11,6 +11,7 @@
 #include <sys/param.h>
 #include <sys/bus.h>
 #include <sys/kernel.h>
+#include <sys/sysctl.h>
 #include <sys/conf.h>
 #include <sys/rman.h> /* for RF_ macros */
 #include <sys/uio.h> /* for uiomove, etc */
@@ -30,11 +31,11 @@
 	return (v); \
 } while (0)
 
-
 /* Debugging sysctls */
-SYSCTL_NODE(_debug, OID_AUTO, newpsm, CTLFLAG_RD, 0, "newpsm ps/2 mouse");
+//SYSCTL_NODE(_debug, OID_AUTO, newpsm, CTLFLAG_RD, 0, "newpsm ps/2 mouse");
 
-SYSCTL_INT(_debug_psm, OID_AUTO, loglevel, CTLFLAG_RW, &verbose, 0, "PS/2 Debugging Level");
+static int verbose = 0;
+//SYSCTL_INT(_debug_psm, OID_AUTO, loglevel, CTLFLAG_RW, &verbose, 0, "PS/2 Debugging Level");
 
 void newpsm_identify(driver_t *, device_t);
 int newpsm_probe(device_t);
@@ -50,7 +51,12 @@ d_ioctl_t newpsm_ioctl;
 d_poll_t newpsm_poll;
 
 /* Helper Functions */
-int restore_controller(KBDC kbdc, int command_byte);
+static int restore_controller(KBDC kbdc, int command_byte);
+static int get_aux_id(KBDC kbdc);
+//static int get_mouse_status(KBDC kbdc, int *status, int flag, int len);
+static void recover_from_error(KBDC kbdc);
+static int enable_aux_dev(KBDC kbdc);
+static int disable_aux_dev(KBDC kbdc);
 
 /* NEWPSM_SOFTC */
 /* XXX: Document these */
@@ -64,6 +70,8 @@ struct newpsm_softc {
 	int flags;
 	void *ih;
 	int state;
+
+	int hwid;
 };
 
 static device_method_t newpsm_methods[] = {
@@ -145,8 +153,9 @@ newpsm_probe(device_t dev)
 	struct newpsm_softc *sc;
 	int rid;
 	int mask;
-	int control_byte;
+	int command_byte;
 	int i; /* Used to store test_aux_port()'s return value */
+	//int stat[3];
 
 	uprintf("newpsm_probe\n");
 	unit = device_get_unit(dev);
@@ -247,6 +256,66 @@ newpsm_probe(device_t dev)
 			endprobe(ENXIO);
 	}
 
+	/* XXX: Define PSM_CONFIG_NORESET */
+	/*
+	 if (sc->config & PSM_CONFIG_NORESET) {
+	    // ...
+	 } else 
+	 */
+	/*
+	 * NOTE: some controllers appear to hang the 'keyboard' when
+	 * the aux port doesn't exist and 'PSMC_RESET_DEV' is issued.
+	 *
+	 * Attempt to reset the controller twice: this helps pierce 
+	 * through some KVM switches. The second reset is non-fatal.
+	 */
+	if (!reset_aux_dev(sc->kbdc)) {
+		recover_from_error(sc->kbdc);
+		restore_controller(sc->kbdc, command_byte);
+		if (verbose)
+			printf("psm%d: failed to reset the aux device.\n", unit);
+		endprobe(ENXIO);
+	} else if (!reset_aux_dev(sc->kbdc)) {
+		recover_from_error(sc->kbdc);
+		restore_controller(sc->kbdc, command_byte);
+		if (verbose)
+			printf("psm%d: failed to reset the aux device (2nd reset).\n", unit);
+		endprobe(ENXIO);
+	}
+
+	/* 
+	 * Both the aux port and the aux device is functioning, see if the
+	 * device can be enabled. NOTE: when enabled, the device will start
+	 * sending data; se shall immediately disable the device once we
+	 * know the device can be enabled.
+	 */
+	if (!enable_aux_dev(sc->kbdc) || !disable_aux_dev(sc->kbdc)) {
+		recover_from_error(sc->kbdc);
+		restore_controller(sc->kbdc, command_byte);
+		if (verbose)
+			printf("psm%d: failed to enable the aux device.\n", unit);
+		endprobe(ENXIO);
+	}
+
+	/* save the default values after reset */
+	/*
+		if (get_mouse_status(sc->kbdc, stat, 0, 3) >= 3) {
+		} else {
+		}
+	*/
+
+	sc->hwid = get_aux_id(sc->kbdc);
+
+	if (!set_controller_command_byte(sc->kbdc,
+		 KBD_KBD_CONTROL_BITS | KBD_AUX_CONTROL_BITS,
+		 (command_byte & KBD_KBD_CONTROL_BITS) 
+		 | KBD_DISABLE_AUX_PORT | KBD_DISABLE_AUX_INT)) {
+		restore_controller(sc->kbdc, command_byte);
+		printf("psm%d: unable to set the command byte\n", unit);
+		endprobe(ENXIO);
+	}
+
+	kbdc_set_device_mask(sc->kbdc, mask | KBD_AUX_CONTROL_BITS);
 	kbdc_lock(sc->kbdc, FALSE);
 	return 0;
 }
@@ -321,7 +390,7 @@ DRIVER_MODULE(newpsm, atkbdc, newpsm_driver, newpsm_devclass, 0, 0);
  * Try and restor the controller to the state it was at before we
  * started poking it 
  */
-int
+static int
 restore_controller(KBDC kbdc, int command_byte)
 {
 	empty_both_buffers(kbdc, 10);
@@ -334,5 +403,102 @@ restore_controller(KBDC kbdc, int command_byte)
 		empty_both_buffers(kbdc, 10);
 		return TRUE;
 	}
+}
+
+#if 0
+static int
+get_mouse_status(KBDC kbdc, int *status, int flag, int len)
+{
+	int cmd;
+	int res;
+	int i;
+
+	switch (flag) {
+		case 0:
+		default:
+			cmd = PSMC_SEND_DEV_STATUS;
+			break;
+		case 1:
+			cmd = PSMC_SEND_DEV_DATA;
+			break;
+	}
+
+	empty_aux_buffer(kbdc, 5);
+
+	res = send_aux_command(kbdc, cmd);
+	if (verbose)
+		log(LOG_DEBUG, "psm: SEND_AUX_DEV_%s return code %04x\n", 
+			 (flag == 1) ? "DATA" : "STATUS", res);
+	if (res != PSM_ACK)
+		return 0;
+
+	for (i = 0; i < len; ++i) {
+		status[i] = read_aux_data(kbdc);
+		if (status[i] < 0)
+			break;
+	}
+
+	log(LOG_DEBUG, "psm: %s %02x %02x %02x\n",
+		 (flag == 1) ? "data" : "status", status[0], status[1], status[2]);
+
+	return i;
+}
+#endif 
+
+static int
+get_aux_id(KBDC kbdc)
+{
+	int res;
+	int id;
+
+	empty_aux_buffer(kbdc, 5);
+	res = send_aux_command(kbdc, PSMC_SEND_DEV_ID);
+	if (verbose)
+		log(LOG_DEBUG, "psm: SEND_DEV_ID return code: %04x\n", res);
+
+	if (res != PSM_ACK)
+		return -1;
+
+	DELAY(10000);
+
+	id = read_aux_data(kbdc);
+	if (verbose)
+		log(LOG_DEBUG, "psm: device id: %04x\n", id);
+
+	return id;
+}
+
+static void
+recover_from_error(KBDC kbdc)
+{
+	/* discard anything left in the output buffer */
+	empty_both_buffers(kbdc, 10);
+
+	if (!test_controller(kbdc))
+		log(LOG_ERR, "psm: keyboard controller failed.\n");
+	if (test_kbd_port(kbdc) != 0)
+		log(LOG_ERR, "psm: keyboard port failed.\n");
+}
+
+static int
+enable_aux_dev(KBDC kbdc)
+{
+	int res;
+
+	res = send_aux_command(kbdc, PSMC_ENABLE_DEV);
+	log(LOG_DEBUG, "psm: ENABLE_DEV return code:%04x\n", res);
+
+	return (res == PSM_ACK);
+}
+
+static int
+disable_aux_dev(KBDC kbdc)
+{
+	int res;
+
+	res = send_aux_command(kbdc, PSMC_DISABLE_DEV);
+	log(LOG_DEBUG, "psm: DISABLE_DEV return code:%04x\n", res);
+
+	return (res == PSM_ACK);
 }
 
