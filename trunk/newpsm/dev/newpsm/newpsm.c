@@ -27,8 +27,20 @@
 #define PSMCPNP_DRIVER_NAME "psmcpnp"
 
 /* driver state flags (newpsm_softc.state) */
-#define PSM_VALID 0x80;
-#define PSM_OPEN 1         /* Device is currently open */
+#define PSM_VALID  0x80
+#define PSM_OPEN   1         /* Device is currently open */
+#define PSM_ASLEEP 2         /* Nap time while we wait for data. */
+
+#ifndef PSM_PACKETQUEUE
+#define PSM_PACKETQUEUE 128
+#endif
+
+#define PSM_BUFSIZE        960
+#define PSM_SMALLBUFSIZE   240
+
+/* Macros */
+#define PSM_SOFTC(unit)     ((struct newpsm_softc*)devclass_get_softc(newpsm_devclass, unit))
+#define PSM_UNIT(dev)       (minor(dev) >> 1)
 
 #define endprobe(v)  do { \
 	kbdc_lock(sc->kbdc, FALSE); \
@@ -47,7 +59,7 @@ static int newpsm_attach(device_t);
 static int newpsm_detach(device_t);
 static int newpsm_resume(device_t);
 static int newpsm_shutdown(device_t);
-//static void newpsm_intr(void *);
+static void newpsm_intr(void *);
 
 static d_open_t newpsm_open;
 static d_close_t newpsm_close;
@@ -63,24 +75,41 @@ static void recover_from_error(KBDC kbdc);
 static int enable_aux_dev(KBDC kbdc);
 static int disable_aux_dev(KBDC kbdc);
 
+/* mouse data buffer */
+typedef struct packetbuf {
+	unsigned char ipacket[16]; /* interim input buffer */
+	int           inputbytes;
+} packetbuf_t;
+
+/* ring buffer */
+typedef struct ringbuf {
+	int count; /* # of valid elements in the buffer */
+	int head; /* head of pointer */
+	int tail; /* tail of pointer */
+	unsigned char buf[PSM_BUFSIZE];
+} ringbuf_t;
+
 /* NEWPSM_SOFTC */
 /* XXX: Document these */
 struct newpsm_softc {
 	int unit;                   /* newpsmX device number */
 	struct cdev *dev;           /* Our friend, the device */
-
 	struct resource *intr;      /* The interrupt resource */
 	KBDC kbdc;                  /* Keyboard device doohickey */
 	int config;
 	int flags;
 	void *ih;
 	int state;
-
 	int hwid;
-
 	int watchdog;
 	struct callout_handle callout; /* watchdog timer call out */
 	struct callout_handle softcallout; /* buffer timer call out */
+
+	int packetsize;
+	packetbuf_t pqueue[PSM_PACKETQUEUE];
+	int pqueue_start;
+	int pqueue_end;
+	ringbuf_t queue;
 };
 
 static device_method_t newpsm_methods[] = {
@@ -334,7 +363,7 @@ newpsm_attach(device_t dev)
 {
 	int unit = device_get_unit(dev);
 	struct newpsm_softc *sc = device_get_softc(dev);
-	//int error;
+	int error;
 	int rid;
 
 	sc->state = PSM_VALID;
@@ -347,14 +376,16 @@ newpsm_attach(device_t dev)
 
 	if (sc->intr == NULL)
 		return ENXIO;
-	/*
+
 	error = bus_setup_intr(dev, sc->intr, INTR_TYPE_TTY, newpsm_intr, sc, &sc->ih);
 
 	if (error) {
 		bus_release_resource(dev, SYS_RES_IRQ, rid, sc->intr);
 		return (error);
 	}
-	*/
+
+	/* Set up defaults */
+	sc->packetsize = 3; /* Standard PS/2 Protocol uses 3 byte packets */
 
 	sc->dev = make_dev(&newpsm_cdevsw, NEWPSM_MKMINOR(unit, FALSE), 0, 0, 0666, "newpsm%d", unit);
 
@@ -400,13 +431,27 @@ newpsm_shutdown(device_t dev)
 	return 0;
 }
 
-/*
 static void
-newpsm_intr(void *sc)
+newpsm_intr(void *arg)
 {
+	struct newpsm_softc *sc = arg;
+	int c;
+	packetbuf_t *pb; /* XXX: define this */
 
+	while ((c = read_aux_data_no_wait(sc->kbdc)) != -1) {
+		pb = &sc->pqueue[sc->pqueue_end];
+
+		/* Discard this byte if the device is not yet open */
+		if ((sc->state & PSM_OPEN) == 0)
+			continue;
+		if (pb->inputbytes < sc->packetsize)
+			continue;
+
+		c = pb->ipacket[0];
+		if (++sc->pqueue_end >= PSM_PACKETQUEUE)
+			sc->pqueue_end = 0;
+	}
 }
-*/
 
 static int 
 newpsm_open(struct cdev *dev, int flag, int fmt, struct thread *td) 
@@ -423,10 +468,56 @@ newpsm_close(struct cdev *dev, int flag, int fmt, struct thread *td)
 static int 
 newpsm_read(struct cdev *dev, struct uio *uio, int flag) 
 {
-	int err;
+	register struct newpsm_softc *sc = PSM_SOFTC(PSM_UNIT(dev));
+	unsigned char buf[PSM_SMALLBUFSIZE];
+	int error = 0;
+	int s;
+	int l;
 
-	err = uiomove("Hello\n", 6, uio);
-	return err;
+	if ((sc->state & PSM_VALID) == 0)
+		return EIO;
+
+	/* block until mouse activity occured */
+	s = spltty();
+	while (sc->queue.count <= 0) {
+		sc->state |= PSM_ASLEEP;
+		error = tsleep(sc, PZERO | PCATCH, "psmrea", 0);
+		sc->state &= ~PSM_ASLEEP;
+
+		if (error) {
+			splx(s);
+			return error;
+		} else if ((sc->state & PSM_VALID) == 0) {
+			splx(s);
+			return EIO;
+		}
+	}
+	splx(s);
+
+	while ((sc->queue.count > 0) && (uio->uio_resid > 0)) {
+		s = spltty();
+		l = imin(sc->queue.count, uio->uio_resid);
+		if (l > sizeof(buf))
+			l = sizeof(buf);
+		if (l > sizeof(sc->queue.buf) - sc->queue.head) {
+			bcopy(&sc->queue.buf[sc->queue.head], &buf[0],
+					sizeof(sc->queue.buf) - sc->queue.head);
+			bcopy(&sc->queue.buf[0],
+					&buf[sizeof(sc->queue.buf) - sc->queue.head],
+					l - (sizeof(sc->queue.buf) - sc->queue.head));
+		} else {
+			bcopy(&sc->queue.buf[sc->queue.head], &buf[0], l);
+		}
+		sc->queue.count -= l;
+		sc->queue.head = (sc->queue.head + l) % sizeof(sc->queue.buf);
+		splx(s);
+
+		error = uiomove(buf, l, uio);
+		if (error)
+			break;
+	}
+
+	return error;
 }
 
 static int 
