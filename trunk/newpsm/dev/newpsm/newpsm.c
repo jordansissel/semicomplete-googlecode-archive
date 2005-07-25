@@ -26,6 +26,10 @@
 
 #define PSMCPNP_DRIVER_NAME "psmcpnp"
 
+/* driver state flags (newpsm_softc.state) */
+#define PSM_VALID 0x80;
+#define PSM_OPEN 1         /* Device is currently open */
+
 #define endprobe(v)  do { \
 	kbdc_lock(sc->kbdc, FALSE); \
 	return (v); \
@@ -37,18 +41,19 @@
 static int verbose = 0;
 //SYSCTL_INT(_debug_psm, OID_AUTO, loglevel, CTLFLAG_RW, &verbose, 0, "PS/2 Debugging Level");
 
-void newpsm_identify(driver_t *, device_t);
-int newpsm_probe(device_t);
-int newpsm_attach(device_t);
-int newpsm_detach(device_t);
-int newpsm_resume(device_t);
-int newpsm_shutdown(device_t);
+static void newpsm_identify(driver_t *, device_t);
+static int newpsm_probe(device_t);
+static int newpsm_attach(device_t);
+static int newpsm_detach(device_t);
+static int newpsm_resume(device_t);
+static int newpsm_shutdown(device_t);
+//static void newpsm_intr(void *);
 
-d_open_t newpsm_open;
-d_close_t newpsm_close;
-d_read_t newpsm_read;
-d_ioctl_t newpsm_ioctl;
-d_poll_t newpsm_poll;
+static d_open_t newpsm_open;
+static d_close_t newpsm_close;
+static d_read_t newpsm_read;
+static d_ioctl_t newpsm_ioctl;
+static d_poll_t newpsm_poll;
 
 /* Helper Functions */
 static int restore_controller(KBDC kbdc, int command_byte);
@@ -72,6 +77,10 @@ struct newpsm_softc {
 	int state;
 
 	int hwid;
+
+	int watchdog;
+	struct callout_handle callout; /* watchdog timer call out */
+	struct callout_handle softcallout; /* buffer timer call out */
 };
 
 static device_method_t newpsm_methods[] = {
@@ -104,7 +113,7 @@ static struct cdevsw newpsm_cdevsw = {
 	.d_name =   NEWPSM_DRIVER_NAME,
 };
 
-void
+static void
 newpsm_identify(driver_t *driver, device_t parent)
 {
 	device_t psm;
@@ -146,7 +155,7 @@ newpsm_identify(driver_t *driver, device_t parent)
 	bus_set_resource(psm, SYS_RES_IRQ, KBDC_RID_AUX, irq, 1);
 }
 
-int
+static int
 newpsm_probe(device_t dev)
 {
 	int unit;
@@ -178,7 +187,7 @@ newpsm_probe(device_t dev)
 	/* Now that we have a device to talk to , let's make sure it's a mouse? */
 
 	if (!kbdc_lock(sc->kbdc, TRUE)) {
-		uprintf("psm%d: unable to lock the controller.\n", unit);
+		uprintf("newpsm%d: unable to lock the controller.\n", unit);
 		return ENXIO;
 	}
 
@@ -189,10 +198,10 @@ newpsm_probe(device_t dev)
 	command_byte = get_controller_command_byte(sc->kbdc);
 
 	if (verbose)
-		printf("psm%d: current command byte %04x\n", unit, command_byte);
+		printf("newpsm%d: current command byte %04x\n", unit, command_byte);
 
 	if (command_byte == -1) {
-		printf("psm%d: unable to get current command byte value.\n", unit);
+		printf("newpsm%d: unable to get current command byte value.\n", unit);
 		endprobe(ENXIO);
 	}
 
@@ -207,7 +216,7 @@ newpsm_probe(device_t dev)
 		/* Controller error if we end up in this block. */
 
 		restore_controller(sc->kbdc, command_byte);
-		printf("psm%d: unable to send the command byte.\n", unit);
+		printf("newpsm%d: unable to send the command byte.\n", unit);
 		endprobe(ENXIO);
 	}
 
@@ -238,7 +247,7 @@ newpsm_probe(device_t dev)
 		case 3:
 		case PSM_ACK:
 			if (verbose)
-				printf("psm%d: strange result for test_aux_port (%d).\n", unit, i);
+				printf("newpsm%d: strange result for test_aux_port (%d).\n", unit, i);
 			break;
 		case 0:       /* No Error */
 			break;
@@ -252,7 +261,7 @@ newpsm_probe(device_t dev)
 			 */
 			restore_controller(sc->kbdc, command_byte);
 			if (verbose)
-				printf("psm%d: the aux port is not functioning (%d).\n", unit, i);
+				printf("newpsm%d: the aux port is not functioning (%d).\n", unit, i);
 			endprobe(ENXIO);
 	}
 
@@ -273,13 +282,13 @@ newpsm_probe(device_t dev)
 		recover_from_error(sc->kbdc);
 		restore_controller(sc->kbdc, command_byte);
 		if (verbose)
-			printf("psm%d: failed to reset the aux device.\n", unit);
+			printf("newpsm%d: failed to reset the aux device.\n", unit);
 		endprobe(ENXIO);
 	} else if (!reset_aux_dev(sc->kbdc)) {
 		recover_from_error(sc->kbdc);
 		restore_controller(sc->kbdc, command_byte);
 		if (verbose)
-			printf("psm%d: failed to reset the aux device (2nd reset).\n", unit);
+			printf("newpsm%d: failed to reset the aux device (2nd reset).\n", unit);
 		endprobe(ENXIO);
 	}
 
@@ -293,7 +302,7 @@ newpsm_probe(device_t dev)
 		recover_from_error(sc->kbdc);
 		restore_controller(sc->kbdc, command_byte);
 		if (verbose)
-			printf("psm%d: failed to enable the aux device.\n", unit);
+			printf("newpsm%d: failed to enable the aux device.\n", unit);
 		endprobe(ENXIO);
 	}
 
@@ -311,7 +320,7 @@ newpsm_probe(device_t dev)
 		 (command_byte & KBD_KBD_CONTROL_BITS) 
 		 | KBD_DISABLE_AUX_PORT | KBD_DISABLE_AUX_INT)) {
 		restore_controller(sc->kbdc, command_byte);
-		printf("psm%d: unable to set the command byte\n", unit);
+		printf("newpsm%d: unable to set the command byte\n", unit);
 		endprobe(ENXIO);
 	}
 
@@ -320,27 +329,63 @@ newpsm_probe(device_t dev)
 	return 0;
 }
 
-int
+static int
 newpsm_attach(device_t dev)
 {
 	int unit = device_get_unit(dev);
 	struct newpsm_softc *sc = device_get_softc(dev);
+	//int error;
+	int rid;
+
+	sc->state = PSM_VALID;
+	callout_handle_init(&sc->callout);
+
+	/* Setup our interrupt handler */
+	rid = KBDC_RID_AUX;
+	sc->intr = bus_alloc_resource_any(dev, SYS_RES_IRQ, &rid,
+												 RF_SHAREABLE | RF_ACTIVE);
+
+	if (sc->intr == NULL)
+		return ENXIO;
+	/*
+	error = bus_setup_intr(dev, sc->intr, INTR_TYPE_TTY, newpsm_intr, sc, &sc->ih);
+
+	if (error) {
+		bus_release_resource(dev, SYS_RES_IRQ, rid, sc->intr);
+		return (error);
+	}
+	*/
+
 	sc->dev = make_dev(&newpsm_cdevsw, NEWPSM_MKMINOR(unit, FALSE), 0, 0, 0666, "newpsm%d", unit);
+
+	printf("newpsm%d; device id %d\n", unit, sc->hwid & 0x00ff);
 	return 0;
 }
 
-int
+static int
 newpsm_detach(device_t dev)
 {
 	struct newpsm_softc *sc = device_get_softc(dev);
+	int rid;
 
 	uprintf("newpsm_detach\n");
+
+	if (sc->state & PSM_OPEN)
+		return EBUSY;
+
+	uprintf("newpsm teardown\n");
+	rid = KBDC_RID_AUX;
+
+	//bus_teardown_intr(dev, sc->intr, sc->ih);
+	bus_release_resource(dev, SYS_RES_IRQ, rid, sc->intr);
+
+	uprintf("Destroying device");
 	destroy_dev(sc->dev);
 
 	return 0;
 }
 
-int
+static int
 newpsm_resume(device_t dev)
 {
 	uprintf("newpsm_resume\n");
@@ -348,36 +393,51 @@ newpsm_resume(device_t dev)
 	return 0;
 }
 
-int
+static int
 newpsm_shutdown(device_t dev)
 {
 	uprintf("newpsm_shutdown\n");
 	return 0;
 }
 
-int newpsm_open(struct cdev *dev, int flag, int fmt, struct thread *td) {
+/*
+static void
+newpsm_intr(void *sc)
+{
+
+}
+*/
+
+static int 
+newpsm_open(struct cdev *dev, int flag, int fmt, struct thread *td) 
+{
 	return 0;
 }
 
-int newpsm_close(struct cdev *dev, int flag, int fmt, struct thread *td) {
-
+static int 
+newpsm_close(struct cdev *dev, int flag, int fmt, struct thread *td) 
+{
 	return 0;
 }
 
-int newpsm_read(struct cdev *dev, struct uio *uio, int flag) {
+static int 
+newpsm_read(struct cdev *dev, struct uio *uio, int flag) 
+{
 	int err;
 
 	err = uiomove("Hello\n", 6, uio);
 	return err;
 }
 
-int newpsm_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag, struct thread *td) {
-
+static int 
+newpsm_ioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag, struct thread *td) 
+{
 	return 0;
 }
 
-int newpsm_poll(struct cdev *dev, int events, struct thread *td) {
-
+static int 
+newpsm_poll(struct cdev *dev, int events, struct thread *td) 
+{
 	return 0;
 }
 
@@ -396,7 +456,7 @@ restore_controller(KBDC kbdc, int command_byte)
 	empty_both_buffers(kbdc, 10);
 
 	if (!set_controller_command_byte(kbdc, 0xff, command_byte)) {
-		log(LOG_ERR, "psm: failed to restore the keyboard controller command byte.\n");
+		log(LOG_ERR, "newpsm: failed to restore the keyboard controller command byte.\n");
 		empty_both_buffers(kbdc, 10);
 		return FALSE;
 	} else {
@@ -427,7 +487,7 @@ get_mouse_status(KBDC kbdc, int *status, int flag, int len)
 
 	res = send_aux_command(kbdc, cmd);
 	if (verbose)
-		log(LOG_DEBUG, "psm: SEND_AUX_DEV_%s return code %04x\n", 
+		log(LOG_DEBUG, "newpsm: SEND_AUX_DEV_%s return code %04x\n", 
 			 (flag == 1) ? "DATA" : "STATUS", res);
 	if (res != PSM_ACK)
 		return 0;
@@ -438,7 +498,7 @@ get_mouse_status(KBDC kbdc, int *status, int flag, int len)
 			break;
 	}
 
-	log(LOG_DEBUG, "psm: %s %02x %02x %02x\n",
+	log(LOG_DEBUG, "newpsm: %s %02x %02x %02x\n",
 		 (flag == 1) ? "data" : "status", status[0], status[1], status[2]);
 
 	return i;
@@ -454,7 +514,7 @@ get_aux_id(KBDC kbdc)
 	empty_aux_buffer(kbdc, 5);
 	res = send_aux_command(kbdc, PSMC_SEND_DEV_ID);
 	if (verbose)
-		log(LOG_DEBUG, "psm: SEND_DEV_ID return code: %04x\n", res);
+		log(LOG_DEBUG, "newpsm: SEND_DEV_ID return code: %04x\n", res);
 
 	if (res != PSM_ACK)
 		return -1;
@@ -463,7 +523,7 @@ get_aux_id(KBDC kbdc)
 
 	id = read_aux_data(kbdc);
 	if (verbose)
-		log(LOG_DEBUG, "psm: device id: %04x\n", id);
+		log(LOG_DEBUG, "newpsm: device id: %04x\n", id);
 
 	return id;
 }
@@ -475,9 +535,9 @@ recover_from_error(KBDC kbdc)
 	empty_both_buffers(kbdc, 10);
 
 	if (!test_controller(kbdc))
-		log(LOG_ERR, "psm: keyboard controller failed.\n");
+		log(LOG_ERR, "newpsm: keyboard controller failed.\n");
 	if (test_kbd_port(kbdc) != 0)
-		log(LOG_ERR, "psm: keyboard port failed.\n");
+		log(LOG_ERR, "newpsm: keyboard port failed.\n");
 }
 
 static int
@@ -486,7 +546,7 @@ enable_aux_dev(KBDC kbdc)
 	int res;
 
 	res = send_aux_command(kbdc, PSMC_ENABLE_DEV);
-	log(LOG_DEBUG, "psm: ENABLE_DEV return code:%04x\n", res);
+	log(LOG_DEBUG, "newpsm: ENABLE_DEV return code:%04x\n", res);
 
 	return (res == PSM_ACK);
 }
@@ -497,7 +557,7 @@ disable_aux_dev(KBDC kbdc)
 	int res;
 
 	res = send_aux_command(kbdc, PSMC_DISABLE_DEV);
-	log(LOG_DEBUG, "psm: DISABLE_DEV return code:%04x\n", res);
+	log(LOG_DEBUG, "newpsm: DISABLE_DEV return code:%04x\n", res);
 
 	return (res == PSM_ACK);
 }
