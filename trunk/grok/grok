@@ -51,6 +51,7 @@ while(1) {
 sub handle {
 	my ($log) = shift;
 	my $line = $log->read();
+	chomp($line);
 	#print $log->{"input"} . "> " . $line;
 	my $last = { line => $line };
 	my $patterns = $PATTERNS->{$log->{"input"}};
@@ -71,19 +72,24 @@ sub handle {
 			$state->{$keyname}->{"time"} ||= time();
 			$state->{$keyname}->{"count"}++;
 
-			print "Matched $keyname\n";
-			print "Pattern: $pattern\n";
+			print "-\n";
+			print "Line: $line\n";
+			print "Matched rule: $keyname\n";
+			#print "Pattern: $pattern\n";
 			#print "Regex: $regex\n";
 
 			my $fileconf = $config->{$log->{"input"}}->{"types"}->{$pat};
 			if ($state->{$keyname}->{"count"} >= $fileconf->{"threshold"})  {
 				if (time() - ($state->{$keyname}->{"time"}) <= $fileconf->{"interval"}) { 
 					#print "Reaction: " . $fileconf->{"reaction"} . "\n";
-					my $reaction = $fileconf->{"reaction"};
-					#print "Reaction: $reaction\n";
-					$reaction = meta2string($reaction, \%values);
-					print "Reaction: $reaction\n";
-					system($reaction);
+					map { system(meta2string($reaction, \%values)) } @{$fileconf->{"reaction"}};
+					#foreach my $reaction (@{$fileconf->{"reactions"}}) {
+						#my $reaction = $fileconf->{"reaction"};
+						#print "Reaction: $reaction\n";
+						#$reaction = meta2string($reaction, \%values);
+						##print "Reaction: $reaction\n";
+						#system($reaction);
+					#}
 				} else { 
 					$state->{$keyname}->{"time"} = time();
 				}
@@ -171,7 +177,7 @@ type_entry: (((match | threshold | interval | reaction) ';') | ignorable)(s)
 match: 'match' '=' string { push(@{$type->{"matches"}},$item[3]) }
 threshold: 'threshold' '=' number { $type->{"threshold"} = $item[3] }
 interval: 'interval' '=' number { $type->{"interval"} = $item[3] }
-reaction: 'reaction' '=' string { $type->{"reaction"} = $item[3] }
+reaction: 'reaction' '=' string { push(@{$type->{"reactions"}}, $item[3]) }
 GRAMMAR
 
 	my $parser = Parse::RecDescent->new($grammar);
