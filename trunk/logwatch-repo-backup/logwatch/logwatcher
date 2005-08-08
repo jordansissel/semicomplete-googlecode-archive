@@ -4,13 +4,14 @@ use strict;
 use warnings;
 use Symbol;
 use Data::Dumper;
+use IO::Select;
 
 # pragma - allow (?{ code }) assertions in
 # dynamically generated regexen.
 use re 'eval';
 
 # Things you'll need to have installed:
-use File::Tail;
+#use File::Tail;
 use Regexp::Common qw(RE_ALL);
 use Parse::RecDescent;
 
@@ -32,29 +33,45 @@ setup($config);
 
 # Keep state
 my $state;
+my $select = IO::Select->new();
 
 foreach (keys(%$config)) {
 	next if ($_ eq "patterns");
-	print "Opening $_\n";
-	push(@logrefs, File::Tail->new(name => "$_", maxinterval => 1, interval => 1));
+	#print "Opening $_\n";
+	#push(@logrefs, File::Tail->new(name => "$_", maxinterval => 1, interval => 1));
+	my $s = Symbol::gensym;
+	my $command = $_;
+	if ($config->{$_}->{"type"} eq 'file') {
+		$command = "tail -0 -f $_";
+	}
+	print "Running $command\n";
+	open($s, "$command |");
+	$select->add($s);
+	$state->{"map"}->{$s} = $_;
 }
 
 while(1) {
-	my ($num,$timeleft,@pending) = File::Tail::select(undef,undef,undef,1,@logrefs);
-	if ($num) {
-		foreach (@pending) {
-			handle($_);
-		}
+	my @ready = $select->can_read();
+	map { readlog($_) } @ready;
+}
+
+sub readlog {
+	my $logh = shift;
+	my $buffer = $state->{"buffers"}->{$logh} || "";
+	sysread($logh, $buffer, 1024, length($buffer));
+	while ($buffer =~ s!(.*)\n!!) {
+		#print $state->{"map"}->{$logh} . "> $1\n";
+		handle($state->{"map"}->{$logh},$1);
 	}
+	#$state->{"buffers"}->{$logh} = $buffer;
 }
 
 sub handle {
-	my ($log) = shift;
-	my $line = $log->read();
+	my ($log,$line) = @_;
 	chomp($line);
-	#print $log->{"input"} . "> " . $line;
+	#print $log . "> " . $line;
 	my $last = { line => $line };
-	my $patterns = $PATTERNS->{$log->{"input"}};
+	my $patterns = $PATTERNS->{$log};
 	foreach my $pattern (keys(%{$patterns})) {
 		# "fix" the line, turn it into a regex.
 		my $regex = pattern2regex($pattern);
@@ -67,39 +84,46 @@ sub handle {
 		my %values;
 		if ($line =~ /$regex/) { 
 			# Handle if we're over the threshold
-			my $pat = $PATTERNS->{$log->{"input"}}->{$pattern};
-			my $keyname = "$pat / $values{IP}";
+			my $pat = $PATTERNS->{$log}->{$pattern};
+			my $keyname;
+			my $fileconf = $config->{$log}->{"types"}->{$pat};
+			$keyname = join ("/", $pat, map { "$_=>$values{$_}" } keys(%values));
 			$state->{$keyname}->{"time"} ||= time();
 			$state->{$keyname}->{"count"}++;
 
-			print "-\n";
-			print "Line: $line\n";
-			print "Matched rule: $keyname\n";
-			#print "Pattern: $pattern\n";
-			#print "Regex: $regex\n";
+			#print "-\n";
+			#print "Line: $line\n";
+			#print "Key: $keyname\n";
+			#print "Matched rule: $keyname\n";
+			#print "Threshold [$keyname]: " . $state->{$keyname}->{"count"} . "/" . $fileconf->{"threshold"} . "\n";
+			#print "Time: " . (time() - $state->{$keyname}->{"time"}) . "/" . $fileconf->{"interval"} . "\n";
+			print "\n";
 
-			my $fileconf = $config->{$log->{"input"}}->{"types"}->{$pat};
 			if ($state->{$keyname}->{"count"} >= $fileconf->{"threshold"})  {
-				if (time() - ($state->{$keyname}->{"time"}) <= $fileconf->{"interval"}) { 
-					#print "Reaction: " . $fileconf->{"reaction"} . "\n";
-					map { system(meta2string($reaction, \%values)) } @{$fileconf->{"reaction"}};
-					#foreach my $reaction (@{$fileconf->{"reactions"}}) {
-						#my $reaction = $fileconf->{"reaction"};
-						#print "Reaction: $reaction\n";
-						#$reaction = meta2string($reaction, \%values);
-						##print "Reaction: $reaction\n";
-						#system($reaction);
-					#}
+				if ($fileconf->{"interval"} == 0 
+					 || ((time() - $state->{$keyname}->{"time"}) <= $fileconf->{"interval"})) { 
+					map { 
+						my ($cmd,$type) = ($_->{"string"}, $_->{"type"});
+						if ($type eq 'command') {
+							$cmd = meta2string($cmd, \%values);
+							print "Executing: $cmd\n";
+							system($cmd);
+						} else {
+							$cmd = "package $keyname;\n$cmd";
+							print "!!!\n$cmd\n!!!\n";
+							eval $cmd;
+						}
+					} @{$fileconf->{"reactions"}};
 				} else { 
 					$state->{$keyname}->{"time"} = time();
 				}
 				$state->{$keyname}->{"count"} = 0;
 			}
 			$last->{"values"} = %values;
-			$last->{"handler"} = $PATTERNS->{$log->{"input"}}->{$pattern};
+			$last->{"handler"} = $PATTERNS->{$log}->{$pattern};
 		}
 	}
-	$log->{"last"} = $last;
+	$state->{"last"}->{$log} = $last;
 }
 
 sub pattern2regex {
@@ -152,8 +176,10 @@ comment: /#[^\n]*/
 blankline: /^\s+?\n/
 
 string: /((?:\")(?:[^\\\"]*(?:\\.[^\\\"]*)*)(?:\")|(?:\')(?:[^\\\']*(?:\\.[^\\\']*)*)(?:\')|(?:\`)(?:[^\\\`]*(?:\\.[^\\\`]*)*)(?:\`))/ { $return = substr($item[1],1,-1) }
+#string: <perl_quotelike> { $return = $item[1]->[2] }
 number: /\d+/
 word: /\w+/
+perlblock: <perl_codeblock>
 
 pattern: <rulevar: local $pattern = { }>
 pattern: 'patterns' '{' (pattern_entry)(s) '}' ';' { $config->{"patterns"} = $pattern }
@@ -162,7 +188,8 @@ pattern_name: word
 pattern_string: string
 
 file: <rulevar: local $file = { }>
-file: 'file' filename '{' file_entry(?) '}' ';' { $config->{$item[2]} = $file }
+file: filespec filename '{' file_entry(?) '}' ';' { $config->{$item[2]} = $file }
+filespec: ('file' | 'exec') { $file->{'type'} = $item[1] }
 filename: string
 file_entry: (file_entry_line | ignorable)(s)
 file_entry_line: (syslog | type) ';'
@@ -177,7 +204,9 @@ type_entry: (((match | threshold | interval | reaction) ';') | ignorable)(s)
 match: 'match' '=' string { push(@{$type->{"matches"}},$item[3]) }
 threshold: 'threshold' '=' number { $type->{"threshold"} = $item[3] }
 interval: 'interval' '=' number { $type->{"interval"} = $item[3] }
-reaction: 'reaction' '=' string { push(@{$type->{"reactions"}}, $item[3]) }
+reaction: 'reaction' '=' reactionspec { push(@{$type->{"reactions"}}, $item[3]) }
+reactionspec: string { $return = { type => "command", string => $item[1] } } 
+				  | perlblock  { $return = { type => "perl", string => $item[1] } }
 GRAMMAR
 
 	my $parser = Parse::RecDescent->new($grammar);
@@ -203,6 +232,17 @@ sub setup {
 				print "String: $string\n";
 				$matchhash->{$string} = $match;
 			}
+			$matches->{$match}->{"interval"} ||= 0;
+			$matches->{$match}->{"threshold"} ||= 0;
+
+			# Normalize perl blocks ?
+			map {
+				if ($_->{"type"} eq 'perl') {
+					$_->{"string"} =~ s/^\s*{\s*(.*)\s*}\s*$/$1/;
+					print "Perl: " . $_->{"string"} . "\n";
+				}
+			} @{$matches->{$match}->{"reactions"}};
+				
 		}
 		$PATTERNS->{$file} = $matchhash;
 	}
