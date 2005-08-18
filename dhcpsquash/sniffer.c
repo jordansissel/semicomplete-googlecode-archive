@@ -15,6 +15,9 @@
 
 void packethandler(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 
+void arp_packet(const u_char *packet, int offset);
+void dhcp_packet(const u_char *packet, int offset);
+
 int main(int argc, char **argv) {
 	pcap_t *handle;
 	struct bpf_program filter;
@@ -36,7 +39,11 @@ int main(int argc, char **argv) {
 	//filterstring = malloc(1024);
 	//memset(filterstring, 0, 1024);
 
-	filterstring = "((udp and (port 67 or port 68)) or (arp))";
+	if (argc == 2) {
+		filterstring = *argv++;
+	} else {
+		filterstring = "((udp and (port 67 or port 68)) or (arp))";
+	}
 
 	if (-1 == pcap_compile(handle, &filter, filterstring, 1, net)) {
 		fprintf(stderr, "pcap_compile: %s\n", pcap_geterr(handle));
@@ -62,24 +69,38 @@ void packethandler(u_char *args, const struct pcap_pkthdr *header, const u_char 
 	eptr = (struct ether_header *) packet;
 
 	if (ETHERTYPE_ARP == htons(eptr->ether_type)) {
-		printf("(arp)");
+		arp_packet(packet, offset);
+		printf("(%04x)", htons(eptr->ether_type));
 	} else if (ETHERTYPE_IP == htons(eptr->ether_type)) {
 		struct ip *iptr;
 		offset += sizeof(struct ether_header);
 		iptr = (struct ip *)(packet + offset);
 		if (IPPROTO_UDP == iptr->ip_p) {
-			struct udphdr *uptr;
-			offset += sizeof(struct udphdr);
-			uptr = (struct udphdr *)(packet + offset);
-			printf("(udp[%d->%d] / ", (int)(uptr->uh_sport), (uptr->uh_dport));
-			printf("%s => ", inet_ntoa(iptr->ip_src));
-			printf("%s)", inet_ntoa(iptr->ip_dst));
-			printf("%d - ", uptr->uh_ulen);
+			dhcp_packet(packet, offset);
 		}
 	} else {
-		printf("(%04x)", htons(eptr->ether_type));
+		/* Unknown Packet */
+		printf("UNKNOWN PACKET: ethertype %04x\n", eptr->ether_type);
 	}
 
 	printf(" %s => ", ether_ntoa((struct ether_addr *)eptr->ether_shost));
 	printf("%s\n", ether_ntoa((struct ether_addr *)eptr->ether_dhost));
+}
+
+void dhcp_packet(const u_char *packet, int offset) {
+	struct udphdr *uptr;
+	struct ip *iptr;
+
+	iptr = (struct ip *)(packet + offset);
+	offset += sizeof(struct ip);
+	uptr = (struct udphdr *)(packet + offset);
+
+	printf("(udp[%d->%d] / ", htons(uptr->uh_sport), htons(uptr->uh_dport));
+	printf("%s => ", inet_ntoa(iptr->ip_src));
+	printf("%s)", inet_ntoa(iptr->ip_dst));
+	printf("%d - ", htons(uptr->uh_ulen));
+}
+
+void arp_packet(const u_char *packet, int offset) {
+	
 }
