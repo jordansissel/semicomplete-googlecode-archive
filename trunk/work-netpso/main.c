@@ -12,7 +12,8 @@
 #include <syslog.h>
 #include <stdarg.h>
 
-#define BUFSIZE 512
+/* Buffer sizes of page size is efficient */
+#define BUFSIZE 4096
 
 int main(int argc, char *argv) {
 	char buf[BUFSIZE];
@@ -33,7 +34,6 @@ int main(int argc, char *argv) {
 		p += strlen(p) + 1;
 	}
 
-
 	syslog(LOG_DEBUG, "End of parameters");
 
 	/* Shift past 'ENDOFPARAMETERS' */
@@ -46,8 +46,8 @@ int main(int argc, char *argv) {
 
 	/* At this point, we're at the beginning of the the tab-file data */
 	chdir("/home/psionic/projects/work-netpso");
-	tabfile = fopen("data.tab", "w");
 
+	tabfile = fopen("data.tab", "w");
 	if (NULL == tabfile) {
 		syslog(LOG_DEBUG, "data.tab: %m");
 		exit(1);
@@ -57,7 +57,6 @@ int main(int argc, char *argv) {
 		syslog(LOG_DEBUG, "Read %d bytes\n", bytes);
 		fwrite(buf, 1, bytes, tabfile);
 		*(buf + bytes) = '\0';
-		syslog(LOG_DEBUG, "GOT '%s'", buf);
 		bytes = read(STDIN_FILENO, buf, BUFSIZE);
 	}
 
