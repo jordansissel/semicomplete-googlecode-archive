@@ -1,0 +1,59 @@
+#!/usr/local/bin/expect --
+
+# Choose your input
+if {$argc == 1} {
+	set file [open [lindex $argv 0] r]
+} else {
+	set file stdin
+}
+
+# Look up the username and password.
+set username  ""
+set password ""
+set rcfile "$env(HOME)/.dieselrc"
+if {[file isfile $rcfile] != 1 || [file readable $rcfile] != 1} {
+	puts("No rcfile: $rcfile. Perhaps you should make one...")
+	exit
+}
+set pw [open $rcfile r]
+while {[eof $pw] == 0} {
+	gets $pw line
+	set list [split $line " \t"]
+	switch -regexp $line {
+		^username { set username [lindex $list 1] }
+		^password { set password [lindex $list 1] }
+	}
+}
+close $pw
+
+if {[string length $username] == 0 || [string length $password] == 0} {
+	puts "No username/password in $env(HOME)/.dieselrc?"
+	exit
+}
+
+spawn ssh $username@firewall
+set sshid $spawn_id
+
+expect -i $sshid "password:"
+send -i $sshid "$password\n"
+send -i $sshid "enable\n"
+expect -i $sshid "Password:"
+send -i $sshid "$password\n"
+
+# Initial setup
+send -i $sshid "no pager\n"
+expect -i $sshid -re "(.*)\n"
+
+stty -echo
+
+while {[eof $file] == 0} {
+	gets $file input
+	send -i $sshid "$input\n"
+}
+
+send -i $sshid "logout\n"
+
+expect -i $sshid { 
+	-re "(.*)\n" { } 
+	eof { puts "EOF" }
+}
