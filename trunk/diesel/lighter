@@ -34,6 +34,7 @@ if {[string length $username] == 0 || [string length $password] == 0} {
 spawn ssh $username@firewall
 set sshid $spawn_id
 
+# Login
 expect -i $sshid "password:"
 send -i $sshid "$password\n"
 send -i $sshid "enable\n"
@@ -42,7 +43,7 @@ send -i $sshid "$password\n"
 
 # Initial setup
 send -i $sshid "no pager\n"
-expect -i $sshid -re "(.*)\n"
+send -i $sshid "terminal width 0\n"
 
 stty -echo
 
