@@ -37,6 +37,8 @@ set sshid $spawn_id
 # Login
 expect -i $sshid "password:"
 send -i $sshid "$password\n"
+
+# Go to privileged access
 send -i $sshid "enable\n"
 expect -i $sshid "Password:"
 send -i $sshid "$password\n"
@@ -44,8 +46,6 @@ send -i $sshid "$password\n"
 # Initial setup
 send -i $sshid "no pager\n"
 send -i $sshid "terminal width 0\n"
-
-stty -echo
 
 while {[eof $file] == 0} {
 	gets $file input
