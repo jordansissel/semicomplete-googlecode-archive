@@ -79,6 +79,7 @@ sub handle {
 		#print "Line: $line\n";
 		#print "Pattern: $pattern\n";
 		#print "Regex: $regex\n";
+		#print "Match: " . ($line =~ /$regex/)  . "\n";
 
 		# The regex match will store keys in this hash
 		my %values;
