@@ -16,7 +16,7 @@
  */
 my_libnet_t *my_libnet_init(char *pcapdev, char *errbuf) {
 #ifdef HAVE_LIBNET_1_0 
-	return libnet_open_link_interface(pcapdev, errbuf) 
+	return libnet_open_link_interface(pcapdev, errbuf);
 #else 
 #	ifdef HAVE_LIBNET_1_1 
 	return libnet_init(LIBNET_LINK_ADV, pcapdev, errbuf); 
