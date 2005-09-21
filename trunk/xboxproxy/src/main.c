@@ -96,6 +96,8 @@ static fd_set proxysocks;
 static char *progname;
 
 static char *pcapdev = NULL;
+static char *bindhost = NULL;
+static struct in_addr bindaddr;
 static char *proxyserver = NULL;
 
 /* Some defaults */
@@ -118,8 +120,7 @@ int recv_from_proxy(proxy_t *ppt);
 void distribute_packet(proxy_t *ppt, char *packet, int pktlen);
 
 void usage() {
-	debuglog(0, 
-"Usage: %s [-bxm] [-u] [-s <server>] [-i <dev>] [-d <debuglevel>] [-p <port>] [-h]",
+	debuglog(0, "Usage: %s [-bxm] [-u] [-B <bind ip>] [-s <server>] [-i <dev>] [-d <debuglevel>] [-p <port>] [-h]",
 				progname);
 	debuglog(0, "-x              forward xbox system link packets");
 	debuglog(0, "-b              forward broadcast traffic");
@@ -481,7 +482,11 @@ void proxy(void *args) {
 	}
 	BIGSERVER = server;
 	serveraddr.sin_family = PF_INET;
-	serveraddr.sin_addr.s_addr = INADDR_ANY;
+	if (bindhost != NULL) {
+		serveraddr.sin_addr = bindaddr;
+	} else {
+		serveraddr.sin_addr.s_addr = INADDR_ANY;
+	}
 	serveraddr.sin_port = htons(serverport);
 
 	debuglog(5, "Binding to any on port %d", serverport);
@@ -740,8 +745,16 @@ int main(int argc, char **argv) {
 	pthread_t pcapthread, proxythread;
 
 	/* Argument Processing */
-	while ((ch = getopt(argc, argv, "bxmus:i:d:h?p:f:")) != -1) {
+	while ((ch = getopt(argc, argv, "B:bxmus:i:d:h?p:f:")) != -1) {
 		switch (ch) {
+			case 'B':
+				bindhost = malloc(strlen(optarg) + 1);
+				strlcpy(bindhost,optarg,strlen(optarg) + 1);
+
+				if (inet_aton(bindhost, &bindaddr) == 0) {
+					bindhost = NULL;
+					debuglog(0, "-B flag: Invalid IP address '%s'", bindhost);
+				}
 			case 'b':
 				debuglog(10, "-b flag, enabling broadcast forwarding");
 				forwardbroadcast = 1;
