@@ -126,6 +126,7 @@ void usage() {
 	debuglog(0, "-b              forward broadcast traffic");
 	debuglog(0, "-m              forward multicast packets");
 	debuglog(0, "-u              use udp encapsulation instead of tcp (default)");
+	debuglog(0, "-B <bind_ip>    specify a specific ip to bind the listen server to");
 	debuglog(0, "-s <server>     specify another proxy to send packets to");
 	debuglog(0, "-i <dev>        ethernet device to sniff packets on");
 	debuglog(0, "-d <level>      specify debug level, (0-1000)");
