@@ -1,0 +1,4 @@
+#RewriteEngine On
+#RewriteRule new/(.*) /$1 [L,QSA,R]
+#RedirectMatch /~psionic/new/(.*) /~psionic/$1
+SetHandler default-handler
