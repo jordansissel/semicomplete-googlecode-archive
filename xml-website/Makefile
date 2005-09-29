@@ -25,9 +25,8 @@ clean:
 	rm *.html
 	rm -rf $(WORKDIR)/
 
-$(PROCESSXSL): $(WORKDIR) $(shell ls -d *.xsl | sed -e 's,^,$(WORKDIR)/,' -e 's/$$/.p/')
+$(PROCESSXSL): $(WORKDIR) $(shell ls -d *.xsl | sed -e 's,^,$(WORKDIR)/,)
 	@echo "($@) Changes: $?"
-	@echo "($@) All: $^"
 	@touch "$@"
 
 $(WORKDIR):
@@ -42,5 +41,5 @@ $(WORKDIR):
 	[ -f "$@" ] && cp $@ $@.bak || true
 	cp $(WORKDIR)/$@ ./$@
 	
-$(WORKDIR)/%.xsl.p: %.xsl 
+$(WORKDIR)/%.xsl: %.xsl 
 	$(XMLLINT) --xinclude $< > $@;
