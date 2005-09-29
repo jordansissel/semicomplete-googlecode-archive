@@ -1,5 +1,4 @@
 
-.SUFFIXES:	.html .xml
 WORKDIR=.generate
 XSLTDIR=/u9/psionic/public_html/new
 
@@ -7,35 +6,41 @@ XMLLINT=xmllint
 XSLTPROC=xsltproc
 #XSLTPROC=xsltproc --path "$(XSLTDIR)"
 
-website:
-	for i in `ls -d *.xml`; do \
-		make `echo $$i | sed -e 's/xml$$/html/'`; \
-	done
-	#make subdirs
+PROCESSXSL=$(WORKDIR)/.xsl_processed
+
+website: webroot subdirs
+
+webroot: $(shell ls -d *.xml | sed -e 's/xml$$/html/')
+	@echo "($@) Changes: $?"
 
 subdirs:
-	for i in `ls -d *`; do \
+	@echo "=== Recursing directories"
+	@for i in `ls -d *`; do \
 		[ -d $$i -a -f $$i/Makefile ] && $(MAKE) -C $$i ; \
 	done; \
 	:
+	@echo "=== DONE ==="
 
 clean:
 	rm *.html
-	rm -rf .generate/
+	rm -rf $(WORKDIR)/
 
-process-xsl: .generate
-	for i in `ls -d *.xsl`; do \
-		$(XMLLINT) --xinclude $$i > $(WORKDIR)/$$i; \
-	done
+$(PROCESSXSL): $(WORKDIR) $(shell ls -d *.xsl | sed -e 's,^,$(WORKDIR)/,' -e 's/$$/.p/')
+	@echo "($@) Changes: $?"
+	@echo "($@) All: $^"
+	@touch "$@"
 
-.generate: 
-	-mkdir .generate
+$(WORKDIR):
+	@mkdir $(WORKDIR) >/dev/null 2>&1 || true
 
-.xml.html: .generate process-xsl
+%.html: %.xml $(WORKDIR) $(PROCESSXSL)
 	@echo "=== Generating $@"
+	@echo "New: $?"
+	@echo "Total: $^"
 	$(XMLLINT) --xinclude $< > $(WORKDIR)/$<
 	$(XSLTPROC) $(WORKDIR)/$< > $(WORKDIR)/$@
 	[ -f "$@" ] && cp $@ $@.bak || true
 	cp $(WORKDIR)/$@ ./$@
 	
-
+$(WORKDIR)/%.xsl.p: %.xsl 
+	$(XMLLINT) --xinclude $< > $@;
