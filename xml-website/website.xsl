@@ -6,10 +6,10 @@
 
 <xsl:template match="/">
 	<html>
-		<xi:include href="header.xml" />
+		<xi:include href="include/header.xml" />
 		<body>
-			<xi:include href="menu.xml" />
-			<xsl:value-of select="/a" />
+			<xi:include href="include/menu.xml" />
+			<xsl:apply-templates select="/body" />
 		</body>
 	</html>
 </xsl:template>
