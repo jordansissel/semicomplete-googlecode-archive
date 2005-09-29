@@ -1,5 +1,17 @@
 <?xml version="1.0"?>
 <?xml-stylesheet type="text/xml" href="website.xsl"?>
-<body>
-	Welcome!
-</body>
+<page>
+	<title> Open Source Adventures </title>
+	<subtitle> Testing </subtitle>
+	<body>
+		Welcome! This is a happy webpage.
+		<p/>
+		Foo<p/>
+		Foo<p/>
+		Foo<p/>
+		Foo<p/>
+		Foo<p/>
+		Foo<p/>
+	</body>
+</page>
+

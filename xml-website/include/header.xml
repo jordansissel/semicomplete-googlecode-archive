@@ -1,5 +1,8 @@
 <!-- Header: Logo, etc -->
 
-<head>
-	<title> Testing </title>
+<head xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+	<title> 
+		<xsl:value-of select="/page/title" /> - <xsl:value-of select="/page/subtitle" />
+	</title>
+	<link rel="stylesheet" type="text/css" href="/~psionic/new/style.css" />
 </head>
