@@ -7,13 +7,13 @@ XSLTPROC=xsltproc
 
 PROCESSXSL=$(WORKDIR)/.xsl_processed
 
-website: includedir webroot subdirs
+INCLUDES=$(shell ls -d include/*.xml | sed -e 's/$$/i/')
 
-includedir: $(shell ls -d include/*.xml | sed -e 's/$$/i/')
+website: webroot subdirs
 
 webroot: $(shell ls -d *.xml | sed -e 's/xml$$/html/')
 
-subdirs:
+subdirs: 
 	@for i in `ls -d *`; do \
 		[ -d $$i -a -f $$i/Makefile ] && $(MAKE) -C $$i ; \
 	done; \
@@ -21,9 +21,11 @@ subdirs:
 
 clean:
 	-rm *.html
+	-rm include/*.xmli
 	-find ./ -name '.generate' -type d | xargs -n 1 rm -rf 
 
 $(PROCESSXSL): $(WORKDIR) $(shell ls -d *.xsl | sed -e 's,^,$(WORKDIR)/,)
+	@echo "=== Processing XSL"
 	@echo "($@) Changes: $?"
 	@touch "$@"
 
@@ -32,16 +34,15 @@ $(WORKDIR):
 
 %.html: %.xml $(WORKDIR) $(PROCESSXSL)
 	@echo "=== Generating $@"
-	@echo "New: $?"
-	@echo "Total: $^"
+	@echo "($@) Changed: $?"
 	$(XMLLINT) --xinclude $< > $(WORKDIR)/$<
 	$(XSLTPROC) $(WORKDIR)/$< > $(WORKDIR)/$@
 	[ -f "$@" ] && cp $@ $@.bak || true
 	cp $(WORKDIR)/$@ ./$@
 	
 
-include/%.xmli: include/%.xml
+include/%.xmli: include/%.xml 
 	$(XMLLINT) --xinclude $< > $@
 
-$(WORKDIR)/%.xsl: %.xsl 
+$(WORKDIR)/%.xsl: %.xsl $(INCLUDES)
 	$(XMLLINT) --xinclude $< > $@;
