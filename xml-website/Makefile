@@ -8,6 +8,12 @@ XSLTPROC=xsltproc
 #XSLTPROC=xsltproc --path "$(XSLTDIR)"
 
 website:
+	for i in `ls -d *.xml`; do \
+		make `echo $$i | sed -e 's/xml$$/html/'`; \
+	done
+	#make subdirs
+
+subdirs:
 	for i in `ls -d *`; do \
 		[ -d $$i -a -f $$i/Makefile ] && $(MAKE) -C $$i ; \
 	done; \
