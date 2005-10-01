@@ -1,0 +1,35 @@
+#!/bin/sh
+
+ROOT=/u9/psionic/public_html/new
+
+rm .depends >/dev/null 2>&1
+
+while [ $# -gt 0 ]; do
+	if [ -f "$1" ] ; then
+		echo "Finding dependencies for $1"
+		FILE=$1
+		ARGS="--stringparam filename $FILE"
+		shift
+
+		xsltproc $ARGS $ROOT/build/mkdep-pi.xsl $FILE \
+			| xsltproc $ARGS $ROOT/build/parsedep.xsl - >> .depends
+		xsltproc $ARGS $ROOT/build/mkdep.xsl $FILE \
+			| xsltproc $ARGS $ROOT/build/parsedep.xsl - >> .depends
+	else
+		echo "File $1 nonexistant"
+		shift
+	fi
+
+done
+
+PWD=`pwd`
+if [ `basename $PWD` = "include" ]; then
+   perl -pi.bak -e 's/^([^:]+)\.xml:/$1.xmli:/' .depends
+else
+   perl -pi.bak -e 's/^([^:]+)\.xml:/$1.html:/' .depends
+fi
+
+# Handle dependencies (replace with .generate)
+#perl -p -e '($a,$b) = split(/:/); @c = split(/\s+/); $b = join(" ", map { s%(.*/)(.*)%$1.generate/$2% } @c); print "$a: $b\n";' .depends
+
+perl -pi.bak -e '($a,$b) = split(/:/, $_); @c = split(/\s+/,$b); @c; @c = map { s%^(.*/)?([^/]+)$%$1.generate/$2% ; $_} @c; $_ = "$a: " . join(" ", @c) . "\n";' .depends
