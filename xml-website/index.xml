@@ -1,17 +1,23 @@
 <?xml version="1.0"?>
 <?xml-stylesheet type="text/xml" href="website.xsl"?>
 <page>
-	<title> Open Source Adventures </title>
-	<subtitle> Testing </subtitle>
 	<body>
 		Welcome! This is a happy webpage.
 		<p/>
-		Foo<p/>
-		Foo<p/>
-		Foo<p/>
-		Foo<p/>
-		Foo<p/>
-		Foo<p/>
+		My vision of a make+xml driven website has come into being. This is it!
+		<p/>
+
+		If you want to see how this all runs, check out these:
+		<ul>
+			<li> <a href="Makefile"> Makefile </a> </li>
+			<li> <a href="website.xsl"> website.xsl </a></li>
+			<li> <a href="index.xml"> index.xml </a> </li>
+			<li> <a href="include/"> include/ </a> </li>
+		</ul>
+
+		<p/>
+
+		There's not much else at this point. If you want to know more, bug me :)
 	</body>
 </page>
 

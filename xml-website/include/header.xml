@@ -2,7 +2,14 @@
 
 <head xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 	<title> 
-		<xsl:value-of select="/page/title" /> - <xsl:value-of select="/page/subtitle" />
+		<xsl:choose>
+			<xsl:when test="/page/title">
+				<xsl:value-of select="/page/title" /> - <xsl:value-of select="/page/subtitle" />
+			</xsl:when>
+			<xsl:otherwise>
+				Open Source Adventures (2.0!) - Technology Projects and Articles
+			</xsl:otherwise>
+		</xsl:choose>
 	</title>
 	<link rel="stylesheet" type="text/css" href="/~psionic/new/style.css" />
 </head>
