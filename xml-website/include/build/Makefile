@@ -7,21 +7,21 @@ XMLMKDEP=$(WEBROOT)/build/xmlmkdep
 
 PROCESSXSL=$(WORKDIR)/.xsl_processed
 
-INCLUDES=$(shell ls -d include/*.xml | sed -e 's/$$/i/')
+#INCLUDES=$(shell ls -d include/*.xml | sed -e 's/$$/i/')
 
-website: subdirs .depends curdir
+website: .depends subdirs curdir
 
 clean:
 	-rm *.html
 	-find ./ -name '$(WORKDIR)' -type d | xargs -n 1 rm -rf
 	-find ./ -name '.depends' -type f | xargs -n 1 rm -f
 
-include .depends
+#include .depends
 
 # Search files for dependencies
 depends: .depends
-
 .depends: $(shell ls -d *.xsl *.xml 2> /dev/null)
+	echo "YES"
 	$(XMLMKDEP) $^
 
 ifeq "$(STYLE)" "includes"
@@ -47,7 +47,7 @@ $(WORKDIR):
 %.html: SOURCE=$<
 %.html: DEST=$@
 %.html: CHANGES=$?
-%.html: %.xml $(WORKDIR) #$(PROCESSXSL)
+%.html: %.xml $(WORKDIR) 
 	make process SOURCE=$(SOURCE) DEST=$(DEST) CHANGES=$(CHANGES)
 
 %.xmli: SOURCE=$<
@@ -56,7 +56,7 @@ $(WORKDIR):
 %.xmli: %.xml $(WORKDIR)
 	make process SOURCE=$(SOURCE) DEST=$(DEST) CHANGES=$(CHANGES)
  
-process: $(WORKDIR) #$(PROCESSXSL)
+process: $(WORKDIR)
 	@echo "=== Generating $(DEST)"
 	@echo "($(DEST)) Changed: $(CHANGES)"
 	$(XMLLINT) --xinclude $(SOURCE) > $(WORKDIR)/$(SOURCE)
