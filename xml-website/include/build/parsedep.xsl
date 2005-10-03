@@ -7,7 +7,7 @@
 <xsl:param name="filename" select="'UNKNOWN'"/>
 
 <xsl:template match="/">
-<xsl:value-of select="$filename" /><xsl:text>: </xsl:text><xsl:apply-templates match="/dependencies/dependency" /><xsl:text>&#010;</xsl:text>
+<xsl:apply-templates match="/dependencies/dependency" />
 </xsl:template>
 
 <xsl:template match="dependency">
