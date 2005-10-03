@@ -8,15 +8,15 @@
 <xsl:template match="/">
 	<html>
 		<!-- HEAD -->
-		<xi:include href="include/header.xmli" />
+		<xi:include href="include/header.xml" />
 		<!-- HEAD -->
 		<body>
 			<!-- Logo --> 
-			<xi:include href="include/logo.xmli" />
+			<xi:include href="include/logo.xml" />
 			<!-- End Logo --> 
 
 			<!-- Menu -->
-			<xi:include href="include/menu.xmli" />
+			<xi:include href="include/menu.xml" />
 			<!-- End Menu -->
 
 			<!-- Body -->
