@@ -519,9 +519,9 @@ void proxy(void *args) {
 		int size = sizeof(struct sockaddr_in); /* sizeof(srcaddr) */
 		int sel;
 		struct timeval timeout;
+		struct fd_set proxycopy;
 		timeout.tv_sec = 10;
 		timeout.tv_usec = 0;
-		fd_set proxycopy;
 
 		/* Some sort of select() thing here */
 
@@ -735,6 +735,7 @@ int main(int argc, char **argv) {
 	char errbuf[PCAP_ERRBUF_SIZE];
 	//int *pthread_return;
 	char ch;
+	pthread_t pcapthread, proxythread;
 
 	progname = argv[0];
 
@@ -743,7 +744,6 @@ int main(int argc, char **argv) {
 	proxies = hash_create(HASHSIZE, compareip, haship);
 	set_log_level(0);
 
-	pthread_t pcapthread, proxythread;
 
 	/* Argument Processing */
 	while ((ch = getopt(argc, argv, "B:bxmus:i:d:h?p:f:")) != -1) {
