@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(proxy, 1.9, psionic@csh.rit.edu)
-AM_INIT_AUTOMAKE(proxy, 1.9)
+AC_INIT(proxy, 2.0, psionic@csh.rit.edu)
+AM_INIT_AUTOMAKE(proxy, 2.0)
 #AC_CONFIG_SRCDIR([src/main.c])
 
 # Checks for programs.
