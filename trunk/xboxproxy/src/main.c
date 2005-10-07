@@ -750,7 +750,8 @@ int main(int argc, char **argv) {
 		switch (ch) {
 			case 'B':
 				bindhost = malloc(strlen(optarg) + 1);
-				strlcpy(bindhost,optarg,strlen(optarg) + 1);
+				//strlcpy(bindhost,optarg,strlen(optarg) + 1);
+				strcpy(bindhost,optarg);
 
 				if (inet_aton(bindhost, &bindaddr) == 0) {
 					bindhost = NULL;
