@@ -67,13 +67,13 @@ AC_ARG_WITH([debug],
 AC_ARG_WITH([pcap],
             AC_HELP_STRING([--with-pcap=DIR], 
 									[search for pcap in DIR/include and DIR/lib]),
-				[ PCAP_PREFIX=$withval ],
-				[ PCAP_PREFIX=/usr/local ])
+				[ PCAP_PREFIX=$withval ]
+				)
 
 PCAP_FOUND=0
 
 # Checking for paths for pcap
-AC_CHECK_PATHS([/usr /usr/local], 
+AC_CHECK_PATHS([$PCAP_PREFIX /usr /usr/local], 
 					[
 					AC_CHECK_FILE([${dirname}/lib/libpcap.a], [AC_PATH_FOUND])
 					],
@@ -93,13 +93,13 @@ AC_CHECK_LIB(pcap, pcap_lib_version, [LIBS="$LIBS -lpcap"],
 AC_ARG_WITH([libnet],
             AC_HELP_STRING([--with-libnet=DIR], 
 									[search for libnet in DIR/include and DIR/lib]),
-				[ LIBNET_PREFIX=$withval ],
-				[ LIBNET_PREFIX=/usr/local ])
+				[ LIBNET_PREFIX=$withval ]
+				)
 
 LIBNET_FOUND=0
 LIBS="$LIBS -lnet"
 
-AC_CHECK_PATHS([/usr /usr/local], 
+AC_CHECK_PATHS([$LIBNET_PREFIX /usr /usr/local], 
 					[
 					AC_CHECK_FILE([${dirname}/lib/libnet.a], [AC_PATH_FOUND])
 					],
