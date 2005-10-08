@@ -25,12 +25,17 @@
 			<fo:region-after extent="3in" />
 		</fo:simple-page-master>
 
-		<fo:simple-page-master master-name="page" margin="1in">
-			<fo:region-body />
-			<fo:region-before />
-			<fo:region-after />
-		</fo:simple-page-master>
+		<xsl:apply-templates select="/sitebook/section" mode="pagelayout" />
 	</fo:layout-master-set>
+</xsl:template>
+
+<xsl:template match="section" mode="pagelayout">
+	<xsl:variable name="secnum" select="concat('section_', position())" />
+	<fo:simple-page-master master-name="{$secnum}" margin="1in">
+		<fo:region-before />
+		<fo:region-body />
+		<fo:region-after />
+	</fo:simple-page-master>
 </xsl:template>
 
 <xsl:template name="cover">
@@ -101,6 +106,33 @@
 </xsl:template>
 
 <xsl:template name="content">
+	<xsl:apply-templates select="/sitebook/section" mode="base"/>
+</xsl:template>
+
+<xsl:template match="/sitebook/section" mode="base">
+	<xsl:variable name="secnum" select="concat('section_', position())" />
+	<fo:page-sequence master-reference="{$secnum}">
+		<fo:flow flow-name ="xsl-region-body">
+			<xsl:apply-templates select=".">
+				<xsl:with-param name="section" select="position()" />
+			</xsl:apply-templates>
+		</fo:flow>
+	</fo:page-sequence>
+</xsl:template>
+
+<xsl:template match="section">
+	<xsl:param name="section" />
+	<xsl:variable name="pos" select="position()" />
+	<fo:block font-size="18pt" font-weight="bold">
+		<xsl:value-of select="concat($section,'.',$pos)" />:
+		<xsl:value-of select="@title" />
+	</fo:block>
+	<fo:block>
+		<xsl:value-of select="normalize-space(text())" />
+	</fo:block>
+	<xsl:apply-templates select="section">
+		<xsl:with-param name="section" select="concat($section,'.',$pos)" />
+	</xsl:apply-templates>
 </xsl:template>
 
 </xsl:stylesheet>

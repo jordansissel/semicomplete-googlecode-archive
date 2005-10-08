@@ -21,6 +21,22 @@
 		</revision>
 	</revisions>
 
-	<section title="Happy">
+	<section title="Page 1">
+		Testing foo bar fizz
+		<section title="testing">
+			Foobie doobie
+		</section>
+		<section title="testing">
+			Foobie doobie
+			<section title="testing">
+				Foobie doobie
+			</section>
+		</section>
+	</section>
+	<section title="Page 2">
+		HELLO PAGE 2
+	</section>
+	<section title="Page 3">
+		HELLO PAGE 3
 	</section>
 </sitebook>
