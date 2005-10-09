@@ -41,10 +41,10 @@
 <xsl:template name="cover">
 	<fo:page-sequence master-reference="cover">
 		<fo:flow flow-name ="xsl-region-body">
-			<fo:block font-size="36pt" text-align="center" font-weight="bold" margin-bottom="2in">
+			<fo:block font-size="36pt" text-align="center" font-weight="bold" padding-bottom="2in">
 				<xsl:value-of select="/sitebook/cover/title" />
 			</fo:block>
-			<fo:block padding-top="3in">
+			<fo:block>
 				<xsl:call-template name="revisions" />
 			</fo:block>
 		</fo:flow>
@@ -60,7 +60,7 @@
 			<fo:table-column column-width="1in" />
 			<fo:table-column column-width="1.7in" />
 			<fo:table-header>
-				<fo:table-row>
+				<fo:table-row background-color="#D0D0D0">
 					<fo:table-cell border="1pt solid #444444" padding="2pt">
 						<fo:block>Revision</fo:block>
 					</fo:table-cell>
@@ -130,11 +130,12 @@
 		</xsl:if>
 		<xsl:value-of select="$position" />
 	</xsl:variable>
-	<fo:block font-size="18pt" font-weight="bold" border-top="2pt solid #AAAAAA">
+	<fo:block font-size="18pt" font-weight="bold" border-top="2pt solid #AAAAAA" padding-bottom="1em">
 		<xsl:value-of select="$section" />:
 		<xsl:value-of select="@title" />
 	</fo:block>
-		<xsl:apply-templates select="*[name() != 'section']|text()"/>
+	<xsl:apply-templates select="*[name() != 'section']|text()"/>
+	<fo:block padding-bottom="1em">&#010;</fo:block>
 	<xsl:apply-templates select="section">
 		<xsl:with-param name="parent" select="$section" />
 	</xsl:apply-templates>
@@ -171,6 +172,7 @@
 	</fo:list-block>
 </xsl:template>
 
+<!-- HTML-STYLE 'li' definition list -->
 <xsl:template match="li">
 	<fo:list-item>
 		<fo:list-item-label end-indent="label-end()">
@@ -182,6 +184,79 @@
 			</fo:block>
 		</fo:list-item-body>
 	</fo:list-item>
+</xsl:template>
+
+<!-- HTML-STYLE 'table' stuffs -->
+<xsl:template match="table">
+	<xsl:variable name="border">
+		<xsl:choose>
+			<xsl:when test="string-length(@border) > 0">
+				<xsl:value-of select="@border" />
+			</xsl:when>
+			<xsl:otherwise>
+				1pt solid black
+			</xsl:otherwise>
+		</xsl:choose>
+	</xsl:variable>
+
+	<xsl:variable name="padding">
+		<xsl:choose>
+			<xsl:when test="string-length(@padding) > 0">
+				<xsl:value-of select="@padding" />
+			</xsl:when>
+			<xsl:otherwise>
+				2pt
+			</xsl:otherwise>
+		</xsl:choose>
+	</xsl:variable>
+
+	<fo:table>
+		<xsl:apply-templates select="th/td" mode="table-columns" />
+		<fo:table-header>
+			<xsl:apply-templates select="th" />
+		</fo:table-header>
+		<fo:table-body>
+			<xsl:apply-templates select="tr" />
+		</fo:table-body>
+	</fo:table>
+</xsl:template>
+
+<xsl:template match="td" mode="table-columns">
+	<fo:table-column column-width="{@width}" />
+</xsl:template>
+
+<xsl:template match="th">
+	<fo:table-row background-color="#D0D0D0">
+		<xsl:apply-templates select="*|text()" />
+	</fo:table-row>
+</xsl:template>
+
+<xsl:template match="tbody">
+	<fo:table-body>
+		<xsl:apply-templates select="*|text()" />
+	</fo:table-body>
+</xsl:template>
+
+<xsl:template match="tr">
+	<fo:table-row>
+		<xsl:apply-templates select="*|text()" />
+	</fo:table-row>
+</xsl:template>
+
+<xsl:template match="td">
+	<!--<fo:table-cell border="{$border}" padding="{$padding}">-->
+	<fo:table-cell border="1pt solid grey" padding="2pt">
+		<fo:block>
+			<xsl:apply-templates select="*|text()" />
+		</fo:block>
+	</fo:table-cell>
+</xsl:template>
+
+<!-- HTML-STYLE 'pre' white-space-loving block -->
+<xsl:template match="pre">
+	<fo:block white-space-collapse="false" font-family="Courier">
+		<xsl:apply-templates select="text()" />
+	</fo:block>
 </xsl:template>
 
 </xsl:stylesheet>

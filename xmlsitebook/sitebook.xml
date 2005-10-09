@@ -63,11 +63,268 @@
 			Operating System: Windows 2000 Server
 			</section>
 		</section>
+		<section title="System Partition Layouts">
+			<section title="earth.captainplanet.sys">
+				<table>
+					<th>
+						<td width="1in">Disk Name</td>
+						<td width="1.3in">Mount Point</td>
+						<td width=".6in">Size</td>
+						<td width="3in">Description</td>
+					</th>
+					<tr>
+						<td>ad0s1a</td>
+						<td>/</td>
+						<td>128M</td>
+						<td>Root partition (kernel, /etc)</td>
+					</tr>
+					<tr>
+						<td>ad0s1b</td>
+						<td>swap</td>
+						<td>256M</td>
+						<td>Swap partition</td>
+					</tr>
+					<tr>
+						<td>ad0s1d</td>
+						<td>/tmp</td>
+						<td>256M</td>
+						<td>Temporary file/socket staging</td>
+					</tr>
+					<tr>
+						<td>ad0s1e</td>
+						<td>/var</td>
+						<td>128M</td>
+						<td>System databases and logs</td>
+					</tr>
+					<tr>
+						<td>ad0s1f</td>
+						<td>/usr</td>
+						<td>403M</td>
+						<td>Userland and home directories</td>
+					</tr>
+				</table>
+			</section>
+			<section title="wind.captainplanet.sys">
+				<table>
+					<th>
+						<td width="1in">Disk Name</td>
+						<td width="1.3in">Mount Point</td>
+						<td width=".6in">Size</td>
+						<td width="3in">Description</td>
+					</th>
+					<tr>
+						<td>ad0s1a</td>
+						<td>/</td>
+						<td>128M</td>
+						<td>Root partition (kernel, /etc)</td>
+					</tr>
+					<tr>
+						<td>ad0s1b</td>
+						<td>swap</td>
+						<td>256M</td>
+						<td>Swap partition</td>
+					</tr>
+					<tr>
+						<td>ad0s1d</td>
+						<td>/tmp</td>
+						<td>256M</td>
+						<td>Temporary file/socket staging</td>
+					</tr>
+					<tr>
+						<td>ad0s1e</td>
+						<td>/var</td>
+						<td>128M</td>
+						<td>System databases and logs</td>
+					</tr>
+					<tr>
+						<td>ad0s1f</td>
+						<td>/usr</td>
+						<td>403M</td>
+						<td>Userland and home directories</td>
+					</tr>
+				</table>
+			</section>
+		</section>
 	</section>
-	<section title="Page 2">
-		HELLO PAGE 2
+	<section title="Known Issues">
+		<section title="NIS">
+			NIS Passwords are transmitted to slaves and clients (and thusly
+			viewable by users) in their hashed forms. Any normal user can
+			'ypcat passwd' and run john on the passwd file to guess
+			passwords. Also, using NIS requires RPC. RPC uses lots of
+			random ports, making securing anything using NIS difficult. A
+			script can possibly be written to dynamically pull ports used
+			by rpc services and add them to the firewall.
+		</section>
+		<section title="DNS">
+			Active Directory requires that a host-based trust be
+			established between any domain controllers and the primary DNS
+			server. This is a horrible "feature" but isn't likely fixable.
+			Any user process on any domain controller will be able to send
+			DNS updates to the primary dns server.
+		</section>
 	</section>
-	<section title="Page 3">
-		HELLO PAGE 3
+	<section title="Configuration">
+		<section title="DNS (on earth)">
+			<pre><![CDATA[
+options {
+        directory       "/etc/namedb";
+        pid-file        "/var/run/named/pid";
+        dump-file       "/var/dump/named_dump.db";
+        statistics-file "/var/stats/named.stats";
+        check-names master ignore;
+};
+
+zone "." {
+        type hint;
+        file "named.root";
+};
+
+acl "Windows Domain Controllers" {
+        10.110.82.3;
+        10.110.82.4;
+};
+
+acl "update-acl" {
+        "Windows Domain Controllers";
+        key happykey;
+};
+
+key happykey {
+        algorithm HMAC-MD5;
+        secret "8rD0fFgitsVAYgCm24WzBMUW+c28DkZPXnhgAM1hyWRgD+WHAXKAx iW6 opNaCRkxokP1hje7ZOeRbHkEKNlniQ==";
+};
+
+zone "captainplanet.sys" {
+        type master;
+        file "master/captainplanet.sys";
+        allow-update { "update-acl"; };
+};
+
+zone "82.110.10.in-addr.arpa" {
+        type master;
+        file "master/82.110.10.in-addr.arpa";
+        allow-update { "update-acl"; };
+};
+			]]></pre>
+		</section>
+		<section title="DNS (on earth)">
+		<pre><![CDATA[
+# dhcpd.conf
+#
+# Sample configuration file for ISC dhcpd
+#
+
+option domain-name "captainplanet.sys";
+option domain-name-servers 10.110.82.3, 10.200.200.3;
+option dhcp-server-identifier earth.captainplanet.sys;
+
+default-lease-time 600;
+max-lease-time 7200;
+
+# If this DHCP server is the official DHCP server for the local
+# network, the authoritative directive should be uncommented.
+authoritative;
+
+# ad-hoc DNS update scheme - set to "none" to disable dynamic DNS updates.
+ddns-update-style interim;
+
+# Use this to send dhcp log messages to a different log file (you also
+# have to hack syslog.conf to complete the redirection).
+log-facility local7;
+
+key happykey {
+        algorithm hmac-md5;
+        secret 8rD0fFgitsVAYgCm24WzBMUW+c28DkZPXnhgAM1hyWRgD+WHAXKAx iW6 opNaCRk
+xokP1hje7ZOeRbHkEKNlniQ==;
+}
+
+zone 82.110.10.in-addr.arpa {
+        primary 10.110.82.1;
+        key happykey;
+}
+
+zone captainplanet.sys {
+        primary 10.110.82.1;
+        key happykey;
+}
+
+subnet 10.110.82.0 netmask 255.255.255.0 {
+        authoritative;
+        option subnet-mask 255.255.254.0;
+        default-lease-time 600;
+        option domain-name-servers 10.110.82.1, 10.110.82.3;
+        option routers 10.110.82.254;
+        pool {
+                range 10.110.82.20 10.110.82.100;
+                option domain-name "captainplanet.sys";
+                deny dynamic bootp clients;
+                deny unknown clients;
+        }
+}
+
+#wind 00:e0:29:26:73:d5
+host wind {
+        hardware ethernet 00:e0:29:26:73:d5 ;
+        option host-name "wind";
+        ddns-hostname "wind";
+        ddns-domainname "captainplanet.sys";
+        option domain-name "captainplanet.sys";
+}
+
+#water 00:e0:29:44:2e:cc
+host water {
+        hardware ethernet 00:e0:29:44:2e:cc;
+        option host-name "water";
+        ddns-hostname "water";
+        ddns-domainname "captainplanet.sys";
+        option domain-name "captainplanet.sys";
+}
+
+#fire 00:e0:29:1d:3b:e9
+host fire {
+        hardware ethernet 00:e0:29:1d:3b:e9;
+        option host-name "fire";
+        ddns-hostname "fire";
+        ddns-domainname "captainplanet.sys";
+        option domain-name "captainplanet.sys";
+}
+
+#heart 00:0d:60:8b:06:33
+host heart {
+        hardware ethernet 00:0d:60:8b:06:33;
+        option host-name "heart";
+        ddns-hostname "heart";
+        ddns-domainname "captainplanet.sys";
+        option domain-name "captainplanet.sys";
+}
+		]]></pre>
+		</section>
+		<section title="rc.conf (on earth)">
+		<pre><![CDATA[
+usbd_enable="YES"
+sshd_enable="YES"
+
+hostname="earth"
+ifconfig_tx0="inet 10.110.82.1 netmask 0xffffff00"
+defaultrouter="10.110.82.254"
+
+dhcpd_enable="YES"
+dhcpd_ifaces="tx0"
+
+named_enable="YES"
+
+nisdomain="captainplanet"
+nis_client_enable="YES"
+nis_server_enable="YES"
+nis_client_flags="-S $nisdomain,earth.captainplanet.sys"
+nisdomainname="captainplanet"
+
+ntpd_enable="YES"
+
+sendmail_enable="NO"
+pf_enable="YES"
+		]]></pre>
+		</section>
 	</section>
 </sitebook>
