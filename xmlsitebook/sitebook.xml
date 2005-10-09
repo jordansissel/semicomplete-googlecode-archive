@@ -39,7 +39,11 @@
 		</section>
 		<section title="Server Information">
 			<section title="earth.captainplanet.sys">
+				<p>
 				<b>Operating System:</b> FreeBSD 5.4
+				</p>
+
+				<p>
 				<b>Services</b>
 				<ul>
 					<li> Primary DNS </li>
@@ -47,6 +51,7 @@
 					<li> NIS Slave </li>
 					<li> NIS Client </li>
 				</ul>
+				</p>
 			</section>
 			<section title="wind.captainplanet.sys">
 			Operating System: FreeBSD 5.4

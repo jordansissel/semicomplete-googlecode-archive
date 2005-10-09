@@ -134,14 +134,9 @@
 		<xsl:value-of select="$section" />:
 		<xsl:value-of select="@title" />
 	</fo:block>
-	<fo:block>
 		<xsl:apply-templates select="*[name() != 'section']|text()"/>
-	</fo:block>
 	<xsl:apply-templates select="section">
 		<xsl:with-param name="parent" select="$section" />
-		<!--
-		<xsl:with-param name="position" select="position()" />
-		-->
 	</xsl:apply-templates>
 </xsl:template>
 
@@ -155,6 +150,13 @@
 	<fo:inline font-weight="bold">
 		<xsl:apply-templates match="*|text()"/>
 	</fo:inline>
+</xsl:template>
+
+<!-- HTML-STYLE 'p' paragraph tag -->
+<xsl:template match="p">
+	<fo:block padding-bottom=".65em">
+		<xsl:apply-templates match="*|text()"/>
+	</fo:block>
 </xsl:template>
 
 <!-- HTML-STYLE 'img' image embedding tag -->
