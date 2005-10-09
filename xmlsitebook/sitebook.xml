@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 
-<sitebook>
+
+<sitebook xmlns:fo="http://www.w3.org/1999/XSL/Format">
 	<cover>
 		<title>Operations Manual</title>
 	</cover>
@@ -19,17 +20,35 @@
 			<sections>Test Plans</sections>
 			<deltas>Added several regression test plans</deltas>
 		</revision>
+		<revision>
+			<version>1.2</version>
+			<date>10/8/05</date>
+			<author>Jordan Sissel</author>
+			<sections>All</sections>
+			<deltas>Moved to new XML format</deltas>
+		</revision>
 	</revisions>
 
-	<section title="Page 1">
-		Testing foo bar fizz
-		<section title="testing">
-			Foobie doobie
+	<section title="Systems">
+		<section title="Server Layout">
+			<img src="layout.png" />
 		</section>
-		<section title="testing">
-			Foobie doobie
-			<section title="testing">
-				Foobie doobie
+		<section title="Server Information">
+			<section title="earth.captainplanet.sys">
+			<ul>
+				<li> <b>Operating System</b>: FreeBSD 5.4 </li>
+				<li> <b>Operating System</b>: FreeBSD 5.4 </li>
+				<li> <b>Operating System</b>: FreeBSD 5.4 </li>
+			</ul>
+			</section>
+			<section title="wind.captainplanet.sys">
+			Operating System: FreeBSD 5.4
+			</section>
+			<section title="water.captainplanet.sys">
+			Operating System: Windows 2000 Server
+			</section>
+			<section title="fire.captainplanet.sys">
+			Operating System: Windows 2000 Server
 			</section>
 		</section>
 	</section>

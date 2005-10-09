@@ -52,7 +52,7 @@
 </xsl:template>
 
 <xsl:template name="revisions">
-	<fo:block height=".5in" border-top="1pt solid grey" padding=".2cm">
+	<fo:block height=".5in" border-top="2pt solid #AAAAAA" padding=".2cm">
 		<fo:table>
 			<fo:table-column column-width="1in" />
 			<fo:table-column column-width="1in" />
@@ -114,7 +114,7 @@
 	<fo:page-sequence master-reference="{$secnum}">
 		<fo:flow flow-name ="xsl-region-body">
 			<xsl:apply-templates select=".">
-				<xsl:with-param name="section" select="position()" />
+				<xsl:with-param name="section" />
 			</xsl:apply-templates>
 		</fo:flow>
 	</fo:page-sequence>
@@ -123,16 +123,53 @@
 <xsl:template match="section">
 	<xsl:param name="section" />
 	<xsl:variable name="pos" select="position()" />
-	<fo:block font-size="18pt" font-weight="bold">
+	<fo:block font-size="18pt" font-weight="bold" border-top="2pt solid #AAAAAA">
 		<xsl:value-of select="concat($section,'.',$pos)" />:
 		<xsl:value-of select="@title" />
 	</fo:block>
 	<fo:block>
-		<xsl:value-of select="normalize-space(text())" />
+		<xsl:apply-templates select="*[name() != 'section']|text()"/>
 	</fo:block>
 	<xsl:apply-templates select="section">
 		<xsl:with-param name="section" select="concat($section,'.',$pos)" />
 	</xsl:apply-templates>
+</xsl:template>
+
+<!--
+  ** Special Tag Handling
+  ** Special Tag Handling **
+     Special Tag Handling **
+                          -->
+<!-- HTML-STYLE 'b' bold tag -->
+<xsl:template match="b">
+	<fo:inline font-weight="bold">
+		<xsl:apply-templates match="*|text()"/>
+	</fo:inline>
+</xsl:template>
+
+<!-- HTML-STYLE 'img' image embedding tag -->
+<xsl:template match="img">
+	<fo:external-graphic src="url('{@src}')" />
+</xsl:template>
+
+<!-- HTML-STYLE 'ul' definition list -->
+<xsl:template match="ul">
+	<fo:list-block>
+		<xsl:apply-templates match="li" />
+	</fo:list-block>
+</xsl:template>
+
+<xsl:template match="li">
+	<fo:list-item>
+		<fo:list-item-label end-indent="label-end()">
+			<fo:block>&#x2022;</fo:block>
+		</fo:list-item-label>
+		<fo:list-item-body start-indent="body-start()">
+			<fo:block>
+				<xsl:apply-templates select="*|text()" />
+			</fo:block>
+		</fo:list-item-body>
+	</fo:list-item>
 </xsl:template>
 
 </xsl:stylesheet>
