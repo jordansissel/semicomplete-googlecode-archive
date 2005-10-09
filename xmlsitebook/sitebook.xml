@@ -29,17 +29,24 @@
 		</revision>
 	</revisions>
 
+	<section title="References">
+		What goes here? :(
+	</section>
+
 	<section title="Systems">
 		<section title="Server Layout">
 			<img src="layout.png" />
 		</section>
 		<section title="Server Information">
 			<section title="earth.captainplanet.sys">
-			<ul>
-				<li> <b>Operating System</b>: FreeBSD 5.4 </li>
-				<li> <b>Operating System</b>: FreeBSD 5.4 </li>
-				<li> <b>Operating System</b>: FreeBSD 5.4 </li>
-			</ul>
+				<b>Operating System:</b> FreeBSD 5.4
+				<b>Services</b>
+				<ul>
+					<li> Primary DNS </li>
+					<li> DHCP </li>
+					<li> NIS Slave </li>
+					<li> NIS Client </li>
+				</ul>
 			</section>
 			<section title="wind.captainplanet.sys">
 			Operating System: FreeBSD 5.4

@@ -114,24 +114,34 @@
 	<fo:page-sequence master-reference="{$secnum}">
 		<fo:flow flow-name ="xsl-region-body">
 			<xsl:apply-templates select=".">
-				<xsl:with-param name="section" />
+				<xsl:with-param name="parent" />
+				<xsl:with-param name="position" select="position()" />
 			</xsl:apply-templates>
 		</fo:flow>
 	</fo:page-sequence>
 </xsl:template>
 
 <xsl:template match="section">
-	<xsl:param name="section" />
-	<xsl:variable name="pos" select="position()" />
+	<xsl:param name="parent" />
+	<xsl:param name="position" select="position()" />
+	<xsl:variable name="section">
+		<xsl:if test="string-length($parent) > 0">
+			<xsl:value-of select="$parent" /><xsl:text>.</xsl:text>
+		</xsl:if>
+		<xsl:value-of select="$position" />
+	</xsl:variable>
 	<fo:block font-size="18pt" font-weight="bold" border-top="2pt solid #AAAAAA">
-		<xsl:value-of select="concat($section,'.',$pos)" />:
+		<xsl:value-of select="$section" />:
 		<xsl:value-of select="@title" />
 	</fo:block>
 	<fo:block>
 		<xsl:apply-templates select="*[name() != 'section']|text()"/>
 	</fo:block>
 	<xsl:apply-templates select="section">
-		<xsl:with-param name="section" select="concat($section,'.',$pos)" />
+		<xsl:with-param name="parent" select="$section" />
+		<!--
+		<xsl:with-param name="position" select="position()" />
+		-->
 	</xsl:apply-templates>
 </xsl:template>
 
@@ -162,7 +172,7 @@
 <xsl:template match="li">
 	<fo:list-item>
 		<fo:list-item-label end-indent="label-end()">
-			<fo:block>&#x2022;</fo:block>
+			<fo:block><!--&#x2022;--></fo:block>
 		</fo:list-item-label>
 		<fo:list-item-body start-indent="body-start()">
 			<fo:block>
