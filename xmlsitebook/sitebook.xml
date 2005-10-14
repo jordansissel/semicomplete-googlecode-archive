@@ -30,7 +30,9 @@
 	</revisions>
 
 	<section title="References">
+		<p>
 		What goes here? :(
+		</p>
 	</section>
 
 	<section title="Systems">
@@ -44,7 +46,7 @@
 				</p>
 
 				<p>
-				<b>Services</b>
+				<b>Services and Roles</b>
 				<ul>
 					<li> Primary DNS </li>
 					<li> DHCP </li>
@@ -54,13 +56,44 @@
 				</p>
 			</section>
 			<section title="wind.captainplanet.sys">
-			Operating System: FreeBSD 5.4
+			<p>
+				<b>Operating System:</b> FreeBSD 5.4
+			</p>
+
+			<p>
+			<b>Services and Roles</b>
+			<ul>
+				<li> NIS Client </li>
+				<li> Mail Server (Gateway) </li>
+			</ul>
+			</p>
 			</section>
 			<section title="water.captainplanet.sys">
-			Operating System: Windows 2000 Server
+			<p>
+				<b>Operating System:</b> Windows 2000 Server
+			</p>
+
+			<p>
+				<b>Services and Roles</b>
+				<ul>
+					<li> AD Domain Controller: All FSMO Roles </li>
+					<li> Exchange Front-end Server </li>
+					<li> NIS Master </li>
+				</ul>
+			</p>
 			</section>
 			<section title="fire.captainplanet.sys">
-			Operating System: Windows 2000 Server
+			<p>
+				<b>Operating System:</b> Windows 2000 Server
+			</p>
+
+			<p>
+				<b>Services and Roles</b>
+				<ul>
+					<li> AD Domain Controller: Global Catalog </li>
+					<li> Exchange Back-end Server </li>
+				</ul>
+			</p>
 			</section>
 		</section>
 		<section title="System Partition Layouts">
@@ -144,187 +177,103 @@
 					</tr>
 				</table>
 			</section>
+			<section title="water.captainplanet.sys">
+				<table>
+					<th>
+						<td width="1in">Disk Name</td>
+						<td width="1.3in">Mount Point</td>
+						<td width=".6in">Size</td>
+						<td width="3in">Description</td>
+					</th>
+					<tr>
+						<td>Primary HDD (Channel 0 Master)</td>
+						<td>C:</td>
+						<td>40G</td>
+						<td>Complete System (programs and data)</td>
+					</tr>
+				</table>
+			</section>
+			<section title="fire.captainplanet.sys">
+				<table>
+					<th>
+						<td width="1in">Disk Name</td>
+						<td width="1.3in">Mount Point</td>
+						<td width=".6in">Size</td>
+						<td width="3in">Description</td>
+					</th>
+					<tr>
+						<td>Primary HDD (Channel 0 Master)</td>
+						<td>C:</td>
+						<td>40G</td>
+						<td>Complete System (programs and data)</td>
+					</tr>
+				</table>
+			</section>
 		</section>
 	</section>
 	<section title="Known Issues">
 		<section title="NIS">
-			NIS Passwords are transmitted to slaves and clients (and thusly
-			viewable by users) in their hashed forms. Any normal user can
-			'ypcat passwd' and run john on the passwd file to guess
-			passwords. Also, using NIS requires RPC. RPC uses lots of
-			random ports, making securing anything using NIS difficult. A
-			script can possibly be written to dynamically pull ports used
-			by rpc services and add them to the firewall.
+			<p>
+				NIS Passwords are transmitted to slaves and clients (and thusly
+				viewable by users) in their hashed forms. Any normal user can
+				'ypcat passwd' and run john on the passwd file to guess passwords.
+				Also, using NIS requires RPC. RPC uses lots of random ports, making
+				securing anything using NIS difficult. A script can possibly be
+				written to dynamically pull ports used by rpc services and add them
+				to the firewall.
+			</p>
 		</section>
 		<section title="DNS">
-			Active Directory requires that a host-based trust be
-			established between any domain controllers and the primary DNS
-			server. This is a horrible "feature" but isn't likely fixable.
-			Any user process on any domain controller will be able to send
-			DNS updates to the primary dns server.
+			<p>
+				Active Directory requires that a host-based trust be established
+				between any domain controllers and the primary DNS server. This is
+				a horrible "feature" but isn't likely fixable.  Any user process on
+				any domain controller will be able to send DNS updates to the
+				primary dns server.
+			</p>
+		</section>
+		<section title="Mail">
+			<p>
+				The Unix mail server, Sendmail, is not yet configured for
+				authenticated SMTP. The server is only configured to allow relays
+				from the local net, but that still means any computer on the local
+				network is able to relay. Authenticated SMTP would provide a
+				clearer audit trail for tracing abuse.
+			</p>
+		</section>
+		<section title="Outlook Web Access">
+			<p>
+				OWA (http://exchange.captainplanet.sys/exchange/) will sometimes
+				break after a successful login via http auth. This causes
+				'inetinfo.exe' on the frontend server to break. The cause is unknown
+				as there are no logs indicating why. The only fix is a reboot as
+				inetinfo.exe quickly consumes all cpu and virtual memory on the
+				system.
+			</p>
+			<p><b>Solution:</b> Don't use use OWA?</p>
+			<p><b>How to repeat:</b> Login using OWA. </p>
 		</section>
 	</section>
-	<section title="Configuration">
-		<section title="DNS (on earth)">
-			<pre><![CDATA[
-options {
-        directory       "/etc/namedb";
-        pid-file        "/var/run/named/pid";
-        dump-file       "/var/dump/named_dump.db";
-        statistics-file "/var/stats/named.stats";
-        check-names master ignore;
-};
-
-zone "." {
-        type hint;
-        file "named.root";
-};
-
-acl "Windows Domain Controllers" {
-        10.110.82.3;
-        10.110.82.4;
-};
-
-acl "update-acl" {
-        "Windows Domain Controllers";
-        key happykey;
-};
-
-key happykey {
-        algorithm HMAC-MD5;
-        secret "8rD0fFgitsVAYgCm24WzBMUW+c28DkZPXnhgAM1hyWRgD+WHAXKAx iW6 opNaCRkxokP1hje7ZOeRbHkEKNlniQ==";
-};
-
-zone "captainplanet.sys" {
-        type master;
-        file "master/captainplanet.sys";
-        allow-update { "update-acl"; };
-};
-
-zone "82.110.10.in-addr.arpa" {
-        type master;
-        file "master/82.110.10.in-addr.arpa";
-        allow-update { "update-acl"; };
-};
-			]]></pre>
+	<section title="Server and Service Configuration">
+		<section title="earth.captainplanet.sys"> 
+			<section title="DNS Master" />
+			<section title="DHCP Server" />
+			<section title="NIS Slave?" />
+			<section title="System settings: rc.conf" />
+			<section title="Firewall: pf.conf" />
+			<section title="Mail submission: mail/earth.submit.mc" />
 		</section>
-		<section title="DNS (on earth)">
-		<pre><![CDATA[
-# dhcpd.conf
-#
-# Sample configuration file for ISC dhcpd
-#
-
-option domain-name "captainplanet.sys";
-option domain-name-servers 10.110.82.3, 10.200.200.3;
-option dhcp-server-identifier earth.captainplanet.sys;
-
-default-lease-time 600;
-max-lease-time 7200;
-
-# If this DHCP server is the official DHCP server for the local
-# network, the authoritative directive should be uncommented.
-authoritative;
-
-# ad-hoc DNS update scheme - set to "none" to disable dynamic DNS updates.
-ddns-update-style interim;
-
-# Use this to send dhcp log messages to a different log file (you also
-# have to hack syslog.conf to complete the redirection).
-log-facility local7;
-
-key happykey {
-        algorithm hmac-md5;
-        secret 8rD0fFgitsVAYgCm24WzBMUW+c28DkZPXnhgAM1hyWRgD+WHAXKAx iW6 opNaCRk
-xokP1hje7ZOeRbHkEKNlniQ==;
-}
-
-zone 82.110.10.in-addr.arpa {
-        primary 10.110.82.1;
-        key happykey;
-}
-
-zone captainplanet.sys {
-        primary 10.110.82.1;
-        key happykey;
-}
-
-subnet 10.110.82.0 netmask 255.255.255.0 {
-        authoritative;
-        option subnet-mask 255.255.254.0;
-        default-lease-time 600;
-        option domain-name-servers 10.110.82.1, 10.110.82.3;
-        option routers 10.110.82.254;
-        pool {
-                range 10.110.82.20 10.110.82.100;
-                option domain-name "captainplanet.sys";
-                deny dynamic bootp clients;
-                deny unknown clients;
-        }
-}
-
-#wind 00:e0:29:26:73:d5
-host wind {
-        hardware ethernet 00:e0:29:26:73:d5 ;
-        option host-name "wind";
-        ddns-hostname "wind";
-        ddns-domainname "captainplanet.sys";
-        option domain-name "captainplanet.sys";
-}
-
-#water 00:e0:29:44:2e:cc
-host water {
-        hardware ethernet 00:e0:29:44:2e:cc;
-        option host-name "water";
-        ddns-hostname "water";
-        ddns-domainname "captainplanet.sys";
-        option domain-name "captainplanet.sys";
-}
-
-#fire 00:e0:29:1d:3b:e9
-host fire {
-        hardware ethernet 00:e0:29:1d:3b:e9;
-        option host-name "fire";
-        ddns-hostname "fire";
-        ddns-domainname "captainplanet.sys";
-        option domain-name "captainplanet.sys";
-}
-
-#heart 00:0d:60:8b:06:33
-host heart {
-        hardware ethernet 00:0d:60:8b:06:33;
-        option host-name "heart";
-        ddns-hostname "heart";
-        ddns-domainname "captainplanet.sys";
-        option domain-name "captainplanet.sys";
-}
-		]]></pre>
+		<section title="wind.captainplanet.sys"> 
+			<section title="Sendmail">
+				<section title="mail/wind.mc" />
+				<section title="mail/wind.submit.mc" />
+				<section title="mail/mailertable" />
+			</section>
+			<section title="System settings:rc.conf" />
+			<section title="Firewall: pf.conf" />
 		</section>
-		<section title="rc.conf (on earth)">
-		<pre><![CDATA[
-usbd_enable="YES"
-sshd_enable="YES"
-
-hostname="earth"
-ifconfig_tx0="inet 10.110.82.1 netmask 0xffffff00"
-defaultrouter="10.110.82.254"
-
-dhcpd_enable="YES"
-dhcpd_ifaces="tx0"
-
-named_enable="YES"
-
-nisdomain="captainplanet"
-nis_client_enable="YES"
-nis_server_enable="YES"
-nis_client_flags="-S $nisdomain,earth.captainplanet.sys"
-nisdomainname="captainplanet"
-
-ntpd_enable="YES"
-
-sendmail_enable="NO"
-pf_enable="YES"
-		]]></pre>
+		<section title="water.captainplanet.sys">
 		</section>
+		<section title="fire.captainplanet.sys"> </section>
 	</section>
 </sitebook>
