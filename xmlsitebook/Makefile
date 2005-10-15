@@ -1,5 +1,5 @@
 .SUFFIXES: .fo .xml .pdf
-TARGETS=sitebook.pdf
+TARGETS=sitebook.pdf testplan.pdf
 
 all: $(TARGETS)
 

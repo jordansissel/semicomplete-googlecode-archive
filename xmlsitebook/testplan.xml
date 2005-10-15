@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+
+<sitebook xmlns:fo="http://www.w3.org/1999/XSL/Format">
+	<cover title="Test Plan">
+		<h3><b>CaptainPlanet.sys</b></h3>
+		<p>
+		<b>Test Plan</b>
+		</p>
+	</cover>
+	<revisions>
+		<revision>
+			<version>1.1</version>
+			<date>10/15/05</date>
+			<author>Jordan Sissel</author>
+			<sections>All</sections>
+			<deltas>Moved to XML format</deltas>
+		-</revision>
+		<revision>
+			<version>1.0</version>
+			<date>9/30/05</date>
+			<author>Jordan Sissel</author>
+			<sections>All</sections>
+			<deltas>regression test plans</deltas>
+		-</revision>
+	</revisions>
+
+	<section title="Systems Tests">
+		<section title="earth.captainplanet.sys">
+			<p>
+			<b>Services online:</b>
+			<ul>
+				<li>named (DNS)</li>
+				<li>dhcpd (ISC DHCP Server)</li>
+				<li>ypbind (NIS Client)</li>
+				<li>ypserv (NIS Slave)</li>
+			</ul>
+			</p>
+		</section>
+	</section>
+
+</sitebook>
