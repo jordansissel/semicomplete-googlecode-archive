@@ -287,7 +287,7 @@
 </xsl:template>
 
 <!-- HTML-STYLE 'ul' definition list -->
-<xsl:template match="ul">
+<xsl:template match="ul|ol">
 	<fo:list-block>
 		<xsl:apply-templates match="li" />
 	</fo:list-block>

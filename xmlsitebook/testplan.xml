@@ -24,16 +24,71 @@
 		-</revision>
 	</revisions>
 
-	<section title="Systems Tests">
-		<section title="earth.captainplanet.sys">
+	<section title="System Tests">
+		<section title="Windows Servers">
+			<section title="Patches">
+				<p>
+					Verify that no new patches need to be applied via Windows Update.
+				</p>
+			</section>
+		</section>
+	</section>
+	<section title="Service Tests">
+		<section title="Primary DNS">
 			<p>
-			<b>Services online:</b>
+			<b>System: earth.captainplanet.sys</b>
+			</p>
 			<ul>
-				<li>named (DNS)</li>
-				<li>dhcpd (ISC DHCP Server)</li>
-				<li>ypbind (NIS Client)</li>
-				<li>ypserv (NIS Slave)</li>
+				<li> hostname lookups: /root/regression.sh nslookup </li>
+				<li> dynamic dns: /root/regression.sh ddns </li>
 			</ul>
+		</section>
+		<section title="Secondary DNS">
+			<p>
+			<b>System: water.captainplanet.sys</b>
+			</p>
+			<ul>
+				<li> hostname lookups: /root/regression.sh nslookup </li>
+			</ul>
+		</section>
+		<section title="DHCP">
+			<p>
+			<b>System: earth.captainplanet.sys</b>
+			</p>
+			<ul>
+				<li> dhcp request: /root/regression.sh dhcp </li>
+			</ul>
+		</section>
+		<section title="Mail Gateway">
+			<p>
+			<b>System: wind.captainplanet.sys</b>
+			</p>
+			<ul>
+				<li> /etc/rc.d/sendmail status </li>
+				<li> from earth: echo "Subject: foo" | sendmail psionic@gmail.com </li>
+				<li> Send a test mail via MS Outlook Express (MUST USE AUTHENTICATED SMTP) </li>
+			</ul>
+		</section>
+		<section title="NIS Client">
+			<p>
+			<b>Systems: earth.captainplanet.sys, wind.captainplanet.sys</b>
+			<ul>
+				<li>/root/regression.sh</li>
+			</ul>
+			</p>
+		</section>
+		<section title="NIS/AD Integration">
+			<p>
+				<b>Systems: all</b>
+				<ul>
+					<li> Create a new users via ADUC. </li>
+					<li> Add this user to the NIS domain 'captainplanet' via 'UNIX Attributes' in user properties</li>
+					<li> Add the user to the 'Unix Users' group </li>
+					<li> Reset the user's password </li>
+					<li> Wait for or force nis propogation </li>
+					<li> Try to login via unix nis client workstation </li>
+					<li> If there is an error, refer to section 6.1 of the Operations Manual for possible fixes</li>
+				</ul>
 			</p>
 		</section>
 	</section>

@@ -364,10 +364,52 @@
 				inetinfo.exe quickly consumes all cpu and virtual memory on the
 				system.
 			</p>
-			<p><b>Solution:</b> Don't use use OWA?</p>
+			<p><b>Solution:</b> Don't use OWA or install Hotfix as per KB Article #891312</p>
 			<p><b>How to repeat:</b> Login using OWA. </p>
 		</section>
 	</section>
+
+	<section title="Troubleshooting">
+		<section title="NIS">
+			<section title="User does not show up in passwd map">
+				<p>
+					In Active Directory, ensure the user in question has been added
+					to the appropriate domain. Verify via ADUC user properties in
+					the 'UNIX Attributes' tab. Also ensure that this user is a
+					member of a valid NIS group. They should be in the 'Unix Users'
+					group or another group that is a member of the NIS domain.
+				</p>
+			</section>
+			<section title="User cannot login but is in passwd map">
+				<p>
+					If the user's password hash is 'ABCD!efghi12345$67890' then the
+					Active Directory hasn't been able to create a valid password
+					hash for this user. Reset the user's password via ADUC and wait
+					for or force propogation. Verify success via ypcat passwd.
+				</p>
+			</section>
+		</section>
+		<section title="Exchange POP3/IMAP Access">
+			<section title="Error: Specified module could not be found">
+				<p>
+					Verify the user's mailbox is on a backend server. Move it if it
+					is not.
+				</p>
+			</section>
+			<section title="Error: User's mailbox is not on this server">
+				<p>
+					Ensure the client is attempting to connect to a frontend server when checking email.
+				</p>
+			</section>
+			<section title="Error: Refusal to relay email">
+				<p>
+					Verify that the client is using authenticated smtp.
+				</p>
+			</section>
+		</section>
+	</section>
+
+
 	<section title="Server and Service Configuration">
 		<section title="earth.captainplanet.sys"> 
 			<section title="DNS Master" />
