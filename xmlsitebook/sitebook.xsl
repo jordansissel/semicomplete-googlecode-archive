@@ -24,7 +24,7 @@
 		<fo:simple-page-master master-name="cover" margin="1in" page-height="11in" page-width="8.5in">
 			<fo:region-body margin-top="2in" margin-bottom="3in" />
 			<fo:region-before extent="1.5in" />
-			<fo:region-after extent="3in" />
+			<fo:region-after extent="4in" />
 		</fo:simple-page-master>
 
 		<fo:simple-page-master master-name="revisions" margin="1in" page-height="11in" page-width="8.5in">
@@ -73,13 +73,9 @@
 			</fo:block>
 		</fo:static-content>
 
-		<!--
 		<fo:static-content flow-name="xsl-region-after">
-			<fo:block>
-				<xsl:call-template name="revisions" />
-			</fo:block>
+			<fo:external-graphic src="url('captainplanet.jpg')" />
 		</fo:static-content>
-		-->
 		<fo:flow flow-name ="xsl-region-body">
 			<xsl:apply-templates select="/sitebook/cover/*" />
 			<!--
