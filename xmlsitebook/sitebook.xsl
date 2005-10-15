@@ -13,16 +13,21 @@
 	<fo:root>
 		<xsl:call-template name="layout-masters" />
 		<xsl:call-template name="cover" />
+		<xsl:call-template name="table-of-contents" />
 		<xsl:call-template name="content" />
 	</fo:root>
 </xsl:template>
 
 <xsl:template name="layout-masters">
 	<fo:layout-master-set>
-		<fo:simple-page-master master-name="cover" margin="1in">
+		<fo:simple-page-master master-name="cover" margin="1in" page-height="11in" page-width="8.5in">
 			<fo:region-body margin-top="1in" margin-bottom="3in" />
-			<fo:region-before extent="1.5in" />
-			<fo:region-after extent="3in" />
+			<fo:region-before />
+			<fo:region-after extent="2in" />
+		</fo:simple-page-master>
+
+		<fo:simple-page-master master-name="table-of-contents" margin="1in" page-height="11in" page-width="8.5in">
+			<fo:region-body />
 		</fo:simple-page-master>
 
 		<xsl:apply-templates select="/sitebook/section" mode="pagelayout" />
@@ -31,29 +36,31 @@
 
 <xsl:template match="section" mode="pagelayout">
 	<xsl:variable name="secnum" select="concat('section_', position())" />
-	<fo:simple-page-master master-name="{$secnum}" margin="1in">
-		<fo:region-before />
-		<fo:region-body />
-		<fo:region-after />
+	<fo:simple-page-master master-name="{$secnum}" margin-bottom=".5in" margin-top=".5in" margin-left="1in" margin-right="1in" page-height="11in" page-width="8.5in">
+		<fo:region-before extent=".5in" />
+		<fo:region-body margin-top=".5in" margin-bottom="3cm" />
+		<fo:region-after extent=".5in" />
 	</fo:simple-page-master>
 </xsl:template>
 
 <xsl:template name="cover">
 	<fo:page-sequence master-reference="cover">
+		<fo:static-content flow-name="xsl-region-after">
+			<fo:block>
+				<xsl:call-template name="revisions" />
+			</fo:block>
+		</fo:static-content>
 		<fo:flow flow-name ="xsl-region-body">
 			<fo:block font-size="36pt" text-align="center" font-weight="bold" padding-bottom="2in">
 				<xsl:value-of select="/sitebook/cover/title" />
-			</fo:block>
-			<fo:block>
-				<xsl:call-template name="revisions" />
 			</fo:block>
 		</fo:flow>
 	</fo:page-sequence>
 </xsl:template>
 
 <xsl:template name="revisions">
-	<fo:block height=".5in" border-top="2pt solid #AAAAAA" padding=".2cm">
-		<fo:table>
+	<fo:block>
+		<fo:table table-layout="fixed">
 			<fo:table-column column-width="1in" />
 			<fo:table-column column-width="1in" />
 			<fo:table-column column-width="1.5in" />
@@ -105,6 +112,59 @@
 	</fo:table-row>
 </xsl:template>
 
+<xsl:template name="table-of-contents">
+	<fo:page-sequence master-reference="table-of-contents">
+		<fo:flow flow-name ="xsl-region-body">
+			<fo:block font-size="28pt" border-bottom="2pt solid black">
+				Table of Contents
+			</fo:block>
+			<fo:block padding-bottom=".5cm" />
+			<xsl:apply-templates select="/sitebook/section" mode="tocgen" />
+		</fo:flow>
+	</fo:page-sequence>
+</xsl:template>
+
+<xsl:template match="section" mode="tocgen">
+	<xsl:param name="parent" />
+	<xsl:param name="position" select="position()" />
+	<xsl:variable name="section">
+		<xsl:if test="string-length($parent) > 0">
+			<xsl:value-of select="$parent" /><xsl:text>.</xsl:text>
+		</xsl:if>
+		<xsl:value-of select="$position" />
+	</xsl:variable>
+
+	<xsl:param name="indent" select="'0'" />
+
+	<fo:block width="6in">
+	<fo:table table-layout="fixed">
+		<fo:table-column column-width="5.6in" />
+		<fo:table-column column-width=".4in" />
+		<fo:table-body>
+			<fo:table-row>
+				<fo:table-cell>
+					<fo:block>
+						<xsl:value-of select="$section" />. 
+						<fo:inline font-weight="bold">
+							<xsl:value-of select="@title" />
+						</fo:inline>
+					</fo:block>
+				</fo:table-cell>
+				<fo:table-cell>
+					<fo:block>
+						p. <fo:page-number-citation ref-id="{generate-id()}" />
+					</fo:block>
+				</fo:table-cell>
+			</fo:table-row>
+		</fo:table-body>
+	</fo:table>
+	</fo:block>
+	<xsl:apply-templates select="section" mode="tocgen">
+		<!--<xsl:with-param name="indent" select="$indent + 1" />-->
+		<xsl:with-param name="parent" select="$section" />
+	</xsl:apply-templates>
+</xsl:template>
+
 <xsl:template name="content">
 	<xsl:apply-templates select="/sitebook/section" mode="base"/>
 </xsl:template>
@@ -112,6 +172,9 @@
 <xsl:template match="/sitebook/section" mode="base">
 	<xsl:variable name="secnum" select="concat('section_', position())" />
 	<fo:page-sequence master-reference="{$secnum}">
+		<fo:static-content flow-name="xsl-region-after">
+			<xsl:call-template name="footer-revision" />
+		</fo:static-content>
 		<fo:flow flow-name ="xsl-region-body">
 			<xsl:apply-templates select=".">
 				<xsl:with-param name="parent" />
@@ -130,7 +193,7 @@
 		</xsl:if>
 		<xsl:value-of select="$position" />
 	</xsl:variable>
-	<fo:block font-size="18pt" font-weight="bold" border-top="2pt solid #AAAAAA" padding-bottom="1em">
+	<fo:block id="{generate-id()}" font-size="18pt" font-weight="bold" border-top="2pt solid #AAAAAA" padding-bottom="1em">
 		<xsl:value-of select="$section" />:
 		<xsl:value-of select="@title" />
 	</fo:block>
@@ -139,6 +202,20 @@
 	<xsl:apply-templates select="section">
 		<xsl:with-param name="parent" select="$section" />
 	</xsl:apply-templates>
+</xsl:template>
+
+<xsl:template name="footer-revision">
+	 <fo:block span="all">
+		 <fo:leader leader-pattern="rule" leader-length="8.5in" />
+	</fo:block>
+	<fo:block span="all" padding-top="3pt" color="grey">
+		<xsl:value-of select="/sitebook/cover/title" />:
+		Revision <xsl:value-of select="/sitebook/revisions/revision/version" /> 
+		by <xsl:value-of select="/sitebook/revisions/revision/author" />.
+		Date: <xsl:value-of select="/sitebook/revisions/revision/date" />.
+
+		<fo:inline width="100%" text-align="right">p. <fo:page-number /> </fo:inline>
+	</fo:block>
 </xsl:template>
 
 <!--
@@ -210,7 +287,7 @@
 		</xsl:choose>
 	</xsl:variable>
 
-	<fo:table>
+	<fo:table table-layout="fixed">
 		<xsl:apply-templates select="th/td" mode="table-columns" />
 		<fo:table-header>
 			<xsl:apply-templates select="th" />

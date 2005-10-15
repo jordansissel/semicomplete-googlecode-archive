@@ -7,18 +7,11 @@
 	</cover>
 	<revisions>
 		<revision>
-			<version>1.0</version>
-			<date>9/22/05</date>
+			<version>1.3</version>
+			<date>10/14/05</date>
 			<author>Jordan Sissel</author>
-			<sections>All</sections>
-			<deltas>Created sitebook</deltas>
-		-</revision>
-		<revision>
-			<version>1.1</version>
-			<date>9/23/05</date>
-			<author>Jordan Sissel</author>
-			<sections>Test Plans</sections>
-			<deltas>Added several regression test plans</deltas>
+			<sections>2.2, 3, 4</sections>
+			<deltas>Added Exchange and Sendmail</deltas>
 		</revision>
 		<revision>
 			<version>1.2</version>
@@ -27,6 +20,20 @@
 			<sections>All</sections>
 			<deltas>Moved to new XML format</deltas>
 		</revision>
+		<revision>
+			<version>1.1</version>
+			<date>9/23/05</date>
+			<author>Jordan Sissel</author>
+			<sections>Test Plans</sections>
+			<deltas>Added several regression test plans</deltas>
+		</revision>
+		<revision>
+			<version>1.0</version>
+			<date>9/22/05</date>
+			<author>Jordan Sissel</author>
+			<sections>All</sections>
+			<deltas>Created sitebook</deltas>
+		-</revision>
 	</revisions>
 
 	<section title="References">
