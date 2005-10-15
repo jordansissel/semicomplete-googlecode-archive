@@ -2,13 +2,23 @@
 
 
 <sitebook xmlns:fo="http://www.w3.org/1999/XSL/Format">
-	<cover>
-		<title>Operations Manual</title>
+	<cover title="Operations Manual">
+		<h3><b>CaptainPlanet.sys</b></h3>
+		<p>
+		<b>Operations Manual</b>
+		</p>
 	</cover>
 	<revisions>
 		<revision>
-			<version>1.3</version>
+			<version>1.4</version>
 			<date>10/14/05</date>
+			<author>Jordan Sissel</author>
+			<sections>Contact and Escalation</sections>
+			<deltas>New sections: contact and escalation</deltas>
+		</revision>
+		<revision>
+			<version>1.3</version>
+			<date>10/12/05</date>
 			<author>Jordan Sissel</author>
 			<sections>2.2, 3, 4</sections>
 			<deltas>Added Exchange and Sendmail</deltas>
@@ -217,7 +227,104 @@
 				</table>
 			</section>
 		</section>
+		<section title="System Log Locations">
+			<table>
+				<th>
+					<td width="2in"> System/Service </td>
+					<td width="4in"> Log Location </td>
+				</th>
+				<tr>
+					<td>earth.captainplanet.sys General Logs</td>
+					<td>/var/log/messages</td>
+				</tr>
+				<tr>
+					<td>earth.captainplanet.sys Mail Logs</td>
+					<td>/var/log/maillog</td>
+				</tr>
+				<tr>
+					<td>earth.captainplanet.sys Debug Logs</td>
+					<td>/var/log/all.log</td>
+				</tr>
+				<tr>
+					<td>earth.captainplanet.sys Auth Logs</td>
+					<td>/var/log/auth.log</td>
+				</tr>
+				<tr>
+					<td>wind.captainplanet.sys General Logs</td>
+					<td>/var/log/messages</td>
+				</tr>
+				<tr>
+					<td>wind.captainplanet.sys Mail Logs</td>
+					<td>/var/log/maillog</td>
+				</tr>
+				<tr>
+					<td>wind.captainplanet.sys Debug Logs</td>
+					<td>/var/log/all.log</td>
+				</tr>
+				<tr>
+					<td>wind.captainplanet.sys Auth Logs</td>
+					<td>/var/log/auth.log</td>
+				</tr>
+				<tr>
+					<td>water.captainplanet.sys General Logs</td>
+					<td>Windows Event Viewer</td>
+				</tr>
+				<tr>
+					<td>fire.captainplanet.sys General Logs</td>
+					<td>Windows Event Viewer</td>
+				</tr>
+			</table>
+		</section>
 	</section>
+
+	<section title="Contact Information and Resources">
+		<section title="Administrative Contacts">
+			<table>
+				<th>
+					<td width="1.5in">Contact Name</td>
+					<td width="1.5in">Role</td>
+					<td width="1.5in">Phone Number</td>
+					<td width="1.5in">Pager</td>
+				</th>
+				<tr>
+					<td>Jordan Sissel</td>
+					<td>Lead Systems Administrator</td>
+					<td>585-475-HELP</td>
+					<td>NONE</td>
+				</tr>
+			</table>
+		</section>
+		<section title="Vendor Contacts">
+			<table>
+				<th>
+					<td width="1.5in">Name</td>
+					<td width="1.5in">Company</td>
+					<td width="1.5in">Phone</td>
+					<td width="2in">Email</td>
+				</th>
+				<tr>
+					<td>Customer Support</td>
+					<td>Microsoft</td>
+					<td>(800) 936-4900</td>
+					<td>support@microsoft.com</td>
+				</tr>
+			</table>
+		</section>
+	</section>
+
+	<section title="Escalation Procedures">
+		<section title="Operator procedures">
+			<p>1. Operator notices a problem and pages the on-call. </p>
+			<p>2. If no response in 20 minutes, call the on-call cell phone.</p>
+			<p>3. If no response on 40 minutes, call the service administrator.</p>
+		</section>
+		<section title="User procedures">
+			<p>
+			1. Upon discovery of a system failure, a trouble ticket should be issued using the ticket management system.
+			</p>
+		</section>
+	</section>
+
 	<section title="Known Issues">
 		<section title="NIS">
 			<p>
