@@ -92,5 +92,207 @@
 			</p>
 		</section>
 	</section>
+	<section title="regression.sh (test script)"><!--{{{-->
+<pre><![CDATA[
+#!/bin/sh
+
+LOGFILE=/tmp/regression.log
+
+if [ "$#" -eq 0 ]; then
+	echo "Specify type of test!"
+	echo "Tests are: dhcp, dns, nslookup, nis, ddns"
+	exit 1
+fi
+
+ARG=$1
+
+case $ARG in
+	dhcp) TEST="DHCP" ;;
+	dns) TEST="NSLOOKUP" ;;
+	nslookup) TEST="NSLOOKUP" ;;
+	nis) TEST="NIS" ;;
+	ddns) TEST="DDNS" ;;
+	sendmail) TEST="SENDMAIL" ;;
+	*)
+		echo "Unknown test: $ARG"
+		exit
+		;;
+esac
+
+dhcp_test() {
+	PIPE=`mktemp /tmp/netwox.dhcp.XXXXX`
+	MAC="00:00:00:00:00:01"
+	rm $PIPE > /dev/null 2>&1
+	mkfifo $PIPE
+
+	echo "Requesting DHCP Address with MAC: $MAC"
+	netwox 171 -d tx0 -e $MAC > $LOGFILE 2>&1 < $PIPE  &
+
+	# Convince netwox stdin is usable (HACK!)
+	sleep 1 > $PIPE
+
+	echo "Looking up dhcp client's hostname..."
+	HOST=`host fakehost.captainplanet.sys`
+
+	echo "q" > $PIPE
+	wait
+
+	echo "DHCP Completed"	
+
+	echo "Host information (While DHCP was up):"
+	echo -n "   "
+	echo $HOST
+
+	echo "Host information (post dhcp-release):"
+	echo -n "   "
+	host fakehost.captainplanet.sys
+
+	# Cleanup
+	rm $PIPE > /dev/null 2>&1
+}
+
+lookup_hosts() {
+	SERVER=$1
+	
+	HOSTS="earth.captainplanet.sys wind.captainplanet.sys water.captainplanet.sys fire.captainplanet.sys"
+	
+	for i in $HOSTS; do
+		host -t A "$i" "$SERVER" \
+			| grep "^$i" | awk '{print $1" = "$4}'
+	done
+
+	MAILDOMAIN="captainplanet.sys"
+	host -t MX "$MAILDOMAIN" "$SERVER" \
+		| grep "^$MAILDOMAIN" | awk '{print $6" "$7}' \
+		| sort -n
+}
+
+dns_test() {
+	DNS1="earth.captainplanet.sys"
+	DNS2="water.captainplanet.sys"
+	PRIMARY=`mktemp /tmp/dnstest.XXXXX`
+	SECONDARY=`mktemp /tmp/dnstest.XXXXX`
+	DIFF=`mktemp /tmp/dnstest.diff.XXXXX`
+	RESULTS="/tmp/dnstest.results"
+
+	echo "Looking up against primary dns"
+	lookup_hosts $DNS1 > $PRIMARY
+	lookup_hosts $DNS2 > $SECONDARY
+
+	echo "Results in $RESULTS"
+
+	echo "Primary ($DNS1)" > $RESULTS
+	cat "$PRIMARY" >> $RESULTS
+	echo >> $RESULTS
+	echo "Secondary ($DNS2)" >> $RESULTS
+	cat "$SECONDARY" >> $RESULTS
+
+	diff -u $PRIMARY $SECONDARY > $DIFF
+	if [ $? -ne 0 ]; then
+		echo "FAILURE: !!! DNS SERVERS DISAGREE ON VALUES !!!"
+	else
+		echo "SUCCESS: DNS servers agree on queries"
+	fi
+
+	echo >> $RESULTS
+	echo "Differences (if any):" >> $RESULTS
+	cat $DIFF >> $RESULTS
+	
+	# Cleanup
+	rm $PRIMARY $SECONDARY $DIFF > /dev/null 2>&1
+}
+
+nis_test() {
+	grep -H ^nisdomain= /etc/rc.conf
+	DOMAIN=`domainname`
+
+	if [ -z "$DOMAIN" ]; then
+		echo "FAILURE: !!! NO DOMAIN SET !!!"
+	else
+		echo "Domain: $DOMAIN"
+	fi
+
+	YPWHICH=`ypwhich`
+	if [ -z "$YPWHICH" ]; then
+		echo "FAILURE: !!! NO NIS SERVER BOUND !!!"
+	else
+		echo "NIS Server: $YPWHICH"
+	fi
+
+	USERS=`ypcat passwd | wc -l | xargs`
+	USERNAMES=`ypcat passwd | grep -v '^#' | awk -F: '{print $1}' | xargs`
+	echo "NIS Users ($USERS): $USERNAMES"
+
+	GROUPS=`ypcat group | wc -l | xargs`
+	GROUPNAMES=`ypcat group | grep -v '^#' | awk -F: '{print $1}' | xargs`
+	echo "NIS Groups ($GROUPS): $GROUPNAMES"
+}
+
+ddns_test() {
+	ADDCMDS=`mktemp /tmp/ddns.test.XXXX`
+	REMCMDS=`mktemp /tmp/ddns.test.XXXX`
+
+	HOSTNAME="happyhost.captainplanet.sys"
+	IP="10.110.82.200"
+	REVIP=`echo $IP | awk -F. '{print $4"."$3"."$2"."$1}'`
+
+	cat << "COMMANDS" | sed -e "s/%HOSTNAME%/${HOSTNAME}/g; s/%IP%/${IP}/g; s/%REVIP%/${REVIP}/g" > $ADDCMDS
+zone captainplanet.sys
+update add %HOSTNAME%. 600 IN A %IP%
+show
+send
+
+zone 82.110.10.in-addr.arpa
+update add %REVIP%.in-addr.arpa. 600 IN PTR %HOSTNAME%
+show
+send
+COMMANDS
+
+	cat << "COMMANDS" | sed -e "s/%HOSTNAME%/${HOSTNAME}/g; s/%IP%/${IP}/g; s/%REVIP%/${REVIP}/g" > $REMCMDS
+zone captainplanet.sys
+update delete %HOSTNAME%. 600 IN A %IP%
+send
+
+zone 82.110.10.in-addr.arpa
+update delete %REVIP%.in-addr.arpa. 600 IN PTR %HOSTNAME%
+send
+COMMANDS
+	
+	nsupdate -k /etc/namedb/keys/Khappykey.+157+46176.key $ADDCMDS >> $LOGFILE 2>&1
+	if [ "$?" -ne 0 ]; then
+		echo "FAILURE: !!! ERROR ADDING HOSTS VIA NSUPDATE !!!"
+	else
+		echo "SUCCESS: nsupdate add succeeded"
+	fi
+
+	echo -n "Resolving ${HOSTNAME}: "
+	host ${HOSTNAME} | grep "^${HOSTNAME}" | awk '{print $4}'
+	echo -n "Resolving ${IP}: "; 
+	host ${IP} | grep "^${REVIP}" | awk '{print $5}'
+
+	nsupdate -k /etc/namedb/keys/Khappykey.+157+46176.key $REMCMDS >> $LOGFILE
+	if [ "$?" -ne 0 ]; then
+		echo "FAILURE: !!! ERROR DELETING HOSTS VIA NSUPDATE !!!"
+	else
+		echo "SUCCESS: nsupdate delete succeeded"
+	fi
+
+	# Cleanup
+	rm $ADDCMDS $REMCMDS
+}
+
+case $TEST in
+	DHCP) dhcp_test ;;
+	NSLOOKUP) dns_test ;;
+	DDNS) ddns_test ;;
+	SENDMAIL) sendmail_test ;;
+	NIS) nis_test ;;
+	*)
+		echo "Invalid test: $TEST"
+		exit
+		;;
+esac
+]]></pre>
+	</section><!--}}}-->
 
 </sitebook>

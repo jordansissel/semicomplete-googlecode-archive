@@ -65,8 +65,8 @@
 				<p>
 				<b>Services and Roles</b>
 				<ul>
-					<li> Primary DNS </li>
-					<li> DHCP </li>
+					<li> Primary DNS (BIND 9.3.1) </li>
+					<li> DHCP (isc dhcpd 3.0.1rc14) </li>
 					<li> NIS Slave </li>
 					<li> NIS Client </li>
 				</ul>
@@ -81,7 +81,9 @@
 			<b>Services and Roles</b>
 			<ul>
 				<li> NIS Client </li>
-				<li> Mail Server (Gateway) </li>
+				<li> Mail Server (Sendmail 8.13.3) </li>
+				<li> SpamAssassin 3.0.2 </li>
+				<li> ClamAV 0.87 </li>
 			</ul>
 			</p>
 			</section>
@@ -109,6 +111,7 @@
 				<ul>
 					<li> AD Domain Controller: Global Catalog </li>
 					<li> Exchange Back-end Server </li>
+					<li> GFI MailSecurity </li>
 				</ul>
 			</p>
 			</section>
@@ -412,24 +415,517 @@
 
 	<section title="Server and Service Configuration">
 		<section title="earth.captainplanet.sys"> 
-			<section title="DNS Master" />
-			<section title="DHCP Server" />
-			<section title="NIS Slave?" />
-			<section title="System settings: rc.conf" />
-			<section title="Firewall: pf.conf" />
-			<section title="Mail submission: mail/earth.submit.mc" />
+			<section title="DNS Master"><!--{{{-->
+<pre><![CDATA[
+// $FreeBSD: src/etc/namedb/named.conf,v 1.15.2.3 2005/03/23 17:35:58 dougb Exp $
+//
+// Refer to the named.conf(5) and named(8) man pages, and the documentation
+// in /usr/share/doc/bind9 for more details.
+//
+// If you are going to set up an authoritative server, make sure you
+// understand the hairy details of how DNS works.  Even with
+// simple mistakes, you can break connectivity for affected parties,
+// or cause huge amounts of useless Internet traffic.
+
+options {
+	directory	"/etc/namedb";
+	pid-file	"/var/run/named/pid";
+	dump-file	"/var/dump/named_dump.db";
+	statistics-file	"/var/stats/named.stats";
+	check-names master ignore;
+};
+
+zone "." {
+	type hint;
+	file "named.root";
+};
+
+acl "Windows Domain Controllers" {
+	10.110.82.3;
+	10.110.82.4;
+};
+
+acl "update-acl" {
+	"Windows Domain Controllers";
+	key happykey;
+};
+
+key happykey {
+	algorithm HMAC-MD5;
+        secret "8rD0fFgitsVAYgCm24WzBMUW+c28DkZPXnhgAM1hyWRgD+WHAXKAx iW6 opNaCRkxokP1hje7ZOeRbHkEKNlniQ==";
+};
+
+zone "captainplanet.sys" {
+	type master;
+	file "master/captainplanet.sys";
+	allow-update { "update-acl"; };
+};
+
+zone "82.110.10.in-addr.arpa" {
+	type master;
+	file "master/82.110.10.in-addr.arpa";
+	allow-update { "update-acl"; };
+};
+]]></pre>
+			</section><!--}}}-->
+			<section title="DHCP Server (/usr/local/etc/dhcpd.conf)"><!--{{{-->
+			<pre><![CDATA[
+# dhcpd.conf
+#
+# Sample configuration file for ISC dhcpd
+#
+
+option domain-name "captainplanet.sys";
+option domain-name-servers 10.110.82.3, 10.200.200.3;
+option dhcp-server-identifier earth.captainplanet.sys;
+
+default-lease-time 600;
+max-lease-time 7200;
+
+# If this DHCP server is the official DHCP server for the local
+# network, the authoritative directive should be uncommented.
+authoritative;
+
+# ad-hoc DNS update scheme - set to "none" to disable dynamic DNS updates.
+ddns-update-style interim;
+
+# Use this to send dhcp log messages to a different log file (you also
+# have to hack syslog.conf to complete the redirection).
+log-facility local7;
+
+key happykey {
+	algorithm hmac-md5;
+        secret 8rD0fFgitsVAYgCm24WzBMUW+c28DkZPXnhgAM1hyWRgD+WHAXKAx iW6 opNaCRkxokP1hje7ZOeRbHkEKNlniQ==;
+}
+
+zone 82.110.10.in-addr.arpa {
+	primary 10.110.82.1;
+	key happykey;
+}
+
+zone captainplanet.sys {
+	primary 10.110.82.1;
+	key happykey;
+}
+
+subnet 10.110.82.0 netmask 255.255.255.0 {
+	authoritative;
+	option subnet-mask 255.255.254.0;
+	default-lease-time 600;
+	option domain-name-servers 10.110.82.1, 10.110.82.3;
+	option routers 10.110.82.254;
+	pool {
+		range 10.110.82.20 10.110.82.100;
+		option domain-name "captainplanet.sys";
+		#option netbios-name-server
+		deny dynamic bootp clients;
+		deny unknown clients;
+	}
+}
+
+#wind 00:e0:29:26:73:d5 
+host wind {
+	hardware ethernet 00:e0:29:26:73:d5 ;
+	option host-name "wind";
+	ddns-hostname "wind";
+	ddns-domainname "captainplanet.sys";
+	option domain-name "captainplanet.sys";
+}
+
+#water 00:e0:29:44:2e:cc 
+host water {
+	hardware ethernet 00:e0:29:44:2e:cc;
+	option host-name "water";
+	ddns-hostname "water";
+	ddns-domainname "captainplanet.sys";
+	option domain-name "captainplanet.sys";
+}
+
+#fire 00:e0:29:1d:3b:e9
+host fire {
+	hardware ethernet 00:e0:29:1d:3b:e9;
+	option host-name "fire";
+	ddns-hostname "fire";
+	ddns-domainname "captainplanet.sys";
+	option domain-name "captainplanet.sys";
+}
+
+#heart 00:0d:60:8b:06:33
+host heart {
+	hardware ethernet 00:0d:60:8b:06:33;
+	option host-name "heart";
+	ddns-hostname "heart";
+	ddns-domainname "captainplanet.sys";
+	option domain-name "captainplanet.sys";
+}
+
+#fakehost 00:00:00:00:00:01
+host fakehost {
+	hardware ethernet 00:00:00:00:00:01;
+	option host-name "fakehost";
+	ddns-hostname "fakehost";
+	ddns-domainname "captainplanet.sys";
+	option domain-name "captainplanet.sys";
+}
+]]></pre>
+			</section><!--}}}-->
+			<section title="System settings: rc.conf"><!--{{{-->
+<pre><![CDATA[
+# -- sysinstall generated deltas -- # Sat Mar 25 15:47:28 2000
+# Created: Sat Mar 25 15:47:28 2000
+# Enable network daemons for user convenience.
+# Please make all changes to this file, not to /etc/defaults/rc.conf.
+# This file now contains just the overrides from /etc/defaults/rc.conf.
+usbd_enable="YES"
+sshd_enable="YES"
+
+hostname="earth"
+ifconfig_tx0="inet 10.110.82.1 netmask 0xffffff00"
+defaultrouter="10.110.82.254"
+
+dhcpd_enable="YES"
+dhcpd_ifaces="tx0"
+
+named_enable="YES"
+
+nisdomain="captainplanet"
+nis_client_enable="YES"
+nis_server_enable="YES"
+nis_client_flags="-S $nisdomain,earth.captainplanet.sys"
+nisdomainname="captainplanet"
+
+ntpdate_enable="YES"
+ntpdate_flags="-b water.captainplanet.sys"
+ntpd_enable="YES"
+
+sendmail_enable="YES"
+sendmail_outbound_enable="YES"
+pf_enable="NO"
+nfs_client_enable="YES"
+]]></pre>
+			</section><!--}}}-->
+			<section title="Firewall: pf.conf"><!--{{{-->
+<pre><![CDATA[
+ext_if="tx0"
+
+table <active_directory_servers> { water, fire	}
+
+### Services
+# DNS
+pass in inet proto udp from any to $ext_if port domain keep state
+pass in proto tcp from any to $ext_if port domain keep state
+
+# SSH
+pass in proto tcp from any to $ext_if port ssh keep state
+
+# RPC (nis, etc)
+pass in proto udp from any to $ext_if port 111 keep state #sunrpc
+pass in proto tcp from any to $ext_if port 111 keep state #sunrpc
+
+pass in proto udp from any to $ext_if keep state # rpc?
+#pass in proto udp from any to $ext_if port 601 keep state
+#pass in proto udp from any to $ext_if port 601 keep state
+#pass in proto udp from any to $ext_if port sshell keep state
+#pass in proto tcp from any to $ext_if port 1006 keep state
+#pass in proto udp from any to $ext_if port 633 keep state
+#pass in proto tcp from any to $ext_if port 981 keep state
+
+# DHCP
+pass in proto udp from any to any port bootps keep state
+pass in proto udp from any to any port bootpc keep state
+
+# Sendmail (Blocked, for now?)
+block in proto tcp from any to $ext_if port smtp
+
+# Allow anything from the windows machines
+pass in from <active_directory_servers> to $ext_if keep state
+
+pass out all keep state
+block in log all
+
+]]></pre>
+			</section><!--}}}-->
+			<section title="Mail submission: mail/earth.submit.mc"><!--{{{-->
+<pre><![CDATA[
+divert(-1)
+#
+# Copyright (c) 2001-2003 Sendmail, Inc. and its suppliers.
+#	All rights reserved.
+#
+# By using this file, you agree to the terms and conditions set
+# forth in the LICENSE file which can be found at the top level of
+# the sendmail distribution.
+#
+#
+
+#
+#  This is the FreeBSD configuration for a set-group-ID sm-msp sendmail
+#  that acts as a initial mail submission program.
+#
+#
+
+divert(0)dnl
+VERSIONID(`$FreeBSD: src/etc/sendmail/freebsd.submit.mc,v 1.1 2003/10/19 00:03:13 gshapiro Exp $')
+define(`confCF_VERSION', `Submit')dnl
+define(`__OSTYPE__',`')dnl dirty hack to keep proto.m4 from complaining
+define(`_USE_DECNET_SYNTAX_', `1')dnl support DECnet
+define(`confTIME_ZONE', `USE_TZ')dnl
+define(`confDONT_INIT_GROUPS', `True')dnl
+define(`confBIND_OPTS', `WorkAroundBrokenAAAA')dnl
+dnl
+dnl If you use IPv6 only, change [127.0.0.1] to [IPv6:::1]
+FEATURE(`msp', `[mail.captainplanet.sys]')dnl
+]]></pre>
+			</section><!--}}}-->
+			<section title="Naming Services: nsswitch.conf"><!--{{{-->
+<pre><![CDATA[
+group_compat: nis
+hosts: files dns
+networks: files
+passwd: nis files
+group: nis files
+passwd_compat: nis
+shells: files
+]]></pre>
+			</section><!--}}}-->
+			<section title="DNS Lookups: resolv.conf"><!--{{{-->
+<pre><![CDATA[
+search captainplanet.sys
+nameserver 10.110.82.1
+nameserver 10.110.82.3
+nameserver 10.200.200.3
+]]></pre>
+			</section><!--}}}-->
 		</section>
 		<section title="wind.captainplanet.sys"> 
 			<section title="Sendmail">
-				<section title="mail/wind.mc" />
-				<section title="mail/wind.submit.mc" />
-				<section title="mail/mailertable" />
+				<section title="mail/wind.mc"><!--{{{-->
+<pre><![CDATA[
+divert(-1)
+#
+# Copyright (c) 1983 Eric P. Allman
+# Copyright (c) 1988, 1993
+#	The Regents of the University of California.  All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+# 3. All advertising materials mentioning features or use of this software
+#    must display the following acknowledgement:
+#	This product includes software developed by the University of
+#	California, Berkeley and its contributors.
+# 4. Neither the name of the University nor the names of its contributors
+#    may be used to endorse or promote products derived from this software
+#    without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+#
+
+#
+#  This is a generic configuration file for FreeBSD 5.X and later systems.
+#  If you want to customize it, copy it to a name appropriate for your
+#  environment and do the modifications there.
+#
+#  The best documentation for this .mc file is:
+#  /usr/share/sendmail/cf/README or
+#  /usr/src/contrib/sendmail/cf/README
+#
+
+divert(0)
+VERSIONID(`$FreeBSD: src/etc/sendmail/freebsd.mc,v 1.29 2003/12/24 21:15:09 gshapiro Exp $')
+OSTYPE(freebsd5)
+DOMAIN(generic)
+
+FEATURE(access_db, `hash -o -T<TMPF> /etc/mail/access')
+FEATURE(blacklist_recipients)
+FEATURE(local_lmtp)
+FEATURE(mailertable, `hash -o /etc/mail/mailertable')
+FEATURE(virtusertable, `hash -o /etc/mail/virtusertable')
+
+dnl Uncomment to allow relaying based on your MX records.
+dnl NOTE: This can allow sites to use your server as a backup MX without
+dnl       your permission.
+dnl FEATURE(relay_based_on_MX)
+
+dnl DNS based black hole lists
+dnl --------------------------------
+dnl DNS based black hole lists come and go on a regular basis
+dnl so this file will not serve as a database of the available servers.
+dnl For that, visit
+dnl http://directory.google.com/Top/Computers/Internet/Abuse/Spam/Blacklists/
+
+dnl Uncomment to activate Realtime Blackhole List
+dnl information available at http://www.mail-abuse.com/
+dnl NOTE: This is a subscription service as of July 31, 2001
+dnl FEATURE(dnsbl)
+dnl Alternatively, you can provide your own server and rejection message:
+dnl FEATURE(dnsbl, `blackholes.mail-abuse.org', `"550 Mail from " $&{client_addr} " rejected, see http://mail-abuse.org/cgi-bin/lookup?" $&{client_addr}')
+
+dnl Dialup users should uncomment and define this appropriately
+dnl define(`SMART_HOST', `your.isp.mail.server')
+
+dnl Uncomment the first line to change the location of the default
+dnl /etc/mail/local-host-names and comment out the second line.
+dnl define(`confCW_FILE', `-o /etc/mail/sendmail.cw')
+define(`confCW_FILE', `-o /etc/mail/local-host-names')
+
+dnl Enable for both IPv4 and IPv6 (optional)
+DAEMON_OPTIONS(`Name=IPv4, Family=inet')
+DAEMON_OPTIONS(`Name=IPv6, Family=inet6, Modifiers=O')
+
+define(`confBIND_OPTS', `WorkAroundBrokenAAAA')
+define(`confNO_RCPT_ACTION', `add-to-undisclosed')
+define(`confPRIVACY_FLAGS', `authwarnings,noexpn,novrfy')
+MAILER(local)
+MAILER(smtp)
+
+INPUT_MAIL_FILTER(`clamav', `S=unix:/var/run/clamav/clmilter.sock, F=T, T=S:4m;R:4m')dnl
+INPUT_MAIL_FILTER(`spamassassin', `S=unix:/var/run/spamass-milter.sock, F=T, T=S:4m;R:4m')dnl
+
+dnl R10.110.82.0/24
+]]></pre>
+				</section><!--}}}-->
+				<section title="mail/wind.submit.mc"><!--{{{-->
+<pre><![CDATA[
+divert(-1)
+#
+# Copyright (c) 2001-2003 Sendmail, Inc. and its suppliers.
+#	All rights reserved.
+#
+# By using this file, you agree to the terms and conditions set
+# forth in the LICENSE file which can be found at the top level of
+# the sendmail distribution.
+#
+#
+
+#
+#  This is the FreeBSD configuration for a set-group-ID sm-msp sendmail
+#  that acts as a initial mail submission program.
+#
+#
+
+divert(0)dnl
+VERSIONID(`$FreeBSD: src/etc/sendmail/freebsd.submit.mc,v 1.1 2003/10/19 00:03:13 gshapiro Exp $')
+define(`confCF_VERSION', `Submit')dnl
+define(`__OSTYPE__',`')dnl dirty hack to keep proto.m4 from complaining
+define(`_USE_DECNET_SYNTAX_', `1')dnl support DECnet
+define(`confTIME_ZONE', `USE_TZ')dnl
+define(`confDONT_INIT_GROUPS', `True')dnl
+define(`confBIND_OPTS', `WorkAroundBrokenAAAA')dnl
+dnl
+dnl If you use IPv6 only, change [127.0.0.1] to [IPv6:::1]
+FEATURE(`msp', `[127.0.0.1]')dnl
+]]></pre>
+				</section><!--}}}-->
+				<section title="mail/mailertable"><!--{{{-->
+<pre><![CDATA[
+# $FreeBSD: src/etc/mail/mailertable.sample,v 1.2 2000/03/18 06:38:22 rwatson Exp $
+#
+# List of domains (possibly wildcarded) and destination mailers
+#
+#.my.domain		xnet:%1.my.domain
+#uuhost1.my.domain	suucp:uuhost1
+#.bitnet			smtp:relay.bit.net
+
+captainplanet.sys	smtp:exchange.captainplanet.sys
+.captainplanet.sys	smtp:exchange.captainplanet.sys
+]]></pre>
+				</section><!--}}}-->
+				<section title="mail/access"><!--{{{-->
+<pre><![CDATA[
+# $FreeBSD: src/etc/mail/access.sample,v 1.3 2000/11/02 23:40:40 dirk Exp $
+#
+# Mail relay access control list.  Default is to reject mail unless the
+# destination is local, or listed in /etc/mail/local-host-names
+#
+#cyberspammer.com		550 We don't accept mail from spammers
+#FREE.STEALTH.MAILER@		550 We don't accept mail from spammers
+#another.source.of.spam		REJECT
+#okay.cyberspammer.com		OK
+#128.32				RELAY
+
+# Allow our subnet to use us for an email relay
+10.110.82			RELAY
+]]></pre>
+				</section><!--}}}-->
 			</section>
-			<section title="System settings:rc.conf" />
-			<section title="Firewall: pf.conf" />
+			<section title="System settings:rc.conf"><!--{{{-->
+<pre><![CDATA[
+
+hostname="wind"
+usbd_enable="YES"
+sshd_enable="YES"
+ifconfig_tx0="inet 10.110.82.2 netmask 0xffffff00"
+defaultrouter="10.110.82.254"
+nisdomainname="captainplanet"
+rpcbind_enable="YES"
+nis_client_enable="YES"
+nis_client_flags="-S $nisdomainname,earth.captainplanet.sys"
+ntpdate_enable="YES"
+ntpdate_flags="-b water.captainplanet.sys"
+ntpd_enable="YES"
+pf_enable="YES"
+
+sendmail_enable="YES"
+
+clamav_clamd_enable="YES"
+clamav_freshclam_enable="YES"
+clamav_milter_enable="YES"
+
+spamass_milter_enable="YES"
+spamd_enable="YES"
+]]></pre>
+			</section><!--}}}-->
+			<section title="Firewall: pf.conf"><!--{{{-->
+<pre><![CDATA[
+ext_if="tx0"
+pass in quick on lo0
+pass in inet proto icmp from any to any
+pass in inet proto tcp from any to $ext_if
+pass in quick proto tcp from any to $ext_if port 22 keep state
+pass in quick proto udp from $ext_if to any port domain keep state
+pass in quick proto tcp from $ext_if to any port domain keep state
+pass in quick proto udp from $ext_if to earth keep state
+pass in quick proto udp from earth to $ext_if keep state
+pass in quick proto tcp from any to $ext_if port 25 keep state
+pass out quick all keep state
+block in all
+]]></pre>
+			</section><!--}}}-->
+			<section title="Naming Services: nsswitch.conf"><!--{{{-->
+<pre><![CDATA[
+group_compat: nis
+hosts: files dns
+networks: files
+passwd: nis files
+group: nis files
+passwd_compat: nis
+shells: files
+]]></pre>
+			</section><!--}}}-->
+			<section title="DNS Lookups: resolv.conf"><!--{{{-->
+<pre><![CDATA[
+search captainplanet.sys
+nameserver 10.110.82.1
+nameserver 10.110.82.3
+nameserver 10.200.200.3
+]]></pre>
+			</section><!--}}}-->
 		</section>
-		<section title="water.captainplanet.sys">
-		</section>
-		<section title="fire.captainplanet.sys"> </section>
 	</section>
 </sitebook>
