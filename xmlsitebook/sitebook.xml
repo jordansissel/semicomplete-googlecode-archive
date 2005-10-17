@@ -48,7 +48,13 @@
 
 	<section title="References">
 		<p>
-		What goes here? :(
+			<b>Web Sites</b>
+			<ul>
+				<li>http://www.google.com</li>
+				<li>http://www.freebsd.org/handbook</li>
+			</ul>
+
+			<b>System Documentation: man pages and online help</b>
 		</p>
 	</section>
 
