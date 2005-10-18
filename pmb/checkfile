@@ -1,0 +1,66 @@
+#!/bin/sh
+#
+# Check a file for changes vs backup
+#
+# checkfile -v <file>
+
+VERBOSE=0
+QUIET=0
+RECURSIVE=0
+HOSTNAME=`hostname`
+
+set -- `getopt qvrh: $*`
+while [ $# -gt 0 ]; do
+	case $1 in
+		-q) QUIET=1 ;;
+		-v) VERBOSE=1 ;;
+		-r) RECURISVE=1 ;;
+		-h) HOSTNAME=$1 ;;
+		--) shift; break ;;
+		*) echo "Unknown option, '$1'" >&2 ;;
+	esac
+	shift
+done
+
+BACKUPDIR=/usr/backup/${HOSTNAME}
+
+checkit() {
+	FILE=$1
+	[ "${FILE#/}" = "${FILE}" ] && FILE=$PWD/$FILE
+
+	FILE=`realpath $FILE`
+
+	if [ -d "$FILE" ]; then
+		for file in $FILE/*; do
+			checkit $file
+		done
+		return;
+	fi
+
+	if [ ! -f "$FILE" ]; then
+		[ "$QUIET" -eq 0 ] && echo "$HOSTNAME:$FILE is not a regular file"
+		return
+	fi
+
+	if [ ! -f $BACKUPDIR/backup.0/$FILE ]; then
+		[ "$QUIET" -eq 0 ] && echo "$HOSTNAME:$FILE not found in backups"
+		return
+	fi
+
+	TMP=`mktemp /tmp/backup.diff.XXXXX`
+	diff -u $FILE $BACKUPDIR/backup.0/$FILE > $TMP
+
+	if [ $? -eq 0 ]; then
+		[ "$QUIET" -eq 0 ] \
+			&& echo "$HOSTNAME:$FILE: File is the same as in last backup"
+	else
+		echo "$HOSTNAME:$FILE: File is changed from backup"
+		[ "$VERBOSE" -eq "1" ] && cat $TMP
+	fi
+	rm $TMP
+}
+
+while [ $# -gt 0 ]; do
+	checkit $1
+	shift
+done

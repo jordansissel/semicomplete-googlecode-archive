@@ -1,0 +1,19 @@
+#!/bin/sh
+
+FILE=$1
+[ "${FILE#/}" = "${FILE}" ] && FILE=$PWD/$FILE
+
+BACKUPDIR=/root/backup
+
+echo "This will permanently erase $FILE and replace it with the backup copy."
+echo -n "Are you sure you want to do this? [y/n]: "
+read y
+
+case $y in
+	[yY]|[yY][eE][sS])
+		rsync -a $BACKUPDIR/backup.0/$FILE $FILE
+		;;
+	*)
+		echo "Cancelled."
+esac
+	

@@ -1,0 +1,45 @@
+#!/bin/sh
+
+[ -f "/usr/local/etc/pmb.rc" ] && . /usr/local/etc/pmb.rc
+[ -f "./pmb.rc" ] && . pmb.rc
+. /usr/local/etc
+
+BACKUPDIR=/usr/backup
+OPWD=$PWD
+
+HOSTNAME=`hostname`
+
+if [ $# -ne 0 ]; then
+	BACKUPDIR=${BACKUPDIR}/$1
+else
+	BACKUPDIR=${BACKUPDIR}/${HOSTNAME}
+fi
+
+TARGETS="/usr/home/* /etc /usr/local/etc /usr/X11R6/etc"
+
+# print to stderr and die
+fatal() {
+	echo "Error: $@" 1>&2
+	exit 1
+}
+
+mkdir -p $BACKUPDIR
+cd $BACKUPDIR
+DIRS=`find backup.* -type d -name 'backup.*' -maxdepth 0 2> /dev/null| sort -rn -t '.' -k 2`
+if [ ! -z "$DIRS" ]; then
+	echo "Moving older backups"
+	for i in $DIRS; do
+		[ ! -d "$i" ] && fatal "$i is not a directory."
+		DEST=${i%%.*}.$((${i##*.} + 1))
+		echo "$i -> $DEST"
+		mv $i $DEST
+	done
+fi
+
+# Only keep 20 backups (0-19)? 
+rm -rf backup.20
+
+# Create a new backup.0
+mkdir backup.0
+find $TARGETS > /tmp/backup.list
+rsync -va --delete --link-dest=../backup.1 --files-from=/tmp/backup.list / backup.0

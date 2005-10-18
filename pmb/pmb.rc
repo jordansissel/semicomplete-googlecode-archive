@@ -1,0 +1,5 @@
+
+BACKUPSERVER="whack.csh.rit.edu"
+RSYNC_RSH="ssh -c blowfish"
+
+
