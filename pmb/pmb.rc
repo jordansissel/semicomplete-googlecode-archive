@@ -1,5 +1,14 @@
 
-BACKUPSERVER="whack.csh.rit.edu"
-RSYNC_RSH="ssh -c blowfish"
+# Where to store backups
+BACKUPLOCATION="whack.csh.rit.edu:/usr/backup"
 
+# Backup to: $BACKUPLOCATION/hostname/
+BYHOSTNAME=1
+
+# Use blowfish, it's faster.
+USER="jls"
+RSYNC_RSH="ssh -c blowfish -l ${USER}"
+
+# Directories to backup
+TARGETS="/usr/home /etc /usr/local/etc"
 

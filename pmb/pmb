@@ -1,0 +1,191 @@
+#!/bin/sh
+
+# Defaults
+HOSTNAME=`hostname`
+BACKUPLOCATION="/usr/backup"
+BYHOSTNAME=1
+RSYNC_RSH="ssh"
+RSYNC_OPTS=
+QUIET=0
+RECURSIVE=0
+VERBOSE=0
+COMMAND="backup"
+
+[ -f "/usr/local/etc/pmb.rc" ] && . /usr/local/etc/pmb.rc
+[ -f "./pmb.rc" ] && . pmb.rc
+
+OPTS=`getopt RBCSqvrh: $*`
+if [ "$?" -ne "0" ]; then
+	echo "Bad usage" >&2
+	exit 1
+fi
+
+set -- $OPTS
+
+while [ $# -gt 0 ]; do
+	case $1 in
+		-q) QUIET=1 ;;
+		-v) VERBOSE=1 ;;
+		-r) RECURSIVE=1 ;;
+		-h) HOSTNAME=$2; shift ;;
+		-C) COMMAND="checkfile" ;;
+		-B) COMMAND="backup" ;;
+		-R) COMMAND="recover" ;;
+
+		-S) COMMAND="rotate" ;;
+
+		--) shift; break ;;
+	esac
+	shift
+done
+
+# Don't let the rc file override these 
+RSYNC_OPTS="-a --delete --link-dest=../backup.1"
+BACKUPDIR=`echo $BACKUPLOCATION | sed -e 's/^.*://'`
+
+if [ "$BYHOSTNAME" -eq 1 ]; then
+	BACKUPLOCATION="${BACKUPLOCATION}/${HOSTNAME}"
+	BACKUPDIR="${BACKUPDIR}/${HOSTNAME}"
+fi
+
+warn() {
+	echo "$@" 1>&2
+}
+
+fatal() {
+	warn "Error: $@"
+	exit 1
+}
+
+# This should only be run on the backup server itself
+shiftdirs() {
+	mkdir -p $BACKUPDIR
+	CWD=$PWD
+	cd $BACKUPDIR
+	pwd
+	DIRS=`find backup.* -type d -name 'backup.*' -maxdepth 0 2> /dev/null| sort -rn -t '.' -k 2`
+	if [ ! -z "$DIRS" ]; then
+		for i in $DIRS; do
+			[ ! -d "$i" ] && fatal "$i is not a directory."
+			DEST=${i%%.*}.$((${i##*.} + 1))
+			echo ": $i -> $DEST"
+			mv $i $DEST
+		done
+	fi
+
+	# Only keep 19 backups?
+	rm -rf backup.20
+
+	mkdir backup.0
+	cd $CWD
+	pwd
+}
+
+normalize_path() {
+	P=$1
+	TMP=`realpath $P`
+	if [ $? -eq 0 ]; then
+		P=$TMP
+	else 
+		[ "${P#/}" = "${P}" ] && P=$PWD/$P
+	fi
+	echo "$P"
+}
+
+normalize_all() {
+	while [ $# -gt 0 ]; do
+		normalize_path $1
+		shift
+	done
+}
+
+rotate_backups() {
+	SERVER=`echo $BACKUPLOCATION | awk -F: '{print $1}'`
+
+	#echo "Backup location: $BACKUPLOCATION"
+
+	# If backup is local, awk won't grok anything
+	if [ "$SERVER" = "$BACKUPLOCATION" ]; then
+		echo "LOCAL!!!"
+		$0 -S
+	else
+		# Remote backup server
+		echo "**** REMOTE!!!"
+		ssh ${USER}@$SERVER "pmb -S -h $HOSTNAME" | sed -e 's/^/rotate: /'
+	fi
+}
+
+do_backup() {
+	BTMP="/tmp/backup.$USER.$$"
+
+	if [ $# -eq 0 ]; then
+		find $TARGETS > $BTMP
+	else
+		find `normalize_all $*` > $BTMP
+	fi
+
+	echo "ROTATING"
+	rotate_backups
+	echo "ROTATION DONE"
+
+	# Do the backup
+	rsync -v $RSYNC_OPTS --files-from=$BTMP / ${BACKUPLOCATION}/backup.0
+
+	[ -f "$BTMP" ] && rm $BTMP
+}
+
+do_checkfile() {
+	BTMP="/tmp/backup.$USER.check"
+	#echo "Backup: $BACKUPLOCATION"
+
+	[ -z "$*" ] && fatal "No files specified to check"
+
+	normalize_all $* > $BTMP
+
+	cat $BTMP
+	echo
+	rsync -rvna --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err \
+		| grep -v '^receiving file' | sed -ne '/^$/q;p' > $BTMP.1
+
+	FILESCHANGED=`wc -l $BTMP.1 | awk '{print $1}`
+	if [ "$FILESCHANGED" -gt 0 ]; then
+		echo "Files changed:"
+		sed -e 's/^/   /' $BTMP.1
+	else
+		echo "No files changed"
+	fi
+
+	cat $BTMP.err
+
+	rm $BTMP $BTMP.1 $BTMP.err 
+}
+
+do_recover() {
+	BTMP="/tmp/backup.$USER.check"
+	[ -z "$*" ] && fatal "No files specified to recover"
+
+	do_checkfile $*
+	normalize_all $* > $BTMP
+
+	echo "This will delete the existing files"
+	echo -n "Are you sure you want to do this? (y/n) "
+	read y
+
+	case y in
+		[yY]|[yY][eE][sS]) ;;
+		*) echo "Cancelled"; return ;;
+	esac
+
+	rsync -va --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 /
+}
+
+do_rotate() {
+	shiftdirs
+}
+
+case $COMMAND in
+	backup) do_backup $* ;;
+	checkfile) do_checkfile $* ;;
+	recover) do_recover $* ;;
+	rotate) do_rotate $* ;;
+esac

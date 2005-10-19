@@ -1,45 +1,100 @@
 #!/bin/sh
 
-[ -f "/usr/local/etc/pmb.rc" ] && . /usr/local/etc/pmb.rc
-[ -f "./pmb.rc" ] && . pmb.rc
-. /usr/local/etc
-
-BACKUPDIR=/usr/backup
-OPWD=$PWD
-
+# Defaults
 HOSTNAME=`hostname`
+BACKUPLOCATION="/usr/backup"
+BYHOSTNAME=1
+RSYNC_RSH="ssh"
+QUIET=0
+RECURSIVE=0
+VERBOSE=0
 
-if [ $# -ne 0 ]; then
-	BACKUPDIR=${BACKUPDIR}/$1
-else
-	BACKUPDIR=${BACKUPDIR}/${HOSTNAME}
-fi
+setup() {
+	if [ "$BYHOSTNAME" -eq 1 ]; then
+		$BACKUPLOCATION="${BACKUPLOCATION}/${HOSTNAME}"
+	fi
+}
 
-TARGETS="/usr/home/* /etc /usr/local/etc /usr/X11R6/etc"
+warn() {
+	echo "$@" 1>&2
+}
 
-# print to stderr and die
 fatal() {
-	echo "Error: $@" 1>&2
+	warn "Error: $@"
 	exit 1
 }
 
-mkdir -p $BACKUPDIR
-cd $BACKUPDIR
-DIRS=`find backup.* -type d -name 'backup.*' -maxdepth 0 2> /dev/null| sort -rn -t '.' -k 2`
-if [ ! -z "$DIRS" ]; then
-	echo "Moving older backups"
-	for i in $DIRS; do
-		[ ! -d "$i" ] && fatal "$i is not a directory."
-		DEST=${i%%.*}.$((${i##*.} + 1))
-		echo "$i -> $DEST"
-		mv $i $DEST
+shiftdirs() {
+	mkdir -p $BACKUPDIR
+	cd $BACKUPDIR
+	DIRS=`find backup.* -type d -name 'backup.*' -maxdepth 0 2> /dev/null| sort -rn -t '.' -k 2`
+	if [ ! -z "$DIRS" ]; then
+		for i in $DIRS; do
+			[ ! -d "$i" ] && fatal "$i is not a directory."
+			DEST=${i%%.*}.$((${i##*.} + 1))
+			echo "$i -> $DEST"
+			mv $i $DEST
+		done
+	fi
+
+	# Only keep 19 backups?
+	rm -rf backup.20
+}
+
+normalize_path() {
+	[ "${1#/}" = "${1}" ] && 1=$PWD/$FILE
+	echo $1
+}
+
+checkit() {
+	FILE=`normalize_path $1`
+	echo "File: $FILE"
+}
+
+do_backup() {
+	find $TARGETS > /tmp/backup.list
+	echo rsync $RSYNC_OPTS --files-from=/tmp/backup.list / ${BACKUPLOCATION}
+}
+
+do_checkfile() {
+	while [ $# -gt 0 ]; do
+		echo checkit $1
+		shift
 	done
-fi
+}
 
-# Only keep 20 backups (0-19)? 
-rm -rf backup.20
+do_recover() {
+	echo "Recover"
+}
 
-# Create a new backup.0
-mkdir backup.0
-find $TARGETS > /tmp/backup.list
-rsync -va --delete --link-dest=../backup.1 --files-from=/tmp/backup.list / backup.0
+[ -f "/usr/local/etc/pmb.rc" ] && . /usr/local/etc/pmb.rc
+[ -f "./pmb.rc" ] && . pmb.rc
+
+# Don't let the rc file override these
+RSYNC_OPTS="-va --delete --link-dest=../backup.1"
+COMMAND="backup"
+
+OPTS=`getopt Cqvrh: $*`
+[ "$?" -ne "0" ] && fatal "Bad usage"
+
+set -- $OPTS
+
+while [ $# -gt 0 ]; do
+	case $1 in
+		-q) QUIET=1 ;;
+		-v) VERBOSE=1 ;;
+		-r) RECURSIVE=1 ;;
+		-h) HOSTNAME=$2; shift ;;
+		-C) COMMAND="checkfile" ;;
+		-R) COMMAND="recover" ;;
+	esac
+	shift
+done
+
+setup
+
+case $COMMAND in
+	backup) do_backup $* ;;
+	checkfile) do_checkfile $* ;;
+	recover) do_recover $* ;;
+esac
