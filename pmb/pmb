@@ -156,7 +156,7 @@ do_checkfile() {
 
 	sed -e 's/^/Checking: /' $BTMP
 	echo
-	rsync -rvna --list-only --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err \
+	rsync -rvna --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err \
 		| grep -v '^receiving file' | sed -ne '/^$/q;p' > $BTMP.1
 
 	FILESCHANGED=`wc -l $BTMP.1 | awk '{print $1}`
