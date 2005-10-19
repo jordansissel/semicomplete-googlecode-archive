@@ -138,7 +138,7 @@ do_checkfile() {
 	BTMP="/tmp/backup.$USER.check"
 	#echo "Backup: $BACKUPLOCATION"
 
-	[ -z "$*" ] && fatal "No files specified to check"
+	[ -z "$*" ] && echo "No files specified, using '.'" && set -- .
 
 	normalize_all $* > $BTMP
 
@@ -162,7 +162,8 @@ do_checkfile() {
 
 do_recover() {
 	BTMP="/tmp/backup.$USER.check"
-	[ -z "$*" ] && fatal "No files specified to recover"
+
+	[ -z "$*" ] && echo "No files specified, using '.'" && set -- .
 
 	do_checkfile $* | sed -e 's/^/=>  /'
 	normalize_all $* > $BTMP
@@ -171,13 +172,13 @@ do_recover() {
 	echo -n "Are you sure you want to do this? (y/n) "
 	read y
 
-	case y in
+	case $y in
 		[yY]|[yY][eE][sS]) ;;
 		*) echo "Cancelled"; return ;;
 	esac
 
 	rsync -rva --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err \
-		| grep -v '^receiving file' | sed -ne '/^$/q;p'
+		| grep -v '^receiving file' | sed -ne '/^$/q;p' | sed -e 's/^/Restoring: /'
 
 	
 
