@@ -10,5 +10,5 @@ USER="jls"
 RSYNC_RSH="ssh -c blowfish -l ${USER}"
 
 # Directories to backup
-TARGETS="/usr/home /etc /usr/local/etc"
+TARGETS="/usr/home /etc /usr/local/etc /misc/etc /misc/usr/local/etc"
 
