@@ -5,8 +5,10 @@ BACKUPLOCATION="whack.csh.rit.edu:/usr/backup"
 # Backup to: $BACKUPLOCATION/hostname/
 BYHOSTNAME=1
 
-# Use blowfish, it's faster.
+# Set the user for ssh logins
 USER="jls"
+
+# Use blowfish, it's faster. Also specify the username
 RSYNC_RSH="ssh -c blowfish -l ${USER}"
 
 # Directories to backup
