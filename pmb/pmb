@@ -142,7 +142,7 @@ do_checkfile() {
 
 	normalize_all $* > $BTMP
 
-	cat $BTMP
+	sed -e 's/^/Checking: /' $BTMP
 	echo
 	rsync -rvna --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err \
 		| grep -v '^receiving file' | sed -ne '/^$/q;p' > $BTMP.1
@@ -164,7 +164,7 @@ do_recover() {
 	BTMP="/tmp/backup.$USER.check"
 	[ -z "$*" ] && fatal "No files specified to recover"
 
-	do_checkfile $*
+	do_checkfile $* | sed -e 's/^/=>  /'
 	normalize_all $* > $BTMP
 
 	echo "This will delete the existing files"
@@ -176,7 +176,17 @@ do_recover() {
 		*) echo "Cancelled"; return ;;
 	esac
 
-	rsync -va --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 /
+	rsync -rva --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err \
+		| grep -v '^receiving file' | sed -ne '/^$/q;p'
+
+	
+
+	if wc -l $BTMP.err | awk '($1 == 0) { exit(1) }'; then
+		echo "Errors:"
+		cat $BTMP.err | sed -e 's/^/   /'
+	fi
+
+	rm $BTMP $BTMP.err
 }
 
 do_rotate() {
