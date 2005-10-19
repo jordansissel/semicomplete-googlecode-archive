@@ -29,7 +29,10 @@ while [ $# -gt 0 ]; do
 		-q) QUIET=1 ;;
 		-v) VERBOSE=1 ;;
 		-r) RECURSIVE=1 ;;
-		-h) HOSTNAME=$2; shift ;;
+		-h) 
+			echo "!!! Masquerading as $2"
+			HOSTNAME=$2
+		  	shift ;;
 		-C) COMMAND="checkfile" ;;
 		-B) COMMAND="backup" ;;
 		-R) COMMAND="recover" ;;
@@ -85,11 +88,17 @@ shiftdirs() {
 
 normalize_path() {
 	P=$1
-	TMP=`realpath $P`
+	TMP=`realpath "$P"`
 	if [ $? -eq 0 ]; then
 		P=$TMP
 	else 
-		[ "${P#/}" = "${P}" ] && P=$PWD/$P
+		TMP=`realpath $PWD`/$P
+		if [ $? -eq 0 ]; then
+			P=$TMP
+		else 
+			echo "no realpath, doing path sanitizing... ($TMP)" >&2
+			[ "${P#/}" = "${P}" ] && P=$PWD/$P
+		fi
 	fi
 	echo "$P"
 }
@@ -130,6 +139,7 @@ do_backup() {
 	rotate_backups
 	echo "ROTATION DONE"
 
+	echo "Targets: $TARGETS"
 	# Do the backup
 	rsync -v $RSYNC_OPTS --files-from=$BTMP / ${BACKUPLOCATION}/backup.0
 
@@ -179,8 +189,11 @@ do_recover() {
 		*) echo "Cancelled"; return ;;
 	esac
 
-	rsync -rva --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err \
-		| grep -v '^receiving file' | sed -ne '/^$/q;p' | sed -e 's/^/Restoring: /'
+	
+	echo "Performing recovery..."
+	rsync -rva --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err
+	
+	#	| grep -v '^receiving file' | sed -ne '/^$/q;p' | sed -e 's/^/Restoring: /'
 
 	
 
