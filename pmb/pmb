@@ -11,8 +11,10 @@ RECURSIVE=0
 VERBOSE=0
 COMMAND="backup"
 
-[ -f "/usr/local/etc/pmb.rc" ] && . /usr/local/etc/pmb.rc
-[ -f "./pmb.rc" ] && . pmb.rc
+for i in /usr/local/etc . $HOME; do
+	[ -f "$i/pmb_rc" ] && . $i/pmb_rc
+	[ -f "$i/.pmbrc" ] && . $i/.pmbrc
+done
 
 OPTS=`getopt RBCSqvrh: $*`
 if [ "$?" -ne "0" ]; then
