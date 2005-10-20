@@ -53,6 +53,8 @@ if [ "$BYHOSTNAME" -eq 1 ]; then
 	BACKUPDIR="${BACKUPDIR}/${HOSTNAME}"
 fi
 
+export RSYNC_RSH
+
 warn() {
 	echo "$@" 1>&2
 }
@@ -156,7 +158,7 @@ do_checkfile() {
 
 	sed -e 's/^/Checking: /' $BTMP
 	echo
-	rsync -rvna --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err \
+	rsync -rn $RSYNC_OPTS --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err \
 		| grep -v '^receiving file' | sed -ne '/^$/q;p' > $BTMP.1
 
 	FILESCHANGED=`wc -l $BTMP.1 | awk '{print $1}`
@@ -191,7 +193,7 @@ do_recover() {
 
 	
 	echo "Performing recovery..."
-	rsync -rva --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err
+	rsync -rva $RSYNC_OPTS --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err
 	
 	#	| grep -v '^receiving file' | sed -ne '/^$/q;p' | sed -e 's/^/Restoring: /'
 
