@@ -45,7 +45,7 @@ while [ $# -gt 0 ]; do
 done
 
 # Don't let the rc file override these 
-RSYNC_OPTS="-a --delete --link-dest=../backup.1"
+RSYNC_OPTS="$RSYNC_OPTS -a --delete --link-dest=../backup.1"
 BACKUPDIR=`echo $BACKUPLOCATION | sed -e 's/^.*://'`
 
 if [ "$BYHOSTNAME" -eq 1 ]; then
