@@ -415,6 +415,12 @@
 					Verify that the client is using authenticated smtp.
 				</p>
 			</section>
+			<section title="Other error">
+				<p><b>"-ERR The specified directory service attribute or value does not exist"</b></p>
+				<p>
+					The user attempting to check email does not have a mailing address (SMTP or X400) stored in the directory. This can be fixed through ADUC User Properties, 'Email Addresses' tab
+				</p>
+			</section>
 		</section>
 	</section>
 
