@@ -10,6 +10,13 @@
 	</cover>
 	<revisions>
 		<revision>
+			<version>1.5</version>
+			<date>11/06/05</date>
+			<author>Jordan Sissel</author>
+			<sections>All</sections>
+			<deltas>Upgraded to Windows Server and Exchange 2003</deltas>
+		</revision>
+		<revision>
 			<version>1.4</version>
 			<date>10/14/05</date>
 			<author>Jordan Sissel</author>
@@ -95,28 +102,28 @@
 			</section>
 			<section title="water.captainplanet.sys">
 			<p>
-				<b>Operating System:</b> Windows 2000 Server
+				<b>Operating System:</b> Windows 2003 Server
 			</p>
 
 			<p>
 				<b>Services and Roles</b>
 				<ul>
 					<li> AD Domain Controller: All FSMO Roles </li>
-					<li> Exchange Front-end Server </li>
+					<li> Exchange 2003 Front-end Server </li>
 					<li> NIS Master </li>
 				</ul>
 			</p>
 			</section>
 			<section title="fire.captainplanet.sys">
 			<p>
-				<b>Operating System:</b> Windows 2000 Server
+				<b>Operating System:</b> Windows 2003 Server
 			</p>
 
 			<p>
 				<b>Services and Roles</b>
 				<ul>
 					<li> AD Domain Controller: Global Catalog </li>
-					<li> Exchange Back-end Server </li>
+					<li> Exchange 2003 Back-end Server </li>
 					<li> GFI MailSecurity </li>
 				</ul>
 			</p>

@@ -91,6 +91,24 @@
 				</ul>
 			</p>
 		</section>
+		<section title="Mail System">
+			<p>
+				<b>Systems: All</b>
+				<ul>
+					<li> Send an email from earth.captainplanet.sys to a user on Exchange (jls@captainplanet.sys, for example) </li>
+					<li> Verify that this email is received by exchange using Outlook Express or OWA to read it </li>
+					<li> Verify Spam Assassin and ClamAV were both run on the email. Look for X-Spam or X-Virus headers </li>
+					<li> Verify the email went through mail.captainplanet.sys (wind) in the Received headers </li>
+				</ul>
+			</p>
+			<p>
+				<b>Systems: All</b>
+				<ul>
+					<li> Send an email using OWA to an outside mail host (gmail.com). </li>
+					<li> Verify that this email is received and was filtered through SpamAssassin and ClamAV via mail.captainplanet.sys </li>
+				</ul>
+			</p>
+		</section>
 	</section>
 	<section title="regression.sh (test script)"><!--{{{-->
 <pre><![CDATA[
