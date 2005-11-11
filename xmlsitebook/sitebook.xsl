@@ -267,6 +267,75 @@
   ** Special Tag Handling **
      Special Tag Handling **
                           -->
+
+<!--
+	Testplan. 
+	Testplans have headers (name, description, test type), steps, and results.
+	Steps: 
+	<step>
+	 <description> foo </description>
+	 <anticipated-result>works?</anticipated-result>
+	</step>
+-->
+<xsl:template match="testplan">
+	<fo:block>
+		<!-- testplan header -->
+		<fo:table table-layout="fixed">
+			<fo:table-column column-width="1.5in" />
+			<fo:table-column column-width="3in" />
+			<fo:table-column column-width=".5in" />
+			<fo:table-column column-width="1.2in" />
+			<fo:table-header>
+				<fo:table-row>
+					<fo:table-cell>
+						<fo:block font-weight="bold" background-color="#D0D0D0">
+						Module Name
+						</fo:block>
+					</fo:table-cell>
+					<fo:table-cell>
+						<fo:block font-weight="bold" background-color="#D0D0D0">
+						Test Description
+						</fo:block>
+					</fo:table-cell>
+					<fo:table-cell>
+						<fo:block font-weight="bold" background-color="#D0D0D0">
+						Test Date
+						</fo:block>
+					</fo:table-cell>
+					<fo:table-cell>
+						<fo:block font-weight="bold" background-color="#D0D0D0">
+						Test Type
+						</fo:block>
+					</fo:table-cell>
+				</fo:table-row>
+			</fo:table-header>
+			<fo:table-body>
+				<fo:table-row>
+					<fo:table-cell border="1pt solid #444444" padding="2pt">
+						<fo:block>
+							<xsl:value-of select="@testname" />
+						</fo:block>
+					</fo:table-cell>
+					<fo:table-cell border="1pt solid #444444" padding="2pt">
+						<fo:block>
+							<xsl:value-of select="description" />
+						</fo:block>
+					</fo:table-cell>
+					<fo:table-cell border="1pt solid #444444" padding="2pt">
+						<fo:block>
+							<xsl:value-of select="description" />
+						</fo:block>
+					</fo:table-cell>
+					<fo:table-cell border="1pt solid #444444" padding="2pt" />
+					<fo:table-cell border="1pt solid #444444" padding="2pt" />
+				</fo:table-row>
+			</fo:table-body>
+		</fo:table>
+	</fo:block>
+</xsl:template>
+
+<!-- BEGIN HTML STYLE TAGS -->
+
 <!-- HTML-STYLE 'b' bold tag -->
 <xsl:template match="b">
 	<fo:inline font-weight="bold">

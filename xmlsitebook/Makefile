@@ -7,7 +7,7 @@ clean:
 	-rm $(TARGETS) testplan.fo sitebook.fo
 
 .xml.fo: sitebook.xsl
-	xsltproc sitebook.xsl $< > $@
+	xsltproc $< > $@
 
 .fo.pdf:
 	fop $< $@
