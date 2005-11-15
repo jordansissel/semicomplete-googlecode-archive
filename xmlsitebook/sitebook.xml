@@ -10,6 +10,20 @@
 	</cover>
 	<revisions>
 		<revision>
+			<version>1.7</version>
+			<date>11/14/05</date>
+			<author>Jordan Sissel</author>
+			<sections>Scripts, Configuration, et al</sections>
+			<deltas>Updated for additional practical tasks (IPv6, etc)</deltas>
+		</revision>
+		<revision>
+			<version>1.6</version>
+			<date>11/14/05</date>
+			<author>Jordan Sissel</author>
+			<sections>Scripts, Configuration, et al</sections>
+			<deltas>Updated for LDAP/Kerberos/AD Integration</deltas>
+		</revision>
+		<revision>
 			<version>1.5</version>
 			<date>11/06/05</date>
 			<author>Jordan Sissel</author>
@@ -431,68 +445,68 @@
 		</section>
 	</section>
 
-
 	<section title="Server and Service Configuration">
 		<section title="earth.captainplanet.sys"> 
-			<section title="DNS Master"><!--{{{-->
+			<section title="DNS Master (/etc/namedb/named.conf)"><!--{{{-->
 <pre><![CDATA[
-// $FreeBSD: src/etc/namedb/named.conf,v 1.15.2.3 2005/03/23 17:35:58 dougb Exp $
-//
-// Refer to the named.conf(5) and named(8) man pages, and the documentation
-// in /usr/share/doc/bind9 for more details.
-//
-// If you are going to set up an authoritative server, make sure you
-// understand the hairy details of how DNS works.  Even with
-// simple mistakes, you can break connectivity for affected parties,
-// or cause huge amounts of useless Internet traffic.
-
 options {
-	directory	"/etc/namedb";
-	pid-file	"/var/run/named/pid";
-	dump-file	"/var/dump/named_dump.db";
-	statistics-file	"/var/stats/named.stats";
-	check-names master ignore;
+        directory       "/etc/namedb";
+        pid-file        "/var/run/named/pid";
+        dump-file       "/var/dump/named_dump.db";
+        statistics-file "/var/stats/named.stats";
+        check-names master ignore;
+        listen-on-v6 { any; };
 };
 
 zone "." {
-	type hint;
-	file "named.root";
+        type hint;
+        file "named.root";
 };
 
 acl "Windows Domain Controllers" {
-	10.110.82.3;
-	10.110.82.4;
+        # Water (IPv4 and IPv6)
+        10.110.82.3;
+
+        # Fire (IPv6 and IPv6)
+        10.110.82.4;
 };
 
 acl "update-acl" {
-	"Windows Domain Controllers";
-	key happykey;
+        #"Windows Domain Controllers";
+        #key happykey;
+
+        any;
 };
 
 key happykey {
-	algorithm HMAC-MD5;
-        secret "8rD0fFgitsVAYgCm24WzBMUW+c28DkZPXnhgAM1hyWRgD+WHAXKAx iW6 opNaCRkxokP1hje7ZOeRbHkEKNlniQ==";
+        algorithm HMAC-MD5;
+        secret "8rD0fFgitsVAYgCm24WzBMUW+c28DkZPXnhgAM1hyWRgD+WHAXKAx iW6 opNaCR
+kxokP1hje7ZOeRbHkEKNlniQ==";
 };
 
 zone "captainplanet.sys" {
-	type master;
-	file "master/captainplanet.sys";
-	allow-update { "update-acl"; };
+        type master;
+        file "master/captainplanet.sys";
+        allow-update { "update-acl"; };
 };
 
 zone "82.110.10.in-addr.arpa" {
-	type master;
-	file "master/82.110.10.in-addr.arpa";
-	allow-update { "update-acl"; };
+        type master;
+        file "master/82.110.10.in-addr.arpa";
+        allow-update { "update-acl"; };
+};
+
+# 2001:5c0:8c4f/48
+zone "f.4.c.8.0.c.5.0.1.0.0.2.ip6.arpa" {
+        type master;
+        file "master/2001:05c0:8c4f.ip6.arpa";
+        allow-update { "update-acl"; };
 };
 ]]></pre>
 			</section><!--}}}-->
 			<section title="DHCP Server (/usr/local/etc/dhcpd.conf)"><!--{{{-->
 			<pre><![CDATA[
 # dhcpd.conf
-#
-# Sample configuration file for ISC dhcpd
-#
 
 option domain-name "captainplanet.sys";
 option domain-name-servers 10.110.82.3, 10.200.200.3;
@@ -500,101 +514,98 @@ option dhcp-server-identifier earth.captainplanet.sys;
 
 default-lease-time 600;
 max-lease-time 7200;
-
-# If this DHCP server is the official DHCP server for the local
-# network, the authoritative directive should be uncommented.
 authoritative;
-
-# ad-hoc DNS update scheme - set to "none" to disable dynamic DNS updates.
 ddns-update-style interim;
-
-# Use this to send dhcp log messages to a different log file (you also
-# have to hack syslog.conf to complete the redirection).
 log-facility local7;
 
 key happykey {
-	algorithm hmac-md5;
-        secret 8rD0fFgitsVAYgCm24WzBMUW+c28DkZPXnhgAM1hyWRgD+WHAXKAx iW6 opNaCRkxokP1hje7ZOeRbHkEKNlniQ==;
+        algorithm hmac-md5;
+        secret 8rD0fFgitsVAYgCm24WzBMUW+c28DkZPXnhgAM1hyWRgD+WHAXKAx iW6 opNaCRk
+xokP1hje7ZOeRbHkEKNlniQ==;
 }
 
 zone 82.110.10.in-addr.arpa {
-	primary 10.110.82.1;
-	key happykey;
+        primary 10.110.82.1;
+        key happykey;
 }
-
+ 
 zone captainplanet.sys {
-	primary 10.110.82.1;
-	key happykey;
+        primary 10.110.82.1;
+        key happykey;
 }
 
 subnet 10.110.82.0 netmask 255.255.255.0 {
-	authoritative;
-	option subnet-mask 255.255.254.0;
-	default-lease-time 600;
-	option domain-name-servers 10.110.82.1, 10.110.82.3;
-	option routers 10.110.82.254;
-	pool {
-		range 10.110.82.20 10.110.82.100;
-		option domain-name "captainplanet.sys";
-		#option netbios-name-server
-		deny dynamic bootp clients;
-		deny unknown clients;
-	}
+        authoritative;
+        option subnet-mask 255.255.254.0;
+        default-lease-time 600;
+        option domain-name-servers 10.110.82.1, 10.110.82.3;
+        option routers 10.110.82.254;
+        pool {
+                range 10.110.82.20 10.110.82.100;
+                option domain-name "captainplanet.sys";
+                #option netbios-name-server
+                deny dynamic bootp clients;
+                deny unknown clients;
+        }
 }
 
-#wind 00:e0:29:26:73:d5 
+#wind 00:e0:29:26:73:d5
 host wind {
-	hardware ethernet 00:e0:29:26:73:d5 ;
-	option host-name "wind";
-	ddns-hostname "wind";
-	ddns-domainname "captainplanet.sys";
-	option domain-name "captainplanet.sys";
+        hardware ethernet 00:e0:29:26:73:d5 ;
+        option host-name "wind";
+        ddns-hostname "wind";
+        ddns-domainname "captainplanet.sys";
+        option domain-name "captainplanet.sys";
 }
 
-#water 00:e0:29:44:2e:cc 
+#water 00:e0:29:44:2e:cc  
 host water {
-	hardware ethernet 00:e0:29:44:2e:cc;
-	option host-name "water";
-	ddns-hostname "water";
-	ddns-domainname "captainplanet.sys";
-	option domain-name "captainplanet.sys";
+        hardware ethernet 00:e0:29:44:2e:cc;
+        option host-name "water";
+        ddns-hostname "water";
+        ddns-domainname "captainplanet.sys";
+        option domain-name "captainplanet.sys";
 }
 
 #fire 00:e0:29:1d:3b:e9
 host fire {
-	hardware ethernet 00:e0:29:1d:3b:e9;
-	option host-name "fire";
-	ddns-hostname "fire";
-	ddns-domainname "captainplanet.sys";
-	option domain-name "captainplanet.sys";
+        hardware ethernet 00:e0:29:1d:3b:e9;
+        option host-name "fire";
+        ddns-hostname "fire";
+        ddns-domainname "captainplanet.sys";
+        option domain-name "captainplanet.sys";
 }
 
 #heart 00:0d:60:8b:06:33
 host heart {
-	hardware ethernet 00:0d:60:8b:06:33;
-	option host-name "heart";
-	ddns-hostname "heart";
-	ddns-domainname "captainplanet.sys";
-	option domain-name "captainplanet.sys";
+        hardware ethernet 00:0d:60:8b:06:33;
+        option host-name "heart";
+        ddns-hostname "heart";
+        ddns-domainname "captainplanet.sys";
+        option domain-name "captainplanet.sys";
 }
-
+ 
 #fakehost 00:00:00:00:00:01
 host fakehost {
-	hardware ethernet 00:00:00:00:00:01;
-	option host-name "fakehost";
-	ddns-hostname "fakehost";
-	ddns-domainname "captainplanet.sys";
-	option domain-name "captainplanet.sys";
+        hardware ethernet 00:00:00:00:00:01;
+        option host-name "fakehost";
+        ddns-hostname "fakehost";
+        ddns-domainname "captainplanet.sys";
+        option domain-name "captainplanet.sys";
+}
+ 
+#happyman 00:E0:29:1D:37:BF
+host serverteam1 {
+        hardware ethernet 00:E0:29:1D:37:BF;
+        option host-name "serverteam1";
+        ddns-hostname "serverteam1";
+        ddns-domainname "captainplanet.sys";
+        option domain-name "captainplanet.sys";
 }
 ]]></pre>
 			</section><!--}}}-->
-			<section title="System settings: rc.conf"><!--{{{-->
+			<section title="System settings (/etc/rc.conf)"><!--{{{-->
 <pre><![CDATA[
-# -- sysinstall generated deltas -- # Sat Mar 25 15:47:28 2000
-# Created: Sat Mar 25 15:47:28 2000
-# Enable network daemons for user convenience.
-# Please make all changes to this file, not to /etc/defaults/rc.conf.
-# This file now contains just the overrides from /etc/defaults/rc.conf.
 usbd_enable="YES"
 sshd_enable="YES"
 
@@ -607,11 +618,12 @@ dhcpd_ifaces="tx0"
 
 named_enable="YES"
 
-nisdomain="captainplanet"
-nis_client_enable="YES"
-nis_server_enable="YES"
-nis_client_flags="-S $nisdomain,earth.captainplanet.sys"
-nisdomainname="captainplanet"
+# nis is deprecated for ldap
+#nisdomain="captainplanet"
+#nis_client_enable="YES"
+#nis_server_enable="YES"
+#nis_client_flags="-S $nisdomain,earth.captainplanet.sys"
+#nisdomainname="captainplanet"
 
 ntpdate_enable="YES"
 ntpdate_flags="-b water.captainplanet.sys"
@@ -621,9 +633,19 @@ sendmail_enable="YES"
 sendmail_outbound_enable="YES"
 pf_enable="NO"
 nfs_client_enable="YES"
+
+kerberos5_server_enable="YES"
+kadmind5_server_enable="YES"
+
+ipv6_enable="YES"
+
+# For rtadvd
+ipv6_gateway_enable="YES"
+rtadvd_enable="YES"
+rtadvd_interfaces="tx0"
 ]]></pre>
 			</section><!--}}}-->
-			<section title="Firewall: pf.conf"><!--{{{-->
+			<section title="Firewall (pf.conf)"><!--{{{-->
 <pre><![CDATA[
 ext_if="tx0"
 
@@ -664,25 +686,8 @@ block in log all
 
 ]]></pre>
 			</section><!--}}}-->
-			<section title="Mail submission: mail/earth.submit.mc"><!--{{{-->
+			<section title="Mail submission (/etc/mail/earth.submit.mc)"><!--{{{-->
 <pre><![CDATA[
-divert(-1)
-#
-# Copyright (c) 2001-2003 Sendmail, Inc. and its suppliers.
-#	All rights reserved.
-#
-# By using this file, you agree to the terms and conditions set
-# forth in the LICENSE file which can be found at the top level of
-# the sendmail distribution.
-#
-#
-
-#
-#  This is the FreeBSD configuration for a set-group-ID sm-msp sendmail
-#  that acts as a initial mail submission program.
-#
-#
-
 divert(0)dnl
 VERSIONID(`$FreeBSD: src/etc/sendmail/freebsd.submit.mc,v 1.1 2003/10/19 00:03:13 gshapiro Exp $')
 define(`confCF_VERSION', `Submit')dnl
@@ -696,18 +701,18 @@ dnl If you use IPv6 only, change [127.0.0.1] to [IPv6:::1]
 FEATURE(`msp', `[mail.captainplanet.sys]')dnl
 ]]></pre>
 			</section><!--}}}-->
-			<section title="Naming Services: nsswitch.conf"><!--{{{-->
+			<section title="Naming Services (nsswitch.conf)"><!--{{{-->
 <pre><![CDATA[
 group_compat: nis
 hosts: files dns
 networks: files
-passwd: nis files
-group: nis files
+passwd: files ldap
+group: files ldap
 passwd_compat: nis
 shells: files
 ]]></pre>
 			</section><!--}}}-->
-			<section title="DNS Lookups: resolv.conf"><!--{{{-->
+			<section title="DNS Lookups (/etc/resolv.conf)"><!--{{{-->
 <pre><![CDATA[
 search captainplanet.sys
 nameserver 10.110.82.1
@@ -715,57 +720,105 @@ nameserver 10.110.82.3
 nameserver 10.200.200.3
 ]]></pre>
 			</section><!--}}}-->
+			<section title="IPv6-IPv4 Tunnel (/usr/local/etc/tspc.conf)"><!--{{{-->
+<pre><![CDATA[
+tsp_dir=/usr/local/share/tspc2
+auth_method=any
+client_v4=auto
+userid=jls
+passwd=7UMB6nTW!3
+template=freebsd
+server=broker.freenet6.net
+retry_delay=30
+tunnel_mode=v6anyv4
+if_tunnel_v6udpv4=tun1
+proxy_client=no
+keepalive=yes
+keepalive_interval=30
+host_type=router
+#if_tunnel_v6v4=gif0
+
+# omg optimized..
+if_prefix=tx0
+]]></pre>
+			</section><!--}}}-->
+			<section title="LDAP User lookups (/usr/local/etc/nss_ldap.conf)"><!--{{{-->
+<pre><![CDATA[
+host wind.captainplanet.sys
+#host 10.110.82.2
+
+# AD
+#base cn=Users,dc=captainplanet,dc=sys
+
+# OpenLDAP
+base o=ldap,dc=captainplanet,dc=sys
+
+# AD
+#binddn cn=Administrator,cn=Users,dc=captainplanet,dc=sys
+#bindpw syslab
+#rootbinddn cn=Administrator,cn=Users,dc=captainplanet,dc=sys
+
+# OpenLDAP
+#binddn-
+
+# AD
+#pam_filter objectclass=User
+#pam_login_attribute uid
+#pam_member_attribute uniquemember
+#pam_login_attribute userPrincipalName
+#pam_password ad
+#nss_map_objectclass posixAccount User
+#nss_map_attribute uid sAMAccountName
+#nss_map_attribute uniqueMember posixMember
+#nss_map_attribute userPassword msSFU30Password
+#nss_map_attribute homeDirectory msSFU30HomeDirectory
+#nss_map_attribute gidNumber msSFU30GidNumber
+#nss_map_attribute uidNumber msSFU30UidNumber
+#nss_map_objectclass posixGroup Group
+#nss_map_attribute loginShell msFU30LoginShell
+#nss_map_attribute cn sAMAccountName
+#pam_login_attribute sAMAccountName
+#pam_filter objectclass=User
+#pam_password ad
+]]></pre>
+			</section><!--}}}-->
+			<section title="LDAP Client config (/usr/local/etc/ldap.conf)"><!--{{{-->
+<pre><![CDATA[
+BASE    o=ldap,dc=captainplanet,dc=sys
+URI     ldap://wind.captainplanet.sys
+]]></pre>
+			</section><!--}}}-->
+			<section title="Kerberos KDC/Client (/etc/krb5.conf)"><!--{{{-->
+<pre><![CDATA[
+[libdefaults]
+    default_realm = USERS.CAPTAINPLANET.SYS
+    default_etypes = des-cbc-crc des-cbc-md5;
+
+[realms]
+    USERS.CAPTAINPLANET.SYS = {
+        kdc = kerberos.captainplanet.sys
+        admin_server = kerberos.captainplanet.sys
+    }
+
+[domain_realm]
+    .captainplanet.sys = USERS.CAPTAINPLANET.SYS
+
+[logging]
+    kdc = 0/FILE:/var/log/kdc.log
+    kdc = 1-/FILE:/var/log/kdc.log
+]]></pre>
+			</section><!--}}}-->
+			<section title="Dummy Entry"><!--{{{-->
+<pre><![CDATA[
+nothing to see here
+move along...
+]]></pre>
+			</section><!--}}}-->
 		</section>
 		<section title="wind.captainplanet.sys"> 
 			<section title="Sendmail">
 				<section title="mail/wind.mc"><!--{{{-->
 <pre><![CDATA[
-divert(-1)
-#
-# Copyright (c) 1983 Eric P. Allman
-# Copyright (c) 1988, 1993
-#	The Regents of the University of California.  All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-# 3. All advertising materials mentioning features or use of this software
-#    must display the following acknowledgement:
-#	This product includes software developed by the University of
-#	California, Berkeley and its contributors.
-# 4. Neither the name of the University nor the names of its contributors
-#    may be used to endorse or promote products derived from this software
-#    without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-# SUCH DAMAGE.
-#
-
-#
-#  This is a generic configuration file for FreeBSD 5.X and later systems.
-#  If you want to customize it, copy it to a name appropriate for your
-#  environment and do the modifications there.
-#
-#  The best documentation for this .mc file is:
-#  /usr/share/sendmail/cf/README or
-#  /usr/src/contrib/sendmail/cf/README
-#
-
-divert(0)
 VERSIONID(`$FreeBSD: src/etc/sendmail/freebsd.mc,v 1.29 2003/12/24 21:15:09 gshapiro Exp $')
 OSTYPE(freebsd5)
 DOMAIN(generic)
@@ -883,22 +936,21 @@ captainplanet.sys	smtp:exchange.captainplanet.sys
 ]]></pre>
 				</section><!--}}}-->
 			</section>
-			<section title="System settings:rc.conf"><!--{{{-->
+			<section title="System settings (/etc/rc.conf)"><!--{{{-->
 <pre><![CDATA[
-
 hostname="wind"
 usbd_enable="YES"
 sshd_enable="YES"
 ifconfig_tx0="inet 10.110.82.2 netmask 0xffffff00"
 defaultrouter="10.110.82.254"
-nisdomainname="captainplanet"
-rpcbind_enable="YES"
-nis_client_enable="YES"
-nis_client_flags="-S $nisdomainname,earth.captainplanet.sys"
+#rpcbind_enable="YES"
+#nisdomainname="captainplanet"
+#nis_client_enable="YES"
+#nis_client_flags="-S $nisdomainname,earth.captainplanet.sys"
 ntpdate_enable="YES"
 ntpdate_flags="-b water.captainplanet.sys"
 ntpd_enable="YES"
-pf_enable="YES"
+pf_enable="NO"
 
 sendmail_enable="YES"
 
@@ -908,9 +960,16 @@ clamav_milter_enable="YES"
 
 spamass_milter_enable="YES"
 spamd_enable="YES"
+
+ipv6_enable="YES"
+ipv6_network_interfaces="tx0"
+
+slapd_enable="YES"
+
+nfs_client_enable="YES"
 ]]></pre>
 			</section><!--}}}-->
-			<section title="Firewall: pf.conf"><!--{{{-->
+			<section title="Firewall (/etc/pf.conf)"><!--{{{-->
 <pre><![CDATA[
 ext_if="tx0"
 pass in quick on lo0
@@ -926,18 +985,18 @@ pass out quick all keep state
 block in all
 ]]></pre>
 			</section><!--}}}-->
-			<section title="Naming Services: nsswitch.conf"><!--{{{-->
+			<section title="Naming Services (/etc/nsswitch.conf)"><!--{{{-->
 <pre><![CDATA[
 group_compat: nis
 hosts: files dns
 networks: files
-passwd: nis files
-group: nis files
+passwd: files ldap
+group: files ldap
 passwd_compat: nis
 shells: files
 ]]></pre>
 			</section><!--}}}-->
-			<section title="DNS Lookups: resolv.conf"><!--{{{-->
+			<section title="DNS Lookups (/etc/resolv.conf)"><!--{{{-->
 <pre><![CDATA[
 search captainplanet.sys
 nameserver 10.110.82.1
@@ -945,6 +1004,234 @@ nameserver 10.110.82.3
 nameserver 10.200.200.3
 ]]></pre>
 			</section><!--}}}-->
+			<section title="LDAP User lookups (/usr/local/etc/nss_ldap.conf)"><!--{{{-->
+<pre><![CDATA[
+host wind.captainplanet.sys
+#host 10.110.82.2
+
+# AD
+#base cn=Users,dc=captainplanet,dc=sys
+
+# OpenLDAP
+base o=ldap,dc=captainplanet,dc=sys
+
+# AD
+#binddn cn=Administrator,cn=Users,dc=captainplanet,dc=sys
+#bindpw syslab
+#rootbinddn cn=Administrator,cn=Users,dc=captainplanet,dc=sys
+
+# OpenLDAP
+#binddn-
+
+# AD
+#pam_filter objectclass=User
+#pam_login_attribute uid
+#pam_member_attribute uniquemember
+#pam_login_attribute userPrincipalName
+#pam_password ad
+#nss_map_objectclass posixAccount User
+#nss_map_attribute uid sAMAccountName
+#nss_map_attribute uniqueMember posixMember
+#nss_map_attribute userPassword msSFU30Password
+#nss_map_attribute homeDirectory msSFU30HomeDirectory
+#nss_map_attribute gidNumber msSFU30GidNumber
+#nss_map_attribute uidNumber msSFU30UidNumber
+#nss_map_objectclass posixGroup Group
+#nss_map_attribute loginShell msFU30LoginShell
+#nss_map_attribute cn sAMAccountName
+#pam_login_attribute sAMAccountName
+#pam_filter objectclass=User
+#pam_password ad
+]]></pre>
+			</section><!--}}}-->
+			<section title="LDAP Server (/usr/local/etc/openldap/slapd.conf)"><!--{{{-->
+<pre><![CDATA[
+# See slapd.conf(5) for details on configuration options.
+#
+include         /usr/local/etc/openldap/schema/core.schema
+include         /usr/local/etc/openldap/schema/cosine.schema
+include         /usr/local/etc/openldap/schema/inetorgperson.schema
+include         /usr/local/etc/openldap/schema/nis.schema
+
+# Define global ACLs to disable default read access.
+
+# Do not enable referrals until AFTER you have a working directory
+# service AND an understanding of referrals.
+#referral       ldap://root.openldap.org
+
+pidfile         /var/run/openldap/slapd.pid
+argsfile        /var/run/openldap/slapd.args
+
+# Load dynamic backend modules:
+modulepath      /usr/local/libexec/openldap
+moduleload      back_bdb
+
+database        bdb
+suffix          "o=ldap,dc=captainplanet,dc=sys"
+rootdn          "cn=Management,o=ldap,dc=captainplanet,dc=sys"
+rootpw          secret
+directory       /var/db/openldap-data
+index   objectClass     eq
+]]></pre>
+			</section><!--}}}-->
+			<section title="Extra startup scripts"><!--{{{-->
+				<section title="IPv6 DDNS update on boot">
+					<p>
+						I added '/root/nsupdate6 tx0' to the bottom of the
+						'network_ipv6_start' function in /etc/rc.d/network_ipv6.
+					</p>
+					<p><b>Contents of /root/nsupdate6</b></p>
+<pre><![CDATA[
+#!/bin/sh
+
+if [ $# -eq 0 ]; then
+        echo "No ipv6 interface supplied."
+        exit 1
+fi
+
+ADDRS=`ifconfig $1 | grep inet6 | awk '{print $2}'`
+
+addip() {
+        IP=$1
+        HOST=`hostname | perl -pe 'chomp; $_.=".captainplanet.sys\n" unless /\.c
+aptainplanet\.sys$/'`
+        REV=`host $IP | awk '/domain name pointer/ {print $1}; /not found:/ {pri
+nt $2}'`
+        FILE=`mktemp /tmp/dns.XXXX`
+        cat > $FILE < /dev/null
+        echo "server 10.110.82.1"                  >> $FILE
+        echo "update delete ${HOST}. IN AAAA"      >> $FILE
+        echo "update add ${HOST}. 600 IN AAAA $IP" >> $FILE
+        echo "send"                                >> $FILE
+        echo "update delete $REV PTR"              >> $FILE
+        echo "update add $REV 600 IN PTR $HOST"    >> $FILE
+        echo "send"                                >> $FILE
+
+        echo "ipv6 ddns: update add ${HOST}. 600 IN AAAA $IP"
+        echo "ipv6 ddns: update add $REV 600 IN PTR $HOST"
+        nsupdate $FILE
+        rm $FILE
+}
+
+for i in $ADDRS; do
+        echo $i | grep '^2001' > /dev/null 2>&1 \
+                && addip $i
+done
+]]></pre>
+				</section>
+			</section><!--}}}-->
 		</section>
+	</section>
+
+	<section title="Extra Scripts">
+		<section title="Active Directory to LDAP Synchronization, ad2ldap"><!--{{{-->
+<pre><![CDATA[
+#!/bin/sh
+
+LDIF=`mktemp /tmp/adusers.ldif.XXXXX`
+UNLDIF=`mktemp /tmp/adusers.unldif.XXXX`
+UIDS=`mktemp /tmp/adusers.uidnums.XXXX`
+IMPORTLDIF=`mktemp /tmp/adusers.importldif.XXXX`
+
+# Grab all users
+ldapsearch -LLL -x -H ldap://10.110.82.4 -D "cn=Administrator,cn=Users,dc=captainplanet,dc=sys" -b "cn=Users,dc=captainplanet,dc=sys" -w "syslab" '(&(objectClass=user)(sAMAccountName=*))' > $LDIF
+
+sed -ne '{ 1{ h; n; }; /^ /!{ H; g; s,\n.*,,p; g; s,.*\n,,; h; }; /^ /{ H; g; s,\n ,,; h; }; ${ g; s,\n ,,; p; }; }' $LDIF > $UNLDIF
+
+ldapsearch -x 'uidNumber=*' | awk '/uid: / { print $2 }; /uidNumber: / {print $2}' > $UIDS
+
+env UIDFILE=$UIDS perl -lne '
+BEGIN { $hash = {}; $uids = {}; }
+
+sub findNewUID($) {
+	my $thisuser = shift;
+	#print;
+	#print "Thisuser: $thisuser";
+	if (keys(%$uids) == 0) {
+		open(UIDS, $ENV{UIDFILE});
+		while (<UIDS>) {
+			chomp;
+			$user = $_;
+			chomp($uid = <UIDS>);
+			$uids->{$user} = $uid;
+		}
+		close(UIDS);
+	}
+
+	return $uids->{$thisuser} if (exists($uids->{$thisuser}));
+
+	foreach $x (10000 .. 65535) {
+		if (scalar(grep { $uids->{$_} == $x } keys(%$uids)) == 0) {
+			$uids->{$thisuser} = $x;
+			return $x;
+		}
+	}
+
+}
+
+next if /^#/;
+chomp;
+if (m/^$/) { # This is the end of an LDIF entry
+	next unless (keys(%$hash) > 0);
+	#next unless exists($hash->{"sAMAccountName"});
+	printf "dn: uid=%s,o=ldap,dc=captainplanet,dc=sys\n", $hash->{"sAMAccountName"};
+	printf "objectClass: top\n";
+	printf "objectClass: person\n";
+	printf "objectClass: organizationalPerson\n";
+	printf "objectClass: inetOrgPerson\n";
+	printf "objectClass: posixAccount\n";
+	printf "cn: %s\n", $hash->{"cn"};
+	printf "sn: %s\n", $hash->{"sn"} || "<missing>";
+	printf "givenName: %s\n", $hash->{"givenName"} || "<missing>";
+	printf "ou: People\n";
+	printf "uid: %s\n", $hash->{"sAMAccountName"};
+	printf "mail: %s\n", $hash->{"mail"} || "<missing>";
+	printf "homeDirectory: %s\n", "/home/" . $hash->{"sAMAccountName"};
+	printf "loginShell: /usr/local/bin/zsh\n";
+	printf "uidNumber: %d\n", findNewUID($hash->{"sAMAccountName"});
+	printf "gidNumber: %d\n", 3000;
+	
+	print;
+	$hash = {};
+} else {
+	($key,$val) = split(/: /,$_, 2);
+	$hash->{$key} = $val;
+}
+END { }
+' < $UNLDIF > $IMPORTLDIF
+
+# Loop through the new LDIF ($IMPORTLDIF) and add/modify entries.
+LDIFDIR=`mktemp -d /tmp/ad2ldap.XXXX`
+cd $LDIFDIR;
+split -p '^$' $IMPORTLDIF
+
+for ldif in $LDIFDIR/*; do
+	BINDDN="cn=Management,o=ldap,dc=captainplanet,dc=sys"
+	grep '^dn: ' $ldif
+
+	if [ $? -eq 0 ]; then
+		ldapmodify -a -x -D $BINDDN -w "secret" -f $ldif > /dev/null 2>&1 \
+		|| ldapmodify -x -D $BINDDN -w "secret" -f $ldif > /dev/null 2>&1 \
+
+		if [ $? -eq 0 ]; then
+			USERNAME=`grep '^uid: ' $ldif | awk '{print $2}`
+			HOMEDIR=`grep '^homeDirectory: ' $ldif | awk '{print $2}`
+
+			mkdir -p $HOMEDIR
+			chown ${USERNAME} $HOMEDIR
+		else
+			:
+		fi
+	fi
+done
+
+rm $LDIF $UNLDIF $UIDS $IMPORTLDIF > /dev/null 2>&1 
+rm -r $LDIFDIR
+]]></pre>
+		</section><!--}}}-->
+		<section title="DUMMY ENTRY"><!--{{{-->
+<pre><![CDATA[
+]]></pre>
+		</section><!--}}}-->
 	</section>
 </sitebook>

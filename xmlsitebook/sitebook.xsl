@@ -74,7 +74,7 @@
 		</fo:static-content>
 
 		<fo:static-content flow-name="xsl-region-after">
-			<fo:external-graphic src="url('captainplanet.jpg')" />
+			<!-- <fo:external-graphic src="url('captainplanet.jpg')" /> -->
 		</fo:static-content>
 		<fo:flow flow-name ="xsl-region-body">
 			<xsl:apply-templates select="/sitebook/cover/*" />
@@ -102,19 +102,19 @@
 					<fo:table-column column-width="1.7in" />
 					<fo:table-header>
 						<fo:table-row background-color="#D0D0D0">
-							<fo:table-cell border="1pt solid #444444" padding="2pt">
+							<fo:table-cell border="1px solid #444444" padding="2pt">
 								<fo:block>Revision</fo:block>
 							</fo:table-cell>
-							<fo:table-cell border="1pt solid #444444" padding="2pt">
+							<fo:table-cell border="1px solid #444444" padding="2pt">
 								<fo:block>Date</fo:block>
 							</fo:table-cell>
-							<fo:table-cell border="1pt solid #444444" padding="2pt">
+							<fo:table-cell border="1px solid #444444" padding="2pt">
 								<fo:block>Author</fo:block>
 							</fo:table-cell>
-							<fo:table-cell border="1pt solid #444444" padding="2pt">
+							<fo:table-cell border="1px solid #444444" padding="2pt">
 								<fo:block>Sections</fo:block>
 							</fo:table-cell>
-							<fo:table-cell border="1pt solid #444444" padding="2pt">
+							<fo:table-cell border="1px solid #444444" padding="2pt">
 								<fo:block>Changes</fo:block>
 							</fo:table-cell>
 						</fo:table-row>
@@ -287,22 +287,22 @@
 			<fo:table-column column-width="1.2in" />
 			<fo:table-header>
 				<fo:table-row>
-					<fo:table-cell>
+					<fo:table-cell border="1px solid black">
 						<fo:block font-weight="bold" background-color="#D0D0D0">
 						Module Name
 						</fo:block>
 					</fo:table-cell>
-					<fo:table-cell>
+					<fo:table-cell border="1px solid black">
 						<fo:block font-weight="bold" background-color="#D0D0D0">
 						Test Description
 						</fo:block>
 					</fo:table-cell>
-					<fo:table-cell>
+					<fo:table-cell border="1px solid black">
 						<fo:block font-weight="bold" background-color="#D0D0D0">
-						Test Date
+						Date
 						</fo:block>
 					</fo:table-cell>
-					<fo:table-cell>
+					<fo:table-cell border="1px solid black">
 						<fo:block font-weight="bold" background-color="#D0D0D0">
 						Test Type
 						</fo:block>
@@ -311,27 +311,102 @@
 			</fo:table-header>
 			<fo:table-body>
 				<fo:table-row>
-					<fo:table-cell border="1pt solid #444444" padding="2pt">
-						<fo:block>
-							<xsl:value-of select="@testname" />
+					<fo:table-cell border="1px solid black">
+						<fo:block background-color="white">
+							<xsl:value-of select="@name" />
 						</fo:block>
 					</fo:table-cell>
-					<fo:table-cell border="1pt solid #444444" padding="2pt">
-						<fo:block>
+					<fo:table-cell border="1px solid black">
+						<fo:block background-color="white">
 							<xsl:value-of select="description" />
 						</fo:block>
 					</fo:table-cell>
-					<fo:table-cell border="1pt solid #444444" padding="2pt">
-						<fo:block>
-							<xsl:value-of select="description" />
-						</fo:block>
+					<fo:table-cell border="1px solid black">
+						<fo:block color="white">.</fo:block>
 					</fo:table-cell>
-					<fo:table-cell border="1pt solid #444444" padding="2pt" />
-					<fo:table-cell border="1pt solid #444444" padding="2pt" />
+					<fo:table-cell border="1px solid black">
+						<fo:block color="white">.</fo:block>
+					</fo:table-cell>
+					<fo:table-cell border="1px solid black">
+						<fo:block color="white">.</fo:block>
+					</fo:table-cell>
 				</fo:table-row>
 			</fo:table-body>
 		</fo:table>
+
+		<fo:block color="white">.</fo:block>
+
+		<!-- Steps -->
+		<fo:table table-layout="fixed">
+			<fo:table-column column-width=".5in" />
+			<fo:table-column column-width="2in" />
+			<fo:table-column column-width="1.5in" />
+			<fo:table-column column-width="1.5in" />
+			<fo:table-column column-width="1in" />
+			<fo:table-header>
+				<fo:table-row>
+					<fo:table-cell border="1px solid black">
+						<fo:block font-size="10pt" font-weight="bold" background-color="#D0D0D0">
+						Step
+						</fo:block>
+					</fo:table-cell>
+					<fo:table-cell border="1px solid black">
+						<fo:block font-size="10pt" font-weight="bold" background-color="#D0D0D0">
+						Step Description
+						</fo:block>
+					</fo:table-cell>
+					<fo:table-cell border="1px solid black">
+						<fo:block font-size="10pt" font-weight="bold" background-color="#D0D0D0">
+						Anticipated Results
+						</fo:block>
+					</fo:table-cell>
+					<fo:table-cell border="1px solid black">
+						<fo:block font-size="10pt" font-weight="bold" background-color="#D0D0D0">
+						Actual Results
+						</fo:block>
+					</fo:table-cell>
+					<fo:table-cell border="1px solid black">
+						<fo:block font-size="10pt" font-weight="bold" background-color="#D0D0D0">
+						Status
+						</fo:block>
+					</fo:table-cell>
+				</fo:table-row>
+			</fo:table-header>
+			<fo:table-body>
+				<xsl:apply-templates select="test-step" />
+			</fo:table-body>
+		</fo:table>
 	</fo:block>
+
+	<fo:block color="white" height="2em">.</fo:block>
+
+</xsl:template>
+
+<xsl:template match="test-step">
+	<fo:table-row>
+		<fo:table-cell border="1px solid black" padding-left=".5em" padding-right=".5em">
+			<fo:block font-size="8pt">
+				<xsl:value-of select="position()" />
+			</fo:block>
+		</fo:table-cell>
+		<fo:table-cell border="1px solid black" padding-left=".5em" padding-right=".5em">
+			<fo:block font-size="8pt">
+				<xsl:value-of select="description" />
+			</fo:block>
+		</fo:table-cell>
+		<fo:table-cell border="1px solid black" padding-left=".5em" padding-right=".5em">
+			<fo:block font-size="8pt">
+				<xsl:value-of select="anticipated-results" />
+			</fo:block>
+		</fo:table-cell>
+		<fo:table-cell border="1px solid black" />
+		<fo:table-cell border="1px solid black" padding-left=".5em" padding-right=".5em">
+			<fo:block font-size="8pt">
+				<fo:inline border="1px solid black" width="1em" color="white">...</fo:inline>
+				Complete
+			</fo:block>
+		</fo:table-cell>
+	</fo:table-row>
 </xsl:template>
 
 <!-- BEGIN HTML STYLE TAGS -->
@@ -435,7 +510,7 @@
 
 <xsl:template match="td">
 	<!--<fo:table-cell border="{$border}" padding="{$padding}">-->
-	<fo:table-cell border="1pt solid grey" padding="2pt">
+	<fo:table-cell border="1px solid grey" padding="2pt">
 		<fo:block>
 			<xsl:apply-templates select="*|text()" />
 		</fo:block>

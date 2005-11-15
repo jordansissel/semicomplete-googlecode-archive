@@ -1,14 +1,21 @@
 <?xml version="1.0"?>
-<?xml-stylesheet type="text/xml" href="testplan.xsl"?>
+<?xml-stylesheet type="text/xml" href="sitebook.xsl"?>
 
 <sitebook xmlns:fo="http://www.w3.org/1999/XSL/Format">
 	<cover title="Test Plan">
 		<h3><b>CaptainPlanet.sys</b></h3>
 		<p>
-		<b>Test Plan</b>
+		<b>Test Plans</b>
 		</p>
 	</cover>
 	<revisions>
+		<revision>
+			<version>1.2</version>
+			<date>11/11/05</date>
+			<author>Jordan Sissel</author>
+			<sections>All</sections>
+			<deltas>Moved to new testplan format</deltas>
+		-</revision>
 		<revision>
 			<version>1.1</version>
 			<date>10/15/05</date>
@@ -25,293 +32,835 @@
 		-</revision>
 	</revisions>
 
-	<section title="System Tests">
-		<section title="Windows Servers">
-			<section title="Patches">
-				<p>
-					Verify that no new patches need to be applied via Windows Update.
-				</p>
-			</section>
-		</section>
+	<section title="DHCP Test Plan">
+		<testplan name="DHCP Client test">
+			<description> Verify DHCP service functionality </description>
+			<test-step>
+				<description>
+					Check rc.conf for 'dhcpd_enable="YES"'
+				</description>
+				<anticipated-results>
+					'dhcpd_enable="YES"' in /etc/rc.conf.
+				</anticipated-results>
+			</test-step>
+
+			<test-step>
+				<description>
+					Test DHCP with '/root/regression.sh dhcp'
+				</description>
+				<anticipated-results>
+					Script reports DHCP works.
+				</anticipated-results>
+			</test-step>
+		</testplan>
 	</section>
-	<section title="Service Tests">
-		<section title="Primary DNS">
-			<p>
-			<b>System: earth.captainplanet.sys</b>
-			</p>
-			<ul>
-				<li> hostname lookups: /root/regression.sh nslookup </li>
-				<li> dynamic dns: /root/regression.sh ddns </li>
-			</ul>
-		</section>
-		<section title="Secondary DNS">
-			<p>
-			<b>System: water.captainplanet.sys</b>
-			</p>
-			<ul>
-				<li> hostname lookups: /root/regression.sh nslookup </li>
-			</ul>
-		</section>
-		<section title="DHCP">
-			<p>
-			<b>System: earth.captainplanet.sys</b>
-			</p>
-			<ul>
-				<li> dhcp request: /root/regression.sh dhcp </li>
-			</ul>
-		</section>
-		<section title="Mail Gateway">
-			<p>
-			<b>System: wind.captainplanet.sys</b>
-			</p>
-			<ul>
-				<li> /etc/rc.d/sendmail status </li>
-				<li> from earth: echo "Subject: foo" | sendmail psionic@gmail.com </li>
-				<li> Send a test mail via MS Outlook Express (MUST USE AUTHENTICATED SMTP) </li>
-			</ul>
-		</section>
-		<section title="NIS Client">
-			<p>
-			<b>Systems: earth.captainplanet.sys, wind.captainplanet.sys</b>
-			<ul>
-				<li>/root/regression.sh</li>
-			</ul>
-			</p>
-		</section>
-		<section title="NIS/AD Integration">
-			<p>
-				<b>Systems: all</b>
-				<ul>
-					<li> Create a new users via ADUC. </li>
-					<li> Add this user to the NIS domain 'captainplanet' via 'UNIX Attributes' in user properties</li>
-					<li> Add the user to the 'Unix Users' group </li>
-					<li> Reset the user's password </li>
-					<li> Wait for or force nis propogation </li>
-					<li> Try to login via unix nis client workstation </li>
-					<li> If there is an error, refer to section 6.1 of the Operations Manual for possible fixes</li>
-				</ul>
-			</p>
-		</section>
-		<section title="Mail System">
-			<p>
-				<b>Systems: All</b>
-				<ul>
-					<li> Send an email from earth.captainplanet.sys to a user on Exchange (jls@captainplanet.sys, for example) </li>
-					<li> Verify that this email is received by exchange using Outlook Express or OWA to read it </li>
-					<li> Verify Spam Assassin and ClamAV were both run on the email. Look for X-Spam or X-Virus headers </li>
-					<li> Verify the email went through mail.captainplanet.sys (wind) in the Received headers </li>
-				</ul>
-			</p>
-			<p>
-				<b>Systems: All</b>
-				<ul>
-					<li> Send an email using OWA to an outside mail host (gmail.com). </li>
-					<li> Verify that this email is received and was filtered through SpamAssassin and ClamAV via mail.captainplanet.sys </li>
-				</ul>
-			</p>
-		</section>
+
+	<section title="DNS Test Plan">
+		<testplan name="DNS Client test">
+			<description> Verify DNS service functionality </description>
+			<test-step>
+				<description>
+					Check rc.conf for 'named_enable="YES"'
+				</description>
+				<anticipated-results>
+					'named_enable="YES"' in /etc/rc.conf.
+				</anticipated-results>
+			</test-step>
+
+			<test-step>
+				<description>
+					Test DNS with '/root/regression.sh dns'
+				</description>
+				<anticipated-results>
+					Script reports DHCP works.
+				</anticipated-results>
+			</test-step>
+		</testplan>
+
+		<testplan name="Dynamic DNS Client test">
+			<description> Verify Dynamic DNS service functionality </description>
+			<test-step>
+				<description>
+					Test Dynamic DNS with '/root/regression.sh ddns'
+				</description>
+				<anticipated-results>
+					Script reports Dynamic DNS works.
+				</anticipated-results>
+			</test-step>
+		</testplan>
 	</section>
-	<section title="regression.sh (test script)"><!--{{{-->
-<pre><![CDATA[
-#!/bin/sh
 
-LOGFILE=/tmp/regression.log
+	<section title="Mail Test Plan">
+		<testplan name="Sendmail Test Plan">
+			<description> Verify Sendmail service functionality </description>
+			<test-step>
+				<description>
+					Verify proper mail configuration. In /etc/mail: [hostname].mc, [hostname]-submit.mc, mailertable, access. 
+				</description>
+				<anticipated-results>
+					All files should be configured properly. 'access' on the server should allow relay from the 10.110.82.0/24 subnet. 
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Send a test mail to an external mail account using sendmail(1).
+				</description>
+				<anticipated-results>
+					This mail is received.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Check rc.conf for sendmail, clamav, and spam assassin configurations.
+				</description>
+				<anticipated-results>
+					sendmail_enable="YES", spamass_milter_enable="YES",
+					spamd_enable="YES", clamav_clamd_enable="YES",
+					clamav_freshclam_enable="YES", clamav_milter_enable="YES"
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Check the previously sent email for spam-assassin and clamav mail headers.
+				</description>
+				<anticipated-results>
+					Email will contain X-Spam* and X-Clam* headers.
+				</anticipated-results>
+			</test-step>
+		</testplan>
+		<testplan name="Exchange Test Plan">
+			<description> Exchange usability testing </description>
+			<test-step>
+				<description>
+					Verify IMAP, Exchange MTA, Information Store, and POP3 services are all running in 'Services' via 'Administrative Tools'
+				</description>
+				<anticipated-results>
+					All services are running on both the frontend and backend servers.
+				</anticipated-results>
+			</test-step>
 
-if [ "$#" -eq 0 ]; then
-	echo "Specify type of test!"
-	echo "Tests are: dhcp, dns, nslookup, nis, ddns"
-	exit 1
-fi
+			<test-step>
+				<description>
+					Check a user's email using IMAP and Outlook Express
+				</description>
+				<anticipated-results>
+					Authentication and email checking succeeds.
+				</anticipated-results>
+			</test-step>
 
-ARG=$1
+			<test-step>
+				<description>
+					Send a test email using Outlook Express to an external address
+				</description>
+				<anticipated-results>
+					Verify it is received
+				</anticipated-results>
+			</test-step>
 
-case $ARG in
-	dhcp) TEST="DHCP" ;;
-	dns) TEST="NSLOOKUP" ;;
-	nslookup) TEST="NSLOOKUP" ;;
-	nis) TEST="NIS" ;;
-	ddns) TEST="DDNS" ;;
-	sendmail) TEST="SENDMAIL" ;;
-	*)
-		echo "Unknown test: $ARG"
-		exit
-		;;
-esac
+			<test-step>
+				<description>
+					Send a test email to another user or this user
+				</description>
+				<anticipated-results>
+					Verify mail is received
+				</anticipated-results>
+			</test-step>
+		</testplan>
+	</section>
 
-dhcp_test() {
-	PIPE=`mktemp /tmp/netwox.dhcp.XXXXX`
-	MAC="00:00:00:00:00:01"
-	rm $PIPE > /dev/null 2>&1
-	mkfifo $PIPE
+	<section title="Backup">
+		<testplan name="Configuration Check">
+			<description> Review the configuration of the backup script (/usr/local/etc/pmb.rc)</description>
+			<test-step>
+				<description>/root/pmb -C</description>
+				<anticipated-results>No errors</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>crontab -l</description>
+				<anticipated-results>Daily entry to run /root/pmb</anticipated-results>
+			</test-step>
+		</testplan>
 
-	echo "Requesting DHCP Address with MAC: $MAC"
-	netwox 171 -d tx0 -e $MAC > $LOGFILE 2>&1 < $PIPE  &
+		<testplan name="Backup Verification">
+			<description> Ensure backups are working properly </description>
+			<test-step>
+				<description>Remove or alter a non-critical file</description>
+				<anticipated-results> File is modified/removed </anticipated-results>
+			</test-step>
+			<test-step>
+				<description>/root/pmb -R [altered file]</description>
+				<anticipated-results> File is recovered </anticipated-results>
+			</test-step>
+		</testplan>
+	</section>
 
-	# Convince netwox stdin is usable (HACK!)
-	sleep 1 > $PIPE
+	<section title="Windows 2000 to 2003 Schema Upgrade">
+		<testplan name="Schema Upgrade">
+			<description> Upgrade the AD Schema </description>
+			<test-step>
+				<description>Ensure all W2K DCs are running SP4.</description>
+				<anticipated-results>All W2K DCs have SP4 </anticipated-results>
+			</test-step>
+			<test-step>
+				<description>Log in to the forest with the following permissions: Schema admin, Enterprise Admin, Domain Admin</description>
+				<anticipated-results>You have the specified permissions </anticipated-results>
+			</test-step>
+			<test-step>
+				<description> Register 'Active Directory Schema' for MMC by running "regsvr32 schmmgmt.dll"</description>
+				<anticipated-results>'Active Directory Schema' listed in MMC snap-ins</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Add the 'Active Directory Schema' snap-in and invoke the action,
+					'Operations Master' on it. Select the checkbox to allow the
+					schema to be modified on this domain controller
+				</description>
+				<anticipated-results>
+					Schema is allowed to be moified on this domain controller
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Run the InetOrgPersonPrevent.ldf script documented in KB article
+					325379 to prevent the LDAPDisplayNames for the homeIdentifier,
+					labeledURI, and secretary attributes from becoming mangled.
+				</description>
+				<anticipated-results>
+					Script completes successfully
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Prepare the AD forest for the upgrade. Run 'adprep /forestprep'
+					from the Windows 2003 Server OS CD.
+				</description>
+				<anticipated-results>
+					Forestprep has been run.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Prepare the AD domain for the upgrade. Run 'adprep /domainprep'
+					from the Windows 2003 Server OS CD.
+				</description>
+				<anticipated-results>
+					Domainprep has been run.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Disallow schema changes by reverting the change made in step N
+				</description>
+				<anticipated-results>
+					Schema modification is off
+				</anticipated-results>
+			</test-step>
+		</testplan>
+	</section>
 
-	echo "Looking up dhcp client's hostname..."
-	HOST=`host fakehost.captainplanet.sys`
+	<section title="Windows 2000 to 2003 Upgrade">
+		<testplan name="Upgrade a single server">
+			<description> Move a single server from Windows 2000 to 2003 </description>
+			<test-step>
+				<description>
+					Execute 'Schema Upgrade' plan if not already done for this forest and domain.
+				</description>
+				<anticipated-results>
+					AD Schema will be prepared for the Windows 2003 upgrade.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Make a note of all FSMO roles this server has. Transfer all of these FSMO
+					roles to the other Windows server.
+				</description>
+				<anticipated-results>
+					The upgrade target server will no longer host any FSMO roles for this domain.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					If this server is an Exchange Backend, choose another server to
+					be a Backend Server and move all user mailboxes that other server.
+				</description>
+				<anticipated-results>
+					No user mailboxes will live on this server
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Run 'dcpromo' and demote the upgrade target.
+				</description>
+				<anticipated-results>
+					The upgrade target will no longer act as a Domain Controller.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Remove the upgrade target from the domain it is joined to
+				</description>
+				<anticipated-results>
+					This computer will no longer be a member of the domain.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Install Windows 2003 Server
+				</description>
+				<anticipated-results>
+					Windows 2003 Server will be the host operating system.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Rejoin the upgrade target to the domain
+				</description>
+				<anticipated-results>
+					The upgrade target will be a member of the domain
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Run 'dcpromo' and promote this server to a Domain Controller
+				</description>
+				<anticipated-results>
+					The upgrade target will become an active Domain Controller for the domain.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Restore any FSMO roles previously held by this server to this server using 'ntdsutil'
+				</description>
+				<anticipated-results>
+					The upgrade target will reassume it's original FSMO roles.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Verify replication topology through 'adsiedit' or 'Active
+					Directory Sites and Services'. Also verify replication and other
+					states through 'dcdiag'
+				</description>
+				<anticipated-results>
+					Servers should show an expected replication topology. 'dcdiag'
+					should not show any unexpected errors or warnings.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					If this server was previously an Exchange 2000 Server, install Exchange 2003. Move mailboxes back to this server if it was a backend server before the upgrade.
+				</description>
+				<anticipated-results>
+					Server will regain its status as an Exchange Server.
+				</anticipated-results>
+			</test-step>
+		</testplan>
+	</section>
 
-	echo "q" > $PIPE
-	wait
+	<section title="Kerberos">
+		<testplan name="Kerberos KDC (earth.captainplanet.sys)">
+			<description>Validate KDC Configuration and Availability</description>
+			<test-step>
+				<description>
+					Check /etc/krb5.conf for proper realm and host entries.
+				</description>
+				<anticipated-results>
+					default_realm = USERS.CAPTAINPLANET.SYS, kdc = kerberos.captainplanet.sys.
+				</anticipated-results>
+			</test-step>
 
-	echo "DHCP Completed"	
+			<test-step>
+				<description>
+					Check /etc/rc.conf for kerberos settings
+				</description>
+				<anticipated-results>
+					kerberos5_server_enable="YES"
+					kadmind5_server_enable="YES"
+				</anticipated-results>
+			</test-step>
 
-	echo "Host information (While DHCP was up):"
-	echo -n "   "
-	echo $HOST
+			<test-step>
+				<description>
+					Attempt to authenticate as a kerberos principle. 'kinit jls'
+				</description>
+				<anticipated-results>
+					Authentication is successful and klist(1) shows a krbtgt for
+					this realm.
+				</anticipated-results>
+			</test-step>
+		</testplan>
+	</section>
 
-	echo "Host information (post dhcp-release):"
-	echo -n "   "
-	host fakehost.captainplanet.sys
+	<section title="LDAP">
+		<testplan name="LDAP slapd Configuration (wind.captainplanet.sys)">
+			<description> Verify slapd server configuration </description>
+			<test-step>
+				<description>
+					Check /usr/local/etc/openldap/slapd.conf for appropriate
+					configuration options.
+				</description>
+				<anticipated-results>
+					slapd.conf includes schemas: core, cosine, inetorgperson, and
+					nis. Loads module 'back_bdb' and has suffix of
+					'o=ldap,dc=captainplanet,dc=sys'
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Check rc.conf for slapd config
+				</description>
+				<anticipated-results>
+					slapd_enable="YES"
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Ensure slapd is running, ie: 'psg slapd'
+				</description>
+				<anticipated-results>
+					Slapd is indicated as running.
+				</anticipated-results>
+			</test-step>
+		</testplan>
 
-	# Cleanup
-	rm $PIPE > /dev/null 2>&1
-}
+		<testplan name="LDAP client Configuration (earth, wind)">
+			<description> Test configuration of ldap clients </description>
+			<test-step>
+				<description>
+					Ensure /usr/local/etc/openldap/ldap.conf has 'BASE
+					o=ldap,dc=captainplanet,dc=sys' and a URI pointing to the ldap
+					server (wind, or on wind, localhost)
+				</description>
+				<anticipated-results>
+					ldap client config is setup properly
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Test ldap connectivity and data integrity with 'ldapsearch -x'
+				</description>
+				<anticipated-results>
+					ldap data is printed in LDIF.
+				</anticipated-results>
+			</test-step>
+		</testplan>
+	</section>
 
-lookup_hosts() {
-	SERVER=$1
-	
-	HOSTS="earth.captainplanet.sys wind.captainplanet.sys water.captainplanet.sys fire.captainplanet.sys"
-	
-	for i in $HOSTS; do
-		host -t A "$i" "$SERVER" \
-			| grep "^$i" | awk '{print $1" = "$4}'
-	done
+	<!--
+			<test-step>
+				<description>
+				</description>
+				<anticipated-results>
+				</anticipated-results>
+			</test-step>
+	-->
+	<section title="Kerberos/OpenLDAP/AD Interoperability">
+		<testplan name="Kerberos and Active Directory Interoperability">
+			<description>
+				Test Completeness of KRB5/LDAP/AD Interoperability.
+			</description>
 
-	MAILDOMAIN="captainplanet.sys"
-	host -t MX "$MAILDOMAIN" "$SERVER" \
-		| grep "^$MAILDOMAIN" | awk '{print $6" "$7}' \
-		| sort -n
-}
+			<test-step>
+				<description>
+					Check for kerberos realm trust on all domain controllers and
+					clients. This is in 'AD Domains and Trusts' - there must be an
+					OUTGOING trust to USERS.CAPTAINPLANET.SYS and should be
+					'non-transitive'.
+				</description> <anticipated-results>
+					An outgoing, non-transitive trust should be established with
+					USERS.CAPTAINPLANET.SYS.
+				</anticipated-results>
+			</test-step>
 
-dns_test() {
-	DNS1="earth.captainplanet.sys"
-	DNS2="water.captainplanet.sys"
-	PRIMARY=`mktemp /tmp/dnstest.XXXXX`
-	SECONDARY=`mktemp /tmp/dnstest.XXXXX`
-	DIFF=`mktemp /tmp/dnstest.diff.XXXXX`
-	RESULTS="/tmp/dnstest.results"
+			<test-step>
+				<description>
+					Use ksetup to verify that the realm, USERS.CAPTAINPLANET.SYS, is
+					known to be on 'kerberos.captainplanet.sys'
+				</description>
+				<anticipated-results>
+					ksetup shows 'kerberos.captainplanet.sys' for the realm 'USERS.CAPTAINPLANET.SYS'
+				</anticipated-results>
+			</test-step>
 
-	echo "Looking up against primary dns"
-	lookup_hosts $DNS1 > $PRIMARY
-	lookup_hosts $DNS2 > $SECONDARY
+			<test-step>
+				<description>
+					Choose a user to login against Kerberos with. Verify this user has a kerberos name mapping in ADUC. You may need to enable ADVANCED VIEW in ADUC for this option to appear.
+				</description>
+				<anticipated-results>
+					The selected user has atleast one name mapping to realm USERS.CAPTAINPLANET.SYS
+				</anticipated-results>
+			</test-step>
 
-	echo "Results in $RESULTS"
+			<test-step>
+				<description>
+					Ensure the client host being tested has a host principle in
+					USERS.CAPTAINPLANET.SYS in the form: 'host/HOSTNAME'. This can
+					be done from a unix kadmin client with 'list host/*' and looking
+					for the hostname.  More specifically, you can do 'list -l
+					host/HOSTNAME'.
+				</description>
+				<anticipated-results>
+					A host principle for the client host being tested will exist.
+				</anticipated-results>
+			</test-step>
 
-	echo "Primary ($DNS1)" > $RESULTS
-	cat "$PRIMARY" >> $RESULTS
-	echo >> $RESULTS
-	echo "Secondary ($DNS2)" >> $RESULTS
-	cat "$SECONDARY" >> $RESULTS
+			<test-step>
+				<description>
+					Ensure the KDC (earth) krb5.conf has 'default_etypes' of
+					'des-cbc-crc' and nothing regarding 3des. Windows Kerberos does
+					not support 3DES.
+				</description>
+				<anticipated-results>
+					The KDC krb5.conf shows 'default_etypes = des-cbc-crc'
+				</anticipated-results>
+			</test-step>
 
-	diff -u $PRIMARY $SECONDARY > $DIFF
-	if [ $? -ne 0 ]; then
-		echo "FAILURE: !!! DNS SERVERS DISAGREE ON VALUES !!!"
-	else
-		echo "SUCCESS: DNS servers agree on queries"
-	fi
+			<test-step>
+				<description>
+					Ensure a user principle has been created for the user mapped from AD. If it has not, create one with kadmin: "add USERNAME"
+				</description>
+				<anticipated-results>
+					A user principle exists for this user and the password is known.
+				</anticipated-results>
+			</test-step>
 
-	echo >> $RESULTS
-	echo "Differences (if any):" >> $RESULTS
-	cat $DIFF >> $RESULTS
-	
-	# Cleanup
-	rm $PRIMARY $SECONDARY $DIFF > /dev/null 2>&1
-}
+			<test-step>
+				<description>
+					Test authentication with 'kinit USERNAME' on a Unix kerberos client. Ensure password is correct.
+				</description>
+				<anticipated-results>
+					kinit succeeds. 'klist' will show the krbtgt proving this.
+				</anticipated-results>
+			</test-step>
 
-nis_test() {
-	grep -H ^nisdomain= /etc/rc.conf
-	DOMAIN=`domainname`
+			<test-step>
+				<description>
+					Verify authentication under Windows by using 'runas'. Open a
+					command window and run 'runas /user:kerb.user.name@ USERS.CAPTAINPLANET.SYS cmd'.
+				</description>
+				<anticipated-results>
+					Entering the correct password should bring up an additional command
+					window with the title of 'running as kerb.user.name'.
+				</anticipated-results>
+			</test-step>
 
-	if [ -z "$DOMAIN" ]; then
-		echo "FAILURE: !!! NO DOMAIN SET !!!"
-	else
-		echo "Domain: $DOMAIN"
-	fi
+			<test-step>
+				<description>
+					Test login-ability by attempting to login with this user. Select
+					the 'USERS.CAPTAINPLANET.SYS' domain/realm from the login window
+					and enter the user's mapped kerberos name and password.
+				</description>
+				<anticipated-results>
+					You will have successfully logged in and be presented with a desktop
+				</anticipated-results>
+			</test-step>
+		</testplan>
 
-	YPWHICH=`ypwhich`
-	if [ -z "$YPWHICH" ]; then
-		echo "FAILURE: !!! NO NIS SERVER BOUND !!!"
-	else
-		echo "NIS Server: $YPWHICH"
-	fi
+		<testplan name="LDAP/Kerberos">
+			<description>LDAP and Kerberos interoperability</description>
+			<test-step>
+				<description>
+					Ensure slapd is running (see ldap slapd plan)
+				</description>
+				<anticipated-results>
+					slapd is running
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Ensure kdc is running (see kerberos kdc plan)
+				</description>
+				<anticipated-results>
+					kdc is running.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Choose a user to test with who's password can be known. Look this user up with the finger(1) tool.
+				</description>
+				<anticipated-results>
+					Proper user information (shell, uid, username, gecos name, etc)
+					are displayed by finger(1)
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Attempt to login with this user.
+				</description>
+				<anticipated-results>
+					You are successfully logged in as this user
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Ask ldap who you are with 'ldapwhoami'
+				</description>
+				<anticipated-results>
+					ldapwhoami uses GSSAPI and your Kerberos ticket against LDAP to
+					identify you.
+				</anticipated-results>
+			</test-step>
+			<!--
+			<test-step>
+				<description>
+				</description>
+				<anticipated-results>
+				</anticipated-results>
+			</test-step>
+			-->
+		</testplan>
+	</section>
 
-	USERS=`ypcat passwd | wc -l | xargs`
-	USERNAMES=`ypcat passwd | grep -v '^#' | awk -F: '{print $1}' | xargs`
-	echo "NIS Users ($USERS): $USERNAMES"
+	<section title="Practical Tasks">
+		<testplan name="IPv6">
+			<description>
+				Test and Validate IPv6 connectivity.
+			</description>
+			<test-step>
+				<description>
+					Verify tspc ip6-ip4 tunnel is working correctly. 'ifconfig tx0' should show inet6 addresses.
+				</description>
+				<anticipated-results>
+					earth.captainplanet.sys should have an IPv6 address begining with '2001:' on tx0.
+				</anticipated-results>
+			</test-step>
 
-	GROUPS=`ypcat group | wc -l | xargs`
-	GROUPNAMES=`ypcat group | grep -v '^#' | awk -F: '{print $1}' | xargs`
-	echo "NIS Groups ($GROUPS): $GROUPNAMES"
-}
+			<test-step>
+				<description>
+					Ensure rtadvd is running on earth with 'rtadvd_enable' in rc.conf and 'psg rtadvd' from the command line.
+				</description>
+				<anticipated-results>
+					rtadvd is running on tx0
+				</anticipated-results>
+			</test-step>
 
-ddns_test() {
-	ADDCMDS=`mktemp /tmp/ddns.test.XXXX`
-	REMCMDS=`mktemp /tmp/ddns.test.XXXX`
+			<test-step>
+				<description>
+					Check other hosts for ipv6 adddresses. FreeBSD: use 'ifconfig'.
+					Windows: use 'ipconfig /all' - Note, that lower bits on IPv6
+					addresses are determined by the host MAC address.
+				</description>
+				<anticipated-results>
+					All other hosts should have 2001: prefixed ipv6 addresses on the
+					same /48 as the router, earth.
+				</anticipated-results>
+			</test-step>
 
-	HOSTNAME="happyhost.captainplanet.sys"
-	IP="10.110.82.200"
-	REVIP=`echo $IP | awk -F. '{print $4"."$3"."$2"."$1}'`
+			<test-step>
+				<description>
+					Verify that windows hosts will use IPv6 when possible. Expect
+					the 'dancing turtle' when accessing 'www.kame.net' with an
+					ipv6-capable web browser such as IE 6 or Firefox.
+				</description>
+				<anticipated-results>
+					The KAME turtle dances.
+				</anticipated-results>
+			</test-step>
 
-	cat << "COMMANDS" | sed -e "s/%HOSTNAME%/${HOSTNAME}/g; s/%IP%/${IP}/g; s/%REVIP%/${REVIP}/g" > $ADDCMDS
-zone captainplanet.sys
-update add %HOSTNAME%. 600 IN A %IP%
-show
-send
+			<test-step>
+				<description>
+					Test IPv6 DNS for our network. Verify hosts earth, wind, water, and fire have IPv6 AAAA records. Compare AAAA records against actual IPv6 addresses on each host. Perform reverse lookups on said IPv6 addresses and ensure that they resolve to their respective hosts.
+				</description>
+				<anticipated-results>
+					Local IPv6 DNS works properly.
+				</anticipated-results>
+			</test-step>
 
-zone 82.110.10.in-addr.arpa
-update add %REVIP%.in-addr.arpa. 600 IN PTR %HOSTNAME%
-show
-send
-COMMANDS
+			<test-step>
+				<description>
+					Test the following services for IPv6 connectivity: openldap, sendmail, exchange (imap), and possibly others?
+				</description>
+				<anticipated-results>
+					All tested services listen and respond via IPv6.
+				</anticipated-results>
+			</test-step>
 
-	cat << "COMMANDS" | sed -e "s/%HOSTNAME%/${HOSTNAME}/g; s/%IP%/${IP}/g; s/%REVIP%/${REVIP}/g" > $REMCMDS
-zone captainplanet.sys
-update delete %HOSTNAME%. 600 IN A %IP%
-send
+			<test-step>
+				<description>
+					Bypass Lab NAT. Try ssh'ing to earth from another IPv6 host.
+				</description>
+				<anticipated-results>
+					You are able to contact our network from the outside world,
+					bypassing nat, using the IPv6 tunnel.
+				</anticipated-results>
+			</test-step>
 
-zone 82.110.10.in-addr.arpa
-update delete %REVIP%.in-addr.arpa. 600 IN PTR %HOSTNAME%
-send
-COMMANDS
-	
-	nsupdate -k /etc/namedb/keys/Khappykey.+157+46176.key $ADDCMDS >> $LOGFILE 2>&1
-	if [ "$?" -ne 0 ]; then
-		echo "FAILURE: !!! ERROR ADDING HOSTS VIA NSUPDATE !!!"
-	else
-		echo "SUCCESS: nsupdate add succeeded"
-	fi
+			<test-step>
+				<description>
+				</description>
+				<anticipated-results>
+				</anticipated-results>
+			</test-step>
+		</testplan>
 
-	echo -n "Resolving ${HOSTNAME}: "
-	host ${HOSTNAME} | grep "^${HOSTNAME}" | awk '{print $4}'
-	echo -n "Resolving ${IP}: "; 
-	host ${IP} | grep "^${REVIP}" | awk '{print $5}'
+		<testplan name="Sendmail Gateway">
+			<description>
+				Verify sendmail server acts as a gateway.
+			</description>
 
-	nsupdate -k /etc/namedb/keys/Khappykey.+157+46176.key $REMCMDS >> $LOGFILE
-	if [ "$?" -ne 0 ]; then
-		echo "FAILURE: !!! ERROR DELETING HOSTS VIA NSUPDATE !!!"
-	else
-		echo "SUCCESS: nsupdate delete succeeded"
-	fi
+			<test-step>
+				<description>
+					Check 'captainplanet.sys' entry in /etc/mail/mailertable.
+				</description>
+				<anticipated-results>
+					Mail should be directed to 'exchange.captainplanet.sys'
+				</anticipated-results>
+			</test-step>
 
-	# Cleanup
-	rm $ADDCMDS $REMCMDS
-}
+			<test-step>
+				<description>
+					Look up Connectors in Exchange Admin.
+				</description>
+				<anticipated-results>
+					All outbound mail should be pointed through 'mail.captainplanet.sys'
+				</anticipated-results>
+			</test-step>
 
-case $TEST in
-	DHCP) dhcp_test ;;
-	NSLOOKUP) dns_test ;;
-	DDNS) ddns_test ;;
-	SENDMAIL) sendmail_test ;;
-	NIS) nis_test ;;
-	*)
-		echo "Invalid test: $TEST"
-		exit
-		;;
-esac
-]]></pre>
-	</section><!--}}}-->
+			<test-step>
+				<description>
+					Query DNS for MX records. 
+				</description>
+				<anticipated-results>
+					Lowest priority record should point to 'mail.captainplanet.sys'
+					while secondary should point to 'exchange.captainplanet.sys'.
+					These hostnames should resolve to valid hosts running mail
+					services.
+				</anticipated-results>
+			</test-step>
 
+			<test-step>
+				<description>
+					Send mail from the unix non-sendmail server to an Active
+					Directory user. 'sendmail jls@captainplanet.sys' for example.
+					Type a test message. Before sending, 'tail -f /var/log/maillog'
+					on the sendmail server to verify mail relaying.
+				</description>
+				<anticipated-results>
+					Mail is sent through 'mail.captainplanet.sys' and relayed to 'exchange'
+				</anticipated-results>
+			</test-step>
+
+			<test-step>
+				<description>
+					Check the test target's email account with Outlook using IMAP.
+					The message you sent should arrive.
+				</description>
+				<anticipated-results>
+					The mail you sent was delivered successfully.
+				</anticipated-results>
+			</test-step>
+
+			<test-step>
+				<description>
+					Send a test mail to an accessible external address from Outlook.
+					Check the external mail account for new mail. Watch 'tail -f
+					/var/log/maillog' on the sendmail gateway to ensure outbound
+					mail is being routed through sendmail from exchange.
+				</description>
+				<anticipated-results>
+					The sent mail is received and readable by the external mail
+					account. The mail was relayed through 'mail.captainplanet.sys'
+				</anticipated-results>
+			</test-step>
+		</testplan>
+
+		<testplan name="AD/LDAP Sync">
+			<description>Active Directory to OpenLDAP Synchronization</description>
+			<test-step>
+				<description>
+					Run /root/ad2ldap
+				</description>
+				<anticipated-results>
+					Users from AD will have been replicated into OpenLDAP.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					finger a user on the unix ldap client. It should return proper information about a user that was in Active Directory.
+				</description>
+				<anticipated-results>
+					Proper user information is returned.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Change the user's display name in ADUC by renaming the user
+				</description>
+				<anticipated-results>
+					The user will have been given a new name in Active Directory
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Run /root/ad2ldap again to resync users.
+				</description>
+				<anticipated-results>
+					Users will be resynchronized.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Finger the same user again
+				</description>
+				<anticipated-results>
+					The gecos field (full name) will be different depending on what
+					you changed.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Add a new user via ADUC
+				</description>
+				<anticipated-results>
+					A new user will exist in AD
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Rerun /root/ad2ldap
+				</description>
+				<anticipated-results>
+					User sync
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Finger the new user
+				</description>
+				<anticipated-results>
+					The user will be accessible from Unix.
+				</anticipated-results>
+			</test-step>
+		</testplan>
+
+		<testplan name="Web Interface / Streaming">
+			<description> Test usability of web-interfaced streaming service </description>
+			<test-step>
+				<description>
+					Ensure that 'pimp.py' is running with 'psg pimp.py' - run it if it is not running. /root/projects/pimp/pimp.py
+				</description>
+				<anticipated-results>
+					Pimp starts running.
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Start listening to a stream, point a media player at http://wind.captainplanet.sys:8000/stream/syslab
+				</description>
+				<anticipated-results>
+					Music starts playing
+				</anticipated-results>
+			</test-step>
+			<test-step>
+				<description>
+					Visit the web interface control system via Firefox at:
+					http://wind.captainplanet.sys:8000. Use the interface to control
+					the music stream.
+				</description>
+				<anticipated-results>
+					Music streams can be controlled.
+				</anticipated-results>
+			</test-step>
+		</testplan>
+	</section>
 </sitebook>
