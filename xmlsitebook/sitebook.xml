@@ -86,37 +86,51 @@
 		<section title="Server Information">
 			<section title="earth.captainplanet.sys">
 				<p>
-				<b>Operating System:</b> FreeBSD 5.4
+				<ul>
+					<li><b>Operating System:</b> FreeBSD 5.4</li>
+					<li><b>Last Full Software Update:</b> 11/10/05</li>
+				</ul>
 				</p>
 
 				<p>
 				<b>Services and Roles</b>
 				<ul>
 					<li> Primary DNS (BIND 9.3.1) </li>
-					<li> DHCP (isc dhcpd 3.0.1rc14) </li>
-					<li> NIS Slave </li>
-					<li> NIS Client </li>
+					<li> DHCP Server (isc-dhcpd 3.0.1rc14_6) </li>
+					<li> OpenLDAP Client (openldap-sasl-client-2.3.11) </li>
+					<li> IPv6 Router Advertisement (rtadvd) </li>
+					<li> OpenSSH Server (OpenSSH 4.2p1) </li>
+					<li> tspc Freenet6 tunnel client </li>
 				</ul>
 				</p>
 			</section>
 			<section title="wind.captainplanet.sys">
 			<p>
-				<b>Operating System:</b> FreeBSD 5.4
+				<ul>
+					<li><b>Operating System:</b> FreeBSD 5.4</li>
+					<li><b>Last Full Software Update:</b> 11/10/05</li>
+				</ul>
 			</p>
 
 			<p>
 			<b>Services and Roles</b>
 			<ul>
-				<li> NIS Client </li>
 				<li> Mail Server (Sendmail 8.13.3) </li>
 				<li> SpamAssassin 3.0.2 </li>
 				<li> ClamAV 0.87 </li>
+				<li> OpenSSH Server (OpenSSH 4.2p1) </li>
+				<li> OpenLDAP Client (openldap-sasl-client-2.3.11) </li>
+				<li> OpenLDAP Server (openldap-server-2.3.11) </li>
 			</ul>
 			</p>
 			</section>
 			<section title="water.captainplanet.sys">
 			<p>
-				<b>Operating System:</b> Windows 2003 Server
+				<ul>
+					<li><b>Operating System:</b> Windows 2003 Server</li>
+					<li><b>Last full patch date: 11/15/05</b></li>
+					<li><b>Exchange Patches: SP2</b></li>
+				</ul>
 			</p>
 
 			<p>
@@ -124,13 +138,16 @@
 				<ul>
 					<li> AD Domain Controller: All FSMO Roles </li>
 					<li> Exchange 2003 Front-end Server </li>
-					<li> NIS Master </li>
 				</ul>
 			</p>
 			</section>
 			<section title="fire.captainplanet.sys">
 			<p>
-				<b>Operating System:</b> Windows 2003 Server
+				<ul>
+					<li><b>Operating System:</b> Windows 2003 Server</li>
+					<li><b>Last full patch date:</b> 11/15/05</li>
+					<li><b>Exchange Patches: SP2</b></li>
+				</ul>
 			</p>
 
 			<p>
@@ -305,6 +322,26 @@
 				</tr>
 			</table>
 		</section>
+		<section title="Backup Configuration">
+			<section title="FreeBSD Servers">
+				<p>
+					Backups are scheduled to run nightly at 3AM. These backups are
+					managed by 'Poor man's Backup' system written by the author of
+					this document. It supplies our FreeBSD servers with incremental
+					backups and easy recoveries.
+				</p>
+				<p>
+					Backups are stored remotely on an off-site server in case of
+					on-site disaster.
+				</p>
+			</section>
+			<section title="Windows Servers">
+				<p>
+					Windows servers are equipped with weekly ntbackup sessions.
+					Backups are written to local disk.
+				</p>
+			</section>
+		</section>
 	</section>
 
 	<section title="Contact Information and Resources">
@@ -356,17 +393,6 @@
 	</section>
 
 	<section title="Known Issues">
-		<section title="NIS">
-			<p>
-				NIS Passwords are transmitted to slaves and clients (and thusly
-				viewable by users) in their hashed forms. Any normal user can
-				'ypcat passwd' and run john on the passwd file to guess passwords.
-				Also, using NIS requires RPC. RPC uses lots of random ports, making
-				securing anything using NIS difficult. A script can possibly be
-				written to dynamically pull ports used by rpc services and add them
-				to the firewall.
-			</p>
-		</section>
 		<section title="DNS">
 			<p>
 				Active Directory requires that a host-based trust be established
@@ -400,25 +426,6 @@
 	</section>
 
 	<section title="Troubleshooting">
-		<section title="NIS">
-			<section title="User does not show up in passwd map">
-				<p>
-					In Active Directory, ensure the user in question has been added
-					to the appropriate domain. Verify via ADUC user properties in
-					the 'UNIX Attributes' tab. Also ensure that this user is a
-					member of a valid NIS group. They should be in the 'Unix Users'
-					group or another group that is a member of the NIS domain.
-				</p>
-			</section>
-			<section title="User cannot login but is in passwd map">
-				<p>
-					If the user's password hash is 'ABCD!efghi12345$67890' then the
-					Active Directory hasn't been able to create a valid password
-					hash for this user. Reset the user's password via ADUC and wait
-					for or force propogation. Verify success via ypcat passwd.
-				</p>
-			</section>
-		</section>
 		<section title="Exchange POP3/IMAP Access">
 			<section title="Error: Specified module could not be found">
 				<p>
@@ -631,7 +638,7 @@ ntpd_enable="YES"
 
 sendmail_enable="YES"
 sendmail_outbound_enable="YES"
-pf_enable="NO"
+pf_enable="YES"
 nfs_client_enable="YES"
 
 kerberos5_server_enable="YES"
@@ -653,33 +660,21 @@ table <active_directory_servers> { water, fire	}
 
 ### Services
 # DNS
-pass in inet proto udp from any to $ext_if port domain keep state
-pass in proto tcp from any to $ext_if port domain keep state
+pass in quick inet proto udp from any to $ext_if port domain keep state
+pass in quick proto tcp from any to $ext_if port domain keep state
 
 # SSH
-pass in proto tcp from any to $ext_if port ssh keep state
-
-# RPC (nis, etc)
-pass in proto udp from any to $ext_if port 111 keep state #sunrpc
-pass in proto tcp from any to $ext_if port 111 keep state #sunrpc
-
-pass in proto udp from any to $ext_if keep state # rpc?
-#pass in proto udp from any to $ext_if port 601 keep state
-#pass in proto udp from any to $ext_if port 601 keep state
-#pass in proto udp from any to $ext_if port sshell keep state
-#pass in proto tcp from any to $ext_if port 1006 keep state
-#pass in proto udp from any to $ext_if port 633 keep state
-#pass in proto tcp from any to $ext_if port 981 keep state
+pass in quick proto tcp from any to $ext_if port ssh keep state
 
 # DHCP
-pass in proto udp from any to any port bootps keep state
-pass in proto udp from any to any port bootpc keep state
+pass in quick proto udp from any to any port bootps keep state
+pass in quick proto udp from any to any port bootpc keep state
 
 # Sendmail (Blocked, for now?)
-block in proto tcp from any to $ext_if port smtp
+block in quick proto tcp from any to $ext_if port smtp
 
 # Allow anything from the windows machines
-pass in from <active_directory_servers> to $ext_if keep state
+pass in quick from <active_directory_servers> to $ext_if keep state
 
 pass out all keep state
 block in log all
@@ -808,12 +803,6 @@ URI     ldap://wind.captainplanet.sys
     kdc = 1-/FILE:/var/log/kdc.log
 ]]></pre>
 			</section><!--}}}-->
-			<section title="Dummy Entry"><!--{{{-->
-<pre><![CDATA[
-nothing to see here
-move along...
-]]></pre>
-			</section><!--}}}-->
 		</section>
 		<section title="wind.captainplanet.sys"> 
 			<section title="Sendmail">
@@ -933,6 +922,7 @@ captainplanet.sys	smtp:exchange.captainplanet.sys
 
 # Allow our subnet to use us for an email relay
 10.110.82			RELAY
+IPV6:2001:5c0:8c4f			RELAY
 ]]></pre>
 				</section><!--}}}-->
 			</section>
@@ -950,7 +940,7 @@ defaultrouter="10.110.82.254"
 ntpdate_enable="YES"
 ntpdate_flags="-b water.captainplanet.sys"
 ntpd_enable="YES"
-pf_enable="NO"
+pf_enable="YES"
 
 sendmail_enable="YES"
 
@@ -973,14 +963,13 @@ nfs_client_enable="YES"
 <pre><![CDATA[
 ext_if="tx0"
 pass in quick on lo0
-pass in inet proto icmp from any to any
-pass in inet proto tcp from any to $ext_if
+pass in quick inet proto icmp from any to any
 pass in quick proto tcp from any to $ext_if port 22 keep state
+pass in quick proto tcp from any to $ext_if port 25 keep state
+pass in quick proto tcp from any to $ext_if port 389 keep state
+pass in quick proto tcp from any to $ext_if port 8000 keep state
 pass in quick proto udp from $ext_if to any port domain keep state
 pass in quick proto tcp from $ext_if to any port domain keep state
-pass in quick proto udp from $ext_if to earth keep state
-pass in quick proto udp from earth to $ext_if keep state
-pass in quick proto tcp from any to $ext_if port 25 keep state
 pass out quick all keep state
 block in all
 ]]></pre>
@@ -1227,10 +1216,6 @@ done
 
 rm $LDIF $UNLDIF $UIDS $IMPORTLDIF > /dev/null 2>&1 
 rm -r $LDIFDIR
-]]></pre>
-		</section><!--}}}-->
-		<section title="DUMMY ENTRY"><!--{{{-->
-<pre><![CDATA[
 ]]></pre>
 		</section><!--}}}-->
 	</section>
