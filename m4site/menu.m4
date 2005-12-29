@@ -1,5 +1,4 @@
 ifdef(DEPTH, ,`define(DEPTH, 0)')dnl
-define(`BACKPATH', `forloop(`p',`0',DEPTH, `../')')
 define(`LINK', `<a href="/~psionic/new`'BACKPATH()$1">$2</a>')dnl
 
 <div id="leftbar">
