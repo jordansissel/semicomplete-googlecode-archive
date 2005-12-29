@@ -15,20 +15,34 @@ all:
 	@ \
 	[ -z "$(DEPTH)" ] && DEPTH=1 || DEPTH=`expr $(DEPTH) + 1`; \
 	for i in *; do \
-		[ -d "$$i" -a -f "$$i/Makefile" ] && \
-		(cd $$i; make DEPTH=$${DEPTH} BACKPATH=../$(BACKPATH)); \
-	done; :
+		if [ -d "$$i" -a -f "$$i/Makefile" ]; then  \
+			(cd $$i; make DEPTH=$${DEPTH} BACKPATH=../$(BACKPATH)) \
+		fi; \
+	done;
 
 clean: clean-local $(CLEANTARGETS)
 
 clean-local:
 	rm *.html || true
 	@for i in *; do \
-		[ -d "$$i" -a -f "$$i/Makefile" ] && (cd $$i; make clean); \
-	done; :
+		if [ -d "$$i" -a -f "$$i/Makefile" ]; then \
+			cd $$i; \
+			make clean; \
+		fi; \
+		done;
 
-.in.html: 
+# Hack?
+#dirlinks.m4: generate_dirlinks
+
+dirlinks.m4 gen: $(BACKPATH)articles/ $(BACKPATH)projects/
+	echo "YES"
+	touch dirlinks.m4
+.in.html:
 	@echo $< '->' $@
 	$(M4) $(BACKPATH)generate.m4 -DINPUTPAGE="$<" -DBACKPATH="$(BACKPATH)" -DDEPTH="$(DEPTH)" > $@
 
-test.html: layout.m4 macros.m4
+# DEPENDENCIES HERE
+
+test.html: $(BACKPATH)dirlinks.m4 $(BACKPATH)generate.m4
+
+

@@ -10,16 +10,12 @@
 
 		<li class="topic">
 			LINK(articles, Articles)
-			<ul>
-				<li> Test? </li>
-			</ul>
+			PROJECTLIST(articles)
 		</li>
 
 		<li class="topic">
 			LINK(projects, Projects)
-			<ul>
-				<li> Test two? </li>
-			</ul>
+			PROJECTLIST(projects)
 		</li>
 
 	</ul>
