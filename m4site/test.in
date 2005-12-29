@@ -1,3 +1,5 @@
 define(`MYTITLE', `Foo bar baz')dnl
-define(`MYCAPTION', `For he was a jolly good fellow.')dnl
-hello there
+define(`MYCAPTION', `For he was a jolly good fellow.z')dnl
+
+Why heloooooo!
+
