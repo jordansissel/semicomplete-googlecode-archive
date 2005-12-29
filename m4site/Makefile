@@ -13,6 +13,6 @@ default:
 	done; :
 
 .in.html: 
-	m4 generate.m4 -DINPUTPAGE="$@"
+	m4 generate.m4 -DINPUTPAGE="$<"
 
 test.html: header.m4 footer.m4 macros.m4

@@ -1,7 +1,7 @@
-include(macros.m4)
-divert(9)
-include(INPUTPAGE)
-divert(0)
-include(header.m4)
-undivert(9)
-include(footer.m4)
+include(macros.m4)dnl
+divert(9)dnl
+include(INPUTPAGE)dnl
+divert(0)dnl
+include(header.m4)dnl
+undivert(9)dnl
+include(footer.m4)dnl
