@@ -7,8 +7,16 @@ CLEANTARGETS+=clean-articles
 
 include ../Makefile
 
-articles:
-	@for i in `ls -d *`; do [ -d $$i ] && $(MAKE) $$i/index.html || exit 1; done; :
+articles: index.html
+	@for i in `ls -d *`; do \
+	if [ -d $$i ]; then \
+		$(MAKE) $$i/index.html; \
+	fi; \
+	done;
+
+# Generate index.in
+index.in: */index.xml
+	xsltproc header.xsl */index.xml > $@
 
 clean-articles:
 	rm */index.html

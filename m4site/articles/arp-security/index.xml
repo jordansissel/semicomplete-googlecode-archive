@@ -2,6 +2,12 @@
 	<head>
 		<title>ARP Security</title>
 		<caption>ARP-related security issues</caption>
+		<description>
+			Dive into ARP Poisoning. This article explains in some detail how and
+			why ARP poisoning works. It also details several uses for arp
+			poisoning aswell as how to prevent poisoning on your
+			network.
+		</description>
 	</head>
 	<body>
 		<topic title="Preface">
