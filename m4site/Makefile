@@ -4,7 +4,7 @@ TARGETDIR=/u9/psionic/public_html/new
 SHELL=/bin/ksh
 
 #MAKEFLAGS=--no-print-directory
-MAKEFLAGS=-r
+#MAKEFLAGS=-r
 
 M4=/usr/local/bin/m4
 TEST=/bin/test
@@ -28,7 +28,7 @@ MARGS=DEPTH=$$(($(DEPTH)+1)) BACKPATH=../$(BACKPATH)
 
 .PHONY: clean all gendirlinks subdirs
 
-all: $(TARGETS:%.in=%.html) $(SUBTARGETS) subdirs
+all: $(BACKPATH)dirlinks.m4 $(TARGETS:%.in=%.html) $(SUBTARGETS) subdirs
 
 subdirs:
 	@for i in */; do \
@@ -38,21 +38,23 @@ subdirs:
 clean: clean-local $(CLEANTARGETS)
 
 clean-local:
-	rm *.html || true
+	rm *.html $(TEMPDIRLINKS) dirlinks.m4 2> /dev/null; :
 	@for i in *; do \
 		if [ -d "$$i" -a -f "$$i/Makefile" ]; then \
 			cd $$i; \
 			$(MAKE) clean; \
 		fi; \
-		done;
+	done;
 
 # Hack?
 $(BACKPATH)dirlinks.m4: $(BACKPATH)$(TEMPDIRLINKS)
+	@echo GOING
 	@cp $< $@
 
 $(BACKPATH)$(TEMPDIRLINKS): FORCE
 	@\
-	DIRS=`ls -d */`; \
+	[ ! -z "$(BACKPATH)" ] && exit 0 || :; \
+	DIRS=`ls -d $(BACKPATH)*/`; \
 	for i in $$DIRS; do \
 		if $(TEST) $(BACKPATH)$(TEMPDIRLINKS) -ot $$i; then \
 			echo "$$i is new (vs $(BACKPATH)$(TEMPDIRLINKS))"; \
@@ -66,7 +68,7 @@ $(BACKPATH)$(TEMPDIRLINKS): FORCE
 			echo "define(\`LINKS_$$i',\`"; \
 			ls -d $${i}/*/ 2> /dev/null | sed -e "s%^[^/]*/\(.*\)%PROJECTLINK($$i,\1)dnl%; s%/%%g"; \
 			echo "')dnl"; \
-		done > $(TEMPDIRLINKS); \
+		done > $(BACKPATH)$(TEMPDIRLINKS); \
 	fi
 FORCE:
 

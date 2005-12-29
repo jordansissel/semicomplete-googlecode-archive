@@ -1,6 +1,9 @@
 
 SUBTARGETS+=article
 CLEANTARGETS+=cleanarticle
+
+.PRECIOUS: index.in
+
 include ../../Makefile
 
 article: index.html
