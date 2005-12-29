@@ -1,0 +1,7 @@
+include(macros.m4)
+divert(9)
+include(INPUTPAGE)
+divert(0)
+include(header.m4)
+undivert(9)
+include(footer.m4)

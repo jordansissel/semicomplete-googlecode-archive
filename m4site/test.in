@@ -1,0 +1,2 @@
+define(`TITLE', `Foo bar baz')dnl
+hello there

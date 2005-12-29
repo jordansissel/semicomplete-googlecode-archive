@@ -1,0 +1,76 @@
+BODY {
+	top: 20px;
+	font-size: small;
+	font-family: Verdana, sans-serif;
+	width: 700px;
+}
+
+H2 {
+	margin-bottom: 7px;
+	margin-top: 7px;
+}
+
+H3 {
+	margin-top: 4px;
+	margin-bottom: 4px;
+}
+#name {
+	font-size: 16px;
+	font-weight: bold;
+	top: 0px;
+}
+
+#author {
+	border-bottom: 1px solid black;
+}
+
+#address {
+	font-size: 14px;
+	top: 0px;
+}
+
+.topic { 
+	margin-top: 15px;
+	border-bottom: 1px solid lightgrey;
+}
+
+.topic .title { 
+	font-size: 16px;
+	font-weight: bold;
+}
+
+.topic .skill .type {
+	font-weight: bold;
+}
+
+#jobs .job .what {
+	font-weight: bold;
+	display: inline;
+}
+
+#jobs .job .when {
+	display: inline;
+	font-size: small;
+}
+
+#jobs .job .where {
+	margin-left: 20px;
+}
+
+#jobs .job .description {
+	margin-left: 20px;
+}
+
+#projects .project .name  {
+	font-weight: bold;
+	display: inline;
+}
+
+#projects .project .buzzwords {
+	display: inline;
+	font-size: smallest;
+}
+
+#projects .project .description  {
+	margin-left: 20px;
+}
