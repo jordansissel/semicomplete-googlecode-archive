@@ -12,8 +12,13 @@ default:
 		[ -d "$$i" -a -f "$$i/Makefile" ] && (cd $$i; make); \
 	done; :
 
+clean:
+	rm *.html
+	@for i in *; do \
+		[ -d "$$i" -a -f "$$i/Makefile" ] && (cd $$i; make clean); \
+	done; :
+
 .in.html: 
 	m4 generate.m4 -DINPUTPAGE="$<" > $@
 
 test.html: header.m4 footer.m4 macros.m4
-header.m4: logo.m4 menu.m4
