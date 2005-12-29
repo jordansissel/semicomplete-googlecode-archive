@@ -1,5 +1,2 @@
-define(`HTML_TITLE', `dnl
-ifdef(`TITLE', `TITLE', `Open Source Adventures') dnl
-- dnl
-ifdef(`SUBTITLE', SUBTITLE, `Technology projects and articles') dnl
-')dnl
+define(`TITLE', `ifdef(`MYTITLE', `MYTITLE', `Open Source Adventures')')dnl
+define(`CAPTION', `ifdef(`MYCAPTION', `MYCAPTION', `Technology Projects and Articles')')
