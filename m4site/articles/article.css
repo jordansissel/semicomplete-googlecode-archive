@@ -1,0 +1,51 @@
+#article {
+	padding-bottom:30px;
+}
+
+#article .toc {
+	float: right;
+	border: 1px solid lightgreen;
+	background-color: #E8F5FF;
+	text-align: left;
+	margin-left: 15px;
+	padding-bottom: 3px;
+	margin-bottom: 10px;
+	padding-right: 10px;
+	margin-top: 15px;
+}
+
+#article .toc h4 {
+	margin: 0px;
+	margin-top: 5px;
+}
+#article .toc ol {
+	margin-left: 2em;
+	padding-left: 0;
+}
+
+#article .toc li {
+	margin: 0;
+	padding: 0;
+}
+
+#article .toc A {
+	border-color: #E8F5FF;
+}
+
+#article .toc A:hover {
+	border-color: green;
+}
+
+#article .toc H4 {
+	/*display: inline*/
+	text-align: center;
+}
+
+#article H4 {
+	margin-bottom: 0px;
+}
+
+#article P {
+	margin-top: 6px;
+	margin-bottom: 0px;
+}
