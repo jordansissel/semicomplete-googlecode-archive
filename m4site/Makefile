@@ -19,10 +19,10 @@ all:
 		(cd $$i; make DEPTH=$${DEPTH} BACKPATH=../$(BACKPATH)); \
 	done; :
 
-clean: clean-local rp-security/
+clean: clean-local $(CLEANTARGETS)
 
 clean-local:
-	rm *.html
+	rm *.html || true
 	@for i in *; do \
 		[ -d "$$i" -a -f "$$i/Makefile" ] && (cd $$i; make clean); \
 	done; :

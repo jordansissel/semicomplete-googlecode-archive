@@ -8,10 +8,11 @@ CLEANTARGETS+=clean-articles
 include ../Makefile
 
 articles:
-	@for i in `ls -d *`; do [ -d $$i ] && $(MAKE) $$i/index.html; done
+	@for i in `ls -d *`; do [ -d $$i ] && $(MAKE) $$i/index.html || exit 1; done; :
 
 clean-articles:
-	@for i in `ls -d *`; do [ -d $$i ] && rm $$i/index.html; done
+	rm */index.html
+
 .xml.in:
 	xmllint $< > /dev/null
 	[ -f "$@" ] && cp $@ $(@)~ || true
