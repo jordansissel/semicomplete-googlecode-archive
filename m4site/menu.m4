@@ -10,12 +10,12 @@
 
 		<li class="topic">
 			LINK(articles, Articles)
-			PROJECTLIST(articles)
+			LINKS_articles
 		</li>
 
 		<li class="topic">
 			LINK(projects, Projects)
-			PROJECTLIST(projects)
+			LINKS_projects
 		</li>
 
 	</ul>

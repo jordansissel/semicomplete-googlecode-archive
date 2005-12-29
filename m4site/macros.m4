@@ -9,3 +9,7 @@ dnl #define(`BACKPATH', `forloop(`p',`0',DEPTH, `../')')dnl
 define(`pinclude', `include(BACKPATH`'$1)')dnl
 define(`LINK', `<a href="/~psionic/new/site/$1">$2</a>')dnl
 dnl define(`PROJECTLIST', `testing')dnl
+define(`PROJECTLINK',`
+<li>LINK($1/$2,$2)</li>
+')dnl
+pinclude(dirlinks.m4)
