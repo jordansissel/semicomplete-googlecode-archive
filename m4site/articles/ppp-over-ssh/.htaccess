@@ -1,0 +1,1 @@
+RedirectMatch (/~psionic/articles/ppp-over-ssh/)index.xml $1

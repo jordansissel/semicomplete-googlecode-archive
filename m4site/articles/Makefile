@@ -15,11 +15,11 @@ articles: index.html
 	done;
 
 # Generate index.in
-index.in: */index.xml
+index.in: header.xsl */index.xml
 	xsltproc header.xsl */index.xml > $@
 
 clean-articles:
-	rm */index.html
+	rm index.html index.in */index.html || true
 
 .xml.in:
 	xmllint $< > /dev/null

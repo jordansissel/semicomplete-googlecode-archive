@@ -1,0 +1,37 @@
+<article>
+	<head>
+		<title>PPP Over SSH</title>
+		<caption>a simple vpn solution for unix</caption>
+	</head>
+	<body>
+		<topic title="What is PPP over SSH?">
+			<p>
+			PPP over SSH is a quick and dirty vpn solution. You can run a PPP
+			connection over an SSH connection to make for an easy, encrypted vpn.
+			Sure, there are lots of existing, prepackaged vpn solutions out there,
+			but how difficult are they to setup? What do you need to install on
+			*both* points of the vpn connection? Why is the sky blue?
+			</p>
+			<p>
+			If you run any flavor of *nix (Free/Open/NetBSD, Linux, etc), chances
+			are you have two things installed: ppp and ssh. With these two tools you
+			can create your own encrypted vpn in only a few minutes. In this
+			article, I will explain how to set it up under FreeBSD, though it should
+			be similar in other OS's.
+			</p>
+		</topic>
+		<topic title="What do I need to know?">
+			<p>
+			Before I get into the details, I'm first going to explain the
+			situation I'm using ppp over ssh in.
+			</p>
+		</topic>
+		<topic title="What do I need to do?">
+			There are many steps here, make sure you do all of them :)
+			<topic title="Create an ssh key">
+				First, you're going to need a passphraseless ssh key so we can login to your vpn gateway without a password. You do this by using the <code>ssh-keygen</code> command.
+				<pre>ssh-keygen -N "" -t rsa -f ~/.ssh/ppp.key</pre>
+			</topic>
+		</topic>
+	</body>
+</article>

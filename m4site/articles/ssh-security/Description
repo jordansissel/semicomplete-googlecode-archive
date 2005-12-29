@@ -1,0 +1,6 @@
+<%args>
+	$path
+</%args>
+<h4><& /lib/modules/link, text => "SSH Security and /bin/false", uri => $path &></h4>
+
+Setting someone's shell to /bin/false because you don't want them logging in to your machine via ssh is not sufficient. Read this article to find out why.

@@ -1,0 +1,6 @@
+<%args>
+	$path
+</%args>
+<h4><& /lib/modules/link, text => "PPP over SSH", uri => $path &></h4>
+
+PPP over SSH is a simple and easy-to-use way of securely tunneling traffic. Most unix OSs will have the necessary components, ppp and ssh, needed to create this tunnel. 

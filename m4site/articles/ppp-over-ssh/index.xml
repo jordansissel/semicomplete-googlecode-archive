@@ -1,0 +1,255 @@
+<article>
+	<head>
+		<title>PPP Over SSH</title>
+		<caption>a simple vpn solution for unix</caption>
+		<description>
+			Learn how to quickly and easily setup an encrypted tunnel for yourself
+			or others. Using PPP and SSH together will allow you to do this
+			without having to install any extra software - PPP and SSH are
+			standard software many Unix-like platforms..
+		</description>
+	</head>
+	<body>
+		<topic title="What is PPP over SSH?">
+			<p>
+			PPP over SSH is a quick and dirty vpn solution. You can run a PPP
+			connection over an SSH connection to make for an easy, encrypted vpn.
+			Sure, there are lots of existing, prepackaged vpn solutions out there,
+			but how difficult are they to setup? What do you need to install on
+			*both* points of the vpn connection? Why is the sky blue?
+			</p>
+			<p>
+			If you run any flavor of *nix (Free/Open/NetBSD, Linux, etc), chances
+			are you have two things installed: ppp and ssh. With these two tools you
+			can create your own encrypted vpn in only a few minutes. In this
+			article, I will explain how to set it up under FreeBSD, though it should
+			be similar in other OS's.
+			</p>
+		</topic>
+		<topic title="What do I need to know?">
+			<p>
+			Before I get into the details, I'm first going to explain the
+			situation I'm using ppp over ssh in. You need two machines for this,
+			your client (say, my laptop) and the endpoint (one of my freebsd
+		   servers). Here's a picture, so you can get a general idea of what 
+			is going on and what the final result will be:
+			</p>
+
+			<center><img src="pppoverssh.png" /></center>
+
+			<p>
+			The gist of it is as follows. My laptop is on an insecure,
+			wireless, untrusted network. I want my traffic to be secure, so
+			people can't gather anything useful out of my packets they
+			sniff. My server is on a more trusted network, so that's where
+			I'll be wanting to tunnel all of my traffic. From there, my
+			traffic will hit the Internet or whatever it's intended
+			destination may be.
+			</p>
+
+			<p>
+			Special mentions should be made: If I refer to
+			<i>client</i>, I'm talking about my laptop. If I refer to
+			<i>gateway</i>, I'm referring to my endpoint server on the
+			trusted network.
+			</p>
+		</topic>
+		<topic title="What do I need to do?">
+			There are many steps here, make sure you do all of them :)
+			<topic title="You need root">
+				<p>
+				Before you can actually run ppp(8), you must have root on both
+				the client and gateway machines. Make sure you do.
+				</p>
+			</topic>
+			<topic title="Create an ssh key">
+				<p>
+				First, you're going to need a passphraseless ssh key so we can login to your vpn gateway without a password. You do this by using the <code>ssh-keygen</code> command.
+				</p>
+				<pre>ssh-keygen -N "" -t rsa -f ~/.ssh/ppp.key</pre>
+				<p>
+				This should create two files, a public and private key:
+				<code>~/.ssh/ppp.key</code> and <code>~/.ssh/ppp.key.pub</code>. The
+				first one is your private key, you'll need to keep that on your client
+				machine. The public key needs to go on your gateway (vpn endpoint).
+				Assuming your end point is running OpenSSH, you need to copy
+				the contents of your public key into
+				<code>~/.ssh/authorized_keys</code> on the gateway server.
+				That's all you need to do for ssh keys right now , I'll come back to the key later.
+				</p>
+			</topic>
+			<topic title="Client ppp.conf">
+				<p>
+				The next file you want to look at is
+				<code>/etc/ppp/ppp.conf</code>. This is where FreeBSD's
+				ppp(8) looks for it's configuration. You need to add a new
+				entry, I called mine <code>vpn</code>. Here i what I used:
+				</p>
+				<pre>
+vpn:
+        set ifaddr 192.168.10.2 192.168.10.1 255.255.255.255
+        set dial 
+        set device "!env SSH_AUTH_SOCK= ssh -C -c blowfish -i /home/psionic/.ssh/ppp.key psionic@129.21.61.7"
+				</pre>
+				<p>
+				Remeber, this configuration is for the <i>client</i> only.
+				The first line tells ppp to create a tunnel between
+				192.168.10.2 and 192.168.10.1. The first IP on this line is
+				 the desired IP of the <i>client</i> on your new private
+				 network. The second address is the target IP of the tunnel,
+				 which is the gateway.
+				</p>
+				<p>
+				These two IPs can be different, as long as they are on the
+				same subnet and are in the nonroutable range. It'd work
+				cleaner aswell if you didn't pick a subnet already in use in
+				either end of your network, if any are in use at all.
+				</p>
+				<p>
+				The only special note here, is the <code>device</code> used
+				in this ppp session. It is not a device, but ppp is told to
+				execute ssh(1) and use it as a transport medium. It will ssh
+				to 129.21.61.7 with the private key we created in the last
+				step.
+				</p>
+			</topic>
+			<topic title="Gateway ppp.conf">
+				<p>
+				The <code>ppp.conf</code> configuration for the
+				<i>gateway</i> is much simpler. Again, I called the new
+				section <code>vpn</code>. Here:
+				</p>
+				<pre>
+vpn:
+	set ifaddr 192.168.10.1 192.168.10.2 255.255.255.255
+				</pre>
+				<p>
+				Again, the first ip in that line is the desired private
+				ip of <i>this</i> machine, which is the gateway this
+				time. Remember above when we set the client's ip to
+				192.168.10.2 and the tunnel endpoint ip to 192.168.10.1?
+				</p>
+			</topic>
+			<topic title="More ssh key business">
+				<p>
+				I said we'd come back to the ssh key, right? You should now
+				have your private key on the client as
+				<code>~/.ssh/ppp.key</code> and have put the contents of the
+				public key (<code>~/.ssh/ppp.key.pub</code>) into the
+				<i>gateway</i>'s <code>~/.ssh/authorized_keys</code> file.
+				You can verify that this key is working by doing:
+				</p>
+				<pre> ssh -i ~/.ssh/ppp.key <i>yourgatewayserver</i></pre>
+				<p>
+				If it lets you login without prompting for a password, then
+				you've done it right. If it doesn't work, then you probably
+				didn't copy the public key properly or at all.
+				</p>
+				<p>
+				Assuming all goes well, we'll need to tell the gateway to
+				execute a specific command for the key we are using. Your
+				current <code>authorized_keys</code> file should have
+				something looking vaguely like this:
+				</p>
+				<pre> ssh-rsa AAAAB....lotsofcharacters...= psionic@somehostname </pre>
+				<p>
+				We need to add a command section now. Add this:
+				</p>
+				<pre><b>command="op pppvpn"</b> ssh-rsa AAAAB...etc...</pre>
+				<p>
+				All you add is a <code>command="op pppvpn"</code> to the
+				beginning of the line. That command is just what it looks
+				like: when you login with the key you created, it will run
+				"op pppvpn" regardless of what command you try to run, or
+				even if you try to get a login shell. This secures your 
+				<i>gateway</i> by greatly limiting what can be done should
+				your private key become compromised. Granted, with a ppp
+				connection they'll be able to pretend they are coming from
+				your <i>gateway</i> server, but they won't get access to the
+				machine itself.
+				</p>
+			</topic>
+			<topic title="Installing 'op'">
+				<p>
+				You don't have to do this. I use op to run things as root.
+				It's similar to <code>sudo</code>, but I think it's easier
+				to configure. Anyway, I have an entry in my
+				<code>op.access</code>:
+				</p>
+				<pre>pppvpn  /usr/sbin/ppp -direct vpn; users=psionic environment</pre>
+				<p>
+				This means that when I (psionic) type "<code>op
+				pppvpn</code>", then op will run "<code>/usr/sbin/ppp
+				-direct vpn</code>" as root for me.
+				</p>
+				<p>
+				You can alternatively use sudo or put your public key in
+				your root user's .ssh/authorized_keys and ssh to the server
+				as root. Either way, you need to be able to ssh to your
+				<i>gateway</i> from your <i>client</i> and attain root
+				privileges so you can run <code>ppp</code>(8) on the
+				<i>gateway</i>.
+				</p>
+			</topic>
+		</topic>
+		<topic title="Let's test it!">
+			<p>
+			Everything should be setup now:
+			<ul>
+				<li> ppp.conf on the client </li>
+				<li> ppp.conf on the gateway </li>
+				<li> ssh key with public/private parts put in the right places </li>
+				<li> root access attainable through ssh login on the gateway
+				with the ssh key </li>
+			</ul>
+			
+			We can now try starting our vpn, as root on the <i>client</i>,
+			type:
+			</p>
+			<pre>ppp -auto vpn</pre>
+			<p>
+			Now try pinging the <i>gateway</i> ip, which if you remember
+			should be 192.168.10.1 (unless you set it differently).
+			</p>
+			<pre>
+nightfall(~) [1012] % sudo ppp -auto vpn
+Password:
+Working in auto mode
+Using interface: tun0
+nightfall(~) [1013] % ping 192.168.10.1
+PING 192.168.10.1 (192.168.10.1): 56 data bytes
+64 bytes from 192.168.10.1: icmp_seq=0 ttl=64 time=2.672 ms
+^C
+</pre>
+			<p>
+			Works! Now, how do you get traffic to go through this tunnel?
+			Use routes. An example would be if I wanted all my google.com
+			traffic to go through the tunnel:
+			</p>
+			<pre>
+nightfall(~) [1001] % sudo route add 216.239.39.99 192.168.10.1
+add host 216.239.39.99: gateway 192.168.10.1
+nightfall(~) [1002] % sudo route add 216.239.57.99 192.168.10.1
+add host 216.239.57.99: gateway 192.168.10.1
+nightfall(~) [1003] % sudo route add 216.239.37.99 192.168.10.1
+add host 216.239.37.99: gateway 192.168.10.1
+
+nightfall(~) [1004] % traceroute google.com
+traceroute: Warning: google.com has multiple addresses; using 216.239.57.99
+traceroute to google.com (216.239.57.99), 64 hops max, 40 byte packets
+ 1  192.168.10.1 (192.168.10.1)  2.589 ms  1.707 ms  1.728 ms
+ 2  rit-core1-vlan60.rit.edu (129.21.61.232)  2.673 ms  2.197 ms  1.966 ms
+ 3  rit-rit1-pp-core1-vlan807.rit.edu (129.21.8.25)  2.724 ms  2.607 ms  2.203 ms
+ ...
+</pre>
+	
+		<p>
+		And we're all done! You can see that the first route goes to
+		192.168.10.1.
+		</p>
+		</topic>
+		<topic title="Summary">
+			So now you know how to tunel with ppp using ssh as transport. If something in this article is unclear or you need more information, shoot me an email and I'll try and clear it up for you :)
+		</topic>
+	</body>
+</article>
