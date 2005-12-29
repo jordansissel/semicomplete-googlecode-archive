@@ -11,7 +11,7 @@ articles: index.html
 
 # Generate index.in
 index.in: header.xsl */index.xml
-	@echo "<all>/index.html -> $@"
+	@echo "articles/index.html -> $@"
 	@xsltproc header.xsl */index.xml > $@
 
 clean-articles:
