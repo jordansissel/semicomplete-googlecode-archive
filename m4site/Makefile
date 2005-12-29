@@ -7,10 +7,13 @@ ECHO=/usr/ucb/echo
 
 .SUFFIXES: .in .html
 
+	if [ "$${TARGETS}" != '*.html' ]; then \
+		echo "T: $$TARGETS"; \
+		make $$TARGETS; \
+	fi
 all:
-	@TARGETS=`echo *.in | sed -e 's/\.in/.html/'`; \
-	echo "Making: $$TARGETS"; \
-	[ "$${TARGETS}" != '*.html' ] && make $$TARGETS || true
+	@TARGETS=`echo *.in | sed -e 's/\.in/.html/g'`; \
+	[ "$${TARGETS}" != '*.html' ] && make $$TARGETS || :
 	@ \
 	[ -z "$(DEPTH)" ] && DEPTH=1 || DEPTH=`expr $(DEPTH) + 1`; \
 	for i in *; do \
