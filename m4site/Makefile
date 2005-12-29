@@ -7,10 +7,8 @@ ECHO=/usr/ucb/echo
 
 .SUFFIXES: .in .html
 
-	if [ "$${TARGETS}" != '*.html' ]; then \
-		echo "T: $$TARGETS"; \
-		make $$TARGETS; \
-	fi
+default: all $(SUBTARGETS)
+
 all:
 	@TARGETS=`echo *.in | sed -e 's/\.in/.html/g'`; \
 	[ "$${TARGETS}" != '*.html' ] && make $$TARGETS || :
@@ -18,10 +16,12 @@ all:
 	[ -z "$(DEPTH)" ] && DEPTH=1 || DEPTH=`expr $(DEPTH) + 1`; \
 	for i in *; do \
 		[ -d "$$i" -a -f "$$i/Makefile" ] && \
-		(cd $$i; make all DEPTH=$${DEPTH} BACKPATH=../$(BACKPATH)); \
+		(cd $$i; make DEPTH=$${DEPTH} BACKPATH=../$(BACKPATH)); \
 	done; :
 
-clean:
+clean: clean-local rp-security/
+
+clean-local:
 	rm *.html
 	@for i in *; do \
 		[ -d "$$i" -a -f "$$i/Makefile" ] && (cd $$i; make clean); \
