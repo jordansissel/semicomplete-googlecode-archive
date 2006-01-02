@@ -23,7 +23,7 @@ INDEPS= $(TOPDIR)/generate.m4 \
         $(TOPDIR)/macros.m4 \
         $(TOPDIR)/menu.m4
 
-TARGETS=$(shell echo *.in)
+TARGETS=$(shell echo *.in | sed -e 's/*.in//')
 
 TEMPDIRLINKS=.gen.dirlinks.m4
 
@@ -31,16 +31,14 @@ TEMPDIRLINKS=.gen.dirlinks.m4
 
 RELPATH=$(shell echo $(CURDIR) | sed -e 's,^$(TOPDIR),,' -e 's,/[^/]*,/..,g' -e 's,^/,,' -e 's,[^/]$$,&/,')
 
-all: $(TARGETS:%.in=%.html) $(SUBTARGETS) 
-	@echo "Targets: $<"
+all: $(TARGETS:%.in=%.html) $(SUBTARGETS) subdirs
 
 subdirs:
 	@DIRS=`echo */`; \
 	[ "$$DIRS" = '*/' ] && exit 0; \
 	for i in $$DIRS; do \
-		echo "-- $$i"; \
 		if [ -f "$$i/Makefile" ]; then $(MAKE) -C $$i; fi\
-	done 2> /dev/null; :
+	done; :
 
 clean: clean-local $(CLEANTARGETS)
 
@@ -73,20 +71,18 @@ FORCE:
 
 #.in.html: $(INDEPS)
 #%.html: %.in
-.in.html:
+%.html: %.in $(INDEPS)
 	@echo '*' $< '->' $@ "(Dep: $?)"
 	@$(M4) $(TOPDIR)/generate.m4 -DINPUTPAGE="$<" -DRELPATH="$(RELPATH)" > $@
 
 #*.html: $(INDEPS)
 
-.in.xin:
-	cp $< $@
-.xml.xin:
+#%.in: %.xin
+	#cp $< $@
+
+%.in: %.xml
 	xmllint $< > /dev/null
 	[ -f "$@" ] && cp $@ $(@)~ || true
-	echo "TESTING"
-	xsltproc article.xsl $< > $@
+	xsltproc ../article.xsl $< > $@
 #cp $@ $(@:%.xin=%.in)
-
-# DEPENDENCIES HERE
 
