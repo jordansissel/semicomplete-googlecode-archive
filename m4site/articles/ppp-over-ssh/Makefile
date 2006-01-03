@@ -4,6 +4,7 @@ CLEANTARGETS+=cleanarticle
 
 .PRECIOUS: index.in 
 
+TOPDIR?=../..
 include ../../Makefile
 
 article: index.html

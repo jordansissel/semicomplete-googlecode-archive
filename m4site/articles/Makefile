@@ -3,6 +3,7 @@ CLEANTARGETS+=clean-articles
 
 .PHONY: clean-articles articles
 
+TOPDIR?=..
 include ../Makefile
 
 .PRECIOUS: index.in
