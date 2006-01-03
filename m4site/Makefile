@@ -1,21 +1,14 @@
 
 TARGETDIR=/u9/psionic/public_html/new
-#SHELL=/bin/ksh
 SHELL=/bin/ksh
 
-#MAKEFLAGS=--no-print-directory
-#MAKEFLAGS=-r
-
 M4=/usr/local/bin/m4
-TEST=/bin/test
 ECHO=/usr/ucb/echo
 
-.SUFFIXES: .in .html .xml .xin
-
 ifeq (0,${MAKELEVEL})
-TOPDIR   ?= $(CURDIR)
-TOPDIR   := $(shell realpath $(TOPDIR))
-MAKE     := $(MAKE) TOPDIR=$(TOPDIR)
+TOPMAKE   = $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
+TOPDIR    = $(shell realpath `echo $(TOPMAKE) | sed -e 's/Makefile$$//' -e 's/^$$/./'`)
+MAKE      := $(MAKE) TOPDIR=$(TOPDIR)
 endif
 
 INDEPS= $(TOPDIR)/generate.m4 \
@@ -23,7 +16,7 @@ INDEPS= $(TOPDIR)/generate.m4 \
         $(TOPDIR)/logo.m4 \
         $(TOPDIR)/macros.m4 \
         $(TOPDIR)/menu.m4 \
-		  $(TOPDIR)/dirlinks.m4
+	$(TOPDIR)/dirlinks.m4
 
 TARGETS=$(shell echo *.in | sed -e 's/*.in//')
 
@@ -50,8 +43,6 @@ clean-local:
 		if [ -f "$$i/Makefile" ]; then $(MAKE) -C $$i clean; fi\
 	done 2> /dev/null; :
 
-# Hack?
-dirlinks.m4: $(TOPDIR)/dirlinks.m4
 $(TOPDIR)/dirlinks.m4: $(TOPDIR)/$(TEMPDIRLINKS)
 	@cp $< $@
 
@@ -71,11 +62,13 @@ FORCE:
 
 %.html: %.in $(INDEPS)
 	@echo '* $< -> $@'
-	$(M4) $(TOPDIR)/generate.m4 -DINPUTPAGE="$<" -DRELPATH="$(RELPATH)" > $@
+	@$(M4) $(TOPDIR)/generate.m4 -DINPUTPAGE="$<" -DRELPATH="$(RELPATH)" > $@
 
 %.in: %.xml
-	xmllint $< > /dev/null
-	[ -f "$@" ] && cp $@ $(@)~ || true
-	xsltproc ../article.xsl $< > $@
-#cp $@ $(@:%.xin=%.in)
+	@echo "* $< -> $@"
+	@xmllint $< > /dev/null
+	@[ -f "$@" ] && cp $@ $(@)~ || true
+	@xsltproc ../article.xsl $< > $@
 
+# Shortcuts
+dirlinks.m4: $(TOPDIR)/dirlinks.m4
