@@ -13,7 +13,8 @@ ECHO=/usr/ucb/echo
 .SUFFIXES: .in .html .xml .xin
 
 ifeq (0,${MAKELEVEL})
-TOPDIR   := $(CURDIR)
+TOPDIR   ?= $(CURDIR)
+TOPDIR   := $(shell realpath $(TOPDIR))
 MAKE     := $(MAKE) TOPDIR=$(TOPDIR)
 endif
 
@@ -21,7 +22,8 @@ INDEPS= $(TOPDIR)/generate.m4 \
         $(TOPDIR)/layout.m4 \
         $(TOPDIR)/logo.m4 \
         $(TOPDIR)/macros.m4 \
-        $(TOPDIR)/menu.m4
+        $(TOPDIR)/menu.m4 \
+		  $(TOPDIR)/dirlinks.m4
 
 TARGETS=$(shell echo *.in | sed -e 's/*.in//')
 
@@ -51,12 +53,10 @@ clean-local:
 # Hack?
 dirlinks.m4: $(TOPDIR)/dirlinks.m4
 $(TOPDIR)/dirlinks.m4: $(TOPDIR)/$(TEMPDIRLINKS)
-	@echo GOING
 	@cp $< $@
 
 #ls -d $${i}/*/ 2> /dev/null | sed -e  "s%^[^/]*/\(.*\)%PROJECTLINK($$i,\1)dnl%; s%/%%g"
 $(TOPDIR)/$(TEMPDIRLINKS): FORCE
-	@echo "Generating new links list"
 	@\
 	DIRS=`ls -d $(TOPDIR)/*/`; \
 	for i in $$DIRS; do \
@@ -69,16 +69,9 @@ $(TOPDIR)/$(TEMPDIRLINKS): FORCE
 		touch -r $(TOPDIR)/dirlinks.m4 $(TOPDIR)/$(TEMPDIRLINKS) || true
 FORCE:
 
-#.in.html: $(INDEPS)
-#%.html: %.in
 %.html: %.in $(INDEPS)
-	@echo '*' $< '->' $@ "(Dep: $?)"
-	@$(M4) $(TOPDIR)/generate.m4 -DINPUTPAGE="$<" -DRELPATH="$(RELPATH)" > $@
-
-#*.html: $(INDEPS)
-
-#%.in: %.xin
-	#cp $< $@
+	@echo '* $< -> $@'
+	$(M4) $(TOPDIR)/generate.m4 -DINPUTPAGE="$<" -DRELPATH="$(RELPATH)" > $@
 
 %.in: %.xml
 	xmllint $< > /dev/null

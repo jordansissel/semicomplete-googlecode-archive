@@ -1,0 +1,86 @@
+<article>
+	<head>
+		<title>logwatch</title>
+		<caption>an expert system for real-time log analysis</caption>
+		<description>
+			logwatcher is an expert system designed for real-time log analysis.
+			It uses a configurable expert system to handle events in possibly multiple log
+			files. The original intent of this project was to detect brute-force
+			login attempts through ssh and block them on the firewall.
+		</description>
+	</head>
+	<body>
+		<page>
+			My servers get hit with brute-force ssh login attempts almost every
+			day.  They're also hit with several exploit attempts on varying
+			protocols daily.  Chances are all Internet-facing systems will see
+			this on a regular basis. I've never had a successful break in, but why
+			give script kiddies a chance?
+			<p/>
+
+			My logs end up riddled with line after line of failed logins, etc. So
+			I needed a system that could watch the logs and react accordingly in
+			real time.
+
+			<p/>
+			Failed login attempts are logged in <code>/var/log/auth.log</code> on
+			FreeBSD, so that's where I'll be looking for patterns to match. An
+			example of a failed login attempt is this:
+
+<pre>
+Apr 30 22:19:32 kenya sshd[76279]: Failed password for illegal user test from 61.30.94.124 port 36884
+</pre>
+
+			This is an illegal login attempt for a username 'test' - this means
+			there is no user 'test' on that server. I have made the assumption
+			that no one will try to login to this machine with an invalid username
+			more than once or twice in a short while, so that will be my criteria
+			for blocking these script-kiddie login attempts.
+			<p/>
+
+			Enter logwatch. This is a short perl program I wrote that allows you
+			to configure reactions to certain patterns.  The configuration file
+			format is pretty straight forward, in my opinion. 
+
+			A sample configuration follows:
+<pre>
+file "/var/log/auth.log" {
+	type "bad username" {
+		match = "Illegal user %USERNAME% from %IP%";
+		threshold = 4;
+		interval = 300;
+		reaction = "pfctl -t whores -T add %IP%";
+	};
+};
+</pre>
+
+			This will look for patterns matching the 'match' part of the
+			configuration above. So, for example, if the following appears in the
+			log file:
+<pre>
+Apr 24 07:15:37 kenya sshd[44889]: Illegal user admin from 193.195.96.6
+</pre>
+
+			The match will be triggered and a count will be increased. If the threshold
+			ever hits 4 in 300 seconds, the "reaction" will be executed. It will run
+			<code>pfctl -t whores -T add 193.195.96.6</code>, which will add that
+			IP to the 'whores' table in pf. Here is the pertinent section of my
+			<code>pf.conf</code>:
+
+<pre>
+table &lt;whores&gt; persist file "/etc/pf.whores"
+
+# Block whores.
+block in log quick on $ext_if from &lt;whores&gt; to any
+block out log quick on $ext_if from any to &lt;whores&gt;
+</pre>
+
+			<p/>
+			I find this to be pretty useful in helping to keep my machine free of
+			brute-force attempts.
+
+			<p/>
+			If you want to see a sample configuration file: LINK(logwatch.conf, view logwatch.conf)
+		</page>
+	</body>
+</article>

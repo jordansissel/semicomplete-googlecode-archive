@@ -2,7 +2,7 @@
 <xsl:output method="html" />
 <xsl:template match="/">
 	<div class="project">
-		<h4>LINK(article/, <xsl:value-of select="/article/head/title" />)</h4>
+		<h4>LINK(articles/, <xsl:value-of select="/article/head/title" />)</h4>
 		<xsl:value-of select="/article/head/description" />
 	</div>
 </xsl:template>
