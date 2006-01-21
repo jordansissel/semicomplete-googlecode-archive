@@ -17,11 +17,14 @@
 #define PAM_EXTERN
 #endif
 
+#define COWSIZE 5
+static char *cows[] = { "jkh", "head-in", "sodomized", "sheep", "vader" };
+
 PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t *pamh, int flags,
     int argc, const char *argv[])
 {
-	const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890";
+	const char alphabet[] = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz123456789";
 	//struct pam_conv *conv;
 	//struct pam_message msg, *msgp;
 	//struct pam_response *resp;
@@ -30,7 +33,10 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 	char key[9];
 	int i = 0;
 	FILE *fp = NULL;
-	char mchappypants[1024];
+	char *mchappypants;
+
+#define MCHAPPYSIZE 10240
+	mchappypants = malloc(MCHAPPYSIZE);
 
 	sranddev();
 
@@ -41,36 +47,48 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 
 	resp = malloc(1024);
 	memset(resp, 0, 1024);
-	memset(mchappypants, 0, 1024);
-	sprintf(mchappypants, "/usr/local/bin/figlet '%s'", key);
+	memset(mchappypants, 0, MCHAPPYSIZE);
+
+	char *cow = cows[rand() % COWSIZE];
+	sprintf(mchappypants, "/usr/local/bin/figlet '%s' | /usr/local/bin/cowsay -nf %s", key, cow);
 
 	fp = popen(mchappypants, "r");
-	fread(mchappypants, 2048, 1, fp);
+	i = 0;
+	while (1) {
+		int bytes;
+		bytes = fread(mchappypants+i, 1, 1024, fp);
+		//pam_info(pamh, "read %d", bytes);
+		if (bytes == 0);
+			break;
+		i += bytes;
+		if (i > MCHAPPYSIZE)
+			return PAM_SYSTEM_ERR;
+	}
 
 	pam_info(pamh, "");
-	pam_info(pamh, "Please type in the following string: ");
-	pam_info(pamh, mchappypants);
+	pam_info(pamh, "If you truely desire access to this host, then please indulge me in a simple challenge.");
+	pam_info(pamh, "Observe the picture below and answer the question listed afterwards:");
+	//pam_info(pamh, "%s", mchappypants);
+
+	i = 0;
+	while (1) {
+		char *ptr = strchr(mchappypants, '\n');
+		*ptr = '\0';
+		fprintf(stderr, "Line: %s\n", mchappypants);
+		pam_info(pamh, "%s", mchappypants);
+
+		mchappypants = ptr + 1;
+		if (*mchappypants == '\0')
+			break;
+	}
 
 	resp = NULL;
-	//pam_prompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Characters above: ");
-
-	//pam_get_item(pamh, PAM_CONV, (const void **)&conv);
-
-	//msg.msg_style = PAM_PROMPT_ECHO_ON;
-	//msg.msg = "Characters above: ";
-
-	//msgp = &msg;
 
 	pam_set_item(pamh, PAM_AUTHTOK, NULL);
-	//(*conv->conv)(1, &msgp, &resp, conv->appdata_ptr);
-	pam_prompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Type the string: ");
+	pam_prompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "What did the cow say? ");
 
-	if (resp != NULL) {
-		pam_info(pamh, "String: '%s' %d", resp, strcmp(resp, key));
-		if (strcmp(resp, key)) {
-			return PAM_AUTH_ERR;
-		}
-	}
+	if (strcmp(resp, key))
+		return (PAM_PERM_DENIED);
 
 	return (PAM_SUCCESS);
 }
