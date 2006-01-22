@@ -65,7 +65,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 			return PAM_SYSTEM_ERR;
 	}
 
-	pam_info(pamh, "");
+	pam_info(pamh, "[2J[0;0H");
 	pam_info(pamh, "If you truely desire access to this host, then please indulge me in a simple challenge.");
 	pam_info(pamh, "Observe the picture below and answer the question listed afterwards:");
 	//pam_info(pamh, "%s", mchappypants);
@@ -74,7 +74,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 	while (1) {
 		char *ptr = strchr(mchappypants, '\n');
 		*ptr = '\0';
-		fprintf(stderr, "Line: %s\n", mchappypants);
+		//fprintf(stderr, "Line: %s\n", mchappypants);
 		pam_info(pamh, "%s", mchappypants);
 
 		mchappypants = ptr + 1;
@@ -134,5 +134,5 @@ pam_sm_chauthtok(pam_handle_t *pamh, int flags,
 }
 
 #ifdef PAM_MODULE_ENTRY
-PAM_MODULE_ENTRY("pam_sleep");
+PAM_MODULE_ENTRY("pam_megachallenge");
 #endif
