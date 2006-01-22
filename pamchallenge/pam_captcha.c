@@ -30,15 +30,14 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 	struct pam_conv *conv;
 	struct pam_message msg, *msgp;
 	struct pam_response *resp;
-	//char *resp;
 
 	char key[9];
 	int i = 0;
 	FILE *fp = NULL;
-	char *mchappypants;
+	char *buffer;
 
-#define MCHAPPYSIZE 10240
-	mchappypants = malloc(MCHAPPYSIZE);
+#define BUFFERSIZE 10240
+	buffer = malloc(BUFFERSIZE);
 
 	srand(time(NULL));
 
@@ -49,21 +48,22 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 
 	resp = malloc(1024);
 	memset(resp, 0, 1024);
-	memset(mchappypants, 0, MCHAPPYSIZE);
+	memset(buffer, 0, BUFFERSIZE);
 
 	char *cow = cows[rand() % COWSIZE];
-	sprintf(mchappypants, "/usr/local/bin/figlet '%s' | /usr/local/bin/cowsay -nf %s", key, cow);
+	sprintf(buffer, "/usr/local/bin/figlet '%s' | /usr/local/bin/cowsay -nf %s", key, cow);
 
-	fp = popen(mchappypants, "r");
+	fp = popen(buffer, "r");
 	i = 0;
 	while (1) {
 		int bytes;
-		bytes = fread(mchappypants+i, 1, 1024, fp);
-		//pam_info(pamh, "read %d", bytes);
+		bytes = fread(buffer+i, 1, 1024, fp);
 		if (bytes == 0);
 			break;
 		i += bytes;
-		if (i > MCHAPPYSIZE)
+
+		/* Ooops, our challenge description is too large */
+		if (i > BUFFERSIZE)
 			return PAM_SYSTEM_ERR;
 	}
 
@@ -84,15 +84,13 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 
 	i = 0;
 	while (1) {
-		char *ptr = strchr(mchappypants, '\n');
+		char *ptr = strchr(buffer, '\n');
 		*ptr = '\0';
-		//fprintf(stderr, "Line: %s\n", mchappypants);
-		msg.msg = mchappypants;
+		msg.msg = buffer;
 		(*conv->conv)(1, &msgp, &resp, conv->appdata_ptr);
-		//pam_info(pamh, "%s", mchappypants);
 
-		mchappypants = ptr + 1;
-		if (*mchappypants == '\0')
+		buffer = ptr + 1;
+		if (*buffer == '\0')
 			break;
 	}
 
@@ -102,9 +100,6 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 	msg.msg = "What did the cow say? ";
 	msg.msg_style = PAM_PROMPT_ECHO_ON;
 	(*conv->conv)(1, &msgp, &resp, conv->appdata_ptr);
-
-	//pam_prompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "What did the cow say? ");
-	fprintf(stderr, "PASSWORDTHING:: %s\n", resp->resp);
 
 	if (strcmp(resp->resp, key))
 		return (PAM_PERM_DENIED);
