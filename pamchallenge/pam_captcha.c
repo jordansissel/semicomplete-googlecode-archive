@@ -52,7 +52,6 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 
 	char *cow = cows[rand() % COWSIZE];
 	sprintf(buffer, "/usr/local/bin/figlet '%s' | /usr/local/bin/cowsay -nf %s", key, cow);
-
 	fp = popen(buffer, "r");
 	i = 0;
 	while (1) {
