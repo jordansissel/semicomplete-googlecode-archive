@@ -19,7 +19,7 @@
 #endif
 
 #define COWSIZE 5
-static char *cows[] = { "jkh", "head-in", "sodomized", "sheep", "vader" };
+static char *cows[] = { "head-in", "sodomized", "sheep", "vader" };
 
 PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t *pamh, int flags,
