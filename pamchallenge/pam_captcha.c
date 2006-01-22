@@ -99,7 +99,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 	resp = NULL;
 
 	pam_set_item(pamh, PAM_AUTHTOK, NULL);
-	msg.msg = "What did the cow say?";
+	msg.msg = "What did the cow say? ";
 	msg.msg_style = PAM_PROMPT_ECHO_ON;
 	(*conv->conv)(1, &msgp, &resp, conv->appdata_ptr);
 
@@ -153,5 +153,5 @@ pam_sm_chauthtok(pam_handle_t *pamh, int flags,
 }
 
 #ifdef PAM_MODULE_ENTRY
-PAM_MODULE_ENTRY("pam_megachallenge");
+PAM_MODULE_ENTRY("pam_captcha");
 #endif
