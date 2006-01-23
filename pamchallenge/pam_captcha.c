@@ -42,9 +42,7 @@ static void figlet(pam_handle_t *pamh, char *fmt, ...) {
 	char *cow = cows[rand() % (sizeof(cows) / sizeof(*cows))];
 	char *font = fonts[rand() % (sizeof(fonts) / sizeof(*fonts))];
 
-	len = vsnprintf(NULL, 0, fmt, ap);
-	key = calloc(len, 1);
-	vsprintf(key, fmt, ap);
+	vasprintf(&key, fmt, ap);
 
 	buffer = calloc(BUFFERSIZE, 1);
 	srand(time(NULL));
