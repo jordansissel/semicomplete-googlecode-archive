@@ -19,9 +19,8 @@
 #define PAM_EXTERN
 #endif
 
-//static char *cows[] = { "head-in", "sodomized", "sheep", "vader", "udder", "mutilated" };
-static char *cows[] = { "vader", "tux" };
-static char *fonts[] = { "standard" };
+static char *cows[] = { "head-in", "sodomized", "sheep", "vader", "udder", "mutilated" };
+static char *fonts[] = { "standard", "big" };
 
 #define BUFFERSIZE 10240
 const char alphabet[] = "ABCDEFGHJKMNOPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz123456789$#%@&*+=?";
@@ -34,7 +33,6 @@ static void figlet(pam_handle_t *pamh, char *fmt, ...) {
 	va_start(ap, fmt);
 
 	char *key;
-	int len;
 	FILE *fp = NULL;
 	char *buffer, *bp;
 
@@ -63,13 +61,10 @@ static void figlet(pam_handle_t *pamh, char *fmt, ...) {
 
 	i = 0;
 	bp = buffer;
-	int l = strlen(buffer);
 	while (1) {
 		char *ptr = strchr(bp, '\n');
 		*ptr = '\0';
 		//fprintf(stderr, "[%04d / %d] %s\n", (bp - buffer), strlen(bp), bp);
-		//fprintf(stderr, "PreLen: %d\n", l - (bp - buffer));
-		//fprintf(stderr, "Len?: %d\n", strlen(bp));
 		paminfo(pamh, "%s", bp);
 		bp = ptr + 1;
 		if (*bp == '\0')
@@ -93,7 +88,6 @@ static void pamvprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, va
 	struct pam_response *pamresp;
 	int pam_err;
 	char *text = "";
-	int len;
 
 	vasprintf(&text, fmt, ap);
 
@@ -114,8 +108,7 @@ static void pamvprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, va
 		free(pamresp);
 	}
 
-	if (len > 0)
-		free(text);
+	free(text);
 }/*}}}*/
 
 static void paminfo(pam_handle_t *pamh, char *fmt, ...) {
@@ -216,7 +209,7 @@ static int figlet_captcha(pam_handle_t *pamh, int flags, int argc, const char *a
 }/*}}}*/
 
 static int (*captchas[])(pam_handle_t *, int, int, const char **) = {
-	//figlet_captcha,
+	figlet_captcha,
 	math_captcha
 };
 
