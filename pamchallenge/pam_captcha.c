@@ -19,7 +19,8 @@
 #define PAM_EXTERN
 #endif
 
-static char *cows[] = { "head-in", "sodomized", "sheep", "vader", "udder", "mutilated" };
+//static char *cows[] = { "head-in", "sodomized", "sheep", "vader", "udder", "mutilated" };
+static char *cows[] = { "vader", "tux" };
 static char *fonts[] = { "standard" };
 
 #define BUFFERSIZE 10240
@@ -68,16 +69,14 @@ static void figlet(pam_handle_t *pamh, char *fmt, ...) {
 	while (1) {
 		char *ptr = strchr(bp, '\n');
 		*ptr = '\0';
-		fprintf(stderr, "[%04d] %s\n", (bp - buffer), bp);
-		paminfo(pamh, bp);
+		//fprintf(stderr, "[%04d / %d] %s\n", (bp - buffer), strlen(bp), bp);
+		//fprintf(stderr, "PreLen: %d\n", l - (bp - buffer));
+		//fprintf(stderr, "Len?: %d\n", strlen(bp));
+		paminfo(pamh, "%s", bp);
 		bp = ptr + 1;
-		fprintf(stderr, "Foo: %d ", l - (bp - buffer));
-		//if (*bp == '\0')
-		if (l - (bp - buffer) == 0)
+		if (*bp == '\0')
 			break;
 	}
-
-	//fprintf(stderr, "
 
 	free(buffer);
 }
@@ -85,6 +84,7 @@ static void figlet(pam_handle_t *pamh, char *fmt, ...) {
 static void pamprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, ...) {/*{{{*/
 	va_list ap;
 	va_start(ap, fmt);
+	//fprintf(stderr, "PromptFormat: '%s'\n", fmt);
 	pamvprompt(pamh, style, resp, fmt, ap);
 	va_end(ap);
 }/*}}}*/
@@ -94,20 +94,17 @@ static void pamvprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, va
 	struct pam_message msg, *msgp;
 	struct pam_response *pamresp;
 	int pam_err;
-	char *text;
+	char *text = "";
 	int len;
 
-	len = vsnprintf(NULL, 0, fmt, ap);
-	text = calloc(len, 1);
-	vsprintf(text, fmt, ap);
+	vasprintf(&text, fmt, ap);
 
 	pam_get_item(pamh, PAM_CONV, (const void **)&conv);
-	msgp = &msg;
-
 	pam_set_item(pamh, PAM_AUTHTOK, NULL);
 
 	msg.msg_style = style;;
 	msg.msg = text;
+	msgp = &msg;
 	pamresp = NULL;
 	pam_err = (*conv->conv)(1, &msgp, &pamresp, conv->appdata_ptr);
 
@@ -119,12 +116,14 @@ static void pamvprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, va
 		free(pamresp);
 	}
 
-	free(text);
+	if (len > 0)
+		free(text);
 }/*}}}*/
 
 static void paminfo(pam_handle_t *pamh, char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
+	//fprintf(stderr, "InfoFormat: '%s'\n", fmt);
 	pamvprompt(pamh, PAM_TEXT_INFO, NULL, fmt, ap);
 	va_end(ap);
 }
@@ -155,6 +154,7 @@ static int dda_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv
 
 	return PAM_SUCCESS;
 }/*}}}*/
+
 /* Simple math captcha {{{ */
 static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
 	int x, y, z, answer = 0;
@@ -166,11 +166,11 @@ static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *arg
 
 	paminfo(pamh, "I need some math help.");
 
-	//pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Solve: %d %c %d = ", x, op, y);
-
 	fprintf(stderr, "Math: %d %c %d\n", x, op, y);
 	figlet(pamh, "%d %c %d", x, op, y);
+	fprintf(stderr, "Figlet done\n");
 
+	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Type the solution: ");
 	z = atoi(resp);
 
 	switch (op) {
