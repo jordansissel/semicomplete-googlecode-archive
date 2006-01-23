@@ -1,7 +1,7 @@
 
 
 pam:
-	gcc -c -Wall -fPIC -DHAVE_SHADOW -O2 pam_captcha.c
+	gcc -g -c -Wall -fPIC -DHAVE_SHADOW -O2 pam_captcha.c
 	ld -o pam_captcha.so -s -lpam -lcrypt --shared pam_captcha.o
 
 
