@@ -11,6 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <dirent.h>
 
 #include <security/pam_modules.h>
 #include <security/pam_appl.h>
@@ -23,6 +24,7 @@ static char *cows[] = { "head-in", "sodomized", "sheep", "vader", "udder", "muti
 static char *fonts[] = { "standard", "big" };
 
 #define BUFFERSIZE 10240
+#define NOLOGINFORYOU "NO SOUP FOR YOU :("
 const char alphabet[] = "ABCDEFGHJKMNOPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz123456789$#%@&*+=?";
 
 static void paminfo(pam_handle_t *pamh, char *fmt, ...);
@@ -114,34 +116,97 @@ static void pamvprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, va
 static void paminfo(pam_handle_t *pamh, char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
-	//fprintf(stderr, "InfoFormat: '%s'\n", fmt);
 	pamvprompt(pamh, PAM_TEXT_INFO, NULL, fmt, ap);
 	va_end(ap);
 }
 
-/* Dance Dance Authentication {{{ */
-static int dda_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
-	int x, y, z, answer = 0;
-	static char *ops = "+-*";
-	char op = ops[rand() % strlen(ops)];
-	char *resp;
-	x = rand() % 1000 + 2;
-	y = rand() % 1000 + 2;
+static void randomtask(char **task) {
+	DIR *dp;
+	struct dirent *cur;
+	struct dirent *files;
+	int pos = 0;
+	int len = 20;
+	int fd;
+	int bytes;
 
-	paminfo(pamh, "I need some math help.");
+	dp = opendir("/root/dda/");
+	files = calloc(sizeof(struct dirent), len);
 
-	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Solve: %d %c %d = ", x, op, y);
-
-	z = atoi(resp);
-
-	switch (op) {
-		case '+': answer = x + y; break;
-		case '-': answer = x - y; break;
-		case '*': answer = x * y; break;
+	while ((cur = readdir(dp)) != NULL) {
+		if (cur->d_type != DT_REG)
+			continue;
+		fprintf(stderr, "File[%d]: %s\n", cur->d_type, cur->d_name);
+		files[pos] = *cur;
+		pos++;
+		if (pos > len) {
+			len *= 2;
+			files = realloc(files, sizeof(struct dirent) * len);
+		}
 	}
 
-	if (answer != z)
-		return PAM_PERM_DENIED;
+	pos = rand() % pos;
+
+	fprintf(stderr, "FILE: %s\n", files[pos].d_name);
+
+	fd = open(files[pos].d_name, O_RDONLY);
+	len = 1024;
+	pos = 0;
+	*task = calloc(len, 1);
+
+	while ((bytes = read(fd, task+pos, 1024)) > 0) {
+		pos += bytes;
+	}
+}
+
+/* Dance Dance Authentication {{{ */
+static int dda_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
+	char *resp;
+	char *host, *user;
+	char key[5];
+	char *id;
+	char *linkpath;
+	char linkdata[1024];
+	char *task;
+	int i = 0;
+	int x;
+
+	pam_get_item(pamh, PAM_RHOST, (const void **)&host);
+	pam_get_item(pamh, PAM_USER, (const void **)&user);
+
+	for (i = 0; i < 4; i++)
+		key[i] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"[rand() % 36];
+	key[4] = 0;
+
+	asprintf(&id, "%s:%s:%s", host, user, key);
+
+	/* read in a list of tasks */
+	randomtask(&task);
+	/* choose a random task */
+	/* create a stateful symlink */
+
+	asprintf(&linkpath, "/tmp/%s", id);
+	while ((x = symlink(NOLOGINFORYOU, linkpath)) != 0) {
+		perror("symlink");
+		unlink(linkpath);
+	};
+
+
+	paminfo(pamh, "Welcome to Dance Dance Authentication!!!\n");
+
+	paminfo(pamh, "Dance Dance Authentication requires you to perform a physical task to verify that you are a human. Your task is as follows:");
+
+	paminfo(pamh, "\nYOUR ID: %s (%s)", key, id);
+	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Verbally announce your ID when you have completed this task. Press enter now and I will permit you to continue once you have completed the task.\n");
+
+	/* loop while task is not completed */
+	memset(linkdata, 0, 1024);
+	while (linkdata[0] = '\0', readlink(linkpath, linkdata, 1024), !strcmp(linkdata, NOLOGINFORYOU))
+		fprintf(stderr, "Waiting...\n"), sleep(1);
+
+	free(id);
+	//free(host);
+	//free(user);
+	free(resp);
 
 	return PAM_SUCCESS;
 }/*}}}*/
@@ -176,41 +241,32 @@ static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *arg
 	return PAM_SUCCESS;
 }/*}}}*/
 
-/* Magical Figlet captcha {{{
- *  _____ _       _      _
- * |  ___(_) __ _| | ___| |_
- * | |_  | |/ _` | |/ _ \ __|
- * |  _| | | (_| | |  __/ |_
- * |_|   |_|\__, |_|\___|\__|
- *          |___/
- */
-static int figlet_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
+/* String Generation Captcha {{{ */
+static int randomstring_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
 	char key[9];
-	int i = 0;
 	char *resp;
+	int i = 0;
+	int ret = PAM_SUCCESS;
 
 	for (i = 0; i < 8; i++) 
 		key[i] = alphabet[rand() % strlen(alphabet)];
-
 	key[8] = 0;
 
 	paminfo(pamh, "Observe the picture below and answer the question listed afterwards:");
-
+	figlet(pamh, key);
 	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "What did the cow say? ");
 
-	paminfo(pamh, "strcmp");
-	if (strcmp(resp, key)) {
-		free(resp);
-		return (PAM_PERM_DENIED);
-	}
-	free(resp);
+	if (strcmp(resp, key))
+		ret = (PAM_PERM_DENIED);
 
-	return PAM_SUCCESS;
+	free(resp);
+	return ret;
 }/*}}}*/
 
 static int (*captchas[])(pam_handle_t *, int, int, const char **) = {
-	figlet_captcha,
-	math_captcha
+	//randomstring_captcha,
+	//math_captcha,
+	dda_captcha
 };
 
 PAM_EXTERN int
@@ -218,13 +274,18 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
     int argc, const char *argv[])
 {
 	int r;
+	int ret;
 	fprintf(stderr, "-\nauthentication started [%d]\n", time(NULL));
 	srand(time(NULL));
 	r = rand() % (sizeof(captchas) / sizeof(*captchas));
 	paminfo(pamh, "[2J[0;0H");
 	paminfo(pamh, "If you truely desire access to this host, then you must indulge me in a simple challenge.");
 	paminfo(pamh, "-------------------------------------------------------------\n", r);
-	return captchas[r](pamh, flags, argc, argv);
+
+	ret = captchas[r](pamh, flags, argc, argv);
+
+	paminfo(pamh, "RETURN: %d", ret);
+	return PAM_SUCCESS;
 }
 
 PAM_EXTERN int
