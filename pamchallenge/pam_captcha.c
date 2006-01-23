@@ -76,12 +76,27 @@ static void paminfo(pam_handle_t *pamh, char *fmt, ...) {
 
 /* Simple math captcha */
 static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {/*{{{*/
-	paminfo(pamh, "Hello!");
-	paminfo(pamh, "Hello!");
-	paminfo(pamh, "Hello!");
-	paminfo(pamh, "Hello!");
-	paminfo(pamh, "Hello!");
-	paminfo(pamh, "Hello!");
+	int x, y, z, answer;
+	static char *ops = "+-*";
+	char op = ops[rand() % strlen(ops)];
+	char *resp;
+	x = rand() % 1000 + 100;
+	y = rand() % 1000 + 100;
+
+	paminfo(pamh, "I need some math help.");
+
+	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Solve: %d %c %d = ", x, op, y);
+
+	z = atoi(resp);
+
+	switch (op) {
+		case '+': answer = x + y; break;
+		case '-': answer = x - y; break;
+		case '*': answer = x * y; break;
+	}
+
+	if (answer != z)
+		return PAM_PERM_DENIED;
 
 	return PAM_SUCCESS;
 }/*}}}*/
@@ -158,8 +173,8 @@ static int figlet_captcha(pam_handle_t *pamh, int flags, int argc, const char *a
 }/*}}}*/
 
 static int (*captchas[])(pam_handle_t *, int, int, const char **) = {
-	figlet_captcha
-	//math_captcha
+	//figlet_captcha
+	math_captcha
 };
 
 PAM_EXTERN int
