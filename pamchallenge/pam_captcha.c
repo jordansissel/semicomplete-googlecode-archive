@@ -129,11 +129,14 @@ static void randomtask(char **task) {
 	int fd;
 	int bytes;
 
-	dp = opendir("/root/dda/");
+	chdir("/root/dda/");
+	dp = opendir(".");
 	files = calloc(sizeof(struct dirent), len);
 
 	while ((cur = readdir(dp)) != NULL) {
 		if (cur->d_type != DT_REG)
+			continue;
+		if (cur->d_name[0] == '.')
 			continue;
 		fprintf(stderr, "File[%d]: %s\n", cur->d_type, cur->d_name);
 		files[pos] = *cur;
@@ -146,15 +149,22 @@ static void randomtask(char **task) {
 
 	pos = rand() % pos;
 
-	fprintf(stderr, "FILE: %s\n", files[pos].d_name);
+	//fprintf(stderr, "FILE: %s\n", files[pos].d_name);
 
 	fd = open(files[pos].d_name, O_RDONLY);
-	len = 1024;
+	//fprintf(stderr, "Foo: %d\n", fd);
+	len = 4096;
 	pos = 0;
 	*task = calloc(len, 1);
 
-	while ((bytes = read(fd, task+pos, 1024)) > 0) {
+	while ((bytes = read(fd, *task+pos, 1024)) > 0) {
+		//fprintf(stderr, "Bytes: %d\n", bytes);
 		pos += bytes;
+		if (pos >= (len - 1024)) {
+			len *= 2;
+			*task = realloc(*task, len);
+		}
+
 	}
 }
 
@@ -179,24 +189,25 @@ static int dda_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv
 
 	asprintf(&id, "%s:%s:%s", host, user, key);
 
-	/* read in a list of tasks */
-	randomtask(&task);
-	/* choose a random task */
-	/* create a stateful symlink */
-
 	asprintf(&linkpath, "/tmp/%s", id);
 	while ((x = symlink(NOLOGINFORYOU, linkpath)) != 0) {
 		perror("symlink");
 		unlink(linkpath);
 	};
 
-
 	paminfo(pamh, "Welcome to Dance Dance Authentication!!!\n");
 
-	paminfo(pamh, "Dance Dance Authentication requires you to perform a physical task to verify that you are a human. Your task is as follows:");
+	paminfo(pamh, "Dance Dance Authentication requires you to perform a physical task\n"
+"to verify that you are a human. Your task is as follows:\n");
+
+	/* read in a list of tasks */
+	randomtask(&task);
+	paminfo(pamh, task);
+	free(task);
 
 	paminfo(pamh, "\nYOUR ID: %s (%s)", key, id);
-	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Verbally announce your ID when you have completed this task. Press enter now and I will permit you to continue once you have completed the task.\n");
+	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Verbally announce your ID when you have completed this task.\n"
+"Press enter now and I will permit you to continue once you have completed the task.\n");
 
 	/* loop while task is not completed */
 	memset(linkdata, 0, 1024);
@@ -256,7 +267,7 @@ static int randomstring_captcha(pam_handle_t *pamh, int flags, int argc, const c
 	figlet(pamh, key);
 	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "What did the cow say? ");
 
-	if (strcmp(resp, key))
+	if (strcmp(resp, key) != 0)
 		ret = (PAM_PERM_DENIED);
 
 	free(resp);
@@ -264,8 +275,8 @@ static int randomstring_captcha(pam_handle_t *pamh, int flags, int argc, const c
 }/*}}}*/
 
 static int (*captchas[])(pam_handle_t *, int, int, const char **) = {
-	//randomstring_captcha,
-	//math_captcha,
+	randomstring_captcha,
+	math_captcha,
 	dda_captcha
 };
 
@@ -284,8 +295,11 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 
 	ret = captchas[r](pamh, flags, argc, argv);
 
-	paminfo(pamh, "RETURN: %d", ret);
-	return PAM_SUCCESS;
+	if (ret != PAM_SUCCESS) {
+		//paminfo(pamh, "Incorrect, perhaps you'll have better luck with another task?");
+		sleep(3);
+	}
+	return ret;
 }
 
 PAM_EXTERN int
