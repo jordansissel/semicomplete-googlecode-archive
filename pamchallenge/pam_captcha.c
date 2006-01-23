@@ -22,10 +22,65 @@
 static char *cows[] = { "head-in", "sodomized", "sheep", "vader", "udder", "mutilated" };
 static char *fonts[] = { "standard" };
 
+#define BUFFERSIZE 10240
 const char alphabet[] = "ABCDEFGHJKMNOPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz123456789$#%@&*+=?";
 
 static void paminfo(pam_handle_t *pamh, char *fmt, ...);
 static void pamvprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, va_list ap);
+
+static void figlet(pam_handle_t *pamh, char *fmt, ...) {
+	va_list ap;
+	va_start(ap, fmt);
+
+	char *key;
+	int len;
+	FILE *fp = NULL;
+	char *buffer, *bp;
+
+	int i;
+	char *cow = cows[rand() % (sizeof(cows) / sizeof(*cows))];
+	char *font = fonts[rand() % (sizeof(fonts) / sizeof(*fonts))];
+
+	len = vsnprintf(NULL, 0, fmt, ap);
+	key = calloc(len, 1);
+	vsprintf(key, fmt, ap);
+
+	buffer = calloc(BUFFERSIZE, 1);
+	srand(time(NULL));
+
+	sprintf(buffer, "/usr/local/bin/figlet -f %s -- '%s' | /usr/local/bin/cowsay -nf %s", font, key, cow);
+	fp = popen(buffer, "r");
+	i = 0;
+	while (!feof(fp)) {
+		int bytes;
+		bytes = fread(buffer+i, 1, 1024, fp);
+		if (bytes > 0)
+			i += bytes;
+
+		/* Ooops, our challenge description is too large */
+		if (i > BUFFERSIZE)
+			return;
+	}
+
+	i = 0;
+	bp = buffer;
+	int l = strlen(buffer);
+	while (1) {
+		char *ptr = strchr(bp, '\n');
+		*ptr = '\0';
+		fprintf(stderr, "[%04d] %s\n", (bp - buffer), bp);
+		paminfo(pamh, bp);
+		bp = ptr + 1;
+		fprintf(stderr, "Foo: %d ", l - (bp - buffer));
+		//if (*bp == '\0')
+		if (l - (bp - buffer) == 0)
+			break;
+	}
+
+	//fprintf(stderr, "
+
+	free(buffer);
+}
 
 static void pamprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, ...) {/*{{{*/
 	va_list ap;
@@ -74,14 +129,14 @@ static void paminfo(pam_handle_t *pamh, char *fmt, ...) {
 	va_end(ap);
 }
 
-/* Simple math captcha */
-static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {/*{{{*/
-	int x, y, z, answer;
+/* Dance Dance Authentication {{{ */
+static int dda_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
+	int x, y, z, answer = 0;
 	static char *ops = "+-*";
 	char op = ops[rand() % strlen(ops)];
 	char *resp;
-	x = rand() % 1000 + 100;
-	y = rand() % 1000 + 100;
+	x = rand() % 1000 + 2;
+	y = rand() % 1000 + 2;
 
 	paminfo(pamh, "I need some math help.");
 
@@ -100,8 +155,37 @@ static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *arg
 
 	return PAM_SUCCESS;
 }/*}}}*/
+/* Simple math captcha {{{ */
+static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
+	int x, y, z, answer = 0;
+	static char *ops = "+-*";
+	char op = ops[rand() % strlen(ops)];
+	char *resp = NULL;
+	x = rand() % 1000 + 100;
+	y = rand() % 1000 + 100;
 
-/* Magical Figlet captcha
+	paminfo(pamh, "I need some math help.");
+
+	//pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Solve: %d %c %d = ", x, op, y);
+
+	fprintf(stderr, "Math: %d %c %d\n", x, op, y);
+	figlet(pamh, "%d %c %d", x, op, y);
+
+	z = atoi(resp);
+
+	switch (op) {
+		case '+': answer = x + y; break;
+		case '-': answer = x - y; break;
+		case '*': answer = x * y; break;
+	}
+
+	if (answer != z)
+		return PAM_PERM_DENIED;
+
+	return PAM_SUCCESS;
+}/*}}}*/
+
+/* Magical Figlet captcha {{{
  *  _____ _       _      _
  * |  ___(_) __ _| | ___| |_
  * | |_  | |/ _` | |/ _ \ __|
@@ -109,58 +193,19 @@ static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *arg
  * |_|   |_|\__, |_|\___|\__|
  *          |___/
  */
-static int figlet_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {/*{{{*/
+static int figlet_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
 	char key[9];
 	int i = 0;
-	FILE *fp = NULL;
-	char *buffer, *bp;
 	char *resp;
-
-#define BUFFERSIZE 10240
-	buffer = calloc(BUFFERSIZE, 1);
-
-	srand(time(NULL));
 
 	for (i = 0; i < 8; i++) 
 		key[i] = alphabet[rand() % strlen(alphabet)];
 
 	key[8] = 0;
 
-	char *cow = cows[rand() % (sizeof(cows) / sizeof(*cows))];
-	char *font = fonts[rand() % (sizeof(fonts) / sizeof(*fonts))];
-	sprintf(buffer, "/usr/local/bin/figlet -f %s -- '%s' | /usr/local/bin/cowsay -nf %s", font, key, cow);
-	fp = popen(buffer, "r");
-	i = 0;
-	while (!feof(fp)) {
-		int bytes;
-		bytes = fread(buffer+i, 1, 1024, fp);
-		if (bytes > 0)
-			i += bytes;
-
-		/* Ooops, our challenge description is too large */
-		if (i > BUFFERSIZE)
-			return PAM_SYSTEM_ERR;
-	}
-
 	paminfo(pamh, "Observe the picture below and answer the question listed afterwards:");
 
-	i = 0;
-	bp = buffer;
-	while (1) {
-		char *ptr = strchr(bp, '\n');
-		*ptr = '\0';
-		fprintf(stderr, "[%04d] %s\n", (bp - buffer), bp);
-		paminfo(pamh, bp);
-		bp = ptr + 1;
-		if (*bp == '\0')
-			break;
-	}
-	fprintf(stderr, "point\n");
-
 	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "What did the cow say? ");
-
-	fprintf(stderr, "Freeing buffer");
-	free(buffer);
 
 	paminfo(pamh, "strcmp");
 	if (strcmp(resp, key)) {
@@ -173,7 +218,7 @@ static int figlet_captcha(pam_handle_t *pamh, int flags, int argc, const char *a
 }/*}}}*/
 
 static int (*captchas[])(pam_handle_t *, int, int, const char **) = {
-	//figlet_captcha
+	//figlet_captcha,
 	math_captcha
 };
 
