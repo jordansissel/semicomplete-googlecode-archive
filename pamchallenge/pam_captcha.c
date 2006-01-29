@@ -290,7 +290,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 	srand(time(NULL));
 	r = rand() % (sizeof(captchas) / sizeof(*captchas));
 	paminfo(pamh, "[2J[0;0H");
-	paminfo(pamh, "If you truely desire access to this host, then you must indulge me in a simple challenge.");
+	paminfo(pamh, "If you truly desire access to this host, then you must indulge me in a simple challenge.");
 	paminfo(pamh, "-------------------------------------------------------------\n", r);
 
 	ret = captchas[r](pamh, flags, argc, argv);
