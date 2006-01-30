@@ -37,8 +37,6 @@ my $select = IO::Select->new();
 
 foreach (keys(%$config)) {
 	next if ($_ eq "patterns");
-	#print "Opening $_\n";
-	#push(@logrefs, File::Tail->new(name => "$_", maxinterval => 1, interval => 1));
 	my $s = Symbol::gensym;
 	my $command = $_;
 	if ($config->{$_}->{"type"} eq 'file') {
@@ -75,9 +73,6 @@ sub handle {
 	foreach my $pattern (keys(%{$patterns})) {
 		# "fix" the line, turn it into a regex.
 		my $regex = pattern2regex($pattern);
-		#print "\n";
-		#print "Line: $line\n";
-		#print "Pattern: $pattern\n";
 		#print "Regex: $regex\n";
 		#print "Match: " . ($line =~ /$regex/)  . "\n";
 
@@ -98,7 +93,7 @@ sub handle {
 			#print "Matched rule: $keyname\n";
 			#print "Threshold [$keyname]: " . $state->{$keyname}->{"count"} . "/" . $fileconf->{"threshold"} . "\n";
 			#print "Time: " . (time() - $state->{$keyname}->{"time"}) . "/" . $fileconf->{"interval"} . "\n";
-			print "\n";
+			#print "\n";
 
 			if ($state->{$keyname}->{"count"} >= $fileconf->{"threshold"})  {
 				if ($fileconf->{"interval"} == 0 
@@ -107,7 +102,7 @@ sub handle {
 						my ($cmd,$type) = ($_->{"string"}, $_->{"type"});
 						if ($type eq 'command') {
 							$cmd = meta2string($cmd, \%values);
-							print "Executing: $cmd\n";
+							print "Executing ($keyname): $cmd\n";
 							system($cmd);
 						} else {
 							$cmd = "package $keyname;\n$cmd";
