@@ -26,7 +26,10 @@
  * 'requisite' is absolutely necessary here. This keyword means that if a user
  * fails pam_captcha, the whole auth chain is marked as failure. This ensure
  * that users must pass the captcha challenge before being permitted to attempt
- * any other kind of pam authentication, such as a standard login.
+ * any other kind of pam authentication, such as a standard login. 'required'
+ * can work here too but will not break the chain. I like requisite because you
+ * cannot even attempt to authenticate via password if you don't pass the
+ * captcha.
  */
 
 
