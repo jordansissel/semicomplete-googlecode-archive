@@ -6,14 +6,16 @@ use Symbol;
 use Data::Dumper;
 use IO::Select;
 
-# pragma - allow (?{ code }) assertions in
-# dynamically generated regexen.
+# pragma - allow (?{ code }) assertions in dynamically generated regexen.
+# This let's me do named captures with $^N
 use re 'eval';
 
 # Things you'll need to have installed:
-#use File::Tail;
 use Regexp::Common qw(RE_ALL);
 use Parse::RecDescent;
+
+$::RD_ERRORS = 1;
+$::RD_HINT = 1;
 
 my @logrefs;
 
@@ -48,6 +50,7 @@ foreach (keys(%$config)) {
 	$state->{"map"}->{$s} = $_;
 }
 
+# Loop for data for as long as our love shall last...
 while(1) {
 	my @ready = $select->can_read();
 	map { readlog($_) } @ready;
@@ -69,11 +72,12 @@ sub handle {
 	chomp($line);
 	#print $log . "> " . $line;
 	my $last = { line => $line };
+
 	my $patterns = $PATTERNS->{$log};
 	foreach my $pattern (keys(%{$patterns})) {
 		# "fix" the line, turn it into a regex.
 		my $regex = pattern2regex($pattern);
-		#print "Regex: $regex\n";
+		print "Regex: $regex\n";
 		#print "Match: " . ($line =~ /$regex/)  . "\n";
 
 		# The regex match will store keys in this hash
@@ -166,10 +170,12 @@ sub readconfig {
 	my $cfname = "logwatch.conf";
 	my $grammar = << 'GRAMMAR';
 config: <rulevar: local $config = { }>
-config: (ignorable | file | pattern)(s) /\Z/ { $return = $config }
+config: (file | pattern | ignorable | error)(s) /\Z/ { $return = $config }
 ignorable: (comment | blankline)(s)
 comment: /#[^\n]*/
-blankline: /^\s+?\n/
+blankline: /^\s*\n/
+
+error: { printf STDERR "Error on line: $thisline? Failed at: $text"  }
 
 string: /((?:\")(?:[^\\\"]*(?:\\.[^\\\"]*)*)(?:\")|(?:\')(?:[^\\\']*(?:\\.[^\\\']*)*)(?:\')|(?:\`)(?:[^\\\`]*(?:\\.[^\\\`]*)*)(?:\`))/ { $return = substr($item[1],1,-1) }
 #string: <perl_quotelike> { $return = $item[1]->[2] }
