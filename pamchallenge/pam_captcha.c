@@ -11,6 +11,10 @@
  *    can fix this if you want, just look for /usr/local/bin further down and
  *    you can change the paths used.
  *
+ *    - I have tested this in FreeBSD and Linux. It works there.
+ *    - It will not build under Solaris 9, and I have no intentions of
+ *      fixing that at this time
+ *
  * Installation Instructions
  *   - Just type 'make' (assuming you downloaded the Makefile too)
  *   - Copy pam_captcha.so to your pam module dir (/usr/lib on FreeBSD)
