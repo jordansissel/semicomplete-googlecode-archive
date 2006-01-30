@@ -1,3 +1,31 @@
+/* pam_captcha - A Visual CAPTCHA challenge module for PAM 
+ * Jordan Sissel (January 2006)
+ *
+ * Requirements:
+ *   - Figlet
+ *   - Cowsay
+ *   - PAM
+ *
+ * Notes: 
+ *    Figlet and Cowsay need to be in /usr/local/bin, because I'm lazy.  You
+ *    can fix this if you want, just look for /usr/local/bin further down and
+ *    you can change the paths used.
+ *
+ * Installation Instructions
+ *   - Just type 'make' (assuming you downloaded the Makefile too)
+ *   - Copy pam_captcha.so to your pam module dir (/usr/lib on FreeBSD)
+ *   - Place this entry in your pam config for whatever service you want. It
+ *   needs to go at the top of your pam auth stack (first entry?).
+ *
+ * auth            requisite       pam_captcha.so
+ *
+ * 'requisite' is absolutely necessary here. This keyword means that if a user
+ * fails pam_captcha, the whole auth chain is marked as failure. This ensure
+ * that users must pass the captcha challenge before being permitted to attempt
+ * any other kind of pam authentication, such as a standard login.
+ */
+
+
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
