@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <syslog.h>
 #include <stdarg.h>
 #include <dirent.h>
 
@@ -66,7 +67,6 @@ static void figlet(pam_handle_t *pamh, char *fmt, ...) {
 	while (1) {
 		char *ptr = strchr(bp, '\n');
 		*ptr = '\0';
-		//fprintf(stderr, "[%04d / %d] %s\n", (bp - buffer), strlen(bp), bp);
 		paminfo(pamh, "%s", bp);
 		bp = ptr + 1;
 		if (*bp == '\0')
@@ -79,7 +79,6 @@ static void figlet(pam_handle_t *pamh, char *fmt, ...) {
 static void pamprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, ...) {/*{{{*/
 	va_list ap;
 	va_start(ap, fmt);
-	//fprintf(stderr, "PromptFormat: '%s'\n", fmt);
 	pamvprompt(pamh, style, resp, fmt, ap);
 	va_end(ap);
 }/*}}}*/
@@ -138,7 +137,6 @@ static void randomtask(char **task) {
 			continue;
 		if (cur->d_name[0] == '.')
 			continue;
-		fprintf(stderr, "File[%d]: %s\n", cur->d_type, cur->d_name);
 		files[pos] = *cur;
 		pos++;
 		if (pos > len) {
@@ -149,16 +147,12 @@ static void randomtask(char **task) {
 
 	pos = rand() % pos;
 
-	//fprintf(stderr, "FILE: %s\n", files[pos].d_name);
-
 	fd = open(files[pos].d_name, O_RDONLY);
-	//fprintf(stderr, "Foo: %d\n", fd);
 	len = 4096;
 	pos = 0;
 	*task = calloc(len, 1);
 
 	while ((bytes = read(fd, *task+pos, 1024)) > 0) {
-		//fprintf(stderr, "Bytes: %d\n", bytes);
 		pos += bytes;
 		if (pos >= (len - 1024)) {
 			len *= 2;
@@ -212,9 +206,9 @@ static int dda_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv
 	/* loop while task is not completed */
 	memset(linkdata, 0, 1024);
 	while (linkdata[0] = '\0', readlink(linkpath, linkdata, 1024), !strcmp(linkdata, NOLOGINFORYOU))
-		fprintf(stderr, "Waiting...\n"), sleep(1);
-
 	free(id);
+
+	/* Don't free these, it makes pam forget who you are */
 	//free(host);
 	//free(user);
 	free(resp);
@@ -233,9 +227,7 @@ static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *arg
 
 	paminfo(pamh, "I need some math help.");
 
-	fprintf(stderr, "Math: %d %c %d\n", x, op, y);
 	figlet(pamh, "%d %c %d", x, op, y);
-	fprintf(stderr, "Figlet done\n");
 
 	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Type the solution: ");
 	z = atoi(resp);
@@ -268,16 +260,17 @@ static int randomstring_captcha(pam_handle_t *pamh, int flags, int argc, const c
 	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "What did the cow say? ");
 
 	if (strcmp(resp, key) != 0)
-		ret = (PAM_PERM_DENIED);
+		ret = PAM_PERM_DENIED;
 
+	/* Should we be freeing this? */
 	free(resp);
 	return ret;
 }/*}}}*/
 
 static int (*captchas[])(pam_handle_t *, int, int, const char **) = {
 	randomstring_captcha,
-	math_captcha,
-	dda_captcha
+	math_captcha
+	//dda_captcha
 };
 
 PAM_EXTERN int
@@ -286,19 +279,27 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 {
 	int r;
 	int ret;
-	fprintf(stderr, "-\nauthentication started [%d]\n", time(NULL));
-	srand(time(NULL));
-	r = rand() % (sizeof(captchas) / sizeof(*captchas));
+	char *user, *host;
+	pam_get_item(pamh, PAM_USER, (const void **)&user);
+	pam_get_item(pamh, PAM_RHOST, (const void **)&host);
+
+	srand(time(NULL)); /* XXX: Should we seed by something less predictable? */
 	paminfo(pamh, "[2J[0;0H");
 	paminfo(pamh, "If you truly desire access to this host, then you must indulge me in a simple challenge.");
 	paminfo(pamh, "-------------------------------------------------------------\n", r);
 
+	openlog("pam_captcha", 0, LOG_AUTHPRIV);
+
+	r = rand() % (sizeof(captchas) / sizeof(*captchas));
 	ret = captchas[r](pamh, flags, argc, argv);
+	syslog(LOG_INFO, "User %s passed the captcha (from %s)", user, host);
 
 	if (ret != PAM_SUCCESS) {
-		//paminfo(pamh, "Incorrect, perhaps you'll have better luck with another task?");
+		syslog(LOG_INFO, "User %s failed to pass the captcha (from %s)", user, host);
 		sleep(3);
 	}
+
+	closelog();
 	return ret;
 }
 
