@@ -32,7 +32,7 @@ my %MATCH = (
 );
 
 my $opts = {};
-getopt('d', $opts);
+getopt('fd', $opts);
 
 if (exists($opts->{"d"})) {
 	# default to 1 if -d has no arguments.
@@ -44,7 +44,7 @@ if (exists($opts->{"d"})) {
 	} 
 }
 
-my $config = readconfig();
+my $config = readconfig($opts->{"f"});
 #print Dumper($config);
 unless (defined($config)) {
 	debug(0, "Syntax error in config?");
@@ -115,8 +115,11 @@ sub handle {
 
 		# XXX: This used to work with 'my' instead of 'our'
 		our %values = ();
+		debug(5, "Line: $line");
 		debug(5, "Regex: $regex");
+		debug(5, "Match: " . ($line =~ m/$regex/));
 		if ($line =~ m/$regex/) {
+			debug(5, "MATCH");
 			#print "Line: $line\n";
 
 			# Handle if we're over the threshold
@@ -210,7 +213,8 @@ sub meta2string {
 }
 
 sub readconfig {
-	my $cfname = "logwatch.conf";
+	my $cfname = shift || "logwatch.conf";
+	debug(2, "Reading from $cfname");
 	my $grammar = << 'GRAMMAR';
 config: <rulevar: local $config = { }>
 config: (file | pattern | ignorable | error)(s) /\Z/ { $return = $config }
@@ -294,6 +298,7 @@ sub setup {
 	}
 
 	foreach my $pattern (keys(%{$config->{"patterns"}})) {
+		debug(1, "Adding pattern '$pattern'");
 		$MATCH{$pattern} = $config->{"patterns"}->{$pattern};
 	}
 }
