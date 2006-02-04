@@ -2,9 +2,12 @@
 
 use strict;
 use warnings;
-use Symbol;
 use Data::Dumper;
 use IO::Select;
+use Getopt::Std;
+
+# For older versions of perl
+use Symbol;
 
 # pragma - allow (?{ code }) assertions in dynamically generated regexen.
 # This let's me do named captures with $^N
@@ -14,23 +17,39 @@ use re 'eval';
 use Regexp::Common qw(RE_ALL);
 use Parse::RecDescent;
 
-$::RD_ERRORS = 1;
-$::RD_HINT = 1;
-
 my @logrefs;
+my $debuglevel = 0;
 
 my $PATTERNS;
 	
 # Pattern-space wildcards, used as %WILDCARD% in the pattern config
 my %MATCH = (
 	USERNAME => '\\w+',
+	USER => '\\w+',
 	IP => $RE{net}{IPv4},
 	PORT => '\\d+',
 	COUNT => '\\d+',
 );
 
+my $opts = {};
+getopt('d', $opts);
+
+if (exists($opts->{"d"})) {
+	# default to 1 if -d has no arguments.
+	$debuglevel = 1;
+
+	# Support -ddddd
+	if (defined($opts->{"d"}) && $opts->{"d"} =~ m/^d*$/) {
+		$debuglevel = (length($opts->{"d"}) + 1);
+	} 
+}
+
 my $config = readconfig();
 #print Dumper($config);
+unless (defined($config)) {
+	debug(0, "Syntax error in config?");
+	exit(1);
+}
 setup($config);
 
 # Keep state
@@ -44,8 +63,8 @@ foreach (keys(%$config)) {
 	if ($config->{$_}->{"type"} eq 'file') {
 		$command = "tail -0 -f $_";
 	}
-	print "Running $command\n";
-	open($s, "$command |");
+	debug(1, "Startup: Running $command");
+	open($s, "$command |") or die($!);
 	$select->add($s);
 	$state->{"map"}->{$s} = $_;
 }
@@ -57,8 +76,14 @@ while(1) {
 	map { readlog($_) } @ready;
 }
 
-print "$0: Nothing left to do... exiting\n";
+debug(1, "Nothing left to do... exiting");
 exit(0);
+
+sub debug {
+	my ($level, $msg) = @_;
+	$msg =~ s/[^\n]$/$&\n/s; # Add a newline if there isn't one.
+	printf STDOUT ("%s: [debug%d] %s", $0, $level, $msg) if ($level <= $debuglevel);
+}
 
 sub readlog {
 	my $logh = shift;
@@ -86,17 +111,23 @@ sub handle {
 	foreach my $pattern (keys(%{$patterns})) {
 		# "fix" the line, turn it into a regex.
 		my $regex = pattern2regex($pattern);
-		print "Regex: $regex\n";
-		#print "Match: " . ($line =~ /$regex/)  . "\n";
-
 		# The regex match will store keys in this hash
-		my %values;
-		if ($line =~ /$regex/) { 
+
+		# XXX: This used to work with 'my' instead of 'our'
+		our %values = ();
+		debug(5, "Regex: $regex");
+		if ($line =~ m/$regex/) {
+			#print "Line: $line\n";
+
 			# Handle if we're over the threshold
 			my $pat = $PATTERNS->{$log}->{$pattern};
-			my $keyname;
 			my $fileconf = $config->{$log}->{"types"}->{$pat};
-			$keyname = join ("/", $pat, map { "$_=>$values{$_}" } keys(%values));
+			my $keyname;
+
+			$keyname = $pat . "::" . meta2string($fileconf->{"key"}, \%values) if (exists($fileconf->{"key"}));
+			$keyname ||= join ("/", $pat, map { "$_=>$values{$_}" } keys(%values));
+
+			debug(2, "UniqueKey: $keyname");
 			$state->{$keyname}->{"time"} ||= time();
 			$state->{$keyname}->{"count"}++;
 
@@ -111,16 +142,17 @@ sub handle {
 			if ($state->{$keyname}->{"count"} >= $fileconf->{"threshold"})  {
 				if ($fileconf->{"interval"} == 0 
 					 || ((time() - $state->{$keyname}->{"time"}) <= $fileconf->{"interval"})) { 
-					map { 
+					debug(1, "Limits (threshold/interval) exceeded for rulekey: $keyname");
+					map {
 						my ($cmd,$type) = ($_->{"string"}, $_->{"type"});
 						if ($type eq 'command') {
 							$cmd = meta2string($cmd, \%values);
-							print "Executing ($keyname): $cmd\n";
+							debug(1, "Executing (from $keyname): $cmd");
 							system($cmd);
 						} else {
-							$cmd = "package $keyname;\n$cmd";
-							print "!!!\n$cmd\n!!!\n";
-							eval $cmd;
+							#$cmd = "package $keyname;\n$cmd";
+							#print "!!!\n$cmd\n!!!\n";
+							eval $cmd or warn($@);
 						}
 					} @{$fileconf->{"reactions"}};
 				} else { 
@@ -128,7 +160,7 @@ sub handle {
 				}
 				$state->{$keyname}->{"count"} = 0;
 			}
-			$last->{"values"} = %values;
+			$last->{"values"} = \%values;
 			$last->{"handler"} = $PATTERNS->{$log}->{$pattern};
 		}
 	}
@@ -141,16 +173,15 @@ sub pattern2regex {
 	my $orig = $pattern;
 
 	my $rounds = 0;
-	my $count;
-	do {
-		$count = 0;
-		map { $regex =~ s/%($_)%/($MATCH{$_})(?{\$values{$1} = \$^N})/g; } keys(%MATCH);
-		$rounds++;
-		if ($rounds > 10) {
-			print STDERR "!!! Deep recursion translating '$orig'\n";
-			last;
-		}
-	} while ($count > 0);
+	# Replace %KEY[:SUBNAME]% with a regex and store the capture as KEY:SUBNAME
+	map { 
+		$regex =~ s/%(($_)(?::\w+)?)%/($MATCH{$_})(?{ \$values{'$1'} = \$^N })/g;
+	} keys(%MATCH);
+	$rounds++;
+	if ($rounds > 10) {
+		print STDERR "!!! Deep recursion translating '$orig'\n";
+		last;
+	}
 
 	return $regex;
 }
@@ -164,7 +195,10 @@ sub meta2string {
 	my $count;
 	do {
 		$count = 0;
-		map { $count += $meta =~ s/%($_)%/$values->{$_}/g; } keys(%MATCH);
+		#map { $count += $meta =~ s/%($_)%/$values->{$_}/g; } keys(%MATCH);
+
+		# XXX: This will be undef if the key in $values is null, should that ever happen?
+		map { $count += $meta =~ s/%($_(?::\w+)?)%/$values->{$1}/g; } keys(%MATCH);
 		$rounds++;
 		if ($rounds > 10) {
 			print STDERR "!!! Deep recursion translating '$orig'\n";
@@ -184,7 +218,7 @@ ignorable: (comment | blankline)(s)
 comment: /#[^\n]*/
 blankline: /^\s*\n/
 
-error: { printf STDERR "Error on line: $thisline? Failed at: $text"  }
+error: /^[^\Z\n]/ { printf STDERR "Error on line: $thisline? Failed at: $text"  }
 
 string: /((?:\")(?:[^\\\"]*(?:\\.[^\\\"]*)*)(?:\")|(?:\')(?:[^\\\']*(?:\\.[^\\\']*)*)(?:\')|(?:\`)(?:[^\\\`]*(?:\\.[^\\\`]*)*)(?:\`))/ { $return = substr($item[1],1,-1) }
 #string: <perl_quotelike> { $return = $item[1]->[2] }
@@ -210,11 +244,12 @@ syslog: 'syslog' '=' number { $file->{"syslog"} = $item[3] }
 type: <rulevar: local $type = { }>
 type: 'type' typename '{' type_entry '}' { $file->{"types"}->{$item[2]} = $type }
 typename: string
-type_entry: (((match | threshold | interval | reaction) ';') | ignorable)(s)
+type_entry: (((match | threshold | interval | reaction | key) ';') | ignorable)(s)
 
 match: 'match' '=' string { push(@{$type->{"matches"}},$item[3]) }
 threshold: 'threshold' '=' number { $type->{"threshold"} = $item[3] }
 interval: 'interval' '=' number { $type->{"interval"} = $item[3] }
+key: 'key' '=' string { $type->{"key"} = $item[3] }
 reaction: 'reaction' '=' reactionspec { push(@{$type->{"reactions"}}, $item[3]) }
 reactionspec: string { $return = { type => "command", string => $item[1] } } 
 				  | perlblock  { $return = { type => "perl", string => $item[1] } }
@@ -234,13 +269,13 @@ sub setup {
 	my $config = shift;
 	print "Files to watch: " . join(", ", keys(%$config)) . "\n";
 	foreach my $file (keys(%{$config})) {
-		print "File: $file\n";
+		#print "File: $file\n";
 		my $matches = $config->{$file}->{"types"};
 		my $matchhash;
 		foreach my $match (keys(%{$matches})) {
-			print "Match: $match\n";
+			debug(1, "Match: $match");
 			foreach my $string (@{$matches->{$match}->{"matches"}}) {
-				print "String: $string\n";
+				debug(1, "String: $string");
 				$matchhash->{$string} = $match;
 			}
 			$matches->{$match}->{"interval"} ||= 0;
