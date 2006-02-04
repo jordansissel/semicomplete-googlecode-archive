@@ -52,14 +52,23 @@ foreach (keys(%$config)) {
 
 # Loop for data for as long as our love shall last...
 while(1) {
-	my @ready = $select->can_read();
+	last if ($select->count() == 0);
+	my @ready = $select->can_read(1);
 	map { readlog($_) } @ready;
 }
+
+print "$0: Nothing left to do... exiting\n";
+exit(0);
 
 sub readlog {
 	my $logh = shift;
 	my $buffer = $state->{"buffers"}->{$logh} || "";
-	sysread($logh, $buffer, 1024, length($buffer));
+	my $bytes = sysread($logh, $buffer, 1024, length($buffer));
+	if ($bytes == 0) {
+		print "finished: " . $state->{"map"}->{$logh} . "\n";
+		$select->remove($logh);
+		close($logh);
+	}
 	while ($buffer =~ s!(.*)\n!!) {
 		#print $state->{"map"}->{$logh} . "> $1\n";
 		handle($state->{"map"}->{$logh},$1);
