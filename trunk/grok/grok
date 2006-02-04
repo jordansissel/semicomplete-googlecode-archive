@@ -175,16 +175,18 @@ sub pattern2regex {
 	my $regex = $pattern;
 	my $orig = $pattern;
 
-	my $rounds = 0;
-	# Replace %KEY[:SUBNAME]% with a regex and store the capture as KEY:SUBNAME
-	map { 
-		$regex =~ s/%(($_)(?::\w+)?)%/($MATCH{$_})(?{ \$values{'$1'} = \$^N })/g;
-	} keys(%MATCH);
-	$rounds++;
-	if ($rounds > 10) {
-		print STDERR "!!! Deep recursion translating '$orig'\n";
-		last;
-	}
+	my $count;
+	do {
+		my $rounds = 0;
+		$count = 0;
+		# Replace %KEY[:SUBNAME]% with a regex and store the capture as KEY:SUBNAME
+		map { $count += $regex =~ s/%(($_)(?::\w+)?)%/($MATCH{$_})(?{ \$values{'$1'} = \$^N })/g; } keys(%MATCH);
+		$rounds++;
+		if ($rounds > 10) {
+			print STDERR "!!! Deep recursion translating '$orig'\n";
+			last;
+		}
+	} while ($count > 0);
 
 	return $regex;
 }
