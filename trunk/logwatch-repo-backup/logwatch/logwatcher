@@ -263,7 +263,7 @@ GRAMMAR
 
 	my $parser = Parse::RecDescent->new($grammar);
 	my $config;
-	open(CONFIG, "logwatch.conf") or return;
+	open(CONFIG, $cfname) or die("Unable to open: $cfname");
 	undef $/;
 	$config = $parser->config(<CONFIG>);
 	close(CONFIG);
