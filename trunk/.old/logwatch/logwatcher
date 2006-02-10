@@ -16,9 +16,11 @@ use re 'eval';
 # Things you'll need to have installed:
 use Regexp::Common qw(RE_ALL);
 use Parse::RecDescent;
+use Unix::Syslog qw(:macros :subs);
 
 my @logrefs;
 my $debuglevel = 0;
+
 
 my $PATTERNS;
 	
@@ -42,7 +44,12 @@ if (exists($opts->{"d"})) {
 	if (defined($opts->{"d"}) && $opts->{"d"} =~ m/^d*$/) {
 		$debuglevel = (length($opts->{"d"}) + 1);
 	} 
+
+	print STDERR "Debug level: $debuglevel\n";
 }
+
+openlog("logwatcher", (($debuglevel) ? LOG_PERROR : 0) | LOG_PID, LOG_USER);
+#openlog("logwatcher", LOG_PID, LOG_USER);
 
 my $config = readconfig($opts->{"f"});
 #print Dumper($config);
@@ -52,8 +59,8 @@ unless (defined($config)) {
 }
 setup($config);
 
-# Keep state
 my $state;
+my $storage; # Match-level storage by File/Key
 my $select = IO::Select->new();
 
 foreach (keys(%$config)) {
@@ -63,7 +70,7 @@ foreach (keys(%$config)) {
 	if ($config->{$_}->{"type"} eq 'file') {
 		$command = "tail -0 -f $_";
 	}
-	debug(1, "Startup: Running $command");
+	debug(2, "Startup: Running $command");
 	open($s, "$command |") or die($!);
 	$select->add($s);
 	$state->{"map"}->{$s} = $_;
@@ -76,13 +83,16 @@ while(1) {
 	map { readlog($_) } @ready;
 }
 
-debug(1, "Nothing left to do... exiting");
+debug(0, "Nothing left to do (all files/execs ended) exiting");
 exit(0);
 
 sub debug {
 	my ($level, $msg) = @_;
 	$msg =~ s/[^\n]$/$&\n/s; # Add a newline if there isn't one.
-	printf STDOUT ("%s: [debug%d] %s", $0, $level, $msg) if ($level <= $debuglevel);
+	if ($level <= $debuglevel) {
+		#printf STDOUT ("%s: [debug%d] %s", $0, $level, $msg) if ($level <= $debuglevel);
+		syslog(LOG_INFO, "%s", $msg);
+	}
 }
 
 sub readlog {
@@ -105,6 +115,9 @@ sub handle {
 	my ($log,$line) = @_;
 	chomp($line);
 	#print $log . "> " . $line;
+
+	$storage->{$log} = {} if (!exists($storage->{$log}));
+
 	my $last = { line => $line };
 
 	my $patterns = $PATTERNS->{$log};
@@ -119,7 +132,6 @@ sub handle {
 		debug(5, "Regex: $regex");
 		debug(5, "Match: " . ($line =~ m/$regex/));
 		if ($line =~ m/$regex/) {
-			debug(5, "MATCH");
 			#print "Line: $line\n";
 
 			# Handle if we're over the threshold
@@ -145,7 +157,7 @@ sub handle {
 			if ($state->{$keyname}->{"count"} >= $fileconf->{"threshold"})  {
 				if ($fileconf->{"interval"} == 0 
 					 || ((time() - $state->{$keyname}->{"time"}) <= $fileconf->{"interval"})) { 
-					debug(1, "Limits (threshold/interval) exceeded for rulekey: $keyname");
+					debug(2, "Limits (threshold/interval) exceeded for rulekey: $keyname");
 					map {
 						my ($cmd,$type) = ($_->{"string"}, $_->{"type"});
 						if ($type eq 'command') {
@@ -153,9 +165,16 @@ sub handle {
 							debug(1, "Executing (from $keyname): $cmd");
 							system($cmd);
 						} else {
-							#$cmd = "package $keyname;\n$cmd";
-							#print "!!!\n$cmd\n!!!\n";
-							eval $cmd or warn($@);
+							my ($d, $v);
+							$storage->{$log}->{$keyname} = {} if (!exists($storage->{$log}->{$keyname}));
+							$d = $storage->{$log}->{$keyname};
+							$d->{THRESHOLD} = $fileconf->{"threshold"};
+							$d->{COUNT} = $fileconf->{"count"};
+							$d->{INTERVAL} = $fileconf->{"interval"};
+
+							$v = \%values;
+							eval($cmd);
+							warn $@ if $@;
 						}
 					} @{$fileconf->{"reactions"}};
 				} else { 
@@ -273,15 +292,14 @@ GRAMMAR
 
 sub setup {
 	my $config = shift;
-	print "Files to watch: " . join(", ", keys(%$config)) . "\n";
+	debug(1, "Watching: " . join(", ", keys(%$config)));
 	foreach my $file (keys(%{$config})) {
-		#print "File: $file\n";
 		my $matches = $config->{$file}->{"types"};
 		my $matchhash;
 		foreach my $match (keys(%{$matches})) {
-			debug(1, "Match: $match");
+			debug(2, "Match: $match");
 			foreach my $string (@{$matches->{$match}->{"matches"}}) {
-				debug(1, "String: $string");
+				debug(2, "String: $string");
 				$matchhash->{$string} = $match;
 			}
 			$matches->{$match}->{"interval"} ||= 0;
@@ -291,7 +309,7 @@ sub setup {
 			map {
 				if ($_->{"type"} eq 'perl') {
 					$_->{"string"} =~ s/^\s*{\s*(.*)\s*}\s*$/$1/;
-					print "Perl: " . $_->{"string"} . "\n";
+					#"Perl: " . $_->{"string"} . "\n";
 				}
 			} @{$matches->{$match}->{"reactions"}};
 				
@@ -300,7 +318,7 @@ sub setup {
 	}
 
 	foreach my $pattern (keys(%{$config->{"patterns"}})) {
-		debug(1, "Adding pattern '$pattern'");
+		debug(2, "Adding pattern '$pattern'");
 		$MATCH{$pattern} = $config->{"patterns"}->{$pattern};
 	}
 }
