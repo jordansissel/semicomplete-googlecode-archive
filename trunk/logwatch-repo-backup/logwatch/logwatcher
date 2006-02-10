@@ -38,12 +38,13 @@ getopt('fd', $opts);
 
 if (exists($opts->{"d"})) {
 	# default to 1 if -d has no arguments.
-	$debuglevel = 1;
+	$debuglevel = $opts->{"d"} || 1;
 
+	# XXX: DEPRECATED
 	# Support -ddddd
-	if (defined($opts->{"d"}) && $opts->{"d"} =~ m/^d*$/) {
-		$debuglevel = (length($opts->{"d"}) + 1);
-	} 
+	#if (defined($opts->{"d"}) && $opts->{"d"} =~ m/^d*$/) {
+		#$debuglevel = (length($opts->{"d"}) + 1);
+	#} 
 
 	print STDERR "Debug level: $debuglevel\n";
 }
@@ -81,6 +82,9 @@ while(1) {
 	last if ($select->count() == 0);
 	my @ready = $select->can_read(1);
 	map { readlog($_) } @ready;
+
+	# XXX: Perhaps perform time-based checks here?
+	# Allow periodic statistics reporting to be sent off via email?
 }
 
 debug(0, "Nothing left to do (all files/execs ended) exiting");
@@ -164,17 +168,16 @@ sub handle {
 							$cmd = meta2string($cmd, \%values);
 							debug(1, "Executing (from $keyname): $cmd");
 							system($cmd);
-						} else {
-							my ($d, $v);
+						} elsif ($type eq 'perl') {
+							my ($d, $v, $s);
 							$storage->{$log}->{$keyname} = {} if (!exists($storage->{$log}->{$keyname}));
 							$d = $storage->{$log}->{$keyname};
-							$d->{THRESHOLD} = $fileconf->{"threshold"};
-							$d->{COUNT} = $fileconf->{"count"};
-							$d->{INTERVAL} = $fileconf->{"interval"};
-
+							map { $s->{$_} = $fileconf->{$_} } qw(threshold count interval);
 							$v = \%values;
 							eval($cmd);
 							warn $@ if $@;
+						} else {
+							debug(0, sprintf("Unknown execution type: %s. %s", $type, $cmd));
 						}
 					} @{$fileconf->{"reactions"}};
 				} else { 
@@ -277,7 +280,7 @@ interval: 'interval' '=' number { $type->{"interval"} = $item[3] }
 key: 'key' '=' string { $type->{"key"} = $item[3] }
 reaction: 'reaction' '=' reactionspec { push(@{$type->{"reactions"}}, $item[3]) }
 reactionspec: string { $return = { type => "command", string => $item[1] } } 
-				  | perlblock  { $return = { type => "perl", string => $item[1] } }
+				  | perlblock { $return = { type => "perl", string => $item[1] } }
 GRAMMAR
 
 	my $parser = Parse::RecDescent->new($grammar);
