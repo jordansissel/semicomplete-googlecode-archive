@@ -17,10 +17,10 @@ use re 'eval';
 use Regexp::Common qw(RE_ALL);
 use Parse::RecDescent;
 use Unix::Syslog qw(:macros :subs);
+use Proc::Daemon;
 
 my @logrefs;
 my $debuglevel = 0;
-
 
 my $PATTERNS;
 	
@@ -34,7 +34,7 @@ my %MATCH = (
 );
 
 my $opts = {};
-getopt('fd', $opts);
+getopt('fdb', $opts);
 
 if (exists($opts->{"d"})) {
 	# default to 1 if -d has no arguments.
@@ -47,6 +47,11 @@ if (exists($opts->{"d"})) {
 	#} 
 
 	print STDERR "Debug level: $debuglevel\n";
+}
+
+if (exists($opts->{"b"})) {
+	print STDERR "Going to background...\n";
+	Proc::Daemon::Init;
 }
 
 openlog("logwatcher", (($debuglevel) ? LOG_PERROR : 0) | LOG_PID, LOG_USER);
@@ -104,7 +109,7 @@ sub readlog {
 	my $buffer = $state->{"buffers"}->{$logh} || "";
 	my $bytes = sysread($logh, $buffer, 1024, length($buffer));
 	if ($bytes == 0) {
-		print "finished: " . $state->{"map"}->{$logh} . "\n";
+		debug(0,"finished (possibly unexpected eof?): " . $state->{"map"}->{$logh});
 		$select->remove($logh);
 		close($logh);
 	}
@@ -205,7 +210,7 @@ sub pattern2regex {
 		map { $count += $regex =~ s/%(($_)(?::\w+)?)%/($MATCH{$_})(?{ \$values{'$1'} = \$^N })/g; } keys(%MATCH);
 		$rounds++;
 		if ($rounds > 10) {
-			print STDERR "!!! Deep recursion translating '$orig'\n";
+			debug(0, "Deep recursion translating '$orig'");
 			last;
 		}
 	} while ($count > 0);
@@ -228,7 +233,7 @@ sub meta2string {
 		map { $count += $meta =~ s/%($_(?::\w+)?)%/$values->{$1}/g; } keys(%MATCH);
 		$rounds++;
 		if ($rounds > 10) {
-			print STDERR "!!! Deep recursion translating '$orig'\n";
+			debug(0, "Deep recursion translating '$orig'");
 			last;
 		}
 	} while ($count > 0);
@@ -246,7 +251,7 @@ ignorable: (comment | blankline)(s)
 comment: /#[^\n]*/
 blankline: /^\s*\n/
 
-error: /^[^\Z\n]/ { printf STDERR "Error on line: $thisline? Failed at: $text"  }
+error: /^[^\Z\n]/ { debug(0, "Error on line: $thisline ? (missing a semicolon perhaps?)"); }
 
 string: /((?:\")(?:[^\\\"]*(?:\\.[^\\\"]*)*)(?:\")|(?:\')(?:[^\\\']*(?:\\.[^\\\']*)*)(?:\')|(?:\`)(?:[^\\\`]*(?:\\.[^\\\`]*)*)(?:\`))/ { $return = substr($item[1],1,-1) }
 #string: <perl_quotelike> { $return = $item[1]->[2] }
