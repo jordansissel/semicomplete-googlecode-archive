@@ -1,0 +1,48 @@
+#!/usr/bin/perl
+#(~/projects/logwatch) % ./lwrecord -f testing "hello  once uppon" "`date`"
+
+use strict;
+use warnings;
+
+use Getopt::Std;
+use Data::Dumper;
+use DB_File;
+
+# Handle storing whatever we want?
+# It's hard to say how we can store "whatever"
+#
+# Store items by time.
+# Retrieve items by time periods
+
+# lwrecord -f storagedb -d <unixtime> -t <type> <key> <data>
+# Types:
+# array
+# log
+
+# array means the data gets pushed onto the array
+# log means the data is simply logged
+
+# key spec:
+# foo/bar/baz implies $storage->{foo}->{bar}->{baz} = data ?
+
+# Store login attempts by user:
+# lwstore -t array "ssh_attempts/%IP%" "%USER"
+
+my $opts = {};
+getopts("f:d:t:", $opts);
+
+my $key = $ARGV[0];
+my $data = $ARGV[1];
+my $dbfile = $opts->{"f"} || "happydb";
+my $type = $opts->{"t"} || "log";
+my $date = $opts->{"d"} || time();
+
+my %db;
+#my $dbref = 
+tie %db, 'DB_File', [$dbfile, (O_CREAT|O_RDWR), 0, $DB_BTREE];
+
+print $db{$key} . "\n";
+$db{$key} = $data;
+print $db{$key} . "\n";
+
+untie %db;
