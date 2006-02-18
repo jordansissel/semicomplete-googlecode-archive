@@ -14,7 +14,7 @@ use Symbol;
 # This let's me do named captures with $^N
 use re 'eval';
 
-# Things you'll need to have installed:
+# Things you'll need to have installed (from CPAN):
 use Regexp::Common qw(RE_ALL);
 use Parse::RecDescent;
 use Unix::Syslog qw(:macros :subs);
@@ -26,27 +26,20 @@ my $PATTERNS;
 	
 # Pattern-space wildcards, used as %WILDCARD% in the pattern config
 my %MATCH = (
-	USERNAME => '\\w+',
-	USER => '\\w+',
+	USERNAME => qr/\w+/,
+	USER => qr/\w+/,
 	IP => $RE{net}{IPv4},
-	PORT => '\\d+',
-	COUNT => '\\d+',
+	PORT => qr/\d+/,
+	COUNT => qr/\d+/,
 );
 
 my $opts = {};
 getopt('fdb', $opts);
 
 if (exists($opts->{"d"})) {
-	# default to 1 if -d has no arguments.
+	# default to debuglevel 1 if -d has no arguments.
 	$debuglevel = $opts->{"d"} || 1;
-
-	# XXX: DEPRECATED
-	# Support -ddddd
-	#if (defined($opts->{"d"}) && $opts->{"d"} =~ m/^d*$/) {
-		#$debuglevel = (length($opts->{"d"}) + 1);
-	#} 
-
-	print STDERR "Debug level: $debuglevel\n";
+	debug(1, "Debug level: $debuglevel");
 }
 
 if (exists($opts->{"b"})) {
@@ -66,11 +59,12 @@ if (exists($opts->{"b"})) {
 	open(STDERR, "+>&STDIN");
 
 	# Change ps output to something reasonable?
-	$0 = "logwatcher " . join(" ",@ARGV);
+	#$0 = "logwatcher " . join(" ",@ARGV);
 }
 
-#openlog("logwatcher", ((!exists($opts->{'b'})) ? LOG_PERROR : 0) | LOG_PID, LOG_USER);
-openlog("logwatcher", LOG_PID, LOG_USER);
+# Syslog to stderr, too, if we aren't going to the background.
+my $logopts = ((!exists($opts->{'b'})) ? LOG_PERROR : 0) | LOG_PID;
+openlog("logwatcher", $logopts, LOG_USER);
 
 my $config = readconfig($opts->{"f"});
 #print Dumper($config);
@@ -100,11 +94,14 @@ foreach (keys(%$config)) {
 # Loop for data for as long as our love shall last...
 while(1) {
 	last if ($select->count() == 0);
-	my @ready = $select->can_read(1);
-	map { readlog($_) } @ready;
+	my @ready = $select->can_read(60);
+	map(readlog($_), @ready);
 
 	# XXX: Perhaps perform time-based checks here?
 	# Allow periodic statistics reporting to be sent off via email?
+	# XXX(2): Nah, Go the UNIX route. Provide logwatch-record and logwatch-summarize
+	#   or something...
+
 }
 
 debug(0, "Nothing left to do (all files/execs ended) exiting");
@@ -136,7 +133,7 @@ sub readlog {
 }
 
 sub handle {
-	my ($log,$line) = @_;
+	my ($log,$line,$syslogmode) = @_;
 	chomp($line);
 	#print $log . "> " . $line;
 
@@ -144,13 +141,29 @@ sub handle {
 
 	my $last = { line => $line };
 
+	#debug(0, "Syslog: ($log) ".$config->{$log}->{"syslog"});
+
+	if ($config->{$log}->{"syslog"}) {
+		# Syslog repetition message looks like this:
+		# last message repeated N times
+		if ($line =~ m/last message repeated (\d+) times$/) {
+			my $c = $1;
+			my $lastline = $state->{"last"}->{$log};
+			if (defined($lastline)) {
+				handle($log, $lastline, 1) while ($c-- > 0);
+			} else {
+				debug(1, "Cannot repeat 'last' line $c times becuase I haven't seen the previous line. ($log)");
+			}
+		}
+	}
+
 	my $patterns = $PATTERNS->{$log};
 	foreach my $pattern (keys(%{$patterns})) {
 		# "fix" the line, turn it into a regex.
 		my $regex = pattern2regex($pattern);
 		# The regex match will store keys in this hash
 
-		# XXX: This used to work with 'my' instead of 'our'
+		# XXX: This used to work with 'my' instead of 'our' - I'm not sure why.
 		our %values = ();
 		debug(5, "Line: $line");
 		debug(5, "Regex: $regex");
@@ -164,19 +177,11 @@ sub handle {
 			my $keyname;
 
 			$keyname = $pat . "::" . meta2string($fileconf->{"key"}, \%values) if (exists($fileconf->{"key"}));
-			$keyname ||= join ("/", $pat, map { "$_=>$values{$_}" } keys(%values));
+			$keyname ||= join (",", $pat, map { "$_=>$values{$_}" } keys(%values));
 
 			debug(2, "UniqueKey: $keyname");
 			$state->{$keyname}->{"time"} ||= time();
 			$state->{$keyname}->{"count"}++;
-
-			#print "-\n";
-			#print "Line: $line\n";
-			#print "Key: $keyname\n";
-			#print "Matched rule: $keyname\n";
-			#print "Threshold [$keyname]: " . $state->{$keyname}->{"count"} . "/" . $fileconf->{"threshold"} . "\n";
-			#print "Time: " . (time() - $state->{$keyname}->{"time"}) . "/" . $fileconf->{"interval"} . "\n";
-			#print "\n";
 
 			if ($state->{$keyname}->{"count"} >= $fileconf->{"threshold"})  {
 				if ($fileconf->{"interval"} == 0 
@@ -209,7 +214,7 @@ sub handle {
 			$last->{"handler"} = $PATTERNS->{$log}->{$pattern};
 		}
 	}
-	$state->{"last"}->{$log} = $last;
+	$state->{"last"}->{$log} = $last unless ($syslogmode);
 }
 
 sub pattern2regex {
@@ -221,7 +226,8 @@ sub pattern2regex {
 	do {
 		my $rounds = 0;
 		$count = 0;
-		# Replace %KEY[:SUBNAME]% with a regex and store the capture as KEY:SUBNAME
+		# Replace %KEY:SUBNAME% with a regex and store the capture as KEY:SUBNAME
+		# The :SUBNAME specification is optional, ie; %IP% is valid, as is %IP:FOO%
 		map { $count += $regex =~ s/%(($_)(?::\w+)?)%/($MATCH{$_})(?{ \$values{'$1'} = \$^N })/g; } keys(%MATCH);
 		$rounds++;
 		if ($rounds > 10) {
@@ -261,12 +267,12 @@ sub readconfig {
 	debug(2, "Reading from $cfname");
 	my $grammar = << 'GRAMMAR';
 config: <rulevar: local $config = { }>
-config: (file | pattern | ignorable | error)(s) /\Z/ { $return = $config }
+config: (file | pattern | ignorable )(s) /\Z/ { $return = $config }
 ignorable: (comment | blankline)(s)
 comment: /#[^\n]*/
 blankline: /^\s*\n/
 
-error: /^[^\Z\n]/ { debug(0, "Error on line: $thisline ? (missing a semicolon perhaps?)"); }
+#error: /^[^\Z\n]/ { main::debug(0, "Error on line: $thisline ? (missing a semicolon perhaps?)"); }
 
 string: /((?:\")(?:[^\\\"]*(?:\\.[^\\\"]*)*)(?:\")|(?:\')(?:[^\\\']*(?:\\.[^\\\']*)*)(?:\')|(?:\`)(?:[^\\\`]*(?:\\.[^\\\`]*)*)(?:\`))/ { $return = substr($item[1],1,-1) }
 #string: <perl_quotelike> { $return = $item[1]->[2] }
@@ -305,8 +311,8 @@ GRAMMAR
 
 	my $parser = Parse::RecDescent->new($grammar);
 	my $config;
+	local $/ = undef;
 	open(CONFIG, $cfname) or die("Unable to open: $cfname");
-	undef $/;
 	$config = $parser->config(<CONFIG>);
 	close(CONFIG);
 
