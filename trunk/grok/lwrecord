@@ -57,6 +57,16 @@ my $splitkey = !($opts->{"N"});
 my $db = {};
 $db = retrieve($dbfile) if (-r $dbfile);
 
+if ($splitkey) {
+	# Split the key and make a tree structure in our hash.
+	my @s = split($splitstr,$key);
+	foreach (@s[0..($#s-1)]) {
+		$dbref->{$_} ||= {};
+		$dbref = $dbref->{$_};
+	}
+	$key = $s[$#s];
+}
+
 if ($opts->{"F"}) {
 	print Dumper($db);
 } else {
@@ -64,15 +74,6 @@ if ($opts->{"F"}) {
 	print STDERR "No key and value specified\n" and exit(1)
 		unless defined($key) && defined($data);
 
-	if ($splitkey) {
-		# Split the key and make a tree structure in our hash.
-		my @s = split($splitstr,$key);
-		foreach (@s[0..($#s-1)]) {
-			$dbref->{$_} ||= {};
-			$dbref = $dbref->{$_};
-		}
-		$key = $s[$#s];
-	}
 
 	push(@{$dbref->{$key}}, { time => $time, data => $data});
 	lock_store($db, $dbfile)
