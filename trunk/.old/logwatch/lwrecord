@@ -56,6 +56,7 @@ my $splitkey = !($opts->{"N"});
 
 my $db = {};
 $db = retrieve($dbfile) if (-r $dbfile);
+my $dbref = $db;
 
 if ($splitkey) {
 	# Split the key and make a tree structure in our hash.
@@ -68,9 +69,8 @@ if ($splitkey) {
 }
 
 if ($opts->{"F"}) {
-	print Dumper($db);
+	print Dumper($dbref->{$key} || $db);
 } else {
-	my $dbref = $db;
 	print STDERR "No key and value specified\n" and exit(1)
 		unless defined($key) && defined($data);
 
