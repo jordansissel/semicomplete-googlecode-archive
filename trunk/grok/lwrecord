@@ -15,14 +15,6 @@ use Storable qw(store lock_store freeze thaw retrieve);
 # Store items by time.
 # Retrieve items by time periods
 
-# lwrecord -f storagedb -d <unixtime> -t <type> <key> <data>
-# Types:
-# array
-# log
-
-# array means the data gets pushed onto the array
-# log means the data is simply logged
-
 # key spec:
 # foo/bar/baz implies $storage->{foo}->{bar}->{baz} = data ?
 
@@ -58,7 +50,7 @@ my $db = {};
 $db = retrieve($dbfile) if (-r $dbfile);
 my $dbref = $db;
 
-if ($splitkey) {
+if (defined($key) && ($splitkey)) {
 	# Split the key and make a tree structure in our hash.
 	my @s = split($splitstr,$key);
 	foreach (@s[0..($#s-1)]) {
@@ -69,11 +61,10 @@ if ($splitkey) {
 }
 
 if ($opts->{"F"}) {
-	print Dumper($dbref->{$key} || $db);
+	print Dumper( ($key) ? $dbref->{$key} : $db);
 } else {
 	print STDERR "No key and value specified\n" and exit(1)
 		unless defined($key) && defined($data);
-
 
 	push(@{$dbref->{$key}}, { time => $time, data => $data});
 	lock_store($db, $dbfile)
