@@ -173,7 +173,12 @@ sub handle {
 		debug(5, "Line: $line");
 		debug(5, "Regex: $regex");
 		debug(5, "Match: " . ($line =~ m/$regex/));
-		if ($line =~ m/$regex/) {
+		if ($line =~ m/($regex)/) {
+
+			# Set some other magic entries to %values
+			$values{'=LINE'} = $line;
+			$values{'=MATCH'} = $1;
+			map { debug(0, "Key: $_") } keys(%values);
 			#print "Line: $line\n";
 
 			# Handle if we're over the threshold
@@ -196,7 +201,8 @@ sub handle {
 						my ($cmd,$type) = ($_->{"string"}, $_->{"type"});
 						if ($type eq 'command') {
 							$cmd = meta2string($cmd, \%values);
-							debug(1, "Executing (from $keyname): $cmd");
+							debug(1, "Executing (from $keyname):");
+							debug(1, "$cmd");
 							system($cmd);
 						} elsif ($type eq 'perl') {
 							my ($d, $v, $s);
@@ -256,7 +262,15 @@ sub meta2string {
 		#map { $count += $meta =~ s/%($_)%/$values->{$_}/g; } keys(%MATCH);
 
 		# XXX: This will be undef if the key in $values is null, should that ever happen?
-		map { $count += $meta =~ s/%($_(?::\w+)?)%/$values->{$1}/g; } keys(%MATCH);
+		map {
+			my $regex = qr/%(\Q$_\E(?::\w+)?)(?:\|(\w+))?%/;
+			while ($meta =~ m/$regex/) {
+				$count++;
+				my $data = data($values, $1, $2);
+				$meta =~ s/$regex/$data/;
+			}
+			#$count += $meta =~ s/%($_(?::\w+)?)(\|\w+)?%/&data($values, $1, $2)/g; 
+		} (keys(%MATCH), '=LINE', '=MATCH');
 		$rounds++;
 		if ($rounds > 10) {
 			debug(0, "Deep recursion translating '$orig'");
@@ -265,6 +279,19 @@ sub meta2string {
 	} while ($count > 0);
 
 	return $meta;
+}
+
+sub data {
+	my ($values, $key, $opts) = @_;
+	$opts //= "";
+	my $ret = $values->{$key};
+
+	# Escape anything that may cause shell execution to break
+	if ($opts eq 'sh') {
+		$ret =~ s/([(){}[\]\$*?!|;'"])/\\$1/g;
+	}
+
+	return $ret;
 }
 
 sub readconfig {
