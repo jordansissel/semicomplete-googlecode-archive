@@ -26,7 +26,6 @@ memoize('pattern2regex');
 my @logrefs;
 my $debuglevel = 0;
 
-
 my $PATTERNS;
 	
 # Pattern-space wildcards, used as %WILDCARD% in the pattern config
@@ -178,7 +177,7 @@ sub handle {
 			# Set some other magic entries to %values
 			$values{'=LINE'} = $line;
 			$values{'=MATCH'} = $1;
-			map { debug(0, "Key: $_") } keys(%values);
+			#map { debug(0, "Key: $_") } keys(%values);
 			#print "Line: $line\n";
 
 			# Handle if we're over the threshold
@@ -263,13 +262,12 @@ sub meta2string {
 
 		# XXX: This will be undef if the key in $values is null, should that ever happen?
 		map {
-			my $regex = qr/%(\Q$_\E(?::\w+)?)(?:\|(\w+))?%/;
+			my $regex = qr/%(\Q$_\E(?::\w+)?)(?:\|(\S+))?%/;
 			while ($meta =~ m/$regex/) {
 				$count++;
 				my $data = data($values, $1, $2);
 				$meta =~ s/$regex/$data/;
 			}
-			#$count += $meta =~ s/%($_(?::\w+)?)(\|\w+)?%/&data($values, $1, $2)/g; 
 		} (keys(%MATCH), '=LINE', '=MATCH');
 		$rounds++;
 		if ($rounds > 10) {
@@ -286,10 +284,32 @@ sub data {
 	$opts //= "";
 	my $ret = $values->{$key};
 
+	#debug(0, "Opts: $opts");
 	# Escape anything that may cause shell execution to break
-	if ($opts eq 'sh') {
+
+	# shnq - escaping for use in non-quoted shell context
+	if ($opts =~ s/shnq//) {
 		$ret =~ s/([(){}[\]\$*?!|;'"])/\\$1/g;
+	} 
+
+	# shdq - escaping for use in double-quoted shell strings
+	elsif ($opts =~ s/shdq//) {
+		$ret =~ s/([\$"])/\\$1/g;
+	} 
+
+	# e[XYZ] - generic escaping, will escape the characters inside the brackets.
+	#elsif ($opts =~ s/e\[((?:(?:[^\]])|(?:\\\]))+)\]//) {
+	elsif ($opts =~  s/e\[((?:(?:\\])|(?:[^\]]))+)\]//) {
+		my $chars = $1;
+		# Clean up characters: - [ ]
+
+		debug(0, "Chars: $chars");
+		#$chars =~ s/((?!\\)[-\[\]])/\\$1/g;
+		#$chars =~ s/([-\[\]])/\\$1/g;
+		$ret =~ s/([$chars])/\\$1/g;
 	}
+
+	debug(0, "Ret: $ret");
 
 	return $ret;
 }
