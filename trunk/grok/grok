@@ -6,6 +6,7 @@ use Data::Dumper;
 use IO::Select;
 use Getopt::Std;
 use POSIX qw(setsid);
+use Memoize;
 
 # For older versions of perl
 use Symbol;
@@ -19,8 +20,12 @@ use Regexp::Common qw(RE_ALL);
 use Parse::RecDescent;
 use Unix::Syslog qw(:macros :subs);
 
+# Memoization of pattern2regex increases speed by a factor of 2.5
+memoize('pattern2regex');
+
 my @logrefs;
 my $debuglevel = 0;
+
 
 my $PATTERNS;
 	
@@ -129,7 +134,7 @@ sub readlog {
 		#print $state->{"map"}->{$logh} . "> $1\n";
 		handle($state->{"map"}->{$logh},$1);
 	}
-	#$state->{"buffers"}->{$logh} = $buffer;
+	$state->{"buffers"}->{$logh} = $buffer;
 }
 
 sub handle {
