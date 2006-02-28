@@ -11,7 +11,7 @@ use Memoize;
 # For older versions of perl
 use Symbol;
 
-# pragma - allow (?{ code }) assertions in dynamically generated regexen.
+# allow (?{ code }) assertions in dynamically generated regexen.
 # This let's me do named captures with $^N
 use re 'eval';
 
@@ -48,10 +48,10 @@ if (exists($opts->{"d"})) {
 
 if (exists($opts->{"b"})) {
 	print STDERR "Going to background...\n";
-	exit if (fork() != 0);
+	exit if (fork() != 0); # Kill the parent
 
 	# Break away from the terminal, if any.
-	print "setsid: " . POSIX::setsid() . "\n";
+	die "Cannot detach from terminal (setsid failed)" unless POSIX::setsid();
 	#chdir("/");
 	umask(0);
 
@@ -86,9 +86,10 @@ foreach (keys(%$config)) {
 	next if ($_ eq "patterns");
 	my $s = Symbol::gensym;
 	my $command = $_;
-	if ($config->{$_}->{"type"} eq 'file') {
-		$command = "tail -0 -f $_";
-	}
+
+	# Run 'file' types as 'tail -0 -f [file]'
+	$command = "tail -0 -f $_" if ($config->{$_}->{"type"} eq 'file');
+
 	debug(2, "Startup: Running $command");
 	open($s, "$command |") or die($!);
 	$select->add($s);
@@ -100,12 +101,6 @@ while(1) {
 	last if ($select->count() == 0);
 	my @ready = $select->can_read(60);
 	map(readlog($_), @ready);
-
-	# XXX: Perhaps perform time-based checks here?
-	# Allow periodic statistics reporting to be sent off via email?
-	# XXX(2): Nah, Go the UNIX route. Provide logwatch-record and logwatch-summarize
-	#   or something...
-
 }
 
 debug(0, "Nothing left to do (all files/execs ended) exiting");
@@ -171,14 +166,12 @@ sub handle {
 		our %values = ();
 		debug(5, "Line: $line");
 		debug(5, "Regex: $regex");
-		debug(5, "Match: " . ($line =~ m/$regex/));
+		debug(5, "Is Match: " . ($line =~ m/$regex/));
 		if ($line =~ m/($regex)/) {
 
 			# Set some other magic entries to %values
 			$values{'=LINE'} = $line;
 			$values{'=MATCH'} = $1;
-			#map { debug(0, "Key: $_") } keys(%values);
-			#print "Line: $line\n";
 
 			# Handle if we're over the threshold
 			my $pat = $PATTERNS->{$log}->{$pattern};
@@ -188,7 +181,7 @@ sub handle {
 			$keyname = $pat . "::" . meta2string($fileconf->{"key"}, \%values) if (exists($fileconf->{"key"}));
 			$keyname ||= join (",", $pat, map { "$_=>$values{$_}" } keys(%values));
 
-			debug(2, "UniqueKey: $keyname");
+			debug(3, "UniqueKey: $keyname");
 			$state->{$keyname}->{"time"} ||= time();
 			$state->{$keyname}->{"count"}++;
 
@@ -301,15 +294,15 @@ sub data {
 	#elsif ($opts =~ s/e\[((?:(?:[^\]])|(?:\\\]))+)\]//) {
 	elsif ($opts =~  s/e\[((?:(?:\\])|(?:[^\]]))+)\]//) {
 		my $chars = $1;
-		# Clean up characters: - [ ]
 
-		debug(0, "Chars: $chars");
+		debug(1, "Chars: $chars");
+		# Clean up characters: - [ ]
 		#$chars =~ s/((?!\\)[-\[\]])/\\$1/g;
 		#$chars =~ s/([-\[\]])/\\$1/g;
 		$ret =~ s/([$chars])/\\$1/g;
 	}
 
-	debug(0, "Ret: $ret");
+	debug(1, "Ret: $ret");
 
 	return $ret;
 }
