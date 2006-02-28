@@ -121,14 +121,12 @@ properties.
 There are also special options for variables in the reaction statements.
 The syntax for these options is %NAME|OPTION%.  Available options are:
 .Bl -column ".Sy e[XYZ]"
-.It Em shnq Ta Used to escape characters in unquoted strings.
+.It Em shnq Ta Used to escape (){}[]$*?!|'"` characters.
 
-.It Em shdq Ta Used to escape characters in double quoted strings.
+.It Em shdq Ta Used to escape $"` characters.
 
-.It Em e[XYZ] Ta Used to escape arbitrary characters.
+.It Em e[XYZ] Ta Used to escape arbitrary (XYZ) characters.
 .El
-
-The characters that are escaped are: (){}[]$*?!|;'"
 .Ed
 .Pp
 .Sh FILES
