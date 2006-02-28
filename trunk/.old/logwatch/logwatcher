@@ -282,12 +282,12 @@ sub data {
 
 	# shnq - escaping for use in non-quoted shell context
 	if ($opts =~ s/shnq//) {
-		$ret =~ s/([(){}[\]\$*?!|;'"])/\\$1/g;
+		$ret =~ s/([`(){}[\]\$*?!|;'"])/\\$1/g;
 	} 
 
 	# shdq - escaping for use in double-quoted shell strings
 	elsif ($opts =~ s/shdq//) {
-		$ret =~ s/([\$"])/\\$1/g;
+		$ret =~ s/([`\$"])/\\$1/g;
 	} 
 
 	# e[XYZ] - generic escaping, will escape the characters inside the brackets.

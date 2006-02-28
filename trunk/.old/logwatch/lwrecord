@@ -24,8 +24,7 @@ use Storable qw(store lock_store freeze thaw retrieve);
 my $prog = $0;
 $prog =~ s,^.*/,,;
 
-
-my $opts = {};
+# Options...
 # -F == fetch db
 # -f == db file
 # -d = date
@@ -33,6 +32,7 @@ my $opts = {};
 # -N = no split key
 # -s = set split token
 # -h = display help
+my $opts = {};
 getopts("Ff:d:t:Ns:h", $opts);
 $opts->{"F"} = 1 if ($prog eq 'lwfetch');
 
@@ -63,7 +63,7 @@ if (defined($key) && ($splitkey)) {
 if ($opts->{"F"}) {
 	print Dumper( ($key) ? $dbref->{$key} : $db);
 } else {
-	print STDERR "No key and value specified\n" and exit(1)
+	print STDERR "No key and value specified\n" and usage() and exit(1)
 		unless defined($key) && defined($data);
 
 	push(@{$dbref->{$key}}, { time => $time, data => $data});
@@ -73,7 +73,7 @@ if ($opts->{"F"}) {
 
 sub usage {
 	print << "USAGE";
-$0 [-F] [-f dbfile] [-d datestamp] [-N] [-s X] [-h]
+$0 [-F] [-f dbfile] [-d datestamp] [-N] [-s X] [-h] <key> <value>
 	-F         Fetch the database
 	-f file    Specify the file to store/retrieve data from
 	-d date    Specify the time to use instead of current time
