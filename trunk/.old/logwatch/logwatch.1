@@ -23,7 +23,8 @@ The options are as follows:
 .Bl -tag -width indent
 .It Fl b
 Run in the background.  Detaches logwatch and redirects STDOUT, STDIN,
-and STDERR to /dev/null.
+and STDERR to
+.Pa /dev/null
 .It Fl d Ar [1, 2, ...]
 The value (default is 1 if no value is given) specifies the debug level.
 Only messages with a debug value less than or equal to the specified
@@ -34,11 +35,14 @@ Use
 .Ar file
 as a configuration file.  If this is not specified
 .Nm
-will look in the current working directory for logwatch.conf and use
-that.
+will look in the current working directory for
+.Pa logwatch.conf
+and use that.
 .El
 .Sh CONFIGURATION 
-The logwatch.conf file follows this syntax:
+The
+.Pa logwatch.conf
+file follows this syntax:
 .Bd -literal -offset "indent"
 patterns { patternspec };
 file "filename" { filespec };
@@ -61,6 +65,7 @@ expressions.  The pre-existing patterns can be used as %NAME%.  The
 patterns are defined as:
 .Bl -column ".Sy USERNAME" ".Sy Regular Expression" 
 .It Sy "Name" Ta Sy "Regular Expression"
+
 .It Li USERNAME Ta \ew\&+
 .It Li USER Ta \ew\&+
 .It Li IP Ta $RE{net}{IPv4}
@@ -103,12 +108,37 @@ type "description" {
 
 .It Em Reaction Ta Any valid (string of) command(s) or block of perl code.  If using a perl block helper variables are provided by logwatch.  These are $v (a hashref containing all named patterns matched, subnames are valid here) and $d (a hashref to use for your own storage, keyed with your key value).
 .El
+
+Two special variables are provided for use in the reaction.  These are:
+.Bl -column ".Sy %=MATCH%"
+.It Em %=MATCH% Ta Contains the substring matched by the
+.Ql match
+properties.
+
+.It Em %=LINE% Ta Contains the whole line matched.
+.El
+
+There are also special options for variables in the reaction statements.
+The syntax for these options is %NAME|OPTION%.  Available options are:
+.Bl -column ".Sy e[XYZ]"
+.It Em shnq Ta Used to escape characters in unquoted strings.
+
+.It Em shdq Ta Used to escape characters in double quoted strings.
+
+.It Em e[XYZ] Ta Used to escape arbitrary characters.
+.El
+
+The characters that are escaped are: (){}[]$*?!|;'"
 .Ed
 .Pp
+.Sh FILES
+.Pa /usr/local/etc/logwatch.conf
+.Pp
 .Sh EXAMPLES 
-The following example defines %TTY%, watches /var/log/messages for
-failed su(1) attempts and prints a message to STDOUT (notice the use of
-named pattern captures):
+The following example defines %TTY%, watches
+.Pa /var/log/messages
+for failed su(1) attempts and prints a message to STDOUT (notice the use
+of named pattern captures).
 .Bd -literal -offset "indent"
 patterns {
     TTY = "/dev/tty[qp][a-z0-9]";
@@ -162,6 +192,42 @@ exec "tcpdump -li em0 -n 2< /dev/null" {
     };
 };
 .Ed
+.Pp
+The following example illustrates the optional flags available when
+evaluating a variable in a reaction statement.  Assume that
+.Pa /etc/passwd
+contains the following line:
+.Pp
+test:*:1002:1002:T"est?:/home/test:/bin/sh
+.Bd -literal -offset "indent"
+exec "cat /etc/passwd" {
+    type "passwd" {
+        match = "^test";
+        reaction = "echo 'Found: %=LINE|shdq%'";
+    };
+};
+.Ed
+.Pp
+The output of this is:
+.Pp
+Found: test:*:1002:1002:T\\"est?:/home/test:/bin/sh
+.Pp
+Using the same line in
+.Pa /etc/passwd
+but changing the example to look like:
+.Pp
+.Bd -literal -offset "indent"
+exec "cat /etc/passwd" {
+    type "passwd" {
+        match = "^test";
+        reaction = "echo 'Found: %=LINE|shnq%'";
+    };
+};
+.Ed
+.Pp
+results in:
+.Pp
+Found: test:\\*:1002:1002:T\\"est\\?:/home/test:/bin/sh
 .Pp
 .Sh AUTHOR
 .An -nosplit
