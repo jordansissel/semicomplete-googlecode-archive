@@ -269,7 +269,7 @@ sub meta2string {
 
 		# XXX: This will be undef if the key in $values is null, should that ever happen?
 		map {
-			my $regex = qr/%(\Q$_\E(?::\w+)?)(?:\|(?:(?:\S+)(?:,\S+)*))?%/;
+			my $regex = qr/%(\Q$_\E(?::\w+)?)(?:\|((?:\S+)(?:,\S+)*))?%/;
 			while ($meta =~ m/$regex/) {
 				$count++;
 				my $data = data($values, $1, $2);
@@ -291,7 +291,7 @@ sub data {
 	$opts //= "";
 	my $ret = $values->{$key};
 
-	#debug(0, "Opts: $opts");
+	debug(1, "Opts: $opts");
 	# Escape anything that may cause shell execution to break
 
 	# shnq - escaping for use in non-quoted shell context
@@ -310,7 +310,9 @@ sub data {
 		#$chars =~ s/((?!\\)[-\[\]])/\\$1/g;
 		#$chars =~ s/([-\[\]])/\\$1/g;
 		$ret =~ s/([$chars])/\\$1/g;
-	} elsif ($opts =~ s/parsetime//) {
+	}
+
+	elsif ($opts =~ s/parse(?:time|date)//) {
 		$ret = str2time($ret);
 	}
 
