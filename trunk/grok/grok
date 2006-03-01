@@ -18,6 +18,7 @@ use re 'eval';
 # Things you'll need to have installed (from CPAN):
 use Regexp::Common qw(RE_ALL);
 use Parse::RecDescent;
+use Date::Parse;
 use Unix::Syslog qw(:macros :subs);
 
 # Memoization of pattern2regex increases speed by a factor of 2.5
@@ -35,6 +36,19 @@ my %MATCH = (
 	IP => $RE{net}{IPv4},
 	PORT => qr/\d+/,
 	COUNT => qr/\d+/,
+	HOSTNAME => qr/(?! )$RE{net}{domain}/,
+
+	# Months: January, Feb, 3, 03, 12, December
+	MONTH => qr/(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|0?[0-9]|1[0-2])/,
+	MONTHDAY => qr/(?:[0-2]?[0-9])|3[01]/,
+
+	# Days: Monday, Tue, Thu, 0 (Sunday?), 6 (Saturday?)
+	DAY => qr/(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?|[0-6])/,
+
+	TIME => qr/\d{2}:\d{2}:\d{2}/,
+
+	# Syslog Dates:  Month *Day *HH:MM:SS
+	SYSLOGDATE => "%MONTH% +%MONTHDAY% %TIME%",
 );
 
 my $opts = {};
@@ -255,7 +269,7 @@ sub meta2string {
 
 		# XXX: This will be undef if the key in $values is null, should that ever happen?
 		map {
-			my $regex = qr/%(\Q$_\E(?::\w+)?)(?:\|(\S+))?%/;
+			my $regex = qr/%(\Q$_\E(?::\w+)?)(?:\|(?:(?:\S+)(?:,\S+)*))?%/;
 			while ($meta =~ m/$regex/) {
 				$count++;
 				my $data = data($values, $1, $2);
@@ -291,15 +305,13 @@ sub data {
 	} 
 
 	# e[XYZ] - generic escaping, will escape the characters inside the brackets.
-	#elsif ($opts =~ s/e\[((?:(?:[^\]])|(?:\\\]))+)\]//) {
 	elsif ($opts =~  s/e\[((?:(?:\\])|(?:[^\]]))+)\]//) {
 		my $chars = $1;
-
-		debug(1, "Chars: $chars");
-		# Clean up characters: - [ ]
 		#$chars =~ s/((?!\\)[-\[\]])/\\$1/g;
 		#$chars =~ s/([-\[\]])/\\$1/g;
 		$ret =~ s/([$chars])/\\$1/g;
+	} elsif ($opts =~ s/parsetime//) {
+		$ret = str2time($ret);
 	}
 
 	debug(1, "Ret: $ret");
