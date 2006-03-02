@@ -45,6 +45,7 @@ my %MATCH = (
 	# Days: Monday, Tue, Thu, 0 (Sunday?), 6 (Saturday?)
 	DAY => qr/(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?|[0-6])/,
 
+	# Time: HH:MM:SS
 	TIME => qr/\d{2}:\d{2}:\d{2}/,
 
 	# Syslog Dates:  Month *Day *HH:MM:SS
