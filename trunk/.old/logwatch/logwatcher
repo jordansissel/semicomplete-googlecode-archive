@@ -48,8 +48,10 @@ my %MATCH = (
 	# Time: HH:MM:SS
 	TIME => qr/\d{2}:\d{2}:\d{2}/,
 
-	# Syslog Dates:  Month *Day *HH:MM:SS
+	# Syslog Dates: Month Day HH:MM:SS
 	SYSLOGDATE => "%MONTH% +%MONTHDAY% %TIME%",
+
+	QUOTEDSTRING => $RE{quoted},
 );
 
 my $opts = {};
@@ -292,7 +294,8 @@ sub data {
 	$opts //= "";
 	my $ret = $values->{$key};
 
-	debug(1, "Opts: $opts");
+	#debug(0, "Opts: $opts");
+	#debug(0, "Key: $opts");
 	# Escape anything that may cause shell execution to break
 
 	# shnq - escaping for use in non-quoted shell context
