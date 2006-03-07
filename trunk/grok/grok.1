@@ -46,6 +46,7 @@ The
 file follows this syntax:
 .Bd -literal -offset "indent"
 patterns { patternspec };
+filters { filterspec };
 file "filename" { filespec };
 exec "command" { filespec };
 .Ed
@@ -82,6 +83,35 @@ for a detailed explanation.
 .Ed
 .Pp
 .ft B
+filterspec
+.ft P
+.Bd -literal -offset "indent"
+Filter specifiers are used in a reaction statement, and are useful
+for modifying the output of a variable.  They have the following
+syntax:
+
+/FILTERNAME/ = { perl block };
+
+The slash notation is important and can often be thought of as a
+search and replace, as that is often the purpose of a filter.  The
+syntax for using a filter in a reaction statement is %NAME|FILTER%.
+
+There are pre-defined filters available within a reaction statement.
+The pre-defined filters and their descriptions are:
+.Bl -column ".Sy stripquotes"
+.It Em shnq Ta Used to escape (){}[]$*?!|'"` characters.
+
+.It Em shdq Ta Used to escape $"` characters.
+
+.It Em e[XYZ] Ta Used to escape arbitrary (XYZ) characters.
+
+.It Em stripquotes Ta Strip leading and trailing quote characters ("`').
+
+.It Em parsedate Ta Convert a string containing a date to machine time.
+.El
+.Ed
+.Pp
+.ft B
 filespec
 .ft P
 .Bd -literal -offset "indent"
@@ -107,9 +137,9 @@ type "description" {
 
 .It Em Interval Ta The time, in seconds, between occurance counter reset.  If the threshold is not reached by the specified interval time then the occourance count is is reset and no reaction is triggered.
 
-.It Em Reaction Ta Any valid (string of) command(s) or block of perl code.  If using a perl block helper variables are provided by
-.Nm\&.
-These are $v (a hashref containing all named patterns matched, subnames are valid here) and $d (a hashref to use for your own storage, keyed with your key value).
+.It Em Reaction Ta Any valid (string of) command(s) or block of perl code.  If using a perl block
+.Nm
+provides helper variables.  These are $v (a hashref containing all named patterns matched, subnames are valid here) and $d (a hashref to use for your own storage, keyed with your key value).
 .El
 
 Two special variables are provided for use in the reaction.  These are:
@@ -119,20 +149,6 @@ Two special variables are provided for use in the reaction.  These are:
 properties.
 
 .It Em %=LINE% Ta Contains the whole line matched.
-.El
-
-There are also special options for variables in the reaction statements.
-The syntax for these options is %NAME|OPTION%.  Available options are:
-.Bl -column ".Sy e[XYZ]"
-.It Em shnq Ta Used to escape (){}[]$*?!|'"` characters.
-
-.It Em shdq Ta Used to escape $"` characters.
-
-.It Em e[XYZ] Ta Used to escape arbitrary (XYZ) characters.
-
-.It Em parsetime Ta Convert a string containing a time to machine time.
-
-.It Em parsedate Ta Convert a string containing a date to machine time.
 .El
 .Ed
 .Pp
@@ -153,6 +169,28 @@ file "/var/log/messages" {
     type "failed su(1) attempt" {
         match = "BAD SU %USER:FROM% to %USER:TO% on %TTY%";
         reaction = "echo 'Failed su(1): %USER:FROM% -> %USER:TO% (%TTY%)'";
+    };
+};
+.Ed
+.Pp
+For the following example we are watching apache logfiles and replacing
+the quored URL string with just the URL in the reaction statement.  The
+format of the file is:
+
+127.0.0.1 - frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326 "http://www.example.com/start.html" "Mozilla/4.08 [en] (Win98; I ;Nav)"
+.Bd -literal -offset "indent"
+patterns {
+    HTTPDATE = "%MONTHDAY%/%MONTH%/\&\d\&+:%TIME% -\&\d\&+";
+};
+
+filters {
+    /httpfilter/ = { s/^\S+ (\S+) \S+$/$1/; };
+};
+
+exec "cat /var/log/http.access.log" {
+    type "http" {
+        match = "%IP% - - \[%HTTPDATE%\] %QUOTEDSTRING:URL% .*? %QUOTEDSTRING:REFERRER% %QUOTEDSTRING:AGENT%";
+        reaction = "echo '%IP%: %QUOTEDSTRING:URL|e[']|stripquotes|httpfilter%'";
     };
 };
 .Ed
@@ -198,7 +236,7 @@ exec "tcpdump -li em0 -n 2< /dev/null" {
 };
 .Ed
 .Pp
-The following example illustrates the optional flags available when
+The following example illustrates the optional filters available when
 evaluating a variable in a reaction statement.  Assume that
 .Pa /etc/passwd
 contains the following line:
