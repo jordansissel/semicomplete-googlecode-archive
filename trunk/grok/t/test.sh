@@ -2,8 +2,8 @@
 
 try() {
 	OUTPUT=`mktemp /tmp/logwatcher.test.XXXXX`
-	../logwatcher -f conf/$1 > $OUTPUT 2> /dev/null
-	diff -u $OUTPUT output/$1 > /dev/null 2>&1
+	perl ../grok -f conf/$1 > $OUTPUT 2> /dev/null
+	diff -u $OUTPUT output/$1 > /tmp/output
 	return $?
 }
 
