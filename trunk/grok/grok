@@ -353,7 +353,7 @@ pattern_name: word
 pattern_string: string
 
 filter: <rulevar: local $filter = { }>
-filter: 'filters' '{' (filter_entry)(s?) '}' ';' { main::addfilters($filter) }
+filter: 'filters' '{' (filter_entry | ignorable)(s?) '}' ';' { main::addfilters($filter) }
 filter_entry: filter_name '=' filter_string ';' { $filter->{$item[1]} = $item[3] }
 filter_name: string
 filter_string: perlblock
@@ -417,12 +417,6 @@ sub setup {
 		}
 		$PATTERNS->{$file} = $matchhash;
 	}
-
-
-	#foreach my $filter (keys(%{$config->{"filters"}})) {
-		#debug(2, "Adding filter '$filter'");
-		#$dispatch->{$filter} = sub { eval($config->{"filters"}->{$filter}) };
-	#}
 }
 
 sub addpatterns {
@@ -436,12 +430,14 @@ sub addpatterns {
 
 sub addfilters {
 	my $f = shift;
+	print STDERR Dumper($f);
 	foreach my $filter (keys(%$f)) {
+		debug(2, "Adding filter '$filter': " . $f->{$filter});
 		# Sanitize filter:
-		$filter =~ s/^{|}$//g;
-		$filter = qr/$filter/;
-		debug(2, "Adding filter '$filter'");
-		$dispatch->{$filter} = sub { debug(0, "Foo: " . $f->{$filter}); eval($f->{$filter}); }
+		my $sf = $filter;
+		$sf  =~ s/^{|}$//g;
+		$sf = qr/$sf/;
+		$dispatch->{$sf} = sub { eval($f->{$filter}); }
 	}
 
 	return 0;
