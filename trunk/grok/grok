@@ -355,7 +355,7 @@ pattern_string: string
 filter: <rulevar: local $filter = { }>
 filter: 'filters' '{' (filter_entry | ignorable)(s?) '}' ';' { main::addfilters($filter) }
 filter_entry: filter_name '=' filter_string ';' { $filter->{$item[1]} = $item[3] }
-filter_name: string
+filter_name: <perl_quotelike> { $return = $item[1]->[2] }
 filter_string: perlblock
 
 file: <rulevar: local $file = { }>
