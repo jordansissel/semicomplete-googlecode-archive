@@ -59,7 +59,6 @@ my $filters = {
 	qr/shnq/ => sub { s/([`(){}[\]\$*?!|;'"])/\\$1/g; },
 	qr/shdq/ => sub { s/([`\$"])/\\$1/g; },
 	qr/e\[((?:(?:\\])|(?:[^\]]))+)\]/ => sub { s/([$1])/\\$1/g; },
-	qr/nslookup/ => sub {  },
 	qr/stripquotes/ => sub { s/^(["])//; s/$1$//; },
 	qr/parsedate/ => sub { str2time($_) },
 };
