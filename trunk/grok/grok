@@ -8,7 +8,7 @@ use Getopt::Std;
 use POSIX qw(setsid);
 use Memoize;
 
-# For older versions of perl
+# For older versions of perl.. but do I really care that much?
 use Symbol;
 
 # allow (?{ code }) assertions in dynamically generated regexen.
@@ -291,36 +291,28 @@ sub meta2string {
 
 sub data {
 	my ($values, $key, $opts) = @_;
-	$opts //= "";
+	$opts //= ""; # Default to empty options
 	my $ret = $values->{$key};
 
-	#debug(0, "Opts: $opts");
-	#debug(0, "Key: $opts");
-	# Escape anything that may cause shell execution to break
+	# Wrapper function to set $_
+	local *w = sub { $_ = $_[1]; $_[0]->($_[1]); $_ };
 
 	# shnq - escaping for use in non-quoted shell context
-	if ($opts =~ s/shnq//) {
-		$ret =~ s/([`(){}[\]\$*?!|;'"])/\\$1/g;
-	} 
-
 	# shdq - escaping for use in double-quoted shell strings
-	elsif ($opts =~ s/shdq//) {
-		$ret =~ s/([`\$"])/\\$1/g;
-	} 
-
 	# e[XYZ] - generic escaping, will escape the characters inside the brackets.
-	elsif ($opts =~  s/e\[((?:(?:\\])|(?:[^\]]))+)\]//) {
-		my $chars = $1;
-		#$chars =~ s/((?!\\)[-\[\]])/\\$1/g;
-		#$chars =~ s/([-\[\]])/\\$1/g;
-		$ret =~ s/([$chars])/\\$1/g;
-	}
+	# nslookup - ip->host resolution
+	# parsedate - convert time values
+	my $dispatch = {
+		qr/shnq/ => sub { s/([`(){}[\]\$*?!|;'"])/\\$1/g; },
+		qr/shdq/ => sub { s/([`\$"])/\\$1/g; },
+		qr/e\[((?:(?:\\])|(?:[^\]]))+)\]/ => sub { s/([$1])/\\$1/g; },
+		qr/nslookup/ => sub {  },
+		qr/parsedate/ => sub { str2time($_) },
+	};
 
-	elsif ($opts =~ s/parse(?:time|date)//) {
-		$ret = str2time($ret);
-	}
+	map { $ret = w($dispatch->{$_}, $ret) if $opts =~ s/$_// } keys(%$dispatch);
 
-	debug(1, "Ret: $ret");
+	#debug(0, "Ret: $ret");
 
 	return $ret;
 }
