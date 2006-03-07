@@ -80,12 +80,12 @@ if (exists($opts->{"b"})) {
 	open(STDERR, "+>&STDIN");
 
 	# Change ps output to something reasonable?
-	#$0 = "logwatcher " . join(" ",@ARGV);
+	#$0 = "grok " . join(" ",@ARGV);
 }
 
 # Syslog to stderr, too, if we aren't going to the background.
 my $logopts = ((!exists($opts->{'b'})) ? LOG_PERROR : 0) | LOG_PID;
-openlog("logwatcher", $logopts, LOG_USER);
+openlog("grok", $logopts, LOG_USER);
 
 my $config = readconfig($opts->{"f"});
 #print Dumper($config);
@@ -318,7 +318,7 @@ sub data {
 }
 
 sub readconfig {
-	my $cfname = shift || "logwatch.conf";
+	my $cfname = shift || "grok.conf";
 	debug(2, "Reading from $cfname");
 	my $grammar = << 'GRAMMAR';
 config: <rulevar: local $config = { }>
