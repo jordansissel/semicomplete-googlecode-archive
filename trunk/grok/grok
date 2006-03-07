@@ -312,15 +312,15 @@ sub filter {
 	# Wrapper function to call a dispatch function and set $_
 	local *w = sub { 
 		debug(0, "No filter matches $_[0]") and return unless defined($filters->{$_[0]});
-		$_ = $_[1]; 
+		local $_ = $_[1];
 		$filters->{$_[0]}->($_[1]);
 		return $_;
 	};
 
 	# Apply filters in sequence until we run out of filters to apply.
 	my $re = join("|", map { qr/(?:$_)/ } keys(%$filters));
-	while ($opts =~ s/^($re)//) {
-		my ($key) = grep { $1 =~ m/$_/ } keys(%$filters);
+	while ($opts =~ s/^$re//) {
+		my ($key) = grep { $& =~ m/$_/ } keys(%$filters);
 		$ret = w($key, $ret);
 		last unless $opts =~ s/^\|//;
 	}
