@@ -54,6 +54,15 @@ my %MATCH = (
 	QUOTEDSTRING => $RE{quoted},
 );
 
+# Dispatch table for filter chains.
+my $dispatch = {
+	qr/shnq/ => sub { s/([`(){}[\]\$*?!|;'"])/\\$1/g; },
+	qr/shdq/ => sub { s/([`\$"])/\\$1/g; },
+	qr/e\[((?:(?:\\])|(?:[^\]]))+)\]/ => sub { s/([$1])/\\$1/g; },
+	qr/nslookup/ => sub {  },
+	qr/stripquotes/ => sub { s/^(["])//; s/$1$//; },
+	qr/parsedate/ => sub { str2time($_) },
+};
 my $opts = {};
 getopt('fdb', $opts);
 
@@ -288,38 +297,31 @@ sub meta2string {
 	return $meta;
 }
 
+# XXX: There may be some performance issues in this function
 sub filter {
 	my ($values, $key, $opts) = @_;
 	my $ret = $values->{$key};
 	$opts //= "";
-
-	# Wrapper function to set $_
-	local *w = sub { $_ = $_[1]; $_[0]->($_[1]); $_ };
 
 	# shnq - escaping for use in non-quoted shell context
 	# shdq - escaping for use in double-quoted shell strings
 	# e[XYZ] - generic escaping, will escape the characters inside the brackets.
 	# nslookup - ip->host resolution
 	# parsedate - convert time values
-	my $dispatch = {
-		qr/shnq/ => sub { s/([`(){}[\]\$*?!|;'"])/\\$1/g; },
-		qr/shdq/ => sub { s/([`\$"])/\\$1/g; },
-		qr/e\[((?:(?:\\])|(?:[^\]]))+)\]/ => sub { s/([$1])/\\$1/g; },
-		qr/nslookup/ => sub {  },
-		qr/stripquotes/ => sub { s/^(["])//; s/$1$//; },
-		qr/parsedate/ => sub { str2time($_) },
+
+	# Wrapper function to call a dispatch function and set $_
+	local *w = sub { 
+		debug(0, "No filter matches $_[0]") and return unless defined($dispatch->{$_[0]});
+		$_ = $_[1]; 
+		$dispatch->{$_[0]}->($_[1]);
+		return $_;
 	};
 
+	# Apply filters in sequence until we run out of filters to apply.
 	my $re = join("|", map { qr/(?:$_)/ } keys(%$dispatch));
-	my $x = 0;
 	while ($opts =~ s/^($re)//) {
-		$x++;
 		my ($key) = grep { $1 =~ m/$_/ } keys(%$dispatch);
-		if (defined($dispatch->{$key})) {
-			$ret = w($dispatch->{$key}, $ret);
-		} else {
-			debug(0, "No filter matches: $1");
-		}
+		$ret = w($key, $ret);
 		last unless $opts =~ s/^\|//;
 	}
 
@@ -331,7 +333,7 @@ sub readconfig {
 	debug(2, "Reading from $cfname");
 	my $grammar = << 'GRAMMAR';
 config: <rulevar: local $config = { }>
-config: (file | pattern | ignorable )(s) /\Z/ { $return = $config }
+config: (file | pattern | filter | ignorable )(s) /\Z/ { $return = $config }
 ignorable: (comment | blankline)(s)
 comment: /#[^\n]*/
 blankline: /^\s*\n/
@@ -345,10 +347,16 @@ word: /\w+/
 perlblock: <perl_codeblock>
 
 pattern: <rulevar: local $pattern = { }>
-pattern: 'patterns' '{' (pattern_entry)(s) '}' ';' { $config->{"patterns"} = $pattern }
+pattern: 'patterns' '{' (pattern_entry)(s) '}' ';' { main::addpatterns($pattern) }
 pattern_entry: pattern_name '=' pattern_string ';' { $pattern->{$item[1]} = $item[3] }
 pattern_name: word
 pattern_string: string
+
+filter: <rulevar: local $filter = { }>
+filter: 'filters' '{' (filter_entry)(s?) '}' ';' { main::addfilters($filter) }
+filter_entry: filter_name '=' filter_string ';' { $filter->{$item[1]} = $item[3] }
+filter_name: string
+filter_string: perlblock
 
 file: <rulevar: local $file = { }>
 file: filespec filename '{' file_entry(?) '}' ';' { $config->{$item[2]} = $file }
@@ -410,10 +418,31 @@ sub setup {
 		$PATTERNS->{$file} = $matchhash;
 	}
 
-	foreach my $pattern (keys(%{$config->{"patterns"}})) {
-		debug(2, "Adding pattern '$pattern'");
-		$MATCH{$pattern} = $config->{"patterns"}->{$pattern};
-	}
+
+	#foreach my $filter (keys(%{$config->{"filters"}})) {
+		#debug(2, "Adding filter '$filter'");
+		#$dispatch->{$filter} = sub { eval($config->{"filters"}->{$filter}) };
+	#}
 }
 
+sub addpatterns {
+	my $p = shift;
+	foreach my $pattern (keys(%$p)) {
+		debug(2, "Adding pattern '$pattern'");
+		$MATCH{$pattern} = $p->{$pattern};
+	}
+	return 0;
+}
 
+sub addfilters {
+	my $f = shift;
+	foreach my $filter (keys(%$f)) {
+		# Sanitize filter:
+		$filter =~ s/^{|}$//g;
+		$filter = qr/$filter/;
+		debug(2, "Adding filter '$filter'");
+		$dispatch->{$filter} = sub { debug(0, "Foo: " . $f->{$filter}); eval($f->{$filter}); }
+	}
+
+	return 0;
+}
