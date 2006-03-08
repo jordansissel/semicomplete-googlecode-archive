@@ -55,6 +55,11 @@ my %MATCH = (
 );
 
 # Dispatch table for filter chains.
+# shnq - escaping for use in non-quoted shell context
+# shdq - escaping for use in double-quoted shell strings
+# e[XYZ] - generic escaping, will escape the characters inside the brackets.
+# stripquotes - strip leading and trailing quotes.
+# parsedate - convert time values
 my $filters = {
 	qr/shnq/ => sub { s/([`(){}[\]\$*?!|;'"])/\\$1/g; },
 	qr/shdq/ => sub { s/([`\$"])/\\$1/g; },
@@ -62,6 +67,7 @@ my $filters = {
 	qr/stripquotes/ => sub { s/^(["])//; s/$1$//; },
 	qr/parsedate/ => sub { str2time($_) },
 };
+
 my $opts = {};
 getopt('fdb', $opts);
 
@@ -112,7 +118,7 @@ foreach (keys(%$config)) {
 	my $command = $_;
 
 	# Run 'file' types as 'tail -0 -f [file]'
-	$command = "tail -0 -f $_" if ($config->{$_}->{"type"} eq 'file');
+	$command = "tail -0 -f '$_'" if ($config->{$_}->{"type"} eq 'file');
 
 	debug(2, "Startup: Running $command");
 	open($s, "$command |") or die($!);
@@ -121,8 +127,7 @@ foreach (keys(%$config)) {
 }
 
 # Loop for data for as long as our love shall last...
-while(1) {
-	last if ($select->count() == 0);
+while($select->count()) {
 	my @ready = $select->can_read(60);
 	map(readlog($_), @ready);
 }
@@ -301,12 +306,6 @@ sub filter {
 	my ($values, $key, $opts) = @_;
 	my $ret = $values->{$key};
 	$opts //= "";
-
-	# shnq - escaping for use in non-quoted shell context
-	# shdq - escaping for use in double-quoted shell strings
-	# e[XYZ] - generic escaping, will escape the characters inside the brackets.
-	# nslookup - ip->host resolution
-	# parsedate - convert time values
 
 	# Wrapper function to call a dispatch function and set $_
 	local *w = sub { 
