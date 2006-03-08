@@ -1,4 +1,9 @@
 #!/usr/bin/perl
+# Grok is released under the Creative Commons Attribution 2.5 License
+# If you care, an overview of this license (and the legalese) is at:
+# http://creativecommons.org/licenses/by/2.5/
+#
+# Email jls@csh.rit.edu if you have any problems or questions with using Grok!
 
 use strict;
 use warnings;
@@ -189,8 +194,8 @@ sub handle {
 	foreach my $pattern (keys(%{$patterns})) {
 		# "fix" the line, turn it into a regex.
 		my $regex = pattern2regex($pattern);
-		# The regex match will store keys in this hash
 
+		# The regex match will store keys in this hash
 		# XXX: This used to work with 'my' instead of 'our' - I'm not sure why.
 		our %values = ();
 		debug(5, "Line: $line");
@@ -227,10 +232,14 @@ sub handle {
 							system($cmd);
 						} elsif ($type eq 'perl') {
 							my ($d, $v, $s);
+							# XXX: Should this just be $foo ||= {} ?
 							$storage->{$log}->{$keyname} = {} if (!exists($storage->{$log}->{$keyname}));
 							$d = $storage->{$log}->{$keyname};
 							map { $s->{$_} = $fileconf->{$_} } qw(threshold count interval);
 							$v = \%values;
+							# XXX: Instead of always evalling this, why not create a
+							# subroutine like so: my $func; eval('$func = sub { $cmd }')
+							# and always call $func->() instead?
 							eval($cmd);
 							warn $@ if $@;
 						} else {
@@ -305,7 +314,7 @@ sub meta2string {
 sub filter {
 	my ($values, $key, $opts) = @_;
 	my $ret = $values->{$key};
-	$opts //= "";
+	$opts = "" unless (defined($opts));
 
 	# Wrapper function to call a dispatch function and set $_
 	local *w = sub { 
