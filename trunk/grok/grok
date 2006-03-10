@@ -102,7 +102,7 @@ if (exists($opts->{"b"})) {
 }
 
 # Syslog to stderr, too, if we aren't going to the background.
-my $logopts = ((!exists($opts->{'b'})) ? LOG_PERROR : 0) | LOG_PID;
+my $logopts = LOG_PID;
 openlog("grok", $logopts, LOG_USER);
 
 my $config = readconfig($opts->{"f"});
@@ -123,7 +123,7 @@ foreach (keys(%$config)) {
 	my $command = $_;
 
 	# Run 'file' types as 'tail -0 -f [file]'
-	$command = "tail -0 -f '$_'" if ($config->{$_}->{"type"} eq 'file');
+	$command = "tail -0f '$_'" if ($config->{$_}->{"type"} eq 'file');
 
 	debug(2, "Startup: Running $command");
 	open($s, "$command |") or die($!);
@@ -144,7 +144,7 @@ sub debug {
 	my ($level, $msg) = @_;
 	$msg =~ s/[^\n]$/$&\n/s; # Add a newline if there isn't one.
 	if ($level <= $debuglevel) {
-		#printf STDOUT ("%s: [debug%d] %s", $0, $level, $msg) if ($level <= $debuglevel);
+		printf STDERR ("%s: [debug%d] %s", $0, $level, $msg);
 		syslog(LOG_INFO, "%s", $msg);
 	}
 }
@@ -212,6 +212,9 @@ sub handle {
 			my $fileconf = $config->{$log}->{"types"}->{$pat};
 			my $keyname;
 
+			print STDERR "CONTENTS - \n";
+			print STDERR Dumper(\%values);
+			print STDERR "END CONTENTS - \n";
 			$keyname = $pat . "::" . meta2string($fileconf->{"key"}, \%values) if (exists($fileconf->{"key"}));
 			$keyname ||= join (",", $pat, map { "$_=>$values{$_}" } keys(%values));
 
