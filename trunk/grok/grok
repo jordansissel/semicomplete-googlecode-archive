@@ -242,7 +242,7 @@ sub handle {
 	# If we haven't matched this line yet, call the 'unmatched' handler?
 	if ($matched == 0) {
 		my $fileconf = $config->{$log}->{"unmatched"};
-		react($fileconf, { "=LINE" => $line }, $log, "unmatched");
+		react($fileconf, { "=LINE" => $line }, $log, "unmatched") if (defined($fileconf));
 	}
 
 	$state->{"last"}->{$log} = $last unless ($syslogmode);
