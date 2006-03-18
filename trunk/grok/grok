@@ -168,6 +168,7 @@ sub readlog {
 sub handle {
 	my ($log,$line,$syslogmode) = @_;
 	chomp($line);
+	my $matched = 0;
 	#print $log . "> " . $line;
 
 	$storage->{$log} = {} if (!exists($storage->{$log}));
@@ -202,6 +203,7 @@ sub handle {
 		debug(5, "Regex: $regex");
 		debug(5, "Is Match: " . ($line =~ m/$regex/));
 		if ($line =~ m/($regex)/) {
+			$matched++;
 
 			# Set some other magic entries to %values
 			$values{'=LINE'} = $line;
@@ -212,9 +214,9 @@ sub handle {
 			my $fileconf = $config->{$log}->{"types"}->{$pat};
 			my $keyname;
 
-			print STDERR "CONTENTS - \n";
-			print STDERR Dumper(\%values);
-			print STDERR "END CONTENTS - \n";
+			#print STDERR "CONTENTS - \n";
+			#print STDERR Dumper(\%values);
+			#print STDERR "END CONTENTS - \n";
 			$keyname = $pat . "::" . meta2string($fileconf->{"key"}, \%values) if (exists($fileconf->{"key"}));
 			$keyname ||= join (",", $pat, map { "$_=>$values{$_}" } keys(%values));
 
@@ -226,29 +228,7 @@ sub handle {
 				if ($fileconf->{"interval"} == 0 
 					 || ((time() - $state->{$keyname}->{"time"}) <= $fileconf->{"interval"})) { 
 					debug(2, "Limits (threshold/interval) exceeded for rulekey: $keyname");
-					map {
-						my ($cmd,$type) = ($_->{"string"}, $_->{"type"});
-						if ($type eq 'command') {
-							$cmd = meta2string($cmd, \%values);
-							debug(1, "Executing (from $keyname):");
-							debug(1, "$cmd");
-							system($cmd);
-						} elsif ($type eq 'perl') {
-							my ($d, $v, $s);
-							# XXX: Should this just be $foo ||= {} ?
-							$storage->{$log}->{$keyname} = {} if (!exists($storage->{$log}->{$keyname}));
-							$d = $storage->{$log}->{$keyname};
-							map { $s->{$_} = $fileconf->{$_} } qw(threshold count interval);
-							$v = \%values;
-							# XXX: Instead of always evalling this, why not create a
-							# subroutine like so: my $func; eval('$func = sub { $cmd }')
-							# and always call $func->() instead?
-							eval($cmd);
-							warn $@ if $@;
-						} else {
-							debug(0, sprintf("Unknown execution type: %s. %s", $type, $cmd));
-						}
-					} @{$fileconf->{"reactions"}};
+					react($fileconf, \%values, $log, $keyname);
 				} else { 
 					$state->{$keyname}->{"time"} = time();
 				}
@@ -258,6 +238,13 @@ sub handle {
 			$last->{"handler"} = $PATTERNS->{$log}->{$pattern};
 		}
 	}
+
+	# If we haven't matched this line yet, call the 'unmatched' handler?
+	if ($matched == 0) {
+		my $fileconf = $config->{$log}->{"unmatched"};
+		react($fileconf, { "=LINE" => $line }, $log, "unmatched");
+	}
+
 	$state->{"last"}->{$log} = $last unless ($syslogmode);
 }
 
@@ -373,7 +360,7 @@ file: filespec filename '{' file_entry(?) '}' ';' { $config->{$item[2]} = $file 
 filespec: ('file' | 'exec') { $file->{'type'} = $item[1] }
 filename: string
 file_entry: (file_entry_line | ignorable)(s)
-file_entry_line: (syslog | type) ';'
+file_entry_line: (syslog | type | unmatched) ';'
 
 syslog: 'syslog' '=' number { $file->{"syslog"} = $item[3] }
 
@@ -389,6 +376,9 @@ key: 'key' '=' string { $type->{"key"} = $item[3] }
 reaction: 'reaction' '=' reactionspec { push(@{$type->{"reactions"}}, $item[3]) }
 reactionspec: string { $return = { type => "command", string => $item[1] } } 
 				  | perlblock { $return = { type => "perl", string => $item[1] } }
+
+unmatched: <rulevar: local $type = { }>
+unmatched: 'unmatched' '{' (reaction ';')(s?) '}' { $file->{"unmatched"} = $type }
 GRAMMAR
 
 	my $parser = Parse::RecDescent->new($grammar);
@@ -451,4 +441,30 @@ sub addfilters {
 	}
 
 	return 0;
+}
+
+sub react {
+	my ($fileconf, $values, $log, $keyname) = @_;
+	foreach (@{$fileconf->{"reactions"}}) {
+		my ($cmd,$type) = ($_->{"string"}, $_->{"type"});
+		if ($type eq 'command') {
+			$cmd = meta2string($cmd, $values);
+			debug(1, "Executing (from $keyname): $cmd");
+			system($cmd);
+		} elsif ($type eq 'perl') {
+			my ($d, $v, $s);
+			# XXX: Should this just be $foo ||= {} ?
+			$storage->{$log}->{$keyname} = {} if (!exists($storage->{$log}->{$keyname}));
+			$d = $storage->{$log}->{$keyname};
+			map { $s->{$_} = $fileconf->{$_} } qw(threshold count interval);
+			$v = $values;
+			# XXX: Instead of always evalling this, why not create a
+			# subroutine like so: my $func; eval('$func = sub { $cmd }')
+			# and always call $func->() instead?
+			eval($cmd);
+			warn $@ if $@;
+		} else {
+			debug(0, sprintf("Unknown execution type: %s. %s", $type, $cmd));
+		}
+	}
 }
