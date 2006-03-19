@@ -375,7 +375,13 @@ interval: 'interval' '=' number { $type->{"interval"} = $item[3] }
 key: 'key' '=' string { $type->{"key"} = $item[3] }
 reaction: 'reaction' '=' reactionspec { push(@{$type->{"reactions"}}, $item[3]) }
 reactionspec: string { $return = { type => "command", string => $item[1] } } 
-				  | perlblock { $return = { type => "perl", string => $item[1] } }
+				  | perlblock {
+						my $func = 'package main; $func = sub ' . $item[1];
+						$func =~ s/{/{ my (\$d,\$v,\$s) = \@_;/;
+						eval($func);
+						print STDERR "PERL SYNTAX ERROR IN CONFIG:\n$@\n" if $@;
+						$return = { type => "perl", string => $func } 
+					}
 
 unmatched: <rulevar: local $type = { }>
 unmatched: 'unmatched' '{' (reaction ';')(s?) '}' { $file->{"unmatched"} = $type }
@@ -409,7 +415,7 @@ sub setup {
 			# Normalize perl blocks ?
 			map {
 				if ($_->{"type"} eq 'perl') {
-					$_->{"string"} =~ s/^\s*{\s*(.*)\s*}\s*$/$1/;
+					#$_->{"string"} =~ s/^\s*{\s*(.*)\s*}\s*$/$1/;
 					#"Perl: " . $_->{"string"} . "\n";
 				}
 			} @{$matches->{$match}->{"reactions"}};
@@ -461,7 +467,9 @@ sub react {
 			# XXX: Instead of always evalling this, why not create a
 			# subroutine like so: my $func; eval('$func = sub { $cmd }')
 			# and always call $func->() instead?
-			eval($cmd);
+			#eval($cmd);
+			#print $cmd;
+			$cmd->($d,$v,$s);
 			warn $@ if $@;
 		} else {
 			debug(0, sprintf("Unknown execution type: %s. %s", $type, $cmd));
