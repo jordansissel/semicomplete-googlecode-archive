@@ -214,9 +214,6 @@ sub handle {
 			my $fileconf = $config->{$log}->{"types"}->{$pat};
 			my $keyname;
 
-			#print STDERR "CONTENTS - \n";
-			#print STDERR Dumper(\%values);
-			#print STDERR "END CONTENTS - \n";
 			$keyname = $pat . "::" . meta2string($fileconf->{"key"}, \%values) if (exists($fileconf->{"key"}));
 			$keyname ||= join (",", $pat, map { "$_=>$values{$_}" } keys(%values));
 
@@ -225,8 +222,8 @@ sub handle {
 			$state->{$keyname}->{"count"}++;
 
 			if ($state->{$keyname}->{"count"} >= $fileconf->{"threshold"})  {
-				if ($fileconf->{"interval"} == 0 
-					 || ((time() - $state->{$keyname}->{"time"}) <= $fileconf->{"interval"})) { 
+				if ($fileconf->{"interval"} == 0
+					 || ((time() - $state->{$keyname}->{"time"}) <= $fileconf->{"interval"})) {
 					debug(2, "Limits (threshold/interval) exceeded for rulekey: $keyname");
 					react($fileconf, \%values, $log, $keyname);
 				} else { 
@@ -258,7 +255,8 @@ sub pattern2regex {
 		my $rounds = 0;
 		$count = 0;
 		# Replace %KEY:SUBNAME% with a regex and store the capture as KEY:SUBNAME
-		# The :SUBNAME specification is optional, ie; %IP% is valid, as is %IP:FOO%
+		# The :SUBNAME specification is optional, 
+		# ie; %IP% is valid, as is %IP:FOO%
 		map { $count += $regex =~ s/%(($_)(?::\w+)?)%/($MATCH{$_})(?{ \$values{'$1'} = \$^N })/g; } keys(%MATCH);
 		$rounds++;
 		if ($rounds > 10) {
