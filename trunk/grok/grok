@@ -42,6 +42,7 @@ my %MATCH = (
 	PORT => qr/\d+/,
 	COUNT => qr/\d+/,
 	HOSTNAME => qr/(?! )$RE{net}{domain}/,
+	PROG => qr/\w+(?:\[\d+\])?/,
 
 	# Months: January, Feb, 3, 03, 12, December
 	MONTH => qr/(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|0?[0-9]|1[0-2])/,
@@ -50,11 +51,14 @@ my %MATCH = (
 	# Days: Monday, Tue, Thu, 0 (Sunday?), 6 (Saturday?)
 	DAY => qr/(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?|[0-6])/,
 
+	# Years?
+	YEAR => qr/\d+/,
 	# Time: HH:MM:SS
 	TIME => qr/\d{2}:\d{2}:\d{2}/,
 
 	# Syslog Dates: Month Day HH:MM:SS
 	SYSLOGDATE => "%MONTH% +%MONTHDAY% %TIME%",
+	HTTPDATE => "%MONTHDAY%/%MONTH%/%YEAR%:%TIME% -\\d+",
 
 	QUOTEDSTRING => $RE{quoted},
 );
@@ -71,6 +75,7 @@ my $filters = {
 	qr/e\[((?:(?:\\])|(?:[^\]]))+)\]/ => sub { s/([$1])/\\$1/g; },
 	qr/stripquotes/ => sub { s/^(["])//; s/$1$//; },
 	qr/parsedate/ => sub { str2time($_) },
+	qr/uid2user/ => sub { ($_) = getpwuid($_) },
 };
 
 my $opts = {};
@@ -365,7 +370,7 @@ syslog: 'syslog' '=' number { $file->{"syslog"} = $item[3] }
 type: <rulevar: local $type = { }>
 type: 'type' typename '{' type_entry '}' { $file->{"types"}->{$item[2]} = $type }
 typename: string
-type_entry: (((match | threshold | interval | reaction | key) ';') | ignorable)(s)
+type_entry: (((match | threshold | interval | reaction | key | match_syslog | syslog_prog | syslog_host) ';') | ignorable)(s)
 
 match: 'match' '=' string { push(@{$type->{"matches"}},$item[3]) }
 threshold: 'threshold' '=' number { $type->{"threshold"} = $item[3] }
@@ -380,6 +385,10 @@ reactionspec: string { $return = { type => "command", string => $item[1] } }
 						print STDERR "PERL SYNTAX ERROR IN CONFIG:\n$@\n" if $@;
 						$return = { type => "perl", string => $func } 
 					}
+
+match_syslog: 'match_syslog' '=' number { $type->{"match_syslog"} = $item[3] }
+syslog_prog: 'syslog_prog' '=' string { $type->{"syslog_prog"} = $item[3] }
+syslog_host: 'syslog_host' '=' string { $type->{"syslog_host"} = $item[3] }
 
 unmatched: <rulevar: local $type = { }>
 unmatched: 'unmatched' '{' (reaction ';')(s?) '}' { $file->{"unmatched"} = $type }
@@ -402,8 +411,14 @@ sub setup {
 		my $matches = $config->{$file}->{"types"};
 		my $matchhash;
 		foreach my $match (keys(%{$matches})) {
+			my $m = $matches->{$match};
 			debug(2, "Match: $match");
-			foreach my $string (@{$matches->{$match}->{"matches"}}) {
+			foreach my $string (@{$m->{"matches"}}) {
+				if ($m->{"match_syslog"}) {
+					my $prog = $m->{"syslog_prog"} ? $m->{"syslog_prog"} . '(?:\[\\d+\])?' : "%PROG%";
+					my $host = $m->{"syslog_host"} || "%HOST%";
+					$string = "%SYSLOGDATE% $host $prog: .*$string";
+				}
 				debug(2, "String: $string");
 				$matchhash->{$string} = $match;
 			}
@@ -411,12 +426,12 @@ sub setup {
 			$matches->{$match}->{"threshold"} ||= 0;
 
 			# Normalize perl blocks ?
-			map {
-				if ($_->{"type"} eq 'perl') {
-					#$_->{"string"} =~ s/^\s*{\s*(.*)\s*}\s*$/$1/;
-					#"Perl: " . $_->{"string"} . "\n";
-				}
-			} @{$matches->{$match}->{"reactions"}};
+			#map {
+				#if ($_->{"type"} eq 'perl') {
+					##$_->{"string"} =~ s/^\s*{\s*(.*)\s*}\s*$/$1/;
+					##"Perl: " . $_->{"string"} . "\n";
+				#}
+			#} @{$matches->{$match}->{"reactions"}};
 				
 		}
 		$PATTERNS->{$file} = $matchhash;
