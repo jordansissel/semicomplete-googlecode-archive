@@ -417,7 +417,7 @@ sub setup {
 				if ($m->{"match_syslog"}) {
 					my $prog = $m->{"syslog_prog"} ? $m->{"syslog_prog"} . '(?:\[\\d+\])?' : "%PROG%";
 					my $host = $m->{"syslog_host"} || "%HOST%";
-					$string = "%SYSLOGDATE% $host $prog: .*$string";
+					$string = "%SYSLOGDATE% $host $prog: .*?$string";
 				}
 				debug(2, "String: $string");
 				$matchhash->{$string} = $match;
