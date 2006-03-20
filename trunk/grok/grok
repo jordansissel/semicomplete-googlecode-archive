@@ -42,7 +42,9 @@ my %MATCH = (
 	PORT => qr/\d+/,
 	COUNT => qr/\d+/,
 	HOSTNAME => qr/(?! )$RE{net}{domain}/,
+	HOST => "%HOSTNAME%",
 	PROG => qr/\w+(?:\[\d+\])?/,
+	DATA => qr/.*/,
 
 	# Months: January, Feb, 3, 03, 12, December
 	MONTH => qr/(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|0?[0-9]|1[0-2])/,
@@ -69,6 +71,7 @@ my %MATCH = (
 # e[XYZ] - generic escaping, will escape the characters inside the brackets.
 # stripquotes - strip leading and trailing quotes.
 # parsedate - convert time values
+# uid2user - uid lookups for usernames
 my $filters = {
 	qr/shnq/ => sub { s/([`(){}[\]\$*?!|;'"])/\\$1/g; },
 	qr/shdq/ => sub { s/([`\$"])/\\$1/g; },
@@ -415,13 +418,23 @@ sub setup {
 			debug(2, "Match: $match");
 			foreach my $string (@{$m->{"matches"}}) {
 				if ($m->{"match_syslog"}) {
-					my $prog = $m->{"syslog_prog"} ? $m->{"syslog_prog"} . '(?:\[\\d+\])?' : "%PROG%";
+					my $prog = ($m->{"syslog_prog"}) ? ($m->{"syslog_prog"} . '(?:\[\\d+\])?') : "%PROG%";
 					my $host = $m->{"syslog_host"} || "%HOST%";
-					$string = "%SYSLOGDATE% $host $prog: .*?$string";
+					$string = "%SYSLOGDATE% $host $prog: %DATA:GLOB%$string";
 				}
 				debug(2, "String: $string");
 				$matchhash->{$string} = $match;
 			}
+			if (scalar(@{$m->{"matches"}}) == 0) {
+				if ($m->{"match_syslog"}) {
+					my $prog = ($m->{"syslog_prog"}) ? ($m->{"syslog_prog"} . '(?:\[\\d+\])?') : "%PROG%";
+					my $host = $m->{"syslog_host"} || "%HOST%";
+					my $string = "%SYSLOGDATE% $host $prog: %DATA:GLOB%";
+					debug(2, "String: $string");
+					$matchhash->{$string} = $match;
+				}
+			}
+
 			$matches->{$match}->{"interval"} ||= 0;
 			$matches->{$match}->{"threshold"} ||= 0;
 
