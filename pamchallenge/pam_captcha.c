@@ -362,11 +362,12 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 
 	r = rand() % (sizeof(captchas) / sizeof(*captchas));
 	ret = captchas[r](pamh, flags, argc, argv);
-	syslog(LOG_INFO, "User %s passed the captcha (from %s)", user, host);
 
 	if (ret != PAM_SUCCESS) {
 		syslog(LOG_INFO, "User %s failed to pass the captcha (from %s)", user, host);
-		sleep(3);
+		sleep(3); /* Irritation! */
+	} else {
+		syslog(LOG_INFO, "User %s passed the captcha (from %s)", user, host);
 	}
 
 	closelog();
