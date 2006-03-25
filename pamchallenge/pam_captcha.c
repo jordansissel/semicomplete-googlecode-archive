@@ -1,15 +1,22 @@
-/* pam_captcha - A Visual CAPTCHA challenge module for PAM 
- * Jordan Sissel (January 2006)
+/* pam_captcha - A Visual text-based CAPTCHA challenge module for PAM
+ * Jordan Sissel <jls@semicomplete.com> 
+ * 
+ * Version 1.2 (March 2006)
+ *
+ * Released under the BSD license. 
+ *
+ * If you use or make changes to pam_captcha, shoot me an email or something. I
+ * always like to hear how people use my software :) And no, you don't have to
+ * do it. Nor do you have to send me patches, though patches are appreciated.
  *
  * Requirements:
  *   - Figlet
- *   - Cowsay
- *   - PAM
+ *   - OpenPAM (Linux and FreeBSD should have this)
  *
  * Notes: 
- *    Figlet and Cowsay need to be in /usr/local/bin, because I'm lazy.  You
- *    can fix this if you want, just look for /usr/local/bin further down and
- *    you can change the paths used.
+ *    Figlet needs to be in /usr/local/bin, because I'm lazy.  You can fix this
+ *    if you want, just look for /usr/local/bin further down and you can change
+ *    the paths used.
  *
  *    - I have tested this in FreeBSD and Linux. It works there.
  *    - It will not build under Solaris 9, and I have no intentions of
@@ -19,9 +26,9 @@
  *   - Just type 'make' (assuming you downloaded the Makefile too)
  *   - Copy pam_captcha.so to your pam module dir (/usr/lib on FreeBSD)
  *   - Place this entry in your pam config for whatever service you want. It
- *   needs to go at the top of your pam auth stack (first entry?).
+ *     needs to go at the top of your pam auth stack (first entry?):
  *
- * auth            requisite       pam_captcha.so
+ *     auth            requisite       pam_captcha.so
  *
  * 'requisite' is absolutely necessary here. This keyword means that if a user
  * fails pam_captcha, the whole auth chain is marked as failure. This ensure
@@ -30,6 +37,18 @@
  * can work here too but will not break the chain. I like requisite because you
  * cannot even attempt to authenticate via password if you don't pass the
  * captcha.
+ *
+ * IMPORTANT SSHD_CONFIG NOTE!
+ *   To prevent brute-force scripts from bypassing the pam stack, you MUST
+ *   disable 'password' authentication in your sshd. Disable 'password' auth
+ *   and enable 'keyboard-interactive' instead.
+ *
+ *   To do this, put the following in your sshd_config
+ *   PasswordAuthentication no
+ *   ChallengeResponseAuthentication yes
+ *
+ * If you use ssh keys to login to your server, you will not be bothered by
+ * pam_captcha becuase publickey authentication does not invoke PAM.
  */
 
 
@@ -56,12 +75,13 @@
 #define PAM_EXTERN
 #endif
 
-static char *cows[] = { "head-in", "sodomized", "sheep", "vader", "udder", "mutilated" };
 static char *fonts[] = { "standard", "big" };
 
 #define BUFFERSIZE 10240
-#define NOLOGINFORYOU "NO SOUP FOR YOU :("
 const char alphabet[] = "ABCDEFGHJKMNOPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz123456789$#%@&*+=?";
+
+/* Symlink name for DDA Authentication */
+#define NOLOGINFORYOU "NO SOUP FOR YOU :("
 
 static void paminfo(pam_handle_t *pamh, char *fmt, ...);
 static void pamvprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, va_list ap);
@@ -75,7 +95,6 @@ static void figlet(pam_handle_t *pamh, char *fmt, ...) {
 	char *buffer, *bp;
 
 	int i;
-	char *cow = cows[rand() % (sizeof(cows) / sizeof(*cows))];
 	char *font = fonts[rand() % (sizeof(fonts) / sizeof(*fonts))];
 
 	vasprintf(&key, fmt, ap);
@@ -83,7 +102,7 @@ static void figlet(pam_handle_t *pamh, char *fmt, ...) {
 	buffer = calloc(BUFFERSIZE, 1);
 	srand(time(NULL));
 
-	sprintf(buffer, "/usr/local/bin/figlet -f %s -- '%s' | /usr/local/bin/cowsay -nf %s", font, key, cow);
+	sprintf(buffer, "/usr/local/bin/figlet -f %s -- '%s'", font, key);
 	fp = popen(buffer, "r");
 	i = 0;
 	while (!feof(fp)) {
@@ -154,50 +173,11 @@ static void paminfo(pam_handle_t *pamh, char *fmt, ...) {
 	va_end(ap);
 }
 
-static void randomtask(char **task) {
-	DIR *dp;
-	struct dirent *cur;
-	struct dirent *files;
-	int pos = 0;
-	int len = 20;
-	int fd;
-	int bytes;
 
-	chdir("/root/dda/");
-	dp = opendir(".");
-	files = calloc(sizeof(struct dirent), len);
-
-	while ((cur = readdir(dp)) != NULL) {
-		if (cur->d_type != DT_REG)
-			continue;
-		if (cur->d_name[0] == '.')
-			continue;
-		files[pos] = *cur;
-		pos++;
-		if (pos > len) {
-			len *= 2;
-			files = realloc(files, sizeof(struct dirent) * len);
-		}
-	}
-
-	pos = rand() % pos;
-
-	fd = open(files[pos].d_name, O_RDONLY);
-	len = 4096;
-	pos = 0;
-	*task = calloc(len, 1);
-
-	while ((bytes = read(fd, *task+pos, 1024)) > 0) {
-		pos += bytes;
-		if (pos >= (len - 1024)) {
-			len *= 2;
-			*task = realloc(*task, len);
-		}
-
-	}
-}
-
+#ifdef WITH_DDA
 /* Dance Dance Authentication {{{ */
+static void randomtask(char **task);
+
 static int dda_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
 	char *resp;
 	char *host, *user;
@@ -249,8 +229,55 @@ static int dda_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv
 	free(resp);
 
 	return PAM_SUCCESS;
-}/*}}}*/
+}
 
+/* Pick a random task for DDA */
+static void randomtask(char **task) {
+	DIR *dp;
+	struct dirent *cur;
+	struct dirent *files;
+	int pos = 0;
+	int len = 20;
+	int fd;
+	int bytes;
+
+	chdir("/root/dda/");
+	dp = opendir(".");
+	files = calloc(sizeof(struct dirent), len);
+
+	while ((cur = readdir(dp)) != NULL) {
+		if (cur->d_type != DT_REG)
+			continue;
+		if (cur->d_name[0] == '.')
+			continue;
+		files[pos] = *cur;
+		pos++;
+		if (pos > len) {
+			len *= 2;
+			files = realloc(files, sizeof(struct dirent) * len);
+		}
+	}
+
+	pos = rand() % pos;
+
+	fd = open(files[pos].d_name, O_RDONLY);
+	len = 4096;
+	pos = 0;
+	*task = calloc(len, 1);
+
+	while ((bytes = read(fd, *task+pos, 1024)) > 0) {
+		pos += bytes;
+		if (pos >= (len - 1024)) {
+			len *= 2;
+			*task = realloc(*task, len);
+		}
+
+	}
+}
+/*}}}*/
+#endif /* WITH_DDA */
+
+#ifdef WITH_MATH
 /* Simple math captcha {{{ */
 static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
 	int x, y, z, answer = 0;
@@ -278,6 +305,7 @@ static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *arg
 
 	return PAM_SUCCESS;
 }/*}}}*/
+#endif /* WITH_MATH */
 
 /* String Generation Captcha {{{ */
 static int randomstring_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
@@ -292,7 +320,7 @@ static int randomstring_captcha(pam_handle_t *pamh, int flags, int argc, const c
 
 	paminfo(pamh, "Observe the picture below and answer the question listed afterwards:");
 	figlet(pamh, key);
-	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "What did the cow say? ");
+	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "\nType the string above: ");
 
 	if (strcmp(resp, key) != 0)
 		ret = PAM_PERM_DENIED;
@@ -304,8 +332,12 @@ static int randomstring_captcha(pam_handle_t *pamh, int flags, int argc, const c
 
 static int (*captchas[])(pam_handle_t *, int, int, const char **) = {
 	randomstring_captcha,
-	math_captcha
-	//dda_captcha
+#ifdef WITH_MATH
+	math_captcha,
+#endif
+#ifdef WITH_DDA
+	dda_captcha
+#endif
 };
 
 PAM_EXTERN int
@@ -319,7 +351,10 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 	pam_get_item(pamh, PAM_RHOST, (const void **)&host);
 
 	srand(time(NULL)); /* XXX: Should we seed by something less predictable? */
-	paminfo(pamh, "[2J[0;0H");
+
+	/* XXX: Uncomment this to have the screen cleared before proceeding */
+	//paminfo(pamh, "[2J[0;0H");
+
 	paminfo(pamh, "If you truly desire access to this host, then you must indulge me in a simple challenge.");
 	paminfo(pamh, "-------------------------------------------------------------\n", r);
 
