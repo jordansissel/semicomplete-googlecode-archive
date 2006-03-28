@@ -125,24 +125,41 @@ my $state;
 my $storage; # Match-level storage by File/Key
 my $select = IO::Select->new();
 
+my $TAIL = "tail -0f";
 foreach (keys(%$config)) {
 	next if ($_ eq "patterns");
 	my $s = Symbol::gensym;
 	my $command = $_;
 
 	# Run 'file' types as 'tail -0 -f [file]'
-	$command = "tail -0f '$_'" if ($config->{$_}->{"type"} eq 'file');
+	$state->{"orig"}->{$s} = $_;
+	$command = "$TAIL '$_'" if ($config->{$_}->{"type"} eq 'file');
 
 	debug(2, "Startup: Running $command");
 	open($s, "$command |") or die($!);
 	$select->add($s);
 	$state->{"map"}->{$s} = $_;
+	(undef, $state->{"inode"}->{$s}) = stat($state->{"orig"}->{$s});
 }
 
 # Loop for data for as long as our love shall last...
 while($select->count()) {
 	my @ready = $select->can_read(60);
 	map(readlog($_), @ready);
+
+	# XXX: Look at all 'file' types. If the inode number changes, then 
+	foreach ($select->handles) {
+		my $inode;
+		(undef, $inode) = stat($state->{"orig"}->{$_});
+		if ($inode != $state->{"inode"}->{$_}) {
+			## XXX RE OPEN FILE
+			close($_);
+			$select->remove($_);
+
+			open($_, "$TAIL '" . $state->{"orig"}->{$_} . "' |");
+			$select->add($s):
+		}
+	}
 }
 
 debug(0, "Nothing left to do (all files/execs ended) exiting");
