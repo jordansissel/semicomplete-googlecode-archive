@@ -13,6 +13,8 @@
 
 #include "graph.h"
 
+static void dfs_mark(graph_t *g, int *visit, int vertex);
+
 /* Initialize the graph adjacency matrix */
 static void initgraph(graph_t *g) { 
 	int x;
@@ -24,11 +26,44 @@ static void initgraph(graph_t *g) {
 }
 
 static void randomize(graph_t *g) {
+	int x, y;
+	int weight;
+	int prob = (int)(g->edgeprob * 100);
 	srand(time(NULL));
+
+	for (x = 0; x < g->numvert; x++) {
+		for (y = 0; y < g->numvert; y++) {
+			if (y == x) continue;
+			if (rand() % 100 < prob) {
+				weight = rand() % g->numvert;
+				g->matrix[x][y] = weight;
+			}
+		}
+	}
 }
 
 static int connected(graph_t *g) {
-	return 0;
+	int *visit = malloc(g->numvert * sizeof(int));
+	int x; 
+
+	memset(visit, 0, g->numvert * sizeof(int));
+	dfs_mark(g, visit, 0); /* Start at vertex 0 */
+	for (x = 0; x < g->numvert; x++) {
+		if (*(visit + x) == 0)
+			return 0;
+	}
+
+	return 1;
+}
+
+static void dfs_mark(graph_t *g, int *visit, int vertex) {
+	int x;
+	for (x = 0; x < g->numvert; x++) {
+		if (x == vertex) continue;
+		if (g->matrix[vertex][x] > 0)
+			dfs_mark(g, visit, x);
+	}
+	*(visit + vertex) = 1;
 }
 
 /***
@@ -60,6 +95,7 @@ graph_t* gengraph(int v, float ep) {
 int main(int argc, char **argv) {
 	int v;
 	float ep;
+	graph_t *g;
 
 	if (argc != 3) {
 		fprintf(stderr, "Invalid number of arguments. Usage: %s numvertex edgeprob\n", *argv);
@@ -71,10 +107,12 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	if (sscanf(*++argv, "%f", &ep)) {
+	if (sscanf(*++argv, "%f", &ep) == 0) {
 		fprintf(stderr,"Second argument is bad.\n");
 		return 1;
 	}
+
+	g = gengraph(v, ep);
 
 	printf("V: %d\nEP: %f\n", v, ep);
 
