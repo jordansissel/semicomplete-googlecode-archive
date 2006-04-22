@@ -14,6 +14,7 @@
 #include "graph.h"
 
 static void dfs_mark(graph_t *g, int *visit, int vertex);
+static void printgraph(graph_t* g);
 
 /* Initialize the graph adjacency matrix */
 static void initgraph(graph_t *g) { 
@@ -21,7 +22,7 @@ static void initgraph(graph_t *g) {
 	g->matrix = malloc(g->numvert * sizeof(int));
 	for (x = 0; x < g->numvert; x++) {
 		*(g->matrix + x) = malloc(g->numvert * sizeof(int));
-		memset(*(g->matrix), 0, g->numvert * sizeof(int));
+		memset(*(g->matrix + x), 0, g->numvert * sizeof(int));
 	}
 }
 
@@ -58,12 +59,22 @@ static int connected(graph_t *g) {
 
 static void dfs_mark(graph_t *g, int *visit, int vertex) {
 	int x;
+	if (*(visit + vertex) == 1) return;
+	*(visit + vertex) = 1;
+
 	for (x = 0; x < g->numvert; x++) {
 		if (x == vertex) continue;
 		if (g->matrix[vertex][x] > 0)
 			dfs_mark(g, visit, x);
 	}
-	*(visit + vertex) = 1;
+}
+
+static void freegraph(graph_t *g) {
+	int x;
+	for (x = 0; x < g->numvert; x++)
+		free(g->matrix[x]);
+	free(g->matrix);
+	free(g);
 }
 
 /***
@@ -89,6 +100,17 @@ graph_t* gengraph(int v, float ep) {
 		randomize(g);
 		/* ensure it is connected */
 	} while (!connected(g));
+	
+	printgraph(g);
+}
+
+static void printgraph(graph_t* g) {
+	int x, y;
+	for (x = 0; x < g->numvert; x++) {
+		for (y = 0; y < g->numvert; y++)
+			printf("%d   ", g->matrix[x][y]);
+		printf("\n\n");
+	}
 }
 
 #ifdef TEST
