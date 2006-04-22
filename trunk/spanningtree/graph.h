@@ -1,10 +1,10 @@
 /* $Id$ */
 
 typedef struct graph {
-	int rows;
-	int cols;
-	int **adjacency;
+	int numvert;
+	float edgeprob;
+	int **matrix;
 } graph_t;
 
 /* Return a generated graph of size rows x cols */
-graph_t * gengraph(int rows, int cols);
+graph_t * gengraph(int v, float ep);
