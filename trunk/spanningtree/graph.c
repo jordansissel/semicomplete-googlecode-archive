@@ -61,14 +61,19 @@ int main(int argc, char **argv) {
 	int v;
 	float ep;
 
+	if (argc != 3) {
+		fprintf(stderr, "Invalid number of arguments. Usage: %s numvertex edgeprob\n", *argv);
+		return 1;
+	}
+
 	if (sscanf(*++argv, "%d", &v) == 0) {
 		fprintf(stderr,"First argument is bad.\n");
-		exit(1);
+		return 1;
 	}
 
 	if (sscanf(*++argv, "%f", &ep)) {
 		fprintf(stderr,"Second argument is bad.\n");
-		exit(1);
+		return 1;
 	}
 
 	printf("V: %d\nEP: %f\n", v, ep);

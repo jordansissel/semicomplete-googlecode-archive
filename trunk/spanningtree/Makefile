@@ -6,7 +6,8 @@ SOURCES= graph.c
 all: $(SOURCES:%.c=%.o)
 
 clean:
-	rm $(SOURCES:%.c=%.o)
+	rm -f $(SOURCES:%.c=%.o)
+	rm -f testgraph
 
 testgraph: 
 	$(CC) $(CFLAGS) -DTEST -o testgraph graph.c
