@@ -1,5 +1,5 @@
 CC=gcc
-SOURCES= graph.c kruskal.c
+SOURCES= graph.c kruskal.c main.c
 CFLAGS=-g
 
 .SUFFIXES: .o .c
@@ -16,5 +16,5 @@ testgraph:
 .c.o:
 	$(CC) -c $(CFLAGS) -o $@ $<
 
-kruskal: graph.o kruskal.o
-	gcc graph.o kruskal.o -o kruskal
+kruskal: main.o graph.o kruskal.o
+	gcc main.o graph.o kruskal.o -o kruskal

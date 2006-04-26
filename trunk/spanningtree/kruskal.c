@@ -16,11 +16,8 @@ typedef struct edge {
 	int weight;
 } edge_t;
 
-void kruskal_countsort(graph_t *g) {
-}
-
 /* Sort by weights */
-static void countsort(graph_t *g) {
+static void kruskal_countsort(graph_t *g) {
 	int max = 0;
 	int x,y;
 	int *countarr;
@@ -46,8 +43,8 @@ static void countsort(graph_t *g) {
 	/* Find max weight */
 	for (x = 0; x < g->numvert; x++)
 		for (y = 0; y < g->numvert; y++)
-			if (max < g->matrix[x][y])
-				max = g->matrix[x][y];
+			if (max < WEIGHT(g,x,y))
+				max = WEIGHT(g,x,y);
 
 	/* Bump for 0 weights aswell */
 	max++;
@@ -60,11 +57,11 @@ static void countsort(graph_t *g) {
 	/* Make the counts */
 	for (x = 0; x < g->numvert; x++)
 		for (y = 0; y < g->numvert; y++)
-			if (g->matrix[x][y] > 0) {
-				countarr[g->matrix[x][y]]++;
+			if (WEIGHT(g,x,y) > 0) {
+				countarr[WEIGHT(g,x,y)]++;
 
 				/* While we're here, add this edge to the list of edges */
-				edges[edgepiv].weight = g->matrix[x][y];
+				edges[edgepiv].weight = WEIGHT(g,x,y);
 				edges[edgepiv].x = x;
 				edges[edgepiv].y = y;
 				edgepiv++;
@@ -74,43 +71,18 @@ static void countsort(graph_t *g) {
 	for (x = 1; x < max; x++)
 		countarr[x] += countarr[x - 1];
 
-	for (x = 1; x < max; x++)
-		printf("%d: %d\n", x, countarr[x]);
-
-	/* Loop through edges and produce sorted edges */
+	/* Sort the edges by weight */
+	/* We use --countarr[...] becuase it's off by one, so subtract early. */
 	for (x = 0; x <= edgepiv; x++)
 		memcpy(sortededges + --countarr[edges[x].weight], edges + x, sizeof(edge_t));
 
 	for (x = 0; x < edgepiv; x++)
 		printf("%d -> %d (w: %d)\n", sortededges[x].x, sortededges[x].y, sortededges[x].weight);
 
-
+	/* Begin Kruskal Algorithm */
+	// and... naptime
 }
 
-int main(int argc, char **argv) {
-	int v;
-	float ep;
-	graph_t *g;
-
-	if (argc != 3) {
-		fprintf(stderr, "Invalid number of arguments. Usage: %s numvertex edgeprob\n", *argv);
-		return 1;
-	}
-
-	if (sscanf(*++argv, "%d", &v) == 0) {
-		fprintf(stderr,"First argument is bad.\n");
-		return 1;
-	}
-
-	if (sscanf(*++argv, "%f", &ep) == 0) {
-		fprintf(stderr,"Second argument is bad.\n");
-		return 1;
-	}
-
-	g = gengraph(v, ep);
-
-	printf("Sorting...\n");
-	countsort(g);
-
-	return 0;
+void do_algorithm(graph_t *g) {
+	kruskal_countsort(g);
 }
