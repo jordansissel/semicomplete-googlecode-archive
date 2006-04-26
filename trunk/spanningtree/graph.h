@@ -11,3 +11,9 @@ typedef struct graph {
 
 /* Return a generated graph of size rows x cols */
 graph_t * gengraph(int v, float ep);
+
+/* Initialize a graph matrix */
+void initgraph(graph_t *g);
+
+/* Printy! */
+void printgraph(graph_t* g);

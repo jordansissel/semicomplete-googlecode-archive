@@ -14,14 +14,15 @@
 #include "graph.h"
 
 static void dfs_mark(graph_t *g, int *visit, int vertex);
-static void printgraph(graph_t* g);
 
 /* Initialize the graph adjacency matrix */
-static void initgraph(graph_t *g) { 
+void initgraph(graph_t *g) { 
 	int x;
 	g->matrix = malloc(g->numvert * sizeof(int));
+	assert(g->matrix != NULL);
 	for (x = 0; x < g->numvert; x++) {
 		*(g->matrix + x) = malloc(g->numvert * sizeof(int));
+		assert(*(g->matrix + x) != NULL);
 		memset(*(g->matrix + x), 0, g->numvert * sizeof(int));
 	}
 }
@@ -106,7 +107,7 @@ graph_t* gengraph(int v, float ep) {
 	return g;
 }
 
-static void printgraph(graph_t* g) {
+void printgraph(graph_t* g) {
 	int x, y;
 
 	if (g->numvert > 10) return;
