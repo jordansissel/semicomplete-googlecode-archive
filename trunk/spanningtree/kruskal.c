@@ -6,6 +6,11 @@
  * $Id$
  */
 
+/* TODO:
+ *
+ * Forest-edge additions are not working
+ */
+
 #include <stdio.h>
 #include <assert.h>
 
@@ -35,7 +40,6 @@ static int countsort(graph_t *g, edge_t **sortededges) {
 	int *countarr;
 
 	edge_t *edges;
-	//edge_t *sortededges;
 
 	int edgepiv = 0;
 	int maxedges = g->numvert * g->numvert;
@@ -123,17 +127,17 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 	/* Forest block size (one integer) */
 	#define FORESTBLOCK (sizeof(int) * 8)
 	#define SETFORESTBIT(f, e) (*((f) + (e / FORESTBLOCK)) |= 1 << (e % FORESTBLOCK))
-	#define GETFORESTBIT(f, e) (*((f) + (e / FORESTBLOCK)) & (e % FORESTBLOCK))
+	#define GETFORESTBIT(f, e) ((*((f) + (e / FORESTBLOCK)) & (1 << (e % FORESTBLOCK))) > 0)
 
 	/* Create the forests. Initially, there are n forests (where n == numverteces) */
 	forests = malloc(g->numvert * sizeof(forest_t));
 	for (i = 0; i < g->numvert; i++) {
 		//forests[i] = malloc(sizeof(forest_t));
-		forests[i].bitmap = malloc(numedges / 8); /* 8 bits per byte */
+		forests[i].bitmap = malloc(numedges / 8 + 1); /* 8 bits per byte */
 		forests[i].edges = malloc(sizeof(linkedlist_t));
 		forests[i].lastedge = forests[i].edges;
 
-		memset(forests[i].bitmap, 0, numedges / 8);
+		memset(forests[i].bitmap, 0, numedges / 8 + 1);
 	}
 
 	for (i = 0; i < numedges; i++) {
@@ -145,6 +149,7 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 		if (GETFORESTBIT(xforest->bitmap, edges[i].y) == 0) {
 
 			/* Indicate that vertex y is now in forest x */
+			printf("\n");
 			SETFORESTBIT(xforest->bitmap, edges[i].y);
 			printf("Adding edge: %d->%d (%d)\n", edges[i].x, edges[i].y, edges[i].weight);
 
@@ -155,21 +160,20 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 			xforest->lastedge = xforest->lastedge->next;
 
 			/* Merge the forests */
-			for (j = 0; j < numedges / FORESTBLOCK; j++)
+			for (j = 0; j <= (numedges / FORESTBLOCK) + 1; j++)
 				*(xforest->bitmap + j) |= *(yforest->bitmap + j);
 
 			/* Merge the edge lists */
 			xforest->lastedge->next = yforest->edges; /* Join lists */
 			xforest->lastedge = yforest->lastedge; /* Set last to y's last */
 
-			yforest->edges = xforest->edges; /* Copy edge list pointer  */
-			yforest->bitmap = xforest->bitmap; /* Copy vertex map */
+			memcpy(yforest, xforest, sizeof(forest_t));
 		}
 	}
 
 	fflush(stdout);
 	/* At this point, all edges will have the same forest becuase we have a connected graph */
-	if (1) {
+	if (0) {
 		int x = 0;
 		//graph_t mst;
 		linkedlist_t *e;
