@@ -102,6 +102,8 @@ graph_t* gengraph(int v, float ep) {
 	} while (!connected(g));
 	
 	printgraph(g);
+
+	return g;
 }
 
 static void printgraph(graph_t* g) {
