@@ -106,6 +106,9 @@ graph_t* gengraph(int v, float ep) {
 
 static void printgraph(graph_t* g) {
 	int x, y;
+
+	if (g->numvert > 10) return;
+
 	for (x = 0; x < g->numvert; x++) {
 		for (y = 0; y < g->numvert; y++)
 			printf("%d   ", g->matrix[x][y]);
