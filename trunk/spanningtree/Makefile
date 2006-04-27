@@ -26,6 +26,6 @@ testll:
 	$(CC) -c $(CFLAGS) -o $@ $<
 
 kruskal: main.o graph.o kruskal.o 
-	$(CC) main.o graph.o kruskal.o -o kruskal
+	$(CC) $(CFLAGS) main.o graph.o kruskal.o -o kruskal
 
 
