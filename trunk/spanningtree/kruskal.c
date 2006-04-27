@@ -10,6 +10,7 @@
 #include <assert.h>
 
 #include "graph.h"
+#include "linkedlist.h"
 
 #define FORESTBLOCK (8)
 #define MAPLEN(e) ((numedges / FORESTBLOCK) + 1)
@@ -21,18 +22,9 @@ typedef struct edge {
 	int weight;
 } edge_t;
 
-typedef struct llnode llnode_t;
-struct llnode {
-	void *data;
-	llnode_t *next;
-};
-
 typedef struct forest {
 	char *bitmap;
 	llnode_t *edges;
-	llnode_t *tail;
-	//llnode_t *lastedge;
-	//llnode_t *nextedge;
 } forest_t;
 
 /* Sort by weights, return total number of edges */
@@ -134,9 +126,7 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 		int len = MAPLEN(numedges);
 
 		forests[i].bitmap = malloc(len);
-		forests[i].edges = NULL; // = malloc(sizeof(llnode_t));
-		//forests[i].nextedge = forests[i].edges;
-		//forests[i].lastedge = NULL;
+		forests[i].edges = NULL;
 
 		memset(forests[i].bitmap, 0, len);
 		SETFORESTBIT(forests[i].bitmap, i);
@@ -149,7 +139,6 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 		/* edges[i] == lowest weight edge. */
 		forest_t *xforest = (forests + edges[i].x);
 		forest_t *yforest = (forests + edges[i].y);
-		llnode_t *newedge;
 
 		/* Does forest x include vertex y? Merge if not. */
 		if (GETFORESTBIT(xforest->bitmap, edges[i].y) == 0) {
@@ -164,52 +153,39 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 			fflush(stdout);
 
 			/* Add the edge to the end */
-			newedge = malloc(sizeof(llnode_t));
+			lladd(&(xforest->edges), edges + i);
 
-			/* Note the tail */
-			if (xforest->edges == NULL)
-				xforest->tail = newedge;
-
-			newedge->data = (edges + i);
-			newedge->next = xforest->edges;
-			xforest->edges = newedge; /* Reset head */
-
-			/** Merge the forest **/
-
-			printf("Merging len: %d\n", MAPLEN(numedges));
-			for (j = 0; j <= MAPLEN(numedges); j++)
-				*(xforest->bitmap + j) |= *(yforest->bitmap + j);
+			/* Merge the forest */
+			for (j = 0; j <= MAPLEN(numedges); j++) 
+				*(yforest->bitmap + j)  = *(xforest->bitmap + j) |= *(yforest->bitmap + j);
 
 			/* Merge the edge lists */
-			xforest->tail->next = yforest->edges; /* Put y's edges on the end */
-			yforest->edges = xforest->edges; /* Copy pointers */
-			if (yforest->tail != NULL)
-				xforest->tail = yforest->tail; /* Reset x's tail to y's tail */
+			llmerge(&(yforest->edges), &(xforest->edges));
 
 			/* Copy x vertex map to y */
-			yforest->bitmap = xforest->bitmap;
+			//memcpy(yforest->bitmap, xforest->bitmap, MAPLEN(numedges));
 
 			if (1) { /* Debug */
 				int x = 0;
 				llnode_t *p;
 				p = xforest->edges;
-				printf("xlist: \n");
+				printf("xlist: ");
 				while (p != NULL) {
 					edge_t *t = (edge_t*) p->data;
 					printf("%d->%d, ", t->x, t->y);
 					p = p->next;
-					if (x++ > 30) break;
+					if (x++ > 10) break;
 				}
 				printf("\n");
 
 				x = 0;
 				p = yforest->edges;
-				printf("ylist: \n");
+				printf("ylist: ");
 				while (p != NULL) {
 					edge_t *t = (edge_t*) p->data;
 					printf("%d->%d, ", t->x, t->y);
 					p = p->next;
-					if (x++ > 30) break;
+					if (x++ > 10) break;
 				}
 				printf("\n");
 			}
@@ -220,7 +196,7 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 					 GETFORESTBIT(yforest->bitmap, edges[i].y));
 			*/
 		} else {
-			printf("SKIPPING: %d->%d (%d)\n", edges[i].x, edges[i].y, edges[i].weight);
+			//printf("SKIPPING: %d->%d (%d)\n", edges[i].x, edges[i].y, edges[i].weight);
 		}
 	}
 
@@ -243,7 +219,7 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 			e = e->next;
 			fflush(stdout);
 			x++;
-			if (x > 30) break;
+			if (x > 5) break;
 		}
 
 		//printgraph(&mst);
