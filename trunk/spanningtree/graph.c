@@ -13,7 +13,7 @@
 
 #include "graph.h"
 
-static void dfs_mark(graph_t *g, int *visit, int vertex);
+static int dfs_mark(graph_t *g, int *visit, int vertex);
 
 /* Initialize the graph adjacency matrix */
 void initgraph(graph_t *g) { 
@@ -45,28 +45,32 @@ static void randomize(graph_t *g) {
 
 static int connected(graph_t *g) {
 	int *visit = malloc(g->numvert * sizeof(int));
+	int count;
 	int x; 
 
 	memset(visit, 0, g->numvert * sizeof(int));
-	dfs_mark(g, visit, 0); /* Start at vertex 0 */
-	for (x = 0; x < g->numvert; x++) {
-		if (*(visit + x) == 0)
-			return 0;
-	}
+	count = dfs_mark(g, visit, 0); /* Start at vertex 0 */
+	//for (x = 0; x < g->numvert; x++) {
+	//if (*(visit + x) == 0)
+	//return 0;
+	//}
 
-	return 1;
+	return (count != g->numvert);
 }
 
-static void dfs_mark(graph_t *g, int *visit, int vertex) {
+static int dfs_mark(graph_t *g, int *visit, int vertex) {
 	int x;
-	if (*(visit + vertex) == 1) return;
+	int count = 0;
+	if (*(visit + vertex) == 1) return 1;
 	*(visit + vertex) = 1;
 
 	for (x = 0; x < g->numvert; x++) {
 		if (x == vertex) continue;
 		if (g->matrix[vertex][x] > 0)
-			dfs_mark(g, visit, x);
+			count += dfs_mark(g, visit, x);
 	}
+
+	return count;
 }
 
 static void freegraph(graph_t *g) {
@@ -100,7 +104,7 @@ graph_t* gengraph(int v, float ep) {
 		randomize(g);
 		/* ensure it is connected */
 	} while (!connected(g));
-	
+
 	printgraph(g);
 
 	return g;
@@ -122,9 +126,10 @@ void printgraph(graph_t* g) {
 int main(int argc, char **argv) {
 	int v;
 	float ep;
+	int seed;
 	graph_t *g;
 
-	if (argc != 3) {
+	if (argc < 3) {
 		fprintf(stderr, "Invalid number of arguments. Usage: %s numvertex edgeprob\n", *argv);
 		return 1;
 	}
@@ -138,6 +143,13 @@ int main(int argc, char **argv) {
 		fprintf(stderr,"Second argument is bad.\n");
 		return 1;
 	}
+
+	if (argc == 4)
+		seed = atoi(*++argv);
+	else
+		seed = time(NULL);
+
+	srand(seed);
 
 	g = gengraph(v, ep);
 
