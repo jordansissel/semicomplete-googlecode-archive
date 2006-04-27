@@ -4,7 +4,7 @@ CFLAGS=-g
 
 .SUFFIXES: .o .c
 
-all: $(SOURCES:%.c=%.o)
+all: $(SOURCES:%.c=%.o) kruskal
 
 clean:
 	rm -f $(SOURCES:%.c=%.o)
