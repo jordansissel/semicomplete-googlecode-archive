@@ -29,7 +29,6 @@ typedef struct forest {
 
 void printedge(void *d) {
 	edge_t *e = (edge_t *)d;
-
 	printf("%d->%d", e->x, e->y);
 }
 
@@ -105,7 +104,6 @@ static int countsort(graph_t *g, edge_t **sortededges) {
 
 void kruskal(graph_t *g, edge_t *edges, int numedges) {
 	int i, j;
-	//int **forests;
 	forest_t *forests;
 	llnode_t *mst = NULL;
 
@@ -162,35 +160,34 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 			printf("Adding edge: %d->%d (%d)\n", edges[i].x, edges[i].y, edges[i].weight);
 			fflush(stdout);
 
-			//printf("before xforest: "); printlist(xforest->edges, &printedge);
-			//printf("before yforest: "); printlist(yforest->edges, &printedge);
-			printf("before mst: "); printlist(mst, &printedge);
+			printf("before xforest: "); printlist(xforest->edges, &printedge);
+			printf("before yforest: "); printlist(yforest->edges, &printedge);
+			//printf("before mst: "); printlist(mst, &printedge);
 
-			//printf("before ptrs x,y: %04x, %04x\n", xforest->edges, yforest->edges);
 			/* Add the edge to the end */
-			//lladd(&(xforest->edges), edges + i);
-			lladd(&mst, edges + i);
-			/* Merge the edge lists */
-			//llmerge(&(xforest->edges), &(yforest->edges));
-
-			//yforest->edges = xforest->edges;
+			llmerge(&(xforest->edges), &(yforest->edges));
+			lladd(&(xforest->edges), edges + i);
 
 			/* Merge the maps */
 			for (j = 0; j <= MAPLEN(numedges); j++) 
-				*(yforest->bitmap + j)  = *(xforest->bitmap + j) |= *(yforest->bitmap + j);
+			  *(yforest->bitmap + j) = *(xforest->bitmap + j) |= *(yforest->bitmap + j);
+			memcpy(yforest->bitmap, xforest->bitmap, MAPLEN(numedges));
 
-			//memcpy(yforest->bitmap, xforest->bitmap, MAPLEN(numedges));
+			yforest->edges = xforest->edges;
+			for (j = 0; j < g->numvert; j++) {
+				forest_t *f = (forests + j);
 
-			//printf("after ptrs x,y: %04x, %04x\n", xforest->edges, yforest->edges);
-			printf("after mst: "); printlist(mst, &printedge);
-			//printf("after xforest: "); printlist(xforest->edges, &printedge);
-			//printf("after yforest: "); printlist(yforest->edges, &printedge);
+				/* Merge forest pointers */
+				if (GETFORESTBIT(f->bitmap, edges[i].x) ||
+					 GETFORESTBIT(f->bitmap, edges[i].y)) {
+					if (f->edges != xforest->edges)
+						free(f->edges);
+					f->edges = xforest->edges;
+				}
+			}
 
-			/*
-			printf("xf vs yf: %d, %d\n", 
-					 GETFORESTBIT(xforest->bitmap, edges[i].y),
-					 GETFORESTBIT(yforest->bitmap, edges[i].y));
-			*/
+			printf("after xforest: "); printlist(xforest->edges, &printedge);
+			printf("after yforest: "); printlist(yforest->edges, &printedge);
 		} else {
 			//printf("SKIPPING: %d->%d (%d)\n", edges[i].x, edges[i].y, edges[i].weight);
 		}
