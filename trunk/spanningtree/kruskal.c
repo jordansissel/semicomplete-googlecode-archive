@@ -26,7 +26,6 @@ typedef struct edge {
 
 typedef struct forest {
 	char *bitmap;
-	//llnode_t *edges;
 	edge_t *edges;
 	int nextedge;
 } forest_t;
@@ -49,6 +48,7 @@ static int countsort(graph_t *g, edge_t **sortededges) {
 
 	/* Worst case, num edges is vert^2 */
 
+	fprintf(stderr, "edges size = %d\n", maxedges * sizeof(edge_t));
 	edges = malloc(maxedges * sizeof(edge_t));
 	assert(edges != NULL);
 
