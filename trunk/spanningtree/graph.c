@@ -55,8 +55,8 @@ static int connected(graph_t *g) {
 			return 0;
 	}
 
+	free(visit);
 	return 1;
-	//return (count == g->numvert);
 }
 
 static int dfs_mark(graph_t *g, int *visit, int vertex) {

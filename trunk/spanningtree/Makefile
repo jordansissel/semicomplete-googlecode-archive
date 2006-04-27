@@ -1,12 +1,16 @@
+
 CC=gcc
 SOURCES= graph.c kruskal.c main.c 
 #linkedlist.c
 NUMTESTS=1
-CFLAGS=-Wall -g -DNUMTESTS=$(NUMTESTS)
+CFLAGS=-g -DNUMTESTS=$(NUMTESTS)
 
 .SUFFIXES: .o .c
 
 all: $(SOURCES:%.c=%.o) kruskal
+purify:
+	@echo source: /usr/local/Rational2003/*.ksh
+	make NUMTESTS=1 CC="purify gcc" clean all
 
 clean:
 	rm -f $(SOURCES:%.c=%.o)
@@ -22,6 +26,6 @@ testll:
 	$(CC) -c $(CFLAGS) -o $@ $<
 
 kruskal: main.o graph.o kruskal.o 
-	gcc main.o graph.o kruskal.o -o kruskal
+	$(CC) main.o graph.o kruskal.o -o kruskal
 
 

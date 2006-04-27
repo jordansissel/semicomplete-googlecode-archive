@@ -48,7 +48,7 @@ static int countsort(graph_t *g, edge_t **sortededges) {
 
 	/* Worst case, num edges is vert^2 */
 
-	fprintf(stderr, "edges size = %d\n", maxedges * sizeof(edge_t));
+	//fprintf(stderr, "edges size = %d\n", maxedges * sizeof(edge_t));
 	edges = malloc(maxedges * sizeof(edge_t));
 	assert(edges != NULL);
 
@@ -56,7 +56,6 @@ static int countsort(graph_t *g, edge_t **sortededges) {
 	assert(*sortededges != NULL);
 
 	memset(edges, 0, maxedges * sizeof(edge_t));
-	memset(*sortededges, 0, maxedges * sizeof(edge_t));
 
 	/* Find max weight */
 	for (x = 0; x < g->numvert; x++)
@@ -89,12 +88,18 @@ static int countsort(graph_t *g, edge_t **sortededges) {
 	for (x = 1; x < max; x++)
 		countarr[x] += countarr[x - 1];
 
+	/* Now that we know how many edges we have... */
+	memset(*sortededges, 0, edgepiv* sizeof(edge_t));
+
 	/* Sort the edges by weight */
 	/* We use --countarr[...] becuase it's off by one, so subtract early. */
-	for (x = 0; x <= edgepiv; x++)
-		memcpy(*sortededges + --countarr[edges[x].weight], edges + x, sizeof(edge_t));
 
-	//printf("EDGEPIV: %d\n", edgepiv);
+	/* Solaris crashes if we go to x <= edgepiv. */
+
+	for (x = 0; x < edgepiv; x++, countarr[edges[x].weight]--)
+		memcpy(*sortededges + countarr[edges[x].weight], edges + x, sizeof(edge_t));
+
+	free(countarr);
 	free(edges);
 	return edgepiv;
 }
@@ -123,7 +128,6 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 
 	/* Create the forests. Initially, there are n forests (where n == numverteces) */
 	fflush(stdout);
-	printf("malloc(%d)\n", g->numvert * sizeof(forest_t));
 	forests = malloc(g->numvert * sizeof(forest_t));
 	assert(forests != NULL);
 	for (i = 0; i < g->numvert; i++) {
@@ -177,10 +181,6 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 
 				if (GETFORESTBIT(f->bitmap, edges[i].x) ||
 					 GETFORESTBIT(f->bitmap, edges[i].y)) {
-					if (f->edges != xforest->edges) {
-						//free(f->edges);
-						//free(f->bitmap);
-					}
 					f->edges = xforest->edges;
 					f->bitmap = xforest->bitmap;
 					f->nextedge = xforest->nextedge;
@@ -197,6 +197,11 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 	}
 	printf("Total weight of MST using Kruskal: %d\n", mstweight);
 
+	for (i = 0; i < g->numvert; i++) {
+		free(forests[i].bitmap);
+		free(forests[i].edges);
+	}
+	free(forests);
 }
 
 void do_algorithm(graph_t *g) {
