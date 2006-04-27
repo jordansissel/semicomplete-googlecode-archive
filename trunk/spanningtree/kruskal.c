@@ -7,7 +7,9 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 #include "graph.h"
 #include "linkedlist.h"
@@ -49,6 +51,8 @@ static int countsort(graph_t *g, edge_t **sortededges) {
 
 	edges = malloc(maxedges * sizeof(edge_t));
 	assert(edges != NULL);
+
+	fprintf(stderr,"edgeptr: %08x\n", edges);
 
 	*sortededges = malloc(maxedges * sizeof(edge_t));
 	assert(*sortededges != NULL);
@@ -92,7 +96,10 @@ static int countsort(graph_t *g, edge_t **sortededges) {
 	for (x = 0; x <= edgepiv; x++)
 		memcpy(*sortededges + --countarr[edges[x].weight], edges + x, sizeof(edge_t));
 
+	fprintf(stderr,"edgeptr: %08x\n", edges);
+
 	//printf("EDGEPIV: %d\n", edgepiv);
+	free(edges);
 	return edgepiv;
 }
 
@@ -118,11 +125,11 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 	 * If a bit is high, then that vertex is in this forest.
 	 */
 
-	//for (i = 0; i < numedges; i++)
-		//printf("%d: %d -> %d (w: %d)\n", i, edges[i].x, edges[i].y, edges[i].weight);
-
 	/* Create the forests. Initially, there are n forests (where n == numverteces) */
+	fflush(stdout);
+	printf("malloc(%d)\n", g->numvert * sizeof(forest_t));
 	forests = malloc(g->numvert * sizeof(forest_t));
+	assert(forests != NULL);
 	for (i = 0; i < g->numvert; i++) {
 		/* Byte length of bitmap */
 		int len = MAPLEN(numedges);
@@ -136,9 +143,6 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 		SETFORESTBIT(forests[i].bitmap, i);
 	}
 
-	//printf("maplen: (edges %d) %d\n", numedges, MAPLEN(numedges));
-	//printf("startmap: %02x\n", *(forests[0].bitmap));
-
 	/* Loop over all sorted edges. Add each edge unless it creates a cycle */
 	for (i = 0; i < numedges; i++) {
 		/* edges[i] == lowest weight edge. */
@@ -148,16 +152,6 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 		/* Does forest x include vertex y? Merge if not. */
 		if (!GETFORESTBIT(xforest->bitmap, edges[i].y)) {
 			/* Indicate that vertex y is now in forest x */
-			//printf("\n");
-         /*
-			 *printf("(%d->%d) Exists in x,y map: %d,%d (%02x/%02x)\n", edges[i].x, edges[i].y,
-			 *       GETFORESTBIT(xforest->bitmap, edges[i].y),
-			 *       GETFORESTBIT(yforest->bitmap, edges[i].x),
-			 *       *(xforest->bitmap),
-			 *       *(yforest->bitmap));
-          */
-
-			//printf("Adding edge: %d->%d (%d)\n", edges[i].x, edges[i].y, edges[i].weight);
 			SETFORESTBIT(xforest->bitmap, edges[i].y);
 
 			#define PRINTEDGES(f) do { \
@@ -166,23 +160,19 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 					printf("%d->%d, ", (f)->edges[z].x, (f)->edges[z].y); \
 			} while (0)
 
-			//printf("before xforest: [%d]",xforest->nextedge); PRINTEDGES(xforest); printf("\n");
-			//printf("before yforest: [%d]",yforest->nextedge); PRINTEDGES(yforest); printf("\n");
-
 			/* Copy edge to this tree */
 			memcpy(xforest->edges + xforest->nextedge,edges + i,sizeof(edge_t));
 			xforest->nextedge++;
 
-			/* Merge edge lists */
+			/* Merge edges from forest y into forest x lists */
 			for (j = 0; j < yforest->nextedge; j++)
 				memcpy(xforest->edges + xforest->nextedge++,yforest->edges + j,sizeof(edge_t));
-
-			//printf("middle xforest: [%d]",xforest->nextedge); PRINTEDGES(xforest); printf("\n");
 
 			for (j = 0; j <= MAPLEN(numedges); j++) 
 			  *(yforest->bitmap + j) = *(xforest->bitmap + j) |= *(yforest->bitmap + j);
 			//memcpy(yforest->bitmap, xforest->bitmap, MAPLEN(numedges));
 
+			/* Copy forest x to all forests with vertex X or Y */
 			for (j = 0; j < g->numvert; j++) {
 				forest_t *f = (forests + j);
 
@@ -191,35 +181,17 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 
 				if (GETFORESTBIT(f->bitmap, edges[i].x) ||
 					 GETFORESTBIT(f->bitmap, edges[i].y)) {
-					//printf("Merging forests %d and %d\n", edges[i].x, j);
 					if (f->edges != xforest->edges) {
-						//printf("freeing %d's old edge list\n", j);
-						free(f->edges);
-						free(f->bitmap);
+						//free(f->edges);
+						//free(f->bitmap);
 					}
 					f->edges = xforest->edges;
 					f->bitmap = xforest->bitmap;
 					f->nextedge = xforest->nextedge;
-					//memcpy(f->bitmap, xforest->bitmap, MAPLEN(numedges));
-					//printf("x: %d : %08x\n", edges[i].x, xforest->edges);
-					//printf("j: %d : %08x\n", j, f->edges);
 				}
 			}
-			/*reset yforest*/
-			//printf("x: %d : %08x\n", edges[i].x, xforest->edges);
-			//printf("y: %d : %08x\n", edges[i].y, yforest->edges);
-
-			//printf("after xforest: "); PRINTEDGES(xforest); printf("\n");
-			//printf("after yforest: "); PRINTEDGES(yforest); printf("\n");
-
-		} else {
-			//printf("SKIPPING: %d->%d (%d)\n", edges[i].x, edges[i].y, edges[i].weight);
 		}
 	}
-
-	//fflush(stdout);
-	//printf("endmap: %08x\n", *(forests[0].bitmap));
-	/* At this point, all edges will have the same forest becuase we have a connected graph */
 
 	mstweight = 0;
 	for (i = 0; i < forests[0].nextedge; i++) {
@@ -237,6 +209,9 @@ void do_algorithm(graph_t *g) {
 
 	numedges = countsort(g, &sortededges);
 	kruskal(g, sortededges, numedges);
+
+	/* cleanup  */
+	free(sortededges);
 }
 
 

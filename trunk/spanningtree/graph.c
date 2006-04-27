@@ -50,12 +50,13 @@ static int connected(graph_t *g) {
 
 	memset(visit, 0, g->numvert * sizeof(int));
 	count = dfs_mark(g, visit, 0); /* Start at vertex 0 */
-	//for (x = 0; x < g->numvert; x++) {
-	//if (*(visit + x) == 0)
-	//return 0;
-	//}
+	for (x = 0; x < g->numvert; x++) {
+		if (*(visit + x) == 0)
+			return 0;
+	}
 
-	return (count != g->numvert);
+	return 1;
+	//return (count == g->numvert);
 }
 
 static int dfs_mark(graph_t *g, int *visit, int vertex) {
@@ -73,7 +74,7 @@ static int dfs_mark(graph_t *g, int *visit, int vertex) {
 	return count;
 }
 
-static void freegraph(graph_t *g) {
+void freegraph(graph_t *g) {
 	int x;
 	for (x = 0; x < g->numvert; x++)
 		free(g->matrix[x]);
@@ -108,6 +109,7 @@ graph_t* gengraph(int v, float ep) {
 	printgraph(g);
 
 	return g;
+
 }
 
 void printgraph(graph_t* g) {

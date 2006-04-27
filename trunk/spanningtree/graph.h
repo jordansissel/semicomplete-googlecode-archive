@@ -15,5 +15,8 @@ graph_t * gengraph(int v, float ep);
 /* Initialize a graph matrix */
 void initgraph(graph_t *g);
 
+/* Clean up allocations by initgraph */
+void freegraph(graph_t *g);
+
 /* Printy! */
 void printgraph(graph_t* g);

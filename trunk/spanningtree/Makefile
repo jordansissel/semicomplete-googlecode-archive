@@ -1,6 +1,8 @@
-CC=gcc
-SOURCES= graph.c kruskal.c main.c linkedlist.c
-CFLAGS=-g
+CC=/opt/SUNWspro/bin/cc
+SOURCES= graph.c kruskal.c main.c 
+#linkedlist.c
+NUMTESTS=1
+CFLAGS=-g -DNUMTESTS=$(NUMTESTS)
 
 .SUFFIXES: .o .c
 
@@ -19,7 +21,7 @@ testll:
 .c.o:
 	$(CC) -c $(CFLAGS) -o $@ $<
 
-kruskal: main.o graph.o kruskal.o linkedlist.o
-	gcc main.o graph.o kruskal.o linkedlist.o -o kruskal
+kruskal: main.o graph.o kruskal.o 
+	gcc main.o graph.o kruskal.o -o kruskal
 
 
