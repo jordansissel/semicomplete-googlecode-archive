@@ -6,10 +6,11 @@
  * $Id$
  */
 
+#include <sys/time.h>
+#include <sys/types.h>
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
-#include <time.h>
 
 #include "graph.h"
 

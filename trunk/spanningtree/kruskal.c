@@ -52,8 +52,6 @@ static int countsort(graph_t *g, edge_t **sortededges) {
 	edges = malloc(maxedges * sizeof(edge_t));
 	assert(edges != NULL);
 
-	fprintf(stderr,"edgeptr: %08x\n", edges);
-
 	*sortededges = malloc(maxedges * sizeof(edge_t));
 	assert(*sortededges != NULL);
 
@@ -95,8 +93,6 @@ static int countsort(graph_t *g, edge_t **sortededges) {
 	/* We use --countarr[...] becuase it's off by one, so subtract early. */
 	for (x = 0; x <= edgepiv; x++)
 		memcpy(*sortededges + --countarr[edges[x].weight], edges + x, sizeof(edge_t));
-
-	fprintf(stderr,"edgeptr: %08x\n", edges);
 
 	//printf("EDGEPIV: %d\n", edgepiv);
 	free(edges);

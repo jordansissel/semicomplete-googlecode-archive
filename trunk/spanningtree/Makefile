@@ -1,8 +1,8 @@
-CC=/opt/SUNWspro/bin/cc
+CC=gcc
 SOURCES= graph.c kruskal.c main.c 
 #linkedlist.c
 NUMTESTS=1
-CFLAGS=-g -DNUMTESTS=$(NUMTESTS)
+CFLAGS=-Wall -g -DNUMTESTS=$(NUMTESTS)
 
 .SUFFIXES: .o .c
 
