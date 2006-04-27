@@ -7,8 +7,8 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <time.h>
+#include <assert.h>
 #include <string.h>
 
 #include "graph.h"
@@ -31,7 +31,6 @@ static void randomize(graph_t *g) {
 	int x, y;
 	int weight;
 	int prob = (int)(g->edgeprob * 100);
-	srand(time(NULL));
 
 	for (x = 0; x < g->numvert; x++) {
 		for (y = 0; y < g->numvert; y++) {

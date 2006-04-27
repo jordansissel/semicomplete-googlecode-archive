@@ -9,5 +9,7 @@ struct llnode {
 };
 
 void lladd(llnode_t **list, void *data);
+void llmerge(llnode_t **x, llnode_t **y);
+void printlist(llnode_t *list, void (*func(void *)));
 
 #endif

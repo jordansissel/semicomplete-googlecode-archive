@@ -8,6 +8,8 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <stdlib.h>
+#include <time.h>
 
 #include "graph.h"
 
@@ -18,7 +20,7 @@ int main(int argc, char **argv) {
 	float ep;
 	graph_t *g;
 
-	if (argc != 3) {
+	if (argc < 3) {
 		fprintf(stderr, "Invalid number of arguments. Usage: %s numvertex edgeprob\n", *argv);
 		return 1;
 	}
@@ -32,6 +34,11 @@ int main(int argc, char **argv) {
 		fprintf(stderr,"Second argument is bad.\n");
 		return 1;
 	}
+
+	if (argc == 4)
+		srand(atoi(*++argv));
+	else
+		srand(time(NULL));
 
 	g = gengraph(v, ep);
 

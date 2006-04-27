@@ -32,18 +32,25 @@ void llmerge(llnode_t **x, llnode_t **y) {
 	}
 }
 
-#ifdef TEST
-void printlist(llnode_t *list) {
+void printlist(llnode_t *list, void (*func(void *))) {
 	llnode_t *t = list;
+	int x = 0;
 	while (t != NULL) {
-		printf("%s, ", t->data);
+		func(t->data);
+		printf(", ");
+		//printf("%s, ", t->data);
 		t = t->next;
+		if (x++ > 8) break;
 	}
-	if (list != NULL)
-		printf("[Tail: %s]\n", list->tail->data);
+	if (list != NULL) {
+		printf("[Tail: "); 
+		func(list->tail->data);
+		printf("]");
+	}
 	printf("\n");
 }
 
+#ifdef TEST
 int main(int argc, char **argv) {
 	llnode_t *x = NULL;
 	llnode_t *y = NULL;
