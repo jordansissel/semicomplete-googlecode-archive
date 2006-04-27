@@ -160,10 +160,9 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 				*(yforest->bitmap + j)  = *(xforest->bitmap + j) |= *(yforest->bitmap + j);
 
 			/* Merge the edge lists */
-			llmerge(&(yforest->edges), &(xforest->edges));
+			llmerge(&(xforest->edges), &(yforest->edges));
 
-			/* Copy x vertex map to y */
-			//memcpy(yforest->bitmap, xforest->bitmap, MAPLEN(numedges));
+			memcpy(yforest->bitmap, xforest->bitmap, MAPLEN(numedges));
 
 			if (1) { /* Debug */
 				int x = 0;
@@ -178,16 +177,6 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 				}
 				printf("\n");
 
-				x = 0;
-				p = yforest->edges;
-				printf("ylist: ");
-				while (p != NULL) {
-					edge_t *t = (edge_t*) p->data;
-					printf("%d->%d, ", t->x, t->y);
-					p = p->next;
-					if (x++ > 10) break;
-				}
-				printf("\n");
 			}
 
 			/*
@@ -233,3 +222,4 @@ void do_algorithm(graph_t *g) {
 	numedges = countsort(g, &sortededges);
 	kruskal(g, sortededges, numedges);
 }
+

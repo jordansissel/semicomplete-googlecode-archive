@@ -19,11 +19,17 @@ void lladd(llnode_t **list, void *data) {
 }
 
 void llmerge(llnode_t **x, llnode_t **y) {
-	if (*y != NULL) {
+	if (*x) {
 		(*x)->tail->next = *y;
-		(*x)->tail = (*y)->tail;
+		if (*y)
+			(*x)->tail = (*y)->tail;
+		*y = *x;
+	} else if (*y) {
+		(*y)->tail->next = *x;
+		//if (*x)
+			//(*y)->tail = (*x)->tail;
+		*x = *y;
 	}
-	*y = *x;
 }
 
 #ifdef TEST
@@ -50,22 +56,15 @@ int main(int argc, char **argv) {
 	}
 	*/
 
-	lladd(&x, "one");
-	lladd(&x, "two");
-	lladd(&x, "three");
-	lladd(&x, "four");
-	lladd(&x, "five");
+	//lladd(&x, "one");
 
-	//lladd(&y, "hello");
-	//lladd(&y, "there");
-	//lladd(&y, "how");
-	//lladd(&y, "are");
-	//lladd(&y, "you");
-
-	printlist(x);
-	printlist(y);
-
+	lladd(&y, "hello");
 	llmerge(&x,&y);
+
+	x = y = NULL;
+	lladd(&x, "Hi");
+	llmerge(&x, &y);
+
 	printlist(x);
 	printlist(y);
 
