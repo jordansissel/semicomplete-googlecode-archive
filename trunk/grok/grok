@@ -21,6 +21,7 @@ use Symbol;
 use re 'eval';
 
 # Things you'll need to have installed (from CPAN):
+use URI::Escape;
 use Regexp::Common qw(RE_ALL);
 use Parse::RecDescent;
 use Date::Parse;
@@ -39,12 +40,17 @@ my %MATCH = (
 	USERNAME => qr/\w+/,
 	USER => qr/\w+/,
 	IP => $RE{net}{IPv4},
-	PORT => qr/\d+/,
-	COUNT => qr/\d+/,
+	NUMBER => qr/\d+/,
+	PORT => "%NUMBER",
+	COUNT => "%NUMBER",
 	HOSTNAME => qr/(?! )$RE{net}{domain}/,
 	HOST => "%HOSTNAME%",
-	PROG => qr/\w+(?:\[\d+\])?/,
 	DATA => qr/.*/,
+	#PROG => qr/\w+(?:\[\d+\])?/,
+	#PROG => qr/\w+(?:\[%NUMBER%\])?/,
+	PROG => qr/\w+/,
+	PID => "%NUMBER%",
+	SYSLOGPROG => qr/%PROG%(\[%PID%\])?/,
 
 	# Months: January, Feb, 3, 03, 12, December
 	MONTH => qr/(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|0?[0-9]|1[0-2])/,
@@ -79,6 +85,7 @@ my $filters = {
 	qr/stripquotes/ => sub { s/^(["])//; s/$1$//; },
 	qr/parsedate/ => sub { $_ = str2time($_) },
 	qr/uid2user/ => sub { ($_) = getpwuid($_) },
+	qr/urlescape/ => sub { ($_) = uri_escape($_) },
 };
 
 my $opts = {};
@@ -307,7 +314,7 @@ sub meta2string {
 
 		# XXX: This will be undef if the key in $values is null, should that ever happen?
 		map {
-			my $regex = qr/%(\Q$_\E(?::\w+)?)(?:\|((?:\S+)(?:,\S+)*))?%/;
+			my $regex = qr/%(\Q$_\E(?::\w+)?)(?:\|((?:[^,|%]+)(?:[,|][^,|%]+)*))?%/;
 			while ($meta =~ m/$regex/) {
 				$count++;
 				my $data = filter($values, $1, $2);
@@ -436,7 +443,7 @@ sub setup {
 			debug(2, "Match: $match");
 			foreach my $string (@{$m->{"matches"}}) {
 				if ($m->{"match_syslog"}) {
-					my $prog = ($m->{"syslog_prog"}) ? ($m->{"syslog_prog"} . '(?:\[\\d+\])?') : "%PROG%";
+					my $prog = ($m->{"syslog_prog"}) ? ($m->{"syslog_prog"} . '(?:\[\\d+\])?') : "%SYSLOGPROG%";
 					my $host = $m->{"syslog_host"} || "%HOST%";
 					$string = "%SYSLOGDATE% $host $prog: %DATA:GLOB%$string";
 				}
@@ -445,7 +452,7 @@ sub setup {
 			}
 			if (scalar(@{$m->{"matches"}}) == 0) {
 				if ($m->{"match_syslog"}) {
-					my $prog = ($m->{"syslog_prog"}) ? ($m->{"syslog_prog"} . '(?:\[\\d+\])?') : "%PROG%";
+					my $prog = ($m->{"syslog_prog"}) ? ($m->{"syslog_prog"} . '(?:\[\\d+\])?') : "%SYSLOGPROG%";
 					my $host = $m->{"syslog_host"} || "%HOST%";
 					my $string = "%SYSLOGDATE% $host $prog: %DATA:GLOB%";
 					debug(2, "String: $string");
