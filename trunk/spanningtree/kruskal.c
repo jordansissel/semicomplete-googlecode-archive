@@ -133,7 +133,7 @@ static int quicksort(graph_t *g, edge_t **sortededges) { /* {{{ */
 }
 /* }}} */
 
-/* Quick sort implementatoin */
+/* Quick sort implementatoin {{{ */
 static void do_qsort(edge_t *edges, int start, int end) {
 	int piv;
 	if (start < end) {
@@ -175,6 +175,7 @@ static int qsort_partition(edge_t *edges, int start, int end) {
 	/* Return final position of pivot */
 	return gt;
 }
+/* end quicksort }}} */
 
 /* Kruskal Algorithm */
 /* Algorithm:
@@ -241,7 +242,6 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 
 			for (j = 0; j <= MAPLEN(numedges); j++) 
 			  *(yforest->bitmap + j) = *(xforest->bitmap + j) |= *(yforest->bitmap + j);
-			//memcpy(yforest->bitmap, xforest->bitmap, MAPLEN(numedges));
 
 			/* Copy forest x to all forests with vertex X or Y */
 			for (j = 0; j < g->numvert; j++) {
@@ -252,6 +252,14 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 
 				if (GETFORESTBIT(f->bitmap, edges[i].x) ||
 					 GETFORESTBIT(f->bitmap, edges[i].y)) {
+					/* XXX: 
+					 * Failure to free edges and bitmap here will cause some
+					 * serious memory leaking and crashes. Hurray for finding this bug.
+					 */
+					if (f->edges != xforest->edges) {
+						free(f->edges);
+						free(f->bitmap);
+					}
 					f->edges = xforest->edges;
 					f->bitmap = xforest->bitmap;
 					f->nextedge = xforest->nextedge;
