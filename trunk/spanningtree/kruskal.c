@@ -1,4 +1,3 @@
-
 /* Kruskal MST Algorithm
  *
  * Uses count-sort 
@@ -35,8 +34,11 @@ void printedge(void *d) {
 	printf("%d->%d", e->x, e->y);
 }
 
+static void do_qsort(edge_t *edges, int start, int end);
+static int qsort_partition(edge_t *edges, int start, int end);
+
 /* Sort by weights, return total number of edges */
-static int countsort(graph_t *g, edge_t **sortededges) {
+static int countsort(graph_t *g, edge_t **sortededges) { /* {{{ */
 	int max = 0;
 	int x,y;
 	int *countarr;
@@ -102,6 +104,76 @@ static int countsort(graph_t *g, edge_t **sortededges) {
 	free(countarr);
 	free(edges);
 	return edgepiv;
+} /* }}} */
+
+static int quicksort(graph_t *g, edge_t **sortededges) { /* {{{ */
+	int x,y;
+	int edgecnt = 0;
+	int maxedges = g->numvert * g->numvert;
+
+	/* Worst case, num edges is vert^2 */
+	*sortededges = malloc(maxedges * sizeof(edge_t));
+	assert(*sortededges != NULL);
+	memset(*sortededges, 0, maxedges * sizeof(edge_t));
+
+	/* Create the list of edges */
+	for (x = 0; x < g->numvert; x++)
+		for (y = 0; y < g->numvert; y++)
+			if (WEIGHT(g, x, y) > 0) {
+				edge_t *e = *sortededges + edgecnt;
+				e->weight = WEIGHT(g, x, y);
+				e->x = x;
+				e->y = y;
+				edgecnt++;
+			}
+
+	do_qsort(*sortededges, 0, edgecnt);
+
+	return edgecnt;
+}
+/* }}} */
+
+/* Quick sort implementatoin */
+static void do_qsort(edge_t *edges, int start, int end) {
+	int piv;
+	if (start < end) {
+		piv = qsort_partition(edges, start, end);
+		do_qsort(edges, start, piv - 1);
+		do_qsort(edges, piv + 1, end);
+	}
+}
+
+static int qsort_partition(edge_t *edges, int start, int end) {
+	int gt, lt;
+	int piv = start;
+	edge_t t;
+
+	gt = end;
+	lt = start;
+
+	do {
+		/* Find elements worth swapping */
+		while (edges[lt].weight <= edges[piv].weight && lt < end)
+			lt++;
+		while (edges[gt].weight > edges[piv].weight && gt > start)
+			gt--;
+
+		/* Swap two elements, if it makes sense */
+		if (gt > lt) {
+			memcpy(&t, edges + lt, sizeof(edge_t));
+			memcpy(edges + lt, edges + gt, sizeof(edge_t));
+			memcpy(edges + gt, &t, sizeof(edge_t));
+		}
+
+	} while (gt > lt);
+
+	/* Move pivot to middle */
+	memcpy(&t, edges + piv, sizeof(edge_t));
+	memcpy(edges + piv, edges + gt, sizeof(edge_t));
+	memcpy(edges + gt, &t, sizeof(edge_t));
+
+	/* Return final position of pivot */
+	return gt;
 }
 
 /* Kruskal Algorithm */
@@ -127,7 +199,6 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 	 */
 
 	/* Create the forests. Initially, there are n forests (where n == numverteces) */
-	fflush(stdout);
 	forests = malloc(g->numvert * sizeof(forest_t));
 	assert(forests != NULL);
 	for (i = 0; i < g->numvert; i++) {
@@ -192,9 +263,11 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 	mstweight = 0;
 	for (i = 0; i < forests[0].nextedge; i++) {
 		edge_t *e = forests[0].edges + i;
-		printf("%4d -> %4d (weight %4d)\n", e->x, e->y, e->weight);
 		mstweight += e->weight;
 	}
+
+	/* At this point, we are done with the algorithm */
+
 	printf("Total weight of MST using Kruskal: %d\n", mstweight);
 
 	for (i = 0; i < g->numvert; i++) {
@@ -204,7 +277,7 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 	free(forests);
 }
 
-void do_algorithm(graph_t *g) {
+void kruskal_countsort(graph_t *g) {
 	edge_t *sortededges;
 	int numedges;
 
@@ -215,4 +288,13 @@ void do_algorithm(graph_t *g) {
 	free(sortededges);
 }
 
+void kruskal_quicksort(graph_t *g) {
+	edge_t *sortededges;
+	int numedges;
 
+	numedges = quicksort(g, &sortededges);
+	kruskal(g, sortededges, numedges);
+
+	/* cleanup  */
+	free(sortededges);
+}

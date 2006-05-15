@@ -19,6 +19,9 @@ clean:
 testgraph: 
 	$(CC) $(CFLAGS) -DTEST -o testgraph graph.c
 
+gtest: testgraph.o graph.o
+	$(CC) $(CFLAGS) -o gtest testgraph.o graph.o
+
 testll: 
 	$(CC) $(CFLAGS) -DTEST -o $@ linkedlist.c
 
