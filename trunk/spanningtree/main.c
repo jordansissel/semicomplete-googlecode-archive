@@ -17,9 +17,7 @@
 
 #include "graph.h"
 
-#ifndef NUMTESTS
-#define NUMTESTS 10
-#endif
+static int numtests;
 
 extern void kruskal_countsort(graph_t *g);
 extern void kruskal_quicksort(graph_t *g);
@@ -30,7 +28,7 @@ void perftest(int v, float ep, void (*mst)(graph_t*), char *name) {
 	struct timeval start, end;
 	graph_t *g;
 
-	for (x = 0; x < NUMTESTS; x++) {
+	for (x = 0; x < numtests; x++) {
 #if DEBUG
 		fprintf(stderr, "Starting run: %d\n", x);
 #endif 
@@ -52,22 +50,26 @@ int main(int argc, char **argv) {
 	int v;
 	float ep;
 
-	if (argc < 3) {
-		fprintf(stderr, "Invalid number of arguments. Usage: %s numvertex edgeprob\n", *argv);
-		return 1;
-	}
-
-	if (sscanf(*++argv, "%d", &v) == 0) {
+	//if (sscanf(*++argv, "%d", &v) == 0) {
+	if (fscanf(stdin, "%d\n", &v) == 0) {
 		fprintf(stderr,"First argument is bad.\n");
 		return 1;
 	}
 
-	if (sscanf(*++argv, "%f", &ep) == 0) {
+	//if (sscanf(*++argv, "%f", &ep) == 0) {
+	if (fscanf(stdin, "%f", &ep) == 0) {
 		fprintf(stderr,"Second argument is bad.\n");
 		return 1;
 	}
 
-	if (argc == 4)
+	if (argc >= 2)
+		numtests = atoi(*++argv);
+	else
+		numtests = 1;
+
+	assert(numtests > 0);
+
+	if (argc >= 3)
 		srand(atoi(*++argv));
 	else
 		srand(time(NULL));

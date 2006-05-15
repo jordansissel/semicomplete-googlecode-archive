@@ -36,7 +36,7 @@ static void printedge(void *d) {
 static void do_qsort(edge_t *edges, int start, int end);
 static int qsort_partition(edge_t *edges, int start, int end);
 
-/* Sort by weights, return total number of edges */
+/* Count sort - Sort by weights, return total number of edges */
 static int countsort(graph_t *g, edge_t **sortededges) { /* {{{ */
 	int max = 0;
 	int x,y;
@@ -105,6 +105,7 @@ static int countsort(graph_t *g, edge_t **sortededges) { /* {{{ */
 	return edgepiv;
 } /* }}} */
 
+/* Quick sort - Sort by weights, return total number of edges */
 static int quicksort(graph_t *g, edge_t **sortededges) { /* {{{ */
 	int x,y;
 	int edgecnt = 0;
@@ -269,6 +270,8 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) { /* {{{ */
 	/* At this point, we are done with the algorithm */
 
 	printf("Total weight of MST using Kruskal: %d\n", mstweight);
+
+	printf("\n");
 
 	/* Every forest should be the same, so we only need to free one bitmap and edge */
 	free(forests[0].bitmap);
