@@ -252,7 +252,7 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 
 				if (GETFORESTBIT(f->bitmap, edges[i].x) ||
 					 GETFORESTBIT(f->bitmap, edges[i].y)) {
-					/* XXX: 
+					/* XXX:
 					 * Failure to free edges and bitmap here will cause some
 					 * serious memory leaking and crashes. Hurray for finding this bug.
 					 */
@@ -278,10 +278,11 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 
 	printf("Total weight of MST using Kruskal: %d\n", mstweight);
 
-	for (i = 0; i < g->numvert; i++) {
-		free(forests[i].bitmap);
-		free(forests[i].edges);
-	}
+	/* Every forest should be the same, so we only need to free one bitmap and edge */
+	free(forests[0].bitmap);
+	free(forests[0].edges);
+
+	/* Blow away the forest set */
 	free(forests);
 }
 
