@@ -21,18 +21,19 @@
 #define NUMTESTS 10
 #endif
 
-//extern void do_algorithm(graph_t *);
 extern void kruskal_countsort(graph_t *g);
 extern void kruskal_quicksort(graph_t *g);
 
-void perftest(int v, float ep, void (*mst)(graph_t*)) {
+void perftest(int v, float ep, void (*mst)(graph_t*), char *name) {
 	int x = 0;
 	double time = 0;
 	struct timeval start, end;
 	graph_t *g;
 
 	for (x = 0; x < NUMTESTS; x++) {
+#if DEBUG
 		fprintf(stderr, "Starting run: %d\n", x);
+#endif 
 		g = gengraph(v, ep);
 		gettimeofday(&start, NULL);
 		mst(g);
@@ -43,8 +44,8 @@ void perftest(int v, float ep, void (*mst)(graph_t*)) {
 	}
 
 	time /= 1000000.0;
-	printf("Total time for %d runs: %f\n", x, time);
-	printf("Average time for one run: %f\n", time / x);
+	printf("%s: Total time for %d runs: %f\n", name, x, time);
+	printf("%s: Average time for one run: %f\n", name, time / x);
 }
 
 int main(int argc, char **argv) {
@@ -71,8 +72,8 @@ int main(int argc, char **argv) {
 	else
 		srand(time(NULL));
 
-	perftest(v, ep, kruskal_countsort);
-	perftest(v, ep, kruskal_quicksort);
+	perftest(v, ep, kruskal_countsort, "Kruskal w/ Count Sort");
+	perftest(v, ep, kruskal_quicksort, "Kruskal w/ Quick Sort");
 
 	return 0;
 }

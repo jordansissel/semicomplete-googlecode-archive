@@ -11,7 +11,6 @@
 #include <string.h>
 
 #include "graph.h"
-#include "linkedlist.h"
 
 #define FORESTBLOCK (8)
 #define MAPLEN(e) ((numedges / FORESTBLOCK) + 1)
@@ -29,7 +28,7 @@ typedef struct forest {
 	int nextedge;
 } forest_t;
 
-void printedge(void *d) {
+static void printedge(void *d) {
 	edge_t *e = (edge_t *)d;
 	printf("%d->%d", e->x, e->y);
 }
@@ -178,14 +177,7 @@ static int qsort_partition(edge_t *edges, int start, int end) {
 /* end quicksort }}} */
 
 /* Kruskal Algorithm */
-/* Algorithm:
- *
- * while edgelist is not empty
- *    remove minimum weight edge
- *
- */
-
-void kruskal(graph_t *g, edge_t *edges, int numedges) {
+void kruskal(graph_t *g, edge_t *edges, int numedges) { /* {{{ */
 	int i, j;
 	int mstweight = 0;
 	forest_t *forests;
@@ -284,7 +276,7 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) {
 
 	/* Blow away the forest set */
 	free(forests);
-}
+} /* }}} */
 
 void kruskal_countsort(graph_t *g) {
 	edge_t *sortededges;
