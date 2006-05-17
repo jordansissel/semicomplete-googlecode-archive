@@ -1,8 +1,8 @@
 
 CC=gcc
-SOURCES= graph.c kruskal.c main.c 
-#linkedlist.c
+SOURCES=graph.c kruskal.c main.c carp.c
 CFLAGS=-g
+#-fast
 
 .SUFFIXES: .o .c
 
@@ -27,7 +27,7 @@ testll:
 .c.o:
 	$(CC) -c $(CFLAGS) -o $@ $<
 
-kruskal: main.o graph.o kruskal.o 
-	$(CC) $(CFLAGS) main.o graph.o kruskal.o -o kruskal
+kruskal: main.o graph.o kruskal.o carp.o
+	$(CC) $(CFLAGS) main.o graph.o kruskal.o carp.o -o kruskal
 
 

@@ -38,6 +38,7 @@ static void randomize(graph_t *g) {
 			if (rand() % 100 < prob) {
 				weight = rand() % g->numvert;
 				g->matrix[x][y] = weight;
+				//g->numedges++;
 			}
 		}
 	}
@@ -86,9 +87,10 @@ void freegraph(graph_t *g) {
  * Public functions 
  ***/
 
-graph_t* gengraph(int v, float ep) {
+graph_t* gengraph(int v, float ep, int seed) {
 	graph_t *g;
 
+	srand(seed);
 	assert(v > 0);
 	assert(ep > 0 && ep < 1);
 
@@ -116,6 +118,8 @@ void printgraph(graph_t* g) {
 	int x, y;
 
 	if (g->numvert > 10) return;
+
+	printf("\n-------------\nThe graph's adjacency matrix is as follows:\n");
 
 	for (x = 0; x < g->numvert; x++) {
 		for (y = 0; y < g->numvert; y++)

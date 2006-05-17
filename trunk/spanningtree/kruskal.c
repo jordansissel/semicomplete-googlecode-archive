@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "graph.h"
+#include "carp.h"
 
 #define FORESTBLOCK (8)
 #define MAPLEN(e) ((numedges / FORESTBLOCK) + 1)
@@ -48,57 +49,52 @@ static int countsort(graph_t *g, edge_t **sortededges) { /* {{{ */
 	int maxedges = g->numvert * g->numvert;
 
 	/* Worst case, num edges is vert^2 */
-
-	//fprintf(stderr, "edges size = %d\n", maxedges * sizeof(edge_t));
 	edges = malloc(maxedges * sizeof(edge_t));
-	assert(edges != NULL);
-
-	*sortededges = malloc(maxedges * sizeof(edge_t));
-	assert(*sortededges != NULL);
-
+	assertmsg(edges != NULL, "malloc failed");
 	memset(edges, 0, maxedges * sizeof(edge_t));
 
-	/* Find max weight */
-	for (x = 0; x < g->numvert; x++)
-		for (y = 0; y < g->numvert; y++)
-			if (max < WEIGHT(g,x,y))
-				max = WEIGHT(g,x,y);
+	//*sortededges = malloc(maxedges * sizeof(edge_t));
+	//assert(*sortededges != NULL);
+	//memset(*sortededges, 0, maxedges * sizeof(edge_t));
 
-	/* Bump for 0 weights aswell */
-	max++;
+	/* We know that the max weight is the number of verteces */
+	max = g->numvert + 1;
 
 	countarr = malloc(sizeof(int) * max);
-	assert(countarr != NULL);
-
+	assertmsg(countarr != NULL, "malloc failed");
 	memset(countarr, 0, sizeof(int) * max);
 
 	/* Make the counts */
 	for (x = 0; x < g->numvert; x++)
-		for (y = 0; y < g->numvert; y++)
-			if (WEIGHT(g,x,y) > 0) {
-				countarr[WEIGHT(g,x,y)]++;
+		for (y = 0; y < g->numvert; y++) {
+			int w = WEIGHT(g,x,y);
+			if (w > 0) {
+				assert(w < max);
+
+				countarr[w]++;
 
 				/* While we're here, add this edge to the list of edges */
-				edges[edgepiv].weight = WEIGHT(g,x,y);
+				edges[edgepiv].weight = w;
 				edges[edgepiv].x = x;
 				edges[edgepiv].y = y;
 				edgepiv++;
 			}
+		}
 
 	/* Make countarr cumulative */
 	for (x = 1; x < max; x++)
 		countarr[x] += countarr[x - 1];
 
 	/* Now that we know how many edges we have... */
-	memset(*sortededges, 0, edgepiv* sizeof(edge_t));
+	*sortededges = malloc((edgepiv + 1) * sizeof(edge_t));
+	assertmsg(*sortededges != NULL, "malloc failed");
+	//memset(*sortededges, 0, countarr[* sizeof(edge_t));
 
 	/* Sort the edges by weight */
-	/* We use --countarr[...] becuase it's off by one, so subtract early. */
-
-	/* Solaris crashes if we go to x <= edgepiv. */
-
-	for (x = 0; x < edgepiv; x++, countarr[edges[x].weight]--)
+	/* XXX: Solaris crashes on free(edges) if we go to x <= edgepiv. */
+	for (x = 0; x < edgepiv; x++, countarr[edges[x].weight]--) {
 		memcpy(*sortededges + countarr[edges[x].weight], edges + x, sizeof(edge_t));
+	}
 
 	free(countarr);
 	free(edges);
@@ -113,7 +109,7 @@ static int quicksort(graph_t *g, edge_t **sortededges) { /* {{{ */
 
 	/* Worst case, num edges is vert^2 */
 	*sortededges = malloc(maxedges * sizeof(edge_t));
-	assert(*sortededges != NULL);
+	assertmsg(*sortededges != NULL, "malloc failed");
 	memset(*sortededges, 0, maxedges * sizeof(edge_t));
 
 	/* Create the list of edges */
@@ -133,7 +129,7 @@ static int quicksort(graph_t *g, edge_t **sortededges) { /* {{{ */
 }
 /* }}} */
 
-/* Quick sort implementatoin {{{ */
+/* Quick sort implementation {{{ */
 static void do_qsort(edge_t *edges, int start, int end) {
 	int piv;
 	if (start < end) {
@@ -194,14 +190,18 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) { /* {{{ */
 
 	/* Create the forests. Initially, there are n forests (where n == numverteces) */
 	forests = malloc(g->numvert * sizeof(forest_t));
-	assert(forests != NULL);
+	assertmsg(forests != NULL, "malloc failed");
 	for (i = 0; i < g->numvert; i++) {
 		/* Byte length of bitmap */
 		int len = MAPLEN(numedges);
 
 		forests[i].bitmap = malloc(len);
+		assertmsg(forests[i].bitmap != NULL, "malloc failed");
 		forests[i].edges = malloc(numedges * sizeof(edge_t));
+		assertmsg(forests[i].edges != NULL, "malloc failed");
 		forests[i].nextedge = 0;
+
+		//fprintf(stderr, "forest %d: %d, %d\n", i, forests[i].bitmap, forests[i].edges);
 
 		memset(forests[i].bitmap, 0, len);
 		memset(forests[i].edges, 0, numedges * sizeof(edge_t));
@@ -214,16 +214,14 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) { /* {{{ */
 		forest_t *xforest = (forests + edges[i].x);
 		forest_t *yforest = (forests + edges[i].y);
 
+		if (xforest->bitmap == NULL)
+			fprintf(stderr, "chkforest %d: %d\n", edges[i].x, xforest->bitmap);
+		if (xforest->edges == NULL)
+			fprintf(stderr, "chkforest edg %d: %d\n", edges[i].x, xforest->edges);
 		/* Does forest x include vertex y? Merge if not. */
 		if (!GETFORESTBIT(xforest->bitmap, edges[i].y)) {
 			/* Indicate that vertex y is now in forest x */
 			SETFORESTBIT(xforest->bitmap, edges[i].y);
-
-			#define PRINTEDGES(f) do { \
-				int z; \
-				for (z = 0; z < (f)->nextedge; z++) \
-					printf("%d->%d, ", (f)->edges[z].x, (f)->edges[z].y); \
-			} while (0)
 
 			/* Copy edge to this tree */
 			memcpy(xforest->edges + xforest->nextedge,edges + i,sizeof(edge_t));
@@ -261,17 +259,27 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) { /* {{{ */
 		}
 	}
 
-	mstweight = 0;
-	for (i = 0; i < forests[0].nextedge; i++) {
-		edge_t *e = forests[0].edges + i;
-		mstweight += e->weight;
-	}
-
 	/* At this point, we are done with the algorithm */
 
-	printf("Total weight of MST using Kruskal: %d\n", mstweight);
+	#define PRINTEDGES(f) do { \
+		int z; \
+		for (z = 0; z < (f)->nextedge; z++) \
+		printf("%d->%d (weight: %d)\n", (f)->edges[z].x, (f)->edges[z].y, (f)->edges[z].weight); \
+	} while (0)
 
-	printf("\n");
+
+	if (g->numvert <= 10) {
+		PRINTEDGES(forests);
+		mstweight = 0;
+
+		for (i = 0; i < forests[0].nextedge; i++) {
+			edge_t *e = forests[0].edges + i;
+			mstweight += e->weight;
+		}
+
+		printf("Total weight of MST using Kruskal: %d\n", mstweight);
+		printf("\n");
+	}
 
 	/* Every forest should be the same, so we only need to free one bitmap and edge */
 	free(forests[0].bitmap);

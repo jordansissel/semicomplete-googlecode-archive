@@ -20,4 +20,3 @@ static void printedge(void *d) {
 	printf("%d->%d", e->x, e->y);
 }
 
-
