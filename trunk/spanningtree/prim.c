@@ -34,7 +34,8 @@ typedef edge_t ** heap_t;
 /* Heap-based priority queue */
 /* First element is actually an integer telling us where the last
  * element is. It's a hack, but whatever :) */
-void heapify(heap_t *heap);
+void heapify(heap_t *heap, int index);
+void buildheap(heap_t *heap);
 void mkqueue(heap_t *heap, int size);
 void enqueue(heap_t *heap, edge_t *e);
 edge_t *dequeue(heap_t *heap);
@@ -51,17 +52,20 @@ void enqueue(heap_t *heap, edge_t *e) {
 	/* Add this new item to the end */
 	*(*heap + (**heap)->x + 1) = e;
 	((**heap)->x)++;
-	heapify(heap);
+	buildheap(heap);
 }
 
 edge_t *dequeue(heap_t *heap) {
 	edge_t *t = ITEM(heap, 1);
-	*(*heap + 1) = *(*heap + ((**heap)->x)-- + 1);
-	heapify(heap);
+
+	/* Swap tail into head */
+	ITEM(heap, 1) = ITEM(heap, (**heap)->x);
+	(**heap)->x--;
+	heapify(heap,1);
 	return t;
 }
 
-void heapify(heap_t *heap) {
+void buildheap(heap_t *heap) {
 	int x = (**heap)->x; /* last element index */
 
 	while (x > 1) {
@@ -78,6 +82,32 @@ void heapify(heap_t *heap) {
 	}
 }
 
+void heapify(heap_t *heap, int i) {
+	int min;
+	int size = (**heap)->x;
+	int r = i * 2;
+	int l = r + 1;
+
+	/* Is left < self? */
+	if (l <= size && ITEM(heap, l)->weight < ITEM(heap, i)->weight)
+		min = l;
+	else
+		min = i;
+
+	/* Is right < current minimum? */
+	if (r <= size && ITEM(heap, r)->weight < ITEM(heap, min)->weight)
+		min = r;
+
+	/* If child < self, swap and keep going */
+	if (min != i) { /* Swap if we aren't the min */
+		edge_t *t = ITEM(heap, i);
+		ITEM(heap,i) = ITEM(heap, min);
+		ITEM(heap,min) = t;
+		heapify(heap, min);
+	}
+}
+
+#ifdef TEST
 int main() {
 	edge_t *e;
 	heap_t h;
@@ -96,11 +126,15 @@ int main() {
 		enqueue(&h, e);
 	}
 
-	printf("Last element: %d\n", (*h)->x);
-
-	for (w = 0; w < SIZE; w++) {
+	for (w = 1; w <= (*h)->x; w++) {
 		edge_t *e;
 		e = *(h + w);
 		printf("Weight: %d\n", e->weight);
 	}
+
+	while ((*h)->x > 0) {
+		printf("next: %d\n", dequeue(&h)->weight);
+	}
+	printf("\n");
 }
+#endif
