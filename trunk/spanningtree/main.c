@@ -21,6 +21,7 @@ static int numtests;
 
 extern void kruskal_countsort(graph_t *g);
 extern void kruskal_quicksort(graph_t *g);
+extern void prim_adjmatrix(graph_t *g);
 
 void perftest(int v, float ep, void (*mst)(graph_t*), char *name, int seed) {
 	int x = 0;
@@ -79,6 +80,7 @@ int main(int argc, char **argv) {
 
 	perftest(v, ep, kruskal_countsort, "Kruskal w/ Count Sort", seed);
 	perftest(v, ep, kruskal_quicksort, "Kruskal w/ Quick Sort", seed);
+	perftest(v, ep, prim_adjmatrix, "Prim w/ Adjacency Matrix", seed);
 
 	return 0;
 }

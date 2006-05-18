@@ -1,6 +1,8 @@
 
 CC=gcc
-SOURCES=graph.c kruskal.c main.c carp.c
+SOURCES=graph.c kruskal.c main.c carp.c prim.c
+
+MSTSOURCES=graph.c kruskal.c prim.c carp.c main.c
 CFLAGS=-g
 #-fast
 
@@ -30,4 +32,5 @@ testll:
 kruskal: main.o graph.o kruskal.o carp.o
 	$(CC) $(CFLAGS) main.o graph.o kruskal.o carp.o -o kruskal
 
-
+mst:	$(MSTSOURCES:%.c=%.o)
+	$(CC) $(CFLAGS) $(MSTSOURCES:%.c=%.o) -o mst

@@ -128,7 +128,7 @@ void printgraph(graph_t* g) {
 	}
 }
 
-#ifdef TEST
+#ifdef GRAPHTEST
 int main(int argc, char **argv) {
 	int v;
 	float ep;

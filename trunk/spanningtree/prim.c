@@ -24,16 +24,21 @@ static void printedge(void *d) {
 
 typedef edge_t ** heap_t;
 
-/* Prim's algorithm */
-/* Pick a random vertex. 
+/* Heap-based priority queue 
  *
- * Add it's edges to the priority queue
- * Take the least-cost edge, add it's vertex.
+ * First element is actually an integer telling us where the last
+ * element is. This is actually a clever hack, in my opinion.
+ *
+ * Heap needs to start at 1 anyway so that N*2 and N*2+1 are the right
+ * indeces for the left and right children. To avoid unnecesasry
+ * off-by-one math all over the place, we simply start index at 1.
+ *
+ * This lets us store some magic information in the 0th index.
+ * We need to store the index of the last element anyway, right?
+ * So, we might aswell store it in the 0th index.
+ *
+ * As such, heap[0].x is the index of the last element.
  */
-
-/* Heap-based priority queue */
-/* First element is actually an integer telling us where the last
- * element is. It's a hack, but whatever :) */
 void heapify(heap_t *heap, int index);
 void buildheap(heap_t *heap);
 void mkqueue(heap_t *heap, int size);
@@ -57,8 +62,8 @@ void enqueue(heap_t *heap, edge_t *e) {
 
 edge_t *dequeue(heap_t *heap) {
 	edge_t *t = ITEM(heap, 1);
-
-	/* Swap tail into head */
+	if ((**heap)->x == 0)
+		return NULL;
 	ITEM(heap, 1) = ITEM(heap, (**heap)->x);
 	(**heap)->x--;
 	heapify(heap,1);
@@ -107,8 +112,75 @@ void heapify(heap_t *heap, int i) {
 	}
 }
 
+#define BITBLOCK (8)
+#define MAPLEN(e) ((numedges / BITBLOCK) + 1)
+#define SETBIT(f, e) (*((f) + (e / BITBLOCK)) |= 1 << (e % BITBLOCK))
+#define GETBIT(f, e) ((*((f) + (e / BITBLOCK)) & (1 << (e % BITBLOCK))) > 0)
+
+void prim_adjmatrix(graph_t *g) {
+	/* pick a random vertex to start */
+	int v;
+	heap_t h;
+	edge_t *e = NULL;
+
+	/* quick-lookup bitmap of what verteces are in our tree */
+	char *bitmap;
+	bitmap = malloc(g->numvert / BITBLOCK);
+
+	mkqueue(&h, g->numvert * g->numvert);
+	
+	v = rand() % g->numvert;
+
+	do {
+		int y;
+
+		if (!GETBIT(bitmap, v)) {
+			SETBIT(bitmap, v);
+			//if (e != NULL)
+				//printf("%d -> %d (%d)\n", e->x, e->y, e->weight);
+			
+			/* Add edges to heap */
+			for (y = 0; y < g->numvert; y++) {
+				if (WEIGHT(g, v, y) > 0) {
+					edge_t *t;
+					t = malloc(sizeof(edge_t));
+					t->x = v;
+					t->y = y;
+					t->weight = WEIGHT(g, v, y);
+					enqueue(&h, t);
+				}
+			}
+		}
+
+		/* Pop queue */
+		if (e != NULL)
+			free(e);
+		e = dequeue(&h);
+		if (e == NULL)
+			break;
+		if (!GETBIT(bitmap, e->x))
+			v = e->x;
+		else
+			v = e->y;
+
+	} while (1); // ?
+}
+
 #ifdef TEST
 int main() {
+	edge_t *e;
+	heap_t h;
+	int w = 0;
+	graph_t *g;
+
+	g = gengraph(7, .5, time(NULL));
+	prim_adjmatrix(g);
+	freegraph(g);
+
+	return 0;
+}
+
+int _main() {
 	edge_t *e;
 	heap_t h;
 	int w = 0;
