@@ -98,7 +98,7 @@ void heapify(heap_t *heap, int i) {
 	if (r <= size && ITEM(heap, r)->weight < ITEM(heap, min)->weight)
 		min = r;
 
-	/* If child < self, swap and keep going */
+	/* If child < self, swap and try again with my new location */
 	if (min != i) { /* Swap if we aren't the min */
 		edge_t *t = ITEM(heap, i);
 		ITEM(heap,i) = ITEM(heap, min);
