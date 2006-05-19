@@ -22,6 +22,7 @@ static int numtests;
 extern void kruskal_countsort(graph_t *g);
 extern void kruskal_quicksort(graph_t *g);
 extern void prim_adjmatrix(graph_t *g);
+extern void prim_adjlist(graph_t *g);
 
 void perftest(int v, float ep, void (*mst)(graph_t*), char *name, int seed) {
 	int x = 0;
@@ -54,13 +55,11 @@ int main(int argc, char **argv) {
 	int seed;
 	float ep;
 
-	//if (sscanf(*++argv, "%d", &v) == 0) {
 	if (fscanf(stdin, "%d\n", &v) == 0) {
 		fprintf(stderr,"First argument is bad.\n");
 		return 1;
 	}
 
-	//if (sscanf(*++argv, "%f", &ep) == 0) {
 	if (fscanf(stdin, "%f", &ep) == 0) {
 		fprintf(stderr,"Second argument is bad.\n");
 		return 1;
@@ -81,6 +80,7 @@ int main(int argc, char **argv) {
 	perftest(v, ep, kruskal_countsort, "Kruskal w/ Count Sort", seed);
 	perftest(v, ep, kruskal_quicksort, "Kruskal w/ Quick Sort", seed);
 	perftest(v, ep, prim_adjmatrix, "Prim w/ Adjacency Matrix", seed);
+	perftest(v, ep, prim_adjlist, "Prim w/ Adjacency List", seed);
 
 	return 0;
 }

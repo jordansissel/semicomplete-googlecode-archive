@@ -117,9 +117,10 @@ void heapify(heap_t *heap, int i) {
 #define SETBIT(f, e) (*((f) + (e / BITBLOCK)) |= 1 << (e % BITBLOCK))
 #define GETBIT(f, e) ((*((f) + (e / BITBLOCK)) & (1 << (e % BITBLOCK))) > 0)
 
-void prim_adjmatrix(graph_t *g) {
+void prim_adjmatrix(graph_t *g) { /* {{{ */
 	/* pick a random vertex to start */
 	int v;
+	int weight = 0;
 	heap_t h;
 	edge_t *e = NULL;
 
@@ -128,7 +129,7 @@ void prim_adjmatrix(graph_t *g) {
 	bitmap = malloc(g->numvert / BITBLOCK);
 
 	mkqueue(&h, g->numvert * g->numvert);
-	
+
 	v = rand() % g->numvert;
 
 	do {
@@ -136,9 +137,13 @@ void prim_adjmatrix(graph_t *g) {
 
 		if (!GETBIT(bitmap, v)) {
 			SETBIT(bitmap, v);
-			//if (e != NULL)
-				//printf("%d -> %d (%d)\n", e->x, e->y, e->weight);
-			
+
+			if (e != NULL) {
+				weight += e->weight;
+				if (g->numvert <= 10)
+					printf("%d -> %d (%d)\n", e->x, e->y, e->weight);
+			}
+
 			/* Add edges to heap */
 			for (y = 0; y < g->numvert; y++) {
 				if (WEIGHT(g, v, y) > 0) {
@@ -153,6 +158,7 @@ void prim_adjmatrix(graph_t *g) {
 		}
 
 		/* Pop queue */
+
 		if (e != NULL)
 			free(e);
 		e = dequeue(&h);
@@ -161,10 +167,85 @@ void prim_adjmatrix(graph_t *g) {
 		if (!GETBIT(bitmap, e->x))
 			v = e->x;
 		else
-			v = e->y;
+			v = e->y; } while (1);
 
-	} while (1); // ?
-}
+	printf("Total weight of MST for Prim: %d\n", weight);
+} /* }}} */
+
+void prim_adjlist(graph_t *g) { /* {{{ */
+	/* pick a random vertex to start */
+	int v;
+	int x,y;
+	int weight = 0;
+	heap_t h;
+	edge_t **list;
+	edge_t *e = NULL;
+
+	/* quick-lookup bitmap of what verteces are in our tree */
+	char *bitmap;
+	bitmap = malloc(g->numvert / BITBLOCK);
+
+	mkqueue(&h, g->numvert * g->numvert);
+
+	list = malloc(sizeof(edge_t *) * g->numvert);
+	for (x = 0; x < g->numvert; x++) {
+		*(list + x) = malloc(sizeof(edge_t) * g->numvert);
+		for (y = 0; y < g->numvert; y++) {
+			edge_t *t = *(list + x) + y;
+			t->x = x;
+			t->y = y;
+			t->weight = WEIGHT(g, x, y);
+		}
+		(*(list + x) + y)->weight = -1;
+	}
+
+	v = rand() % g->numvert;
+
+	do {
+		int y;
+
+		if (!GETBIT(bitmap, v)) {
+			SETBIT(bitmap, v);
+
+			if (e != NULL) {
+				weight += e->weight;
+				if (g->numvert <= 10)
+					printf("%d -> %d (%d)\n", e->x, e->y, e->weight);
+			}
+
+			/* Add edges to heap */
+
+			for (y = 0; (*(list + v) + y)->weight != -1; y++) {
+				if (WEIGHT(g, v, y) > 0) {
+					edge_t *t;
+					t = malloc(sizeof(edge_t));
+					t->x = v;
+					t->y = y;
+					t->weight = WEIGHT(g, v, y);
+					enqueue(&h, t);
+				}
+			}
+		}
+
+		/* Pop queue */
+
+		if (e != NULL)
+			free(e);
+		e = dequeue(&h);
+		if (e == NULL)
+			break;
+		if (!GETBIT(bitmap, e->x))
+			v = e->x;
+		else
+			v = e->y; 
+	} while (1);
+
+	for (x = 0; x < g->numvert; x++)
+		free(*(list + x));
+	free(list);
+
+	printf("Total weight of MST for Prim: %d\n", weight);
+} /* }}} */
 
 #ifdef TEST
 int main() {
@@ -173,8 +254,9 @@ int main() {
 	int w = 0;
 	graph_t *g;
 
-	g = gengraph(7, .5, time(NULL));
-	prim_adjmatrix(g);
+	g = gengraph(5, .5, time(NULL));
+	//prim_adjmatrix(g);
+	prim_adjlist(g);
 	freegraph(g);
 
 	return 0;
@@ -207,6 +289,7 @@ int _main() {
 	while ((*h)->x > 0) {
 		printf("next: %d\n", dequeue(&h)->weight);
 	}
+
 	printf("\n");
 }
 #endif

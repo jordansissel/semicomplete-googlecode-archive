@@ -267,7 +267,6 @@ void kruskal(graph_t *g, edge_t *edges, int numedges) { /* {{{ */
 		printf("%d->%d (weight: %d)\n", (f)->edges[z].x, (f)->edges[z].y, (f)->edges[z].weight); \
 	} while (0)
 
-
 	if (g->numvert <= 10) {
 		PRINTEDGES(forests);
 		mstweight = 0;

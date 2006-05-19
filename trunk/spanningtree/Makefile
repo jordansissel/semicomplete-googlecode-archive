@@ -8,7 +8,8 @@ CFLAGS=-g
 
 .SUFFIXES: .o .c
 
-all: $(SOURCES:%.c=%.o) kruskal
+#all: $(SOURCES:%.c=%.o) kruskal
+all: mst
 purify:
 	@echo source: /usr/local/Rational2003/*.ksh
 	make CC="purify gcc" clean all
