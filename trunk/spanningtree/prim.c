@@ -169,7 +169,8 @@ void prim_adjmatrix(graph_t *g) { /* {{{ */
 		else
 			v = e->y; } while (1);
 
-	printf("Total weight of MST for Prim: %d\n", weight);
+	if (g->numvert <= 10)
+		printf("Total weight of MST for Prim: %d\n", weight);
 } /* }}} */
 
 void prim_adjlist(graph_t *g) { /* {{{ */
@@ -215,7 +216,7 @@ void prim_adjlist(graph_t *g) { /* {{{ */
 
 			/* Add edges to heap */
 
-			for (y = 0; (*(list + v) + y)->weight != -1; y++) {
+			for (y = 0; (*(list + v) + y)->weight != -1 && y < g->numvert; y++) {
 				if (WEIGHT(g, v, y) > 0) {
 					edge_t *t;
 					t = malloc(sizeof(edge_t));
@@ -244,6 +245,7 @@ void prim_adjlist(graph_t *g) { /* {{{ */
 		free(*(list + x));
 	free(list);
 
+	if (g->numvert <= 10)
 	printf("Total weight of MST for Prim: %d\n", weight);
 } /* }}} */
 
