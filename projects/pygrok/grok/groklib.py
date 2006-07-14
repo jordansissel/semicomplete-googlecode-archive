@@ -3,7 +3,7 @@ import os
 import re
 #from grok.debuglib import debug, DEBUG, INFO, WARN, FATAL
 import execlib
-from debuglib import info, warn, fatal, debug
+import debuglib
 
 GLOBALPM = {
   'HOST': '[\w+\._-]+',
@@ -17,8 +17,8 @@ tokenregex = re.compile("(?P<substr>%\((?P<fullname>(?P<patname>[A-Za-z0-9]+)(?:
 
 class Rule(object):
   def __init__(self, reaction, patterns, options={}):
-    info("New rule created:")
-    info("cmd: %s" % reaction)
+    debuglib.info("New rule created:")
+    debuglib.info("cmd: %s" % reaction)
     self.reaction = Reaction(reaction, options)
     self.patterns = [ Pattern(p, options) for p in patterns ]
     self.options = options
@@ -37,7 +37,7 @@ class Pattern(object):
     try:
       self.patternMap = options['pattern map']
     except KeyError, e:
-      fatal("No pattern map specified when creating Pattern")
+      debuglib.fatal("No pattern map specified when creating Pattern")
       raise SystemExit
     self.pattern = pattern
     self.generateRegex()
@@ -50,7 +50,7 @@ class Pattern(object):
       md = m.groupdict()
       if self.patternMap.has_key(md['patname']):
         repl = self.generatePatternRegex(md['patname'], md['fullname'])
-        debug("Replacing %s with %s"  % (md['substr'], repl))
+        debuglib.debug("Replacing %s with %s"  % (md['substr'], repl))
         regexString = regexString.replace(md['substr'],repl)
     self.saveRegex(regexString)
 
@@ -58,7 +58,7 @@ class Pattern(object):
     return "(?P<%s>%s)" % (fullname, self.patternMap[patname])
 
   def saveRegex(self, regexString):
-    info("Saving regex; %s" % regexString)
+    debuglib.info("Saving regex; %s" % regexString)
     self.regexString = regexString
     self.regex = re.compile(regexString)
 
@@ -87,6 +87,7 @@ class Reaction(object):
     execlib.System.run(cmd)
 
 if __name__ == "__main__":
+  debuglib.level = debuglib.INFO
   line = '%(HOST) %(PROG)\[\d+\]: error: PAM: authentication error for %(USER) from %(HOST_SRC)'
   pm = {
     'HOST': '[\w+\._-]+',
@@ -114,7 +115,7 @@ if __name__ == "__main__":
   while 1:
     l = sys.stdin.readline()
     if not l:
-      fatal("stdin closed")
+      debuglib.fatal("stdin closed")
       raise SystemExit
     for rule in rules:
       rule.evaluate(l)
