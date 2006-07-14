@@ -1,10 +1,11 @@
 import sys
 import os
 import re
-#from grok.debuglib import debug, DEBUG, INFO, WARN, FATAL
+
 import execlib
 import debuglib
 
+# This should live somewhere, perhaps passed in to Rule creations
 GLOBALPM = {
   'HOST': '[\w+\._-]+',
   'PORT': '\d+',
@@ -12,22 +13,44 @@ GLOBALPM = {
   'USER': '\w+',
 }
 
-# XXX: Class me?
-tokenregex = re.compile("(?P<substr>%\((?P<fullname>(?P<patname>[A-Za-z0-9]+)(?:_(?P<subname>[A-Za-z0-9]+))?)\))")
+# XXX: Where should this live?
+tokenregex = re.compile("(?P<substr>%\((?P<fullname>(?P<patname>(?:_)?[A-Za-z0-9]+)(?:_(?P<subname>[A-Za-z0-9]+))?)\))")
 
 class Rule(object):
+  default_options = {
+    'interval': 0,
+    'hits_per_interval': 0
+  }
+
   def __init__(self, reaction, patterns, options={}):
     debuglib.info("New rule created:")
-    debuglib.info("cmd: %s" % reaction)
     self.reaction = Reaction(reaction, options)
     self.patterns = [ Pattern(p, options) for p in patterns ]
-    self.options = options
+    self.options = Rule.default_options
+    # XXX: dict.update() merges dicts.
+    self.options.update(options)
+
+    self.hits = 0
 
   def evaluate(self, data):
+    """ Evaluate data against this rule's patterns. Calls 'hit' if match succeds. """
     for pat in self.patterns:
       m = pat.apply(data)
       if m:
-        self.react(m, data)
+        self.hit(m, data)
+
+  def hit(self, keywords, data):
+    """ Register a hit for this particular rule. React if necessary """
+    self.hits += 1
+    keywords.update({
+      '_HITS': self.hits
+    })
+
+    if self.options['interval']:
+      # Check interval
+      pass
+    else:
+      self.react(keywords, data)
 
   def react(self, keywords, data):
     self.reaction.execute(keywords, data)
@@ -80,37 +103,36 @@ class Reaction(object):
     for m in matchlist:
       md = m.groupdict()
       if keywords.has_key(md['fullname']):
-        repl = keywords[md['fullname']]
+        # XXX: repl must be a string.
+        repl = "%s" % keywords[md['fullname']]
         cmd = cmd.replace(md['substr'], repl)
-    #execlib.System.use_subshell = False
-    #execlib.System.use_standalone_shell = True
     execlib.System.run(cmd)
 
 if __name__ == "__main__":
   debuglib.level = debuglib.INFO
-  line = '%(HOST) %(PROG)\[\d+\]: error: PAM: authentication error for %(USER) from %(HOST_SRC)'
-  pm = {
-    'HOST': '[\w+\._-]+',
-    'PORT': '\d+',
-    'PROG': '\w+',
-    'USER': '\w+',
-  }
+
   rules = [
     Rule(
-
-      "echo '%(HOST)/%(PROG): login failure for %(USER) (src %(HOST_SRC))'",
-
-      [ 
+      reaction = "echo 'authfail: %(_HITS): %(HOST)/%(PROG): login failure for %(USER) (src %(HOST_SRC))'",
+      patterns = [ 
         '%(HOST) %(PROG)\[\d+\]: error: PAM: authentication error for %(USER) from %(HOST_SRC)',
         '%(HOST) %(PROG)\[\d+\]: Invalid user %(USER) from %(HOST_SRC)',
       ],
-
-      {
+      options = {
         'pattern map': GLOBALPM,
       },
 
-    )
-  ] 
+    ),
+    Rule(
+      reaction = "echo 'noidstring: %(_HITS): %(HOST)/%(PROG): src %(HOST_SRC)'",
+      patterns = [ 
+        '%(HOST) %(PROG)\[\d+\]: Did not receive identification string from %(HOST_SRC)',
+      ],
+      options = {
+        'pattern map': GLOBALPM,
+      },
+    ),
+  ]
 
   while 1:
     l = sys.stdin.readline()
