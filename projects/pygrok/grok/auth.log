@@ -1,0 +1,74 @@
+Jul 13 01:00:00 scorn newsyslog[31905]: logfile turned over due to size>100K
+Jul 13 01:51:23 scorn su: psionic to root on /dev/ttyp4
+Jul 13 01:53:06 scorn su: psionic to root on /dev/ttyp4
+Jul 13 01:54:15 scorn su: psionic to root on /dev/ttyp1
+Jul 13 02:01:19 scorn sshd[41627]: Accepted keyboard-interactive/pam for jon from 64.142.75.131 port 1881 ssh2
+Jul 13 03:12:59 scorn sshd[47407]: Did not receive identification string from 200.89.16.73
+Jul 13 08:34:42 scorn sshd[50064]: Accepted publickey for grahams from 12.129.98.129 port 29794 ssh2
+Jul 13 13:34:49 scorn sshd[52113]: Accepted publickey for psionic from 129.21.60.5 port 44970 ssh2
+Jul 13 14:39:11 scorn sshd[52568]: Accepted keyboard-interactive/pam for rory from 18.93.6.185 port 2099 ssh2
+Jul 13 16:56:10 scorn sshd[53485]: Did not receive identification string from 211.167.225.107
+Jul 13 17:32:38 scorn sshd[53751]: Did not receive identification string from 211.167.225.107
+Jul 13 19:59:37 scorn sshd[54689]: error: PAM: authentication error for jon from 159.153.4.50
+Jul 13 19:59:40 scorn sshd[54689]: Accepted keyboard-interactive/pam for jon from 159.153.4.50 port 24382 ssh2
+Jul 13 21:25:35 scorn sshd[55390]: Accepted publickey for psionic from 216.239.45.4 port 41505 ssh2
+Jul 13 21:26:17 scorn su: BAD SU psionic to root on /dev/ttyp0
+Jul 13 21:26:21 scorn su: psionic to root on /dev/ttyp0
+Jul 13 22:10:21 scorn sshd[55792]: Accepted keyboard-interactive/pam for jon from 159.153.4.50 port 47778 ssh2
+Jul 13 22:47:55 scorn sshd[56051]: Did not receive identification string from 222.68.192.15
+Jul 13 23:13:25 scorn sshd[56194]: Did not receive identification string from 219.142.1.118
+Jul 13 23:28:09 scorn sshd[56271]: Failed password for root from 219.142.1.118 port 46864 ssh2
+Jul 13 23:28:12 scorn sshd[56273]: Invalid user fluffy from 219.142.1.118
+Jul 13 23:28:12 scorn sshd[56273]: Failed password for invalid user fluffy from 219.142.1.118 port 47946 ssh2
+Jul 13 23:28:15 scorn sshd[56275]: Failed password for admin from 219.142.1.118 port 48938 ssh2
+Jul 13 23:28:18 scorn sshd[56277]: Invalid user test from 219.142.1.118
+Jul 13 23:28:18 scorn sshd[56277]: Failed password for invalid user test from 219.142.1.118 port 49954 ssh2
+Jul 13 23:28:32 scorn sshd[56283]: Failed password for mysql from 219.142.1.118 port 54566 ssh2
+Jul 13 23:28:35 scorn sshd[56285]: User oracle not allowed because shell /bin/false does not exist
+Jul 13 23:28:35 scorn sshd[56285]: Failed password for invalid user oracle from 219.142.1.118 port 55624 ssh2
+Jul 13 23:28:45 scorn sshd[56289]: Failed password for info from 219.142.1.118 port 58956 ssh2
+Jul 13 23:28:48 scorn sshd[56291]: Invalid user shell from 219.142.1.118
+Jul 13 23:28:48 scorn sshd[56291]: Failed password for invalid user shell from 219.142.1.118 port 60100 ssh2
+Jul 13 23:28:51 scorn sshd[56293]: Invalid user linux from 219.142.1.118
+Jul 13 23:28:51 scorn sshd[56293]: Failed password for invalid user linux from 219.142.1.118 port 61162 ssh2
+Jul 13 23:28:55 scorn sshd[56295]: Invalid user unix from 219.142.1.118
+Jul 13 23:28:55 scorn sshd[56295]: Failed password for invalid user unix from 219.142.1.118 port 62202 ssh2
+Jul 13 23:28:58 scorn sshd[56297]: Invalid user webadmin from 219.142.1.118
+Jul 13 23:28:58 scorn sshd[56297]: Failed password for invalid user webadmin from 219.142.1.118 port 63238 ssh2
+Jul 13 23:29:01 scorn sshd[56299]: Invalid user ftp from 219.142.1.118
+Jul 13 23:29:01 scorn sshd[56299]: Failed password for invalid user ftp from 219.142.1.118 port 64156 ssh2
+Jul 13 23:29:15 scorn sshd[56304]: Did not receive identification string from 219.142.1.118
+Jul 14 00:17:30 scorn sshd[56591]: Accepted keyboard-interactive/pam for jon from 64.142.75.131 port 2831 ssh2
+Jul 14 01:12:38 scorn sshd[56999]: Accepted publickey for psionic from 24.6.134.183 port 61544 ssh2
+Jul 14 01:12:42 scorn sshd[57015]: Accepted publickey for psionic from 24.6.134.183 port 51002 ssh2
+Jul 14 01:13:04 scorn sshd[57035]: Accepted publickey for psionic from 24.6.134.183 port 64532 ssh2
+Jul 14 01:17:51 scorn sshd[57146]: Accepted publickey for psionic from 24.6.134.183 port 56063 ssh2
+Jul 14 01:18:01 scorn sshd[57160]: Accepted publickey for psionic from 24.6.134.183 port 51820 ssh2
+Jul 14 01:18:04 scorn sshd[57177]: Accepted publickey for psionic from 24.6.134.183 port 63721 ssh2
+Jul 14 01:21:08 scorn sshd[57239]: Accepted publickey for psionic from 24.6.134.183 port 60262 ssh2
+Jul 14 01:22:36 scorn sshd[57289]: Invalid user test from 200.37.3.170
+Jul 14 01:22:36 scorn sshd[57289]: Failed password for invalid user test from 200.37.3.170 port 42357 ssh2
+Jul 14 01:22:37 scorn sshd[57291]: User guest not allowed because shell /usr/local/bin/idlesh does not exist
+Jul 14 01:22:37 scorn sshd[57291]: Failed password for invalid user guest from 200.37.3.170 port 42430 ssh2
+Jul 14 01:22:39 scorn sshd[57293]: Failed password for admin from 200.37.3.170 port 42520 ssh2
+Jul 14 01:22:40 scorn sshd[57295]: Failed password for admin from 200.37.3.170 port 42602 ssh2
+Jul 14 01:22:42 scorn sshd[57297]: Invalid user user from 200.37.3.170
+Jul 14 01:22:42 scorn sshd[57297]: Failed password for invalid user user from 200.37.3.170 port 42679 ssh2
+Jul 14 01:22:43 scorn sshd[57299]: Failed password for root from 200.37.3.170 port 42762 ssh2
+Jul 14 01:22:45 scorn sshd[57301]: Failed password for root from 200.37.3.170 port 42834 ssh2
+Jul 14 01:22:46 scorn sshd[57303]: Failed password for root from 200.37.3.170 port 42908 ssh2
+Jul 14 01:22:48 scorn sshd[57305]: Invalid user test from 200.37.3.170
+Jul 14 01:22:48 scorn sshd[57305]: Failed password for invalid user test from 200.37.3.170 port 42976 ssh2
+Jul 14 02:09:15 scorn sshd[58102]: error: PAM: authentication error for rory from c-65-96-187-13.hsd1.ma.comcast.net
+Jul 14 02:09:18 scorn last message repeated 2 times
+Jul 14 02:09:18 scorn sshd[58102]: Failed keyboard-interactive/pam for rory from 65.96.187.13 port 33430 ssh2
+Jul 14 02:09:25 scorn sshd[58102]: error: PAM: authentication error for rory from c-65-96-187-13.hsd1.ma.comcast.net
+Jul 14 02:09:25 scorn sshd[58102]: Failed keyboard-interactive/pam for rory from 65.96.187.13 port 33430 ssh2
+Jul 14 02:09:43 scorn sshd[58102]: error: PAM: authentication error for rory from c-65-96-187-13.hsd1.ma.comcast.net
+Jul 14 02:09:43 scorn sshd[58102]: Failed keyboard-interactive/pam for rory from 65.96.187.13 port 33430 ssh2
+Jul 14 02:09:44 scorn sshd[58102]: error: PAM: authentication error for rory from c-65-96-187-13.hsd1.ma.comcast.net
+Jul 14 02:09:44 scorn sshd[58102]: Failed keyboard-interactive/pam for rory from 65.96.187.13 port 33430 ssh2
+Jul 14 02:09:44 scorn sshd[58102]: error: PAM: authentication error for rory from c-65-96-187-13.hsd1.ma.comcast.net
+Jul 14 02:09:44 scorn sshd[58102]: Failed keyboard-interactive/pam for rory from 65.96.187.13 port 33430 ssh2
+Jul 14 02:09:56 scorn sshd[58111]: Accepted keyboard-interactive/pam for rory from 65.96.187.13 port 33431 ssh2
+Jul 14 02:12:16 scorn su: psionic to root on /dev/ttyp0
