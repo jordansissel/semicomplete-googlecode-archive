@@ -1,7 +1,7 @@
 import sys,os
 
 # enum-type hack, hehe.
-(DEBUG,INFO,WARN,FATAL,NONE) = range(1,6)
+(DEBUG,INFO,WARN,FATAL,NONE) = range(5)
 
 """
 XXX: The sys._getframe stuff seems kind of sketchy to me. Oh well, knowing the
