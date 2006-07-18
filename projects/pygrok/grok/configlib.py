@@ -4,15 +4,21 @@ import re
 
 class ConfigParser(object):
 
+  config = {
+    'reactions': {}
+    
+  }
   stack = []
   def pushState(st):
-    ConfigParser.stack.append({ '_state': st })
+    ConfigParser.stack.append( { '_state': st })
 
   def popState():
-    return ConfigParser.stack.pop()
+    data = ConfigParser.stack.pop()
+    if data['_state'] == '
 
   def storekv(k,v):
     print "%s: %s" % (k,v)
+    ConfigParser.stack[-1][k] = v
 
   configPatterns = {
     'WORD': '\w+',
@@ -20,12 +26,6 @@ class ConfigParser(object):
   }
 
   userrules = []
-
-  parseglobals = {
-    'pushState': pushState,
-    'popState': popState,
-    'storekv': storekv,
-  }
 
   shortrules = {
     r'reactions {': 'pushState("reactions")',
@@ -37,6 +37,7 @@ class ConfigParser(object):
   ruleglobals = {
     'pushState': pushState,
     'popState': popState,
+    'storekv': storekv,
   }
 
   ruleoptions = { 'pattern map': configPatterns, 'globals': ruleglobals }
@@ -72,6 +73,9 @@ if __name__ == "__main__":
     foo = bar
     baz = fizz
   }
+
+  rules {
+    foo
   """)
 
   p.parse()

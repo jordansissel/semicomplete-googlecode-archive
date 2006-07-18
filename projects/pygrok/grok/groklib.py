@@ -128,6 +128,7 @@ class PyReaction(Reaction):
   def run(self, cmd):
     print cmd
     c = compile(cmd, "<grok.conf>", "single")
+    #print self.globals
     eval(c, self.globals)
 
 if __name__ == "__main__":
