@@ -1,81 +1,77 @@
 import debuglib
+from groklib import Rule, Reaction, PyReaction, Pattern
 import re
 
 class ConfigParser(object):
-  whitespace = re.compile(r'\s+')
-  reactionStart = re.compile(r'reactions\s*{')
-  reactionEntry = re.compile(r'(?P<name>\w+)\s*=\s*(?P<command>.*)')
-  reactionEntryDelimiter = re.compile(r'\n')
-  reactionEnd = re.compile(r'}')
 
-  def __init__(self, data=None, file=None):
+  stack = []
+  def pushState(st):
+    ConfigParser.stack.append({ '_state': st })
+
+  def popState():
+    return ConfigParser.stack.pop()
+
+  def storekv(k,v):
+    print "%s: %s" % (k,v)
+
+  configPatterns = {
+    'WORD': '\w+',
+    'REACTION': '.*$',
+  }
+
+  userrules = []
+
+  parseglobals = {
+    'pushState': pushState,
+    'popState': popState,
+    'storekv': storekv,
+  }
+
+  shortrules = {
+    r'reactions {': 'pushState("reactions")',
+    '%(WORD)\s*=\s*%(REACTION)': 'storekv("%(WORD)", "%(REACTION)")',
+    '}': 'popState()',
+  }
+
+  rules = []
+  ruleglobals = {
+    'pushState': pushState,
+    'popState': popState,
+  }
+
+  ruleoptions = { 'pattern map': configPatterns, 'globals': ruleglobals }
+  for r in shortrules:
+    reaction = PyReaction(shortrules[r], options=ruleoptions)
+    patterns = r;
+    rules.append(Rule(reaction=reaction, patterns=[r], options=ruleoptions))
+
+  def __init__(self, filename=None, data=None):
+    self.filename = filename
     self.data = data
-    self.file = file
-
-  def readfile(self):
-    try:
-      self.fd = open(self.file, "r")
-      self.data = self.read
-      self.fd.close()
-    except Exception, e:
-      debuglib.fatal(e)
-      raise SystemExit(e)
 
   def parse(self):
-    if self.file:
-      self.readfile()
-    self._startparse()
+    if self.filename:
+      try:
+        fd = file(self.filename)
+        self.data = fd.read()
+        fd.close()
+      except Exception, e:
+        debuglib.fatal(e)
+        raise SystemExit(e)
 
-  def _startparse(self):
-    self._buffer = self.data
-    while len(self._buffer) > 0:
-      print "B: %s" % self._buffer
-      self.consumeWhitespace()
-      #self.consumeComment()
-      self.parseReaction()
-      #self.parseFilter()
-      #self.parsePattern()
-      #self.parseRule()
+    lines = self.data.split("\n");
+    for l in lines:
+      #print "Trying: '%s'" % l
+      for r in self.rules:
+        r.evaluate(l)
 
-  def consume(self, m):
-    if m:
-      self._buffer = self._buffer[m.end():]
+if __name__ == "__main__":
 
-  def consumeWhitespace(self):
-    self.consume(self.whitespace.match(self._buffer))
-
-  def parseComment(self):
-    reg_comment = re.compile(r"#|/\*|//");
-    # self.consumeComment()
-
-  def parseReaction(self):
-    #print self.reactionStart.pattern
-    start = self.reactionStart.match(self._buffer)
-    if start:
-      self.consume(start)
-
-    #reactionStart = r'reaction\s*{'
-    #reactionEntry = r'(?P<name>\w+)\s*=\s*(?P<command>.*)'
-    #reactionEntryDelimiter = r'\n'
-    #reactionEnd = r'}'
-
-  def parseFilter(self):
-    pass
-
-  def parsePattern(self):
-    pass
-
-  def parseRule(self):
-    pass
-
-testconf="""
+  p = ConfigParser(data="""
   reactions {
-    one = bar
-    two = fizz
+    foo = bar
+    baz = fizz
   }
-"""
+  """)
 
-if __name__=="__main__":
-  debuglib.level = debuglib.INFO
-  c = ConfigParser(data=testconf)
-  c.parse()
+  p.parse()

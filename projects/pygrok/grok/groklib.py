@@ -24,9 +24,17 @@ class Rule(object):
 
   def __init__(self, reaction, patterns, options={}):
     debuglib.info("New rule created:")
-    self.reaction = Reaction(reaction, options)
+    debuglib.info("   Reaction: %s" % reaction)
+    debuglib.info("   Pattern: %s" % patterns)
+
+    if isinstance(reaction, str):
+      self.reaction = Reaction(reaction, options)
+    else:
+      self.reaction = reaction
+
     self.patterns = [ Pattern(p, options) for p in patterns ]
     self.options = Rule.default_options
+
     # XXX: dict.update() merges dicts.
     self.options.update(options)
 
@@ -88,7 +96,9 @@ class Pattern(object):
   def apply(self, data):
     m = self.regex.search(data)
     if m:
-      return m.groupdict()
+      d = m.groupdict()
+      d['_match'] = True
+      return d
     return None
 
 class Reaction(object):
@@ -106,7 +116,19 @@ class Reaction(object):
         # XXX: repl must be a string.
         repl = "%s" % keywords[md['fullname']]
         cmd = cmd.replace(md['substr'], repl)
-    execlib.System.run(cmd)
+    #execlib.System.run(cmd)
+    self.run(cmd)
+
+class PyReaction(Reaction):
+  def __init__(self, command, options):
+    Reaction.__init__(self, command, options)
+    self.globals = options.get("globals", {})
+    self.globals.update({ 'stack': "happy" })
+
+  def run(self, cmd):
+    print cmd
+    c = compile(cmd, "<grok.conf>", "single")
+    eval(c, self.globals)
 
 if __name__ == "__main__":
   debuglib.level = debuglib.INFO

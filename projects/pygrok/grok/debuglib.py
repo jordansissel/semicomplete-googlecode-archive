@@ -8,7 +8,7 @@ XXX: The sys._getframe stuff seems kind of sketchy to me. Oh well, knowing the
 caller is good.
 """
 
-level=NONE
+level=INFO
 
 def info(message):
   log(INFO, message)
