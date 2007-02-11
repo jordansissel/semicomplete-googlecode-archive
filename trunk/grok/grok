@@ -239,6 +239,7 @@ sub handle {
 			$matched++;
 
 			# Set some other magic entries to %values
+			$values{'=FILE'} = $log;
 			$values{'=LINE'} = $line;
 			$values{'=MATCH'} = $1;
 
@@ -320,7 +321,7 @@ sub meta2string {
 				my $data = filter($values, $1, $2);
 				$meta =~ s/$regex/$data/;
 			}
-		} (keys(%MATCH), '=LINE', '=MATCH');
+		} (keys(%MATCH), '=LINE', '=MATCH', '=FILE');
 		$rounds++;
 		if ($rounds > 10) {
 			debug(0, "Deep recursion translating '$orig'");
@@ -361,7 +362,7 @@ sub readconfig {
 	debug(2, "Reading from $cfname");
 	my $grammar = << 'GRAMMAR';
 config: <rulevar: local $config = { }>
-config: (file | pattern | filter | ignorable )(s) /\Z/ { $return = $config }
+config: (file | filelist | filecmd | pattern | filter | ignorable )(s) /\Z/ { $return = $config }
 ignorable: (comment | blankline)(s)
 comment: /#[^\n]*/
 blankline: /^\s*\n/
@@ -387,14 +388,37 @@ filter_name: <perl_quotelike> { $return = $item[1]->[2] }
 filter_string: perlblock
 
 file: <rulevar: local $file = { }>
-file: filespec filename '{' file_entry(?) '}' ';' { $config->{$item[2]} = $file }
+file: filespec string '{' file_entry(?) '}' ';' { $config->{$item[2]} = $file }
 filespec: ('file' | 'exec') { $file->{'type'} = $item[1] }
-filename: string
 file_entry: (file_entry_line | ignorable)(s)
 file_entry_line: (syslog | type | unmatched) ';'
 
-syslog: 'syslog' '=' number { $file->{"syslog"} = $item[3] }
+filecmd: <rulevar: local $cmd>
+filecmd: <rulevar: local @filelist>
+filecmd: 'filecmd' /" */ filecmdstr
+filecmdstr: /.*(?=\s*")+/
+{
+    local $/ = "\n";
+    open($cmd, $item[1] ." |");
+    push(@filelist, $_) while <$cmd>;
+    chomp(@filelist);
 
+    $text = "filelist \"" .join(',', @filelist) .$text;
+}
+
+filelist: <rulevar: local @files>
+filelist: <rulevar: local $file = { }>
+filelist: 'filelist' string '{' file_entry(?) '}' ';'
+{
+  for (split(/\s*,\s*/, $item[2])) {
+    for (glob($_)) {
+      $file->{'type'} = "file";
+      $config->{$_} = $file;
+    }
+  }
+}
+
+syslog: 'syslog' '=' number { $file->{"syslog"} = $item[3] }
 type: <rulevar: local $type = { }>
 type: 'type' typename '{' type_entry '}' { $file->{"types"}->{$item[2]} = $type }
 typename: string

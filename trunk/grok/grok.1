@@ -49,6 +49,8 @@ patterns { patternspec };
 filters { filterspec };
 file "filename" { filespec };
 exec "command" { filespec };
+filelist "file1,file2,..." { filespec };
+filecmd "command" { filespec };
 .Ed
 .Pp
 .ft B
@@ -142,14 +144,31 @@ type "description" {
 provides helper variables.  These are $v (a hashref containing all named patterns matched, subnames are valid here) and $d (a hashref to use for your own storage, keyed with your key value).
 .El
 
-Two special variables are provided for use in the reaction.  These are:
+Three special variables are provided for use in the reaction.  These are:
 .Bl -column ".Sy %=MATCH%"
 .It Em %=MATCH% Ta Contains the substring matched by the
 .Ql match
 properties.
 
 .It Em %=LINE% Ta Contains the whole line matched.
+
+.It Em %=FILE% Ta Contains the path to the current file
+
 .El
+.Ed
+.Pp
+.ft B
+filelist & filecmd
+.ft P
+.Bd -literal -offset "indent"
+filelist is a quick way to specify the same filespec 
+for a comma-separated list of files.
+
+filecmd allows a command which returns a list of files. 
+The returned list should be newline delimited (cp the 
+output of find, ls). As with filelist, the files are all 
+processed with the same filespec.
+
 .Ed
 .Pp
 .Sh FILES
@@ -182,6 +201,7 @@ format of the file is:
 patterns {
     HTTPDATE = "%MONTHDAY%/%MONTH%/\&\d\&+:%TIME% -\&\d\&+";
 };
+.Bd -literal -offset "indent"
 
 filters {
     /httpfilter/ = { s/^\S+ (\S+) \S+$/$1/; };
