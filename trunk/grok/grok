@@ -408,11 +408,16 @@ filecmdstr: /.*(?=\s*")+/
 
 filelist: <rulevar: local @files>
 filelist: <rulevar: local $file = { }>
-filelist: 'filelist' string '{' file_entry(?) '}' ';'
+filelist: ('filelist'|'catlist') string '{' file_entry(?) '}' ';'
 {
   for (split(/\s*,\s*/, $item[2])) {
     for (glob($_)) {
-      $file->{'type'} = "file";
+      if ($item[1] eq 'filelist') {
+        $file->{'type'} = "file";
+      } else {
+        $file->{'type'} = "exec";
+        $_ = "cat $_";
+      }
       $config->{$_} = $file;
     }
   }
@@ -429,6 +434,8 @@ threshold: 'threshold' '=' number { $type->{"threshold"} = $item[3] }
 interval: 'interval' '=' number { $type->{"interval"} = $item[3] }
 key: 'key' '=' string { $type->{"key"} = $item[3] }
 reaction: 'reaction' '=' reactionspec { push(@{$type->{"reactions"}}, $item[3]) }
+# Let users change the reaction prog.
+#reaction_prog: 'reaction_prog' '=' 
 reactionspec: string { $return = { type => "command", string => $item[1] } } 
 				  | perlblock {
 						my $func = 'package main; $func = sub ' . $item[1];
