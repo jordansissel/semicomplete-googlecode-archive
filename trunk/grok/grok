@@ -1,17 +1,18 @@
 #!/usr/bin/perl
-# Grok is released under the Creative Commons Attribution 2.5 License
+# grok is released under the Creative Commons Attribution 2.5 License
 # If you care, an overview of this license (and the legalese) is at:
 # http://creativecommons.org/licenses/by/2.5/
 #
-# Email jls@csh.rit.edu if you have any problems or questions with using Grok!
+# Email jls@csh.rit.edu if you have any problems or questions with using grok.
 
 use strict;
 use warnings;
 use Data::Dumper;
 use IO::Select;
 use Getopt::Std;
-use POSIX qw(setsid);
+use POSIX qw(setsid strftime);
 use Memoize;
+use Socket;
 
 # For older versions of perl.. but do I really care that much?
 use Symbol;
@@ -34,11 +35,11 @@ my @logrefs;
 my $debuglevel = 0;
 
 my $PATTERNS;
-  
+
 # Pattern-space wildcards, used as %WILDCARD% in the pattern config
 my %MATCH = (
-  USERNAME => qr/\w+/,
-  USER => qr/\w+/,
+  USERNAME => qr/[a-zA-Z0-9_-]+/,
+  USER => "%USERNAME%",
   IP => $RE{net}{IPv4},
   NUMBER => qr/\d+/,
   PORT => "%NUMBER",
@@ -69,6 +70,9 @@ my %MATCH = (
   HTTPDATE => "%MONTHDAY%/%MONTH%/%YEAR%:%TIME% -\\d+",
 
   QUOTEDSTRING => $RE{quoted},
+
+  SYSLOGBASE => "%SYSLOGDATE% %HOSTNAME% %SYSLOGPROG%:",
+  APACHELOG => "%IP% %USER:IDENT% %USER:AUTH% \\[%HTTPDATE%\\] %QUOTEDSTRING:URL% %NUMBER:RESPONSE% %NUMBER:BYTES% %QUOTEDSTRING:REFERRER% %QUOTEDSTRING:AGENT%",
 );
 
 # Dispatch table for filter chains.
@@ -79,17 +83,26 @@ my %MATCH = (
 # parsedate - convert time values
 # uid2user - uid lookups for usernames
 my $filters = {
-  qr/shnq/ => sub { s/([`(){}[\]\$*?!|;'"])/\\$1/g; },
-  qr/shdq/ => sub { s/([`\$"])/\\$1/g; },
-  qr/e\[((?:(?:\\])|(?:[^\]]))+)\]/ => sub { s/([$1])/\\$1/g; },
-  qr/stripquotes/ => sub { s/^(["])//; s/$1$//; },
-  qr/parsedate/ => sub { $_ = str2time($_) },
+  qr/shnq/ => sub { s/([`(){}[\]\$*?!|;'"])/\\$1/g; $_ },
+  qr/shdq/ => sub { s/([`\$"])/\\$1/g; $_ },
+  qr/e\[((?:(?:\\])|(?:[^\]]))*)\]/ => sub { s/([$^N])/\\$1/g; $_ },
+  #qr/e(.)((??{"([^$1]+)"}))$1/ => sub { print STDERR " foo '$1'\n"; return 1 },
+
+  qr/stripquotes/ => sub { s/^(['"])//; s/$1$//; $_ },
+  qr/parsedate/ => sub { str2time($_) },
+  qr/strftime\(($RE{quoted})\)/ => sub { 
+      my $m = substr($^N, 1, -1);
+      $m =~ s/\&/%/g;
+      POSIX::strftime($m, localtime($_)) 
+  },
   qr/uid2user/ => sub { ($_) = getpwuid($_) },
-  qr/urlescape/ => sub { ($_) = uri_escape($_) },
+  qr/urlescape/ => sub { uri_escape($_) },
+  qr/ip2host/ => sub { $_ = [gethostbyaddr(inet_aton($_), AF_INET)]->[0] || $_ },
+  qr/httpfilter/ => sub { s/^\S+ (\S+) \S+$/$1/; $_ },
 };
 
 my $opts = {};
-getopt('fdb', $opts);
+getopt('fdbmr', $opts);
 
 if (exists($opts->{"d"})) {
   # default to debuglevel 1 if -d has no arguments.
@@ -342,7 +355,7 @@ sub filter {
   local *w = sub { 
     debug(0, "No filter matches $_[0]") and return unless defined($filters->{$_[0]});
     local $_ = $_[1];
-    $filters->{$_[0]}->($_[1]);
+    $_ = $filters->{$_[0]}->($_[1]);
     return $_;
   };
 
@@ -353,6 +366,7 @@ sub filter {
     $ret = w($key, $ret);
     last unless $opts =~ s/^\|//;
   }
+  debug(1, "Remaining filters (should be empty): '$opts'\n");
 
   return $ret;
 }
@@ -455,10 +469,15 @@ GRAMMAR
 
   my $parser = Parse::RecDescent->new($grammar);
   my $config;
-  local $/ = undef;
-  open(CONFIG, $cfname) or die("Unable to open: $cfname");
-  $config = $parser->config(<CONFIG>);
-  close(CONFIG);
+  if ($opts->{"m"}) {
+    $config = generate_config()
+  } else {
+    local $/ = undef;
+    open(CONFIG, $cfname) or die("Unable to open: $cfname");
+    $config = <CONFIG>;
+    close(CONFIG);
+  }
+  $config = $parser->config($config);
 
   return $config;
 }
@@ -501,7 +520,6 @@ sub setup {
           ##"Perl: " . $_->{"string"} . "\n";
         #}
       #} @{$matches->{$match}->{"reactions"}};
-        
     }
     $PATTERNS->{$file} = $matchhash;
   }
@@ -518,7 +536,7 @@ sub addpatterns {
 
 sub addfilters {
   my $f = shift;
-  print STDERR Dumper($f);
+  #print STDERR Dumper($f);
   foreach my $filter (keys(%$f)) {
     debug(2, "Adding filter '$filter': " . $f->{$filter});
     # Sanitize filter:
@@ -557,4 +575,22 @@ sub react {
       debug(0, sprintf("Unknown execution type: %s. %s", $type, $cmd));
     }
   }
+}
+
+sub generate_config {
+  my $match = $opts->{"m"};
+  my $reaction = $opts->{"r"} || "%=LINE%\n";
+
+  $reaction =~ s/"/\\"/g;
+  my $conf = qq(
+  exec "cat" {
+    type "all" {
+      match = "$match";
+      reaction = { print meta2string("$reaction\n", \$v); };
+    };
+  };);
+
+  print "$conf\n";
+
+  return $conf
 }
