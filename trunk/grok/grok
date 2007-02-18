@@ -590,7 +590,5 @@ sub generate_config {
     };
   };);
 
-  print "$conf\n";
-
   return $conf
 }
