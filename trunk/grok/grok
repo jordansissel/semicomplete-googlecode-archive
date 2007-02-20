@@ -40,18 +40,21 @@ my $PATTERNS;
 my %MATCH = (
   USERNAME => qr/[a-zA-Z0-9_-]+/,
   USER => "%USERNAME%",
-  IP => $RE{net}{IPv4},
   NUMBER => qr/\d+/,
   PORT => "%NUMBER",
   COUNT => "%NUMBER",
-  HOSTNAME => qr/(?! )$RE{net}{domain}/,
-  HOST => "%HOSTNAME%",
   DATA => qr/.*/,
   #PROG => qr/\w+(?:\[\d+\])?/,
   #PROG => qr/\w+(?:\[%NUMBER%\])?/,
   PROG => qr/\w+/,
   PID => "%NUMBER%",
-  SYSLOGPROG => qr/%PROG%(\[%PID%\])?/,
+
+  # Networking
+  MAC => $RE{net}{MAC},
+  IP => $RE{net}{IPv4},
+  HOSTNAME => qr/$RE{net}{domain}{-nospace}/,
+  HOST => "%HOSTNAME%",
+  IPORHOST => "(?:%IP%|%HOSTNAME%)",
 
   # Months: January, Feb, 3, 03, 12, December
   MONTH => qr/(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|0?[0-9]|1[0-2])/,
@@ -67,12 +70,17 @@ my %MATCH = (
 
   # Syslog Dates: Month Day HH:MM:SS
   SYSLOGDATE => "%MONTH% +%MONTHDAY% %TIME%",
+  SYSLOGPROG => qr/%PROG%(\[%PID%\])?/,
   HTTPDATE => "%MONTHDAY%/%MONTH%/%YEAR%:%TIME% -\\d+",
 
   QUOTEDSTRING => $RE{quoted},
 
+  # Shortcuts
+  QS => "%QUOTEDSTRING%",
+
+  # Log formats
   SYSLOGBASE => "%SYSLOGDATE% %HOSTNAME% %SYSLOGPROG%:",
-  APACHELOG => "%IP% %USER:IDENT% %USER:AUTH% \\[%HTTPDATE%\\] %QUOTEDSTRING:URL% %NUMBER:RESPONSE% %NUMBER:BYTES% %QUOTEDSTRING:REFERRER% %QUOTEDSTRING:AGENT%",
+  APACHELOG => "%IPORHOST% %USER:IDENT% %USER:AUTH% \\[%HTTPDATE%\\] %QUOTEDSTRING:URL% %NUMBER:RESPONSE% %NUMBER:BYTES% %QUOTEDSTRING:REFERRER% %QUOTEDSTRING:AGENT%",
 );
 
 # Dispatch table for filter chains.
@@ -95,9 +103,9 @@ my $filters = {
       $m =~ s/\&/%/g;
       POSIX::strftime($m, localtime($_)) 
   },
-  qr/uid2user/ => sub { ($_) = getpwuid($_) },
+  qr/uid2user/ => sub { ($_) = getpwuid($_); $_ },
   qr/urlescape/ => sub { uri_escape($_) },
-  qr/ip2host/ => sub { $_ = [gethostbyaddr(inet_aton($_), AF_INET)]->[0] || $_ },
+  qr/ip2host/ => sub { ($_) = gethostbyaddr(inet_aton($_), AF_INET); $_ },
   qr/httpfilter/ => sub { s/^\S+ (\S+) \S+$/$1/; $_ },
 };
 
@@ -183,7 +191,7 @@ while($select->count()) {
   }
 }
 
-debug(0, "Nothing left to do (all files/execs ended) exiting");
+debug(1, "Nothing left to do (all files/execs ended) exiting");
 exit(0);
 
 sub debug {
@@ -200,7 +208,7 @@ sub readlog {
   my $buffer = $state->{"buffers"}->{$logh} || "";
   my $bytes = sysread($logh, $buffer, 1024, length($buffer));
   if ($bytes == 0) {
-    debug(0,"finished (possibly unexpected eof?): " . $state->{"map"}->{$logh});
+    debug(1,"finished (possibly unexpected eof?): " . $state->{"map"}->{$logh});
     $select->remove($logh);
     close($logh);
   }
@@ -306,7 +314,7 @@ sub pattern2regex {
     # ie; %IP% is valid, as is %IP:FOO%
     map { $count += $regex =~ s/%(($_)(?::\w+)?)%/($MATCH{$_})(?{ \$values{'$1'} = \$^N })/g; } keys(%MATCH);
     $rounds++;
-    if ($rounds > 10) {
+    if ($rounds > 20) {
       debug(0, "Deep recursion translating '$orig'");
       last;
     }
@@ -336,7 +344,7 @@ sub meta2string {
       }
     } (keys(%MATCH), '=LINE', '=MATCH', '=FILE');
     $rounds++;
-    if ($rounds > 10) {
+    if ($rounds > 20) {
       debug(0, "Deep recursion translating '$orig'");
       last;
     }
