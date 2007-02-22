@@ -6,12 +6,12 @@
 .Nd An expert system for real-time log analysis
 .Sh SYNOPSIS
 .Nm
-.Fl b 
+.Op Fl b 
+.Op Fl d Ar 1, 2, ...
+.Op Fl f Ar configfile 
 .Nm
-.Fl d
-.Op Ar 1, 2, ...
-.Nm
-.Fl f Ar file 
+.Fl m Ar match
+.Fl r Ar reaction
 .Sh DESCRIPTION
 The
 .Nm
@@ -50,6 +50,7 @@ filters { filterspec };
 file "filename" { filespec };
 exec "command" { filespec };
 filelist "file1,file2,..." { filespec };
+catlist "file1,file2,..." { filespec };
 filecmd "command" { filespec };
 .Ed
 .Pp
@@ -158,21 +159,23 @@ properties.
 .Ed
 .Pp
 .ft B
-filelist & filecmd
+filelist, filecat, and filecmd
 .ft P
 .Bd -literal -offset "indent"
 filelist is a quick way to specify the same filespec 
-for a comma-separated list of files.
+for a comma-separated list of files. Glob patterns are supported. Files in the
+file list are handled the same way as if you had individually written 'file
+"foo"' per file. That is, they are watched with 'tail -0f'.
 
-filecmd allows a command which returns a list of files. 
-The returned list should be newline delimited (cp the 
-output of find, ls). As with filelist, the files are all 
-processed with the same filespec.
+filecat has the same syntax as filelist, but instead of those files watched by
+tail, they are simply catted.
+
+filecmd allows a command which returns a list of files.  The returned list
+should be newline delimited (cp the output of find, ls). Under the hood, this
+essentially becomes a dynamically-generated filelist entry As with filelist, so
+the listed output can contain globs as filelist can.
 
 .Ed
-.Pp
-.Sh FILES
-.Pa /usr/local/etc/grok.conf
 .Pp
 .Sh EXAMPLES 
 The following example defines %TTY%, watches
@@ -274,8 +277,9 @@ exec "cat /etc/passwd" {
 .Ed
 .Pp
 The output of this is:
-.Pp
+.Bd -literal -offset "indent"
 Found: test:*:1002:1002:T\\"est?:/home/test:/bin/sh
+.Ed
 .Pp
 Using the same line in
 .Pa /etc/passwd
@@ -292,7 +296,26 @@ exec "cat /etc/passwd" {
 .Pp
 results in:
 .Pp
+.Bd -literal -offset "indent"
 Found: test:\\*:1002:1002:T\\"est\\?:/home/test:/bin/sh
+.Ed
+.Pp
+The following example illustrates how to use filelist:
+.Pp
+.Bd -literal -offset "indent"
+filelist "/var/log/auth.log,/var/log/secure,/var/log/messages" {
+  ...
+}
+.Ed
+.Pp
+The following example illustrates filelist with a glob:
+.Bd -literal -offset "indent"
+filelist '/var/log/*.log,/var/log/messages' {
+  ...
+}
+.Ed
+.Sh FILES
+.Pa /usr/local/etc/grok.conf
 .Pp
 .Sh AUTHOR
 .An -nosplit
