@@ -433,7 +433,7 @@ filelist: <rulevar: local $file = { }>
 filelist: ('filelist'|'catlist') string '{' file_entry(?) '}' ';'
 {
   for (split(/\s*,\s*/, $item[2])) {
-    for (glob($_)) {
+    for (sort(glob($_))) {
       if ($item[1] eq 'filelist') {
         $file->{'type'} = "file";
       } else {
