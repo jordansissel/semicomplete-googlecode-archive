@@ -1,0 +1,15 @@
+#!/bin/sh
+
+try() {
+  OUTPUT=`mktemp /tmp/logwatcher.test.XXXXX`
+  perl ../grok -f conf/$1 > $OUTPUT 2> /dev/null
+  compare $OUTPUT output/$1
+  EXITCODE=$?
+  [ "$EXITCODE" -eq 0 ] && echo "Test OK: $1" || echo "Test failed: $1"
+  return $EXITCODE
+}
+
+compare() {
+  diff -u $1 $2 > /tmp/output
+  return $?
+}

@@ -1,21 +1,16 @@
 #!/bin/sh
 
-try() {
-	OUTPUT=`mktemp /tmp/logwatcher.test.XXXXX`
-	perl ../grok -f conf/$1 > $OUTPUT 2> /dev/null
-	diff -u $OUTPUT output/$1 > /tmp/output
-	return $?
-}
+. ./test.subr
 
 TESTS=
 if [ $# -gt 0 ]; then 
-	TESTS="$@"
+  TESTS="$@"
 else
-	TESTS="shellquoting customquoting matchtest"
+  TESTS="shellquoting customquoting matchtest thresholds"
 fi
 
 set -- $TESTS
 while [ $# -gt 0 ]; do
-	try $1 && echo "Test OK: $1" || echo "Test failed: $1"
-	shift
+  try $1
+  shift
 done
