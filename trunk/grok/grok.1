@@ -195,21 +195,23 @@ file "/var/log/messages" {
 For the following example we are watching apache logfiles and replacing
 the quored URL string with just the URL in the reaction statement.  The
 format of the file is:
-
+.Pp
 127.0.0.1 - frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326 "http://www.example.com/start.html" "Mozilla/4.08 [en] (Win98; I ;Nav)"
+.Pp
 .Bd -literal -offset "indent"
 patterns {
     HTTPDATE = "%MONTHDAY%/%MONTH%/\&\d\&+:%TIME% -\&\d\&+";
 };
-.Bd -literal -offset "indent"
 
 filters {
-    /httpfilter/ = { s/^\S+ (\S+) \S+$/$1/; };
+    /httpfilter/ = { s/^\\\+ (\\S+) \\S+$/$1/; };
 };
 
 exec "cat /var/log/http.access.log" {
     type "http" {
-        match = "%IP% - - \[%HTTPDATE%\] %QUOTEDSTRING:URL% .*? %QUOTEDSTRING:REFERRER% %QUOTEDSTRING:AGENT%";
+        # Alternatively you could just use:
+        # match = "%APACHELOG%";
+        match = "%IP% - - \\[%HTTPDATE%\\] %QUOTEDSTRING:URL% .*? %QUOTEDSTRING:REFERRER% %QUOTEDSTRING:AGENT%";
         reaction = "echo '%IP%: %QUOTEDSTRING:URL|e[']|stripquotes|httpfilter%'";
     };
 };
@@ -295,12 +297,14 @@ Found: test:\\*:1002:1002:T\\"est\\?:/home/test:/bin/sh
 .Sh AUTHOR
 .An -nosplit
 .An "Jordan Sissel"
-.Aq jls@csh.rit.edu
+.Aq jls@semicomplete.com
 wrote and maintains
 .Nm .
 .An "Wesley Shields"
 .Aq wxs@csh.rit.edu
-wrote the manual page.
+wrote the manual page. 
+.Sh CONTRIBUTORS
+.An "Canaan Silberberg" contributed patches supporting filelist and filecmd.
 .Sh BUGS
 There are no known bugs at this time.  Bugs can be reported to
-.An jls@csh.rit.edu .
+.Aq jls@semicomplete.com .
