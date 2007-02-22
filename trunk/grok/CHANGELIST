@@ -12,8 +12,7 @@ Patterns added or changed:
   - HTTPDATE
   - QUOTEDSTRING
   - QS (QUOTEDSTRING shortcut)
-  - SYSLOGBASE matches everything syslog normally logs before the actual message.
-  - APACHELOG matches a standard apache log entry
+  - SYSLOGBASE matches everything syslog normally logs before the actual message.  - APACHELOG matches a standard apache log entry
 
 Filters added or changed:
   - e[...] fixed to work properly
@@ -32,6 +31,12 @@ New features:
     match_syslog = 1; prefixes any match with '%SYSLOGDATE% %HOST% %SYSLOGPROG%:'
     syslog_prog = "foo"; changes %PROG% in the above to be 'foo'
     syslog_host = "bar"; changes %HOST% in the above to 'bar'
+
+  - Added more code tests:
+    Test for -m and -r in place.
+    Test for 'catlist' in place.
+    Test for threshold hit inplace.
+    Better testing framework made.
 
 Contributed features: (Thanks to Canaan Silberberg)
   - filelist type (like file and exec). comma-separated list of files that will
