@@ -103,7 +103,7 @@ my $filters = {
   },
   qr/uid2user/ => sub { ($_) = getpwuid($_); $_ },
   qr/urlescape/ => sub { uri_escape($_) },
-  qr/ip2host/ => sub { ($_) = gethostbyaddr(inet_aton($_), AF_INET); $_ },
+  qr/ip2host/ => sub { my ($host) = gethostbyaddr(inet_aton($_), AF_INET); $host || $_ },
   qr/httpfilter/ => sub { s/^\S+ (\S+) \S+$/$1/; $_ },
 };
 
