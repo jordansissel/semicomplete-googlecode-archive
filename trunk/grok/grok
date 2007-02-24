@@ -40,14 +40,12 @@ my $PATTERNS;
 my %MATCH = (
   USERNAME => qr/[a-zA-Z0-9_-]+/,
   USER => "%USERNAME%",
-  NUMBER => qr/\d+/,
-  PORT => "%NUMBER",
-  COUNT => "%NUMBER",
-  DATA => qr/.*/,
-  #PROG => qr/\w+(?:\[\d+\])?/,
-  #PROG => qr/\w+(?:\[%NUMBER%\])?/,
-  PROG => qr/\w+/,
-  PID => "%NUMBER%",
+  INT => qr/$RE{num}{int}/,
+  NUMBER => qr/$RE{num}{real}/,
+  WORD => qr/\w+/,
+  DATA => qr/.*?/,
+  GREEDYDATA => qr/.*/,
+  QUOTEDSTRING => $RE{quoted},
 
   # Networking
   MAC => $RE{net}{MAC},
@@ -57,30 +55,30 @@ my %MATCH = (
   IPORHOST => "(?:%IP%|%HOSTNAME%)",
 
   # Months: January, Feb, 3, 03, 12, December
-  MONTH => qr/(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|0?[0-9]|1[0-2])/,
-  MONTHDAY => qr/(?:[0-2]?[0-9])|3[01]/,
+  MONTH => qr/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|0?[0-9]|1[0-2])\b/,
+  MONTHDAY => qr/(?:(?:[0-2]?[0-9])|3[01])/,
 
   # Days: Monday, Tue, Thu, 0 (Sunday?), 6 (Saturday?)
   DAY => qr/(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?|[0-6])/,
 
   # Years?
-  YEAR => qr/\d+/,
+  YEAR => qr/%INT%/,
   # Time: HH:MM:SS
   TIME => qr/\d{2}:\d{2}:\d{2}/,
 
   # Syslog Dates: Month Day HH:MM:SS
   SYSLOGDATE => "%MONTH% +%MONTHDAY% %TIME%",
-  SYSLOGPROG => qr/%PROG%(\[%PID%\])?/,
-  HTTPDATE => "%MONTHDAY%/%MONTH%/%YEAR%:%TIME% -\\d+",
-
-  QUOTEDSTRING => $RE{quoted},
+  PROG => "%WORD%",
+  PID => "%INT%",
+  SYSLOGPROG => qr/%PROG%(?:\[%PID%\])?/,
+  HTTPDATE => qr,%MONTHDAY%/%MONTH%/%YEAR%:%TIME% %INT:ZONE%,,
 
   # Shortcuts
   QS => "%QUOTEDSTRING%",
 
   # Log formats
   SYSLOGBASE => "%SYSLOGDATE% %HOSTNAME% %SYSLOGPROG%:",
-  APACHELOG => "%IPORHOST% %USER:IDENT% %USER:AUTH% \\[%HTTPDATE%\\] %QUOTEDSTRING:URL% %NUMBER:RESPONSE% %NUMBER:BYTES% %QUOTEDSTRING:REFERRER% %QUOTEDSTRING:AGENT%",
+  APACHELOG => "%IPORHOST% %USER:IDENT% %USER:AUTH% \\[%HTTPDATE%\\] %QS:URL% %NUMBER:RESPONSE% %NUMBER:BYTES% %QS:REFERRER% %QS:AGENT%",
 );
 
 # Dispatch table for filter chains.
@@ -312,7 +310,9 @@ sub pattern2regex {
     # Replace %KEY:SUBNAME% with a regex and store the capture as KEY:SUBNAME
     # The :SUBNAME specification is optional, 
     # ie; %IP% is valid, as is %IP:FOO%
-    map { $count += $regex =~ s/%(($_)(?::\w+)?)%/($MATCH{$_})(?{ \$values{'$1'} = \$^N })/g; } keys(%MATCH);
+    for (keys(%MATCH)) {
+      $count += $regex =~ s/%((?:$_)(?::\w+)?)%/($MATCH{$_})(?{ \$values{'$1'} = \$^N })/g;
+    }
     $rounds++;
     if ($rounds > 20) {
       debug(0, "Deep recursion translating '$orig'");
@@ -587,7 +587,7 @@ sub react {
 
 sub generate_config {
   my $match = $opts->{"m"};
-  my $reaction = $opts->{"r"} || "%=LINE%\n";
+  my $reaction = $opts->{"r"} || "%=LINE%";
 
   $reaction =~ s/"/\\"/g;
   my $conf = qq(

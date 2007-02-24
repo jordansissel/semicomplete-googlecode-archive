@@ -116,19 +116,32 @@ type "description" {
 .Ed
 .Pp
 .Bl -column ".Sy Description"
-.It Em Description Ta A string used to identify the definition.  This has no significance other than debugging and clarification for the user.
+.It Em Description Ta A string used to identify the definition.  This has no
+significance other than debugging and clarification for the user.
 
-.It Em Match Ta The string pattern to match.  Multiple match entries per type definition and named patterns are allowed.
+.It Em Match Ta The string pattern to match.  Multiple match entries per type
+definition and named patterns are allowed.
 
-.It Em Key Ta The key to use in the hashtable when counting occourances of a specific event.  The default key is a concatenation of all captured patterns into a string.  As this may not be desirable the key value can be specified.  Pattern names are valid and evaluated at runtime.
+.It Em Key Ta The key to use in the hashtable when counting occourances of a
+specific event.  The default key is a concatenation of all captured patterns
+into a string.  As this may not be desirable the key value can be specified.
+Pattern names are valid and evaluated at runtime.
 
-.It Em Threshold Ta Specify the number of matches by it's key before the reaction(s) take place.  Once the threshold is reached the reaction(s) occour and the occurance count is set to zero.  The default threshold is 1 (each occurance causes a reaction).
+.It Em Threshold Ta Specify the number of matches by it's key before the
+reaction(s) take place.  Once the threshold is reached the reaction(s) occour
+and the occurance count is set to zero.  The default threshold is 1 (each
+occurance causes a reaction).
 
-.It Em Interval Ta The time, in seconds, between occurance counter reset.  If the threshold is not reached by the specified interval time then the occourance count is is reset and no reaction is triggered.
+.It Em Interval Ta The time, in seconds, between occurance counter reset.  If
+the threshold is not reached by the specified interval time then the occourance
+count is is reset and no reaction is triggered.
 
-.It Em Reaction Ta Any valid (string of) command(s) or block of perl code.  If using a perl block
+.It Em Reaction Ta Any valid (string of) command(s) or block of perl code.  If
+using a perl block
 .Nm
-provides helper variables.  These are $v (a hashref containing all named patterns matched, subnames are valid here) and $d (a hashref to use for your own storage, keyed with your key value).
+provides helper variables.  These are $v (a hashref containing all named
+patterns matched, subnames are valid here) and $d (a hashref to use for your
+own storage, keyed with your key value).
 .El
 
 Three special variables are provided for use in the reaction.  These are:
@@ -187,7 +200,8 @@ There are lots of builtin patterns at your disposal:
 .It Em SYSLOGDATE Ta MONTH% %MONTHDAY% %TIME%
 .It Em SYSLOGPROG Ta %PROG%(\\&[%PID%\])?
 .It Em SYSLOGBASE Ta %SYSLOGDATE% %HOSTNAME% %SYSLOGPROG%:
-.It Em APACHELOG Ta %IPORHOST% %USER:IDENT% %USER:AUTH% \\&[%HTTPDATE%\] %QS:URL% %NUMBER:RESPONSE% %NUMBER:BYTES% %QS:REFERRER% %QS:AGENT%"
+.It Em APACHELOG Ta %IPORHOST% %USER:IDENT% %USER:AUTH% \\&[%HTTPDATE%\]
+%QS:URL% %NUMBER:RESPONSE% %NUMBER:BYTES% %QS:REFERRER% %QS:AGENT%"
 .El
 .Pp
 .Sh BUILTIN FILTERS
@@ -237,7 +251,7 @@ the match matches. See EXAMPLES for more information.
 The following example defines %TTY%, watches
 .Pa /var/log/messages
 for failed su(1) attempts and prints a message to STDOUT (notice the use
-of named pattern captures).
+of sub-named pattern captures).
 .Bd -literal -offset "indent"
 patterns {
     TTY = "/dev/tty[qp][a-z0-9]";
@@ -365,7 +379,8 @@ filelist '/var/log/*.log,/var/log/messages' {
 }
 .Ed
 .It
-The following example shows how to use -m and -r. Let's find out what programs are logging to /var/log/messages:
+The following example shows how to use -m and -r. Let's find out what programs
+are logging to /var/log/messages:
 .Bd -literal -offset "indent"
 % grok -m "%SYSLOGBASE%" -r "%PROG%" < /var/log/messages | sort | uniq
 kernel
@@ -374,13 +389,15 @@ newsyslog
 sshd
 .Ed
 .It
-The following (somewhat silly) example shows how to use -m and -r. Let's compare the forward and reverse dns entries for www.freebsd.org:
+The following (somewhat silly) example shows how to use -m and -r. Let's
+compare the forward and reverse dns entries for www.freebsd.org:
 .Bd -literal -offset "indent"
 % host -t A www.freebsd.org | grok -m "%IP%" -r "%IP|ip2host%"
 www.freebsd.org
 .Ed
 .Pp
-In the above example, we do a name resolution on www.freebsd.org and grok for an IP, then filter the IP through a dns lookup and print the output.
+In the above example, we do a name resolution on www.freebsd.org and grok for
+an IP, then filter the IP through a dns lookup and print the output.
 .It
 The following (advanced) example shows how to use -m and -r. Let's break a
 apart a log into files by IP. Note that the match below matches the IP anywhere
