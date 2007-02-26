@@ -5,7 +5,10 @@ usage() {
 	exit 1;
 }
 
-[ $# -ne 1 ] && usage
+if [ $# -ne 1 ]; then
+  set -- $(date "+%Y%m%d")
+  echo "No version specified, using $1" 
+fi
 
 TMP="/tmp"
 GROK="grok-$1"
