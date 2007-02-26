@@ -87,90 +87,91 @@ static void paminfo(pam_handle_t *pamh, char *fmt, ...);
 static void pamvprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, va_list ap);
 
 static void figlet(pam_handle_t *pamh, char *fmt, ...) {
-	va_list ap;
-	va_start(ap, fmt);
+  va_list ap;
+  va_start(ap, fmt);
 
-	char *key;
-	FILE *fp = NULL;
-	char *buffer, *bp;
+  char *key;
+  FILE *fp = NULL;
+  char *buffer, *bp;
 
-	int i;
-	char *font = fonts[rand() % (sizeof(fonts) / sizeof(*fonts))];
+  int i;
+  char *font = fonts[rand() % (sizeof(fonts) / sizeof(*fonts))];
 
-	vasprintf(&key, fmt, ap);
+  vasprintf(&key, fmt, ap);
 
-	buffer = calloc(BUFFERSIZE, 1);
-	srand(time(NULL));
+  buffer = calloc(BUFFERSIZE, 1);
+  srand(time(NULL));
 
-	sprintf(buffer, "/usr/local/bin/figlet -f %s -- '%s'", font, key);
-	fp = popen(buffer, "r");
-	i = 0;
-	while (!feof(fp)) {
-		int bytes;
-		bytes = fread(buffer+i, 1, 1024, fp);
-		if (bytes > 0)
-			i += bytes;
+  sprintf(buffer, "/usr/local/bin/figlet -f %s -- '%s'", font, key);
+  fp = popen(buffer, "r");
+  i = 0;
+  while (!feof(fp)) {
+    int bytes;
+    bytes = fread(buffer+i, 1, 1024, fp);
+    if (bytes > 0)
+      i += bytes;
 
-		/* Ooops, our challenge description is too large */
-		if (i > BUFFERSIZE)
-			return;
-	}
+    /* Ooops, our challenge description is too large */
+    if (i > BUFFERSIZE)
+      return;
+  }
 
-	i = 0;
-	bp = buffer;
-	while (1) {
-		char *ptr = strchr(bp, '\n');
-		*ptr = '\0';
-		paminfo(pamh, "%s", bp);
-		bp = ptr + 1;
-		if (*bp == '\0')
-			break;
-	}
+  i = 0;
+  bp = buffer;
+  while (1) {
+    char *ptr = strchr(bp, '\n');
+    *ptr = '\0';
+    paminfo(pamh, "%s", bp);
+    bp = ptr + 1;
+    if (*bp == '\0')
+      break;
+  }
 
-	free(buffer);
+  free(buffer);
 }
 
 static void pamprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, ...) {/*{{{*/
-	va_list ap;
-	va_start(ap, fmt);
-	pamvprompt(pamh, style, resp, fmt, ap);
-	va_end(ap);
+  va_list ap;
+  va_start(ap, fmt);
+  pamvprompt(pamh, style, resp, fmt, ap);
+  va_end(ap);
 }/*}}}*/
 
 static void pamvprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, va_list ap) {/*{{{*/
-	struct pam_conv *conv;
-	struct pam_message msg, *msgp;
-	struct pam_response *pamresp;
-	int pam_err;
-	char *text = "";
+  struct pam_conv *conv;
+  struct pam_message msg;
+  const struct pam_message *msgp;
+  struct pam_response *pamresp;
+  int pam_err;
+  char *text = "";
 
-	vasprintf(&text, fmt, ap);
+  vasprintf(&text, fmt, ap);
 
-	pam_get_item(pamh, PAM_CONV, (const void **)&conv);
-	pam_set_item(pamh, PAM_AUTHTOK, NULL);
+  pam_get_item(pamh, PAM_CONV, (const void **)&conv);
+  pam_set_item(pamh, PAM_AUTHTOK, NULL);
 
-	msg.msg_style = style;;
-	msg.msg = text;
-	msgp = &msg;
-	pamresp = NULL;
-	pam_err = (*conv->conv)(1, &msgp, &pamresp, conv->appdata_ptr);
+  msg.msg_style = style;;
+  msg.msg = text;
+  msgp = &msg;
+  pamresp = NULL;
+  pam_err = (*conv->conv)(1, &msgp, &pamresp, conv->appdata_ptr);
 
-	if (pamresp != NULL) {
-		if (resp != NULL)
-			*resp = pamresp->resp;
-		else
-			free(pamresp->resp);
-		free(pamresp);
-	}
+  if (pamresp != NULL) {
+    if (resp != NULL)
+      *resp = pamresp->resp;
+    else
+      free(pamresp->resp);
+    free(pamresp);
+  }
 
-	free(text);
+  free(text);
 }/*}}}*/
 
 static void paminfo(pam_handle_t *pamh, char *fmt, ...) {
-	va_list ap;
-	va_start(ap, fmt);
-	pamvprompt(pamh, PAM_TEXT_INFO, NULL, fmt, ap);
-	va_end(ap);
+  va_list ap;
+  va_start(ap, fmt);
+  pamvprompt(pamh, PAM_TEXT_INFO, NULL, fmt, ap);
+  va_end(ap);
 }
 
 
@@ -179,100 +180,100 @@ static void paminfo(pam_handle_t *pamh, char *fmt, ...) {
 static void randomtask(char **task);
 
 static int dda_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
-	char *resp;
-	char *host, *user;
-	char key[5];
-	char *id;
-	char *linkpath;
-	char linkdata[1024];
-	char *task;
-	int i = 0;
-	int x;
+  char *resp;
+  char *host, *user;
+  char key[5];
+  char *id;
+  char *linkpath;
+  char linkdata[1024];
+  char *task;
+  int i = 0;
+  int x;
 
-	pam_get_item(pamh, PAM_RHOST, (const void **)&host);
-	pam_get_item(pamh, PAM_USER, (const void **)&user);
+  pam_get_item(pamh, PAM_RHOST, (const void **)&host);
+  pam_get_item(pamh, PAM_USER, (const void **)&user);
 
-	for (i = 0; i < 4; i++)
-		key[i] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"[rand() % 36];
-	key[4] = 0;
+  for (i = 0; i < 4; i++)
+    key[i] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"[rand() % 36];
+  key[4] = 0;
 
-	asprintf(&id, "%s:%s:%s", host, user, key);
+  asprintf(&id, "%s:%s:%s", host, user, key);
 
-	asprintf(&linkpath, "/tmp/%s", id);
-	while ((x = symlink(NOLOGINFORYOU, linkpath)) != 0) {
-		perror("symlink");
-		unlink(linkpath);
-	};
+  asprintf(&linkpath, "/tmp/%s", id);
+  while ((x = symlink(NOLOGINFORYOU, linkpath)) != 0) {
+    perror("symlink");
+    unlink(linkpath);
+  };
 
-	paminfo(pamh, "Welcome to Dance Dance Authentication!!!\n");
+  paminfo(pamh, "Welcome to Dance Dance Authentication!!!\n");
 
-	paminfo(pamh, "Dance Dance Authentication requires you to perform a physical task\n"
+  paminfo(pamh, "Dance Dance Authentication requires you to perform a physical task\n"
 "to verify that you are a human. Your task is as follows:\n");
 
-	/* read in a list of tasks */
-	randomtask(&task);
-	paminfo(pamh, task);
-	free(task);
+  /* read in a list of tasks */
+  randomtask(&task);
+  paminfo(pamh, task);
+  free(task);
 
-	paminfo(pamh, "\nYOUR ID: %s (%s)", key, id);
-	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Verbally announce your ID when you have completed this task.\n"
+  paminfo(pamh, "\nYOUR ID: %s (%s)", key, id);
+  pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Verbally announce your ID when you have completed this task.\n"
 "Press enter now and I will permit you to continue once you have completed the task.\n");
 
-	/* loop while task is not completed */
-	memset(linkdata, 0, 1024);
-	while (linkdata[0] = '\0', readlink(linkpath, linkdata, 1024), !strcmp(linkdata, NOLOGINFORYOU))
-	free(id);
+  /* loop while task is not completed */
+  memset(linkdata, 0, 1024);
+  while (linkdata[0] = '\0', readlink(linkpath, linkdata, 1024), !strcmp(linkdata, NOLOGINFORYOU))
+  free(id);
 
-	/* Don't free these, it makes pam forget who you are */
-	//free(host);
-	//free(user);
-	free(resp);
+  /* Don't free these, it makes pam forget who you are */
+  //free(host);
+  //free(user);
+  free(resp);
 
-	return PAM_SUCCESS;
+  return PAM_SUCCESS;
 }
 
 /* Pick a random task for DDA */
 static void randomtask(char **task) {
-	DIR *dp;
-	struct dirent *cur;
-	struct dirent *files;
-	int pos = 0;
-	int len = 20;
-	int fd;
-	int bytes;
+  DIR *dp;
+  struct dirent *cur;
+  struct dirent *files;
+  int pos = 0;
+  int len = 20;
+  int fd;
+  int bytes;
 
-	chdir("/root/dda/");
-	dp = opendir(".");
-	files = calloc(sizeof(struct dirent), len);
+  chdir("/root/dda/");
+  dp = opendir(".");
+  files = calloc(sizeof(struct dirent), len);
 
-	while ((cur = readdir(dp)) != NULL) {
-		if (cur->d_type != DT_REG)
-			continue;
-		if (cur->d_name[0] == '.')
-			continue;
-		files[pos] = *cur;
-		pos++;
-		if (pos > len) {
-			len *= 2;
-			files = realloc(files, sizeof(struct dirent) * len);
-		}
-	}
+  while ((cur = readdir(dp)) != NULL) {
+    if (cur->d_type != DT_REG)
+      continue;
+    if (cur->d_name[0] == '.')
+      continue;
+    files[pos] = *cur;
+    pos++;
+    if (pos > len) {
+      len *= 2;
+      files = realloc(files, sizeof(struct dirent) * len);
+    }
+  }
 
-	pos = rand() % pos;
+  pos = rand() % pos;
 
-	fd = open(files[pos].d_name, O_RDONLY);
-	len = 4096;
-	pos = 0;
-	*task = calloc(len, 1);
+  fd = open(files[pos].d_name, O_RDONLY);
+  len = 4096;
+  pos = 0;
+  *task = calloc(len, 1);
 
-	while ((bytes = read(fd, *task+pos, 1024)) > 0) {
-		pos += bytes;
-		if (pos >= (len - 1024)) {
-			len *= 2;
-			*task = realloc(*task, len);
-		}
+  while ((bytes = read(fd, *task+pos, 1024)) > 0) {
+    pos += bytes;
+    if (pos >= (len - 1024)) {
+      len *= 2;
+      *task = realloc(*task, len);
+    }
 
-	}
+  }
 }
 /*}}}*/
 #endif /* WITH_DDA */
@@ -280,63 +281,63 @@ static void randomtask(char **task) {
 #ifdef WITH_MATH
 /* Simple math captcha {{{ */
 static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
-	int x, y, z, answer = 0;
-	static char *ops = "+-*";
-	char op = ops[rand() % strlen(ops)];
-	char *resp = NULL;
-	x = rand() % 1000 + 100;
-	y = rand() % 1000 + 100;
+  int x, y, z, answer = 0;
+  static char *ops = "+-*";
+  char op = ops[rand() % strlen(ops)];
+  char *resp = NULL;
+  x = rand() % 1000 + 100;
+  y = rand() % 1000 + 100;
 
-	paminfo(pamh, "I need some math help.");
+  paminfo(pamh, "I need some math help.");
 
-	figlet(pamh, "%d %c %d", x, op, y);
+  figlet(pamh, "%d %c %d", x, op, y);
 
-	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Type the solution: ");
-	z = atoi(resp);
+  pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "Type the solution: ");
+  z = atoi(resp);
 
-	switch (op) {
-		case '+': answer = x + y; break;
-		case '-': answer = x - y; break;
-		case '*': answer = x * y; break;
-	}
+  switch (op) {
+    case '+': answer = x + y; break;
+    case '-': answer = x - y; break;
+    case '*': answer = x * y; break;
+  }
 
-	if (answer != z)
-		return PAM_PERM_DENIED;
+  if (answer != z)
+    return PAM_PERM_DENIED;
 
-	return PAM_SUCCESS;
+  return PAM_SUCCESS;
 }/*}}}*/
 #endif /* WITH_MATH */
 
 /* String Generation Captcha {{{ */
 static int randomstring_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
-	char key[9];
-	char *resp;
-	int i = 0;
-	int ret = PAM_SUCCESS;
+  char key[9];
+  char *resp;
+  int i = 0;
+  int ret = PAM_SUCCESS;
 
-	for (i = 0; i < 8; i++) 
-		key[i] = alphabet[rand() % strlen(alphabet)];
-	key[8] = 0;
+  for (i = 0; i < 8; i++) 
+    key[i] = alphabet[rand() % strlen(alphabet)];
+  key[8] = 0;
 
-	paminfo(pamh, "Observe the picture below and answer the question listed afterwards:");
-	figlet(pamh, key);
-	pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "\nType the string above: ");
+  paminfo(pamh, "Observe the picture below and answer the question listed afterwards:");
+  figlet(pamh, key);
+  pamprompt(pamh, PAM_PROMPT_ECHO_ON, &resp, "\nType the string above: ");
 
-	if (strcmp(resp, key) != 0)
-		ret = PAM_PERM_DENIED;
+  if (strcmp(resp, key) != 0)
+    ret = PAM_PERM_DENIED;
 
-	/* Should we be freeing this? */
-	free(resp);
-	return ret;
+  /* Should we be freeing this? */
+  free(resp);
+  return ret;
 }/*}}}*/
 
 static int (*captchas[])(pam_handle_t *, int, int, const char **) = {
-	randomstring_captcha,
+  randomstring_captcha,
 #ifdef WITH_MATH
-	math_captcha,
+  math_captcha,
 #endif
 #ifdef WITH_DDA
-	dda_captcha
+  dda_captcha
 #endif
 };
 
@@ -344,34 +345,34 @@ PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t *pamh, int flags,
     int argc, const char *argv[])
 {
-	int r;
-	int ret;
-	char *user, *host;
-	pam_get_item(pamh, PAM_USER, (const void **)&user);
-	pam_get_item(pamh, PAM_RHOST, (const void **)&host);
+  int r;
+  int ret;
+  char *user, *host;
+  pam_get_item(pamh, PAM_USER, (const void **)&user);
+  pam_get_item(pamh, PAM_RHOST, (const void **)&host);
 
-	srand(time(NULL)); /* XXX: Should we seed by something less predictable? */
+  srand(time(NULL)); /* XXX: Should we seed by something less predictable? */
 
-	/* XXX: Uncomment this to have the screen cleared before proceeding */
-	//paminfo(pamh, "[2J[0;0H");
+  /* XXX: Uncomment this to have the screen cleared before proceeding */
+  //paminfo(pamh, "[2J[0;0H");
 
-	paminfo(pamh, "If you truly desire access to this host, then you must indulge me in a simple challenge.");
-	paminfo(pamh, "-------------------------------------------------------------\n", r);
+  paminfo(pamh, "If you truly desire access to this host, then you must indulge me in a simple challenge.");
+  paminfo(pamh, "-------------------------------------------------------------\n", r);
 
-	openlog("pam_captcha", 0, LOG_AUTHPRIV);
+  openlog("pam_captcha", 0, LOG_AUTHPRIV);
 
-	r = rand() % (sizeof(captchas) / sizeof(*captchas));
-	ret = captchas[r](pamh, flags, argc, argv);
+  r = rand() % (sizeof(captchas) / sizeof(*captchas));
+  ret = captchas[r](pamh, flags, argc, argv);
 
-	if (ret != PAM_SUCCESS) {
-		syslog(LOG_INFO, "User %s failed to pass the captcha (from %s)", user, host);
-		sleep(3); /* Irritation! */
-	} else {
-		syslog(LOG_INFO, "User %s passed the captcha (from %s)", user, host);
-	}
+  if (ret != PAM_SUCCESS) {
+    syslog(LOG_INFO, "User %s failed to pass the captcha (from %s)", user, host);
+    sleep(3); /* Irritation! */
+  } else {
+    syslog(LOG_INFO, "User %s passed the captcha (from %s)", user, host);
+  }
 
-	closelog();
-	return ret;
+  closelog();
+  return ret;
 }
 
 PAM_EXTERN int
@@ -379,7 +380,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
     int argc, const char *argv[])
 {
 
-	return (PAM_SUCCESS);
+  return (PAM_SUCCESS);
 }
 
 PAM_EXTERN int
