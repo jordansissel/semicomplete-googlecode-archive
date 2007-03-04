@@ -78,13 +78,65 @@
 static char *fonts[] = { "standard", "big" };
 
 #define BUFFERSIZE 10240
-const char alphabet[] = "ABCDEFGHJKMNOPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz123456789$#%@&*+=?";
+const char alphabet[] = "ABCDEFGHJKMNOPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz";
 
 /* Symlink name for DDA Authentication */
 #define NOLOGINFORYOU "NO SOUP FOR YOU :("
 
 static void paminfo(pam_handle_t *pamh, char *fmt, ...);
 static void pamvprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, va_list ap);
+static int dda_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]);
+static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]);
+static int randomstring_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]);
+
+typedef int (*captcha_func_t)(pam_handle_t *, int, int, const char **);
+
+
+static const struct captcha_entry {
+  char *name;
+  captcha_func_t func;
+} all_captchas[] = {
+  { "dda", dda_captcha, },
+  { "math", math_captcha, },
+  { "randomstring", randomstring_captcha, },
+  { NULL, NULL, },
+};
+
+static void init_captcha_list(pam_handle_t *pamh, captcha_func_t **captcha_list, 
+                              int *num_captchas) {
+  char *optlist[] = { "math", "dda", "randomstring", NULL };
+  const char *opt;
+  int len = 10;
+  int x, y;
+
+  *num_captchas = 0;
+
+  //syslog(LOG_INFO, "no captcha list specified in pam config. Please set 'captchas=\"math dda\"' or something.");
+
+  *captcha_list = malloc(len * sizeof(captcha_func_t));
+  memset(*captcha_list, 0, len * sizeof(captcha_func_t));
+
+  for (y = 0; opt = optlist[y], optlist[y] != NULL; y++) {
+    if (openpam_get_option(pamh, optlist[y]) == NULL)
+      continue;
+
+    for (x = 0; all_captchas[x].name != NULL; x++) {
+      //syslog(LOG_INFO, "%s vs %s", opt, all_captchas[x].name);
+      if (!strcmp(opt, all_captchas[x].name)) {
+        //syslog(LOG_INFO, "Matched opt %s", opt);
+        (*captcha_list)[(*num_captchas)++] = all_captchas[x].func;
+      }
+    }
+    if (*num_captchas == len) {
+      syslog(LOG_INFO, "BLAH");
+      len *=2;
+      *captcha_list = realloc(*captcha_list, len * sizeof(captcha_func_t));
+      /* Zero the new memory */
+      memset(*captcha_list + *num_captchas, 0, *num_captchas * sizeof(captcha_func_t));
+    }
+  }
+
+}
 
 static void figlet(pam_handle_t *pamh, char *fmt, ...) {
   va_list ap;
@@ -175,7 +227,6 @@ static void paminfo(pam_handle_t *pamh, char *fmt, ...) {
 }
 
 
-#ifdef WITH_DDA
 /* Dance Dance Authentication {{{ */
 static void randomtask(char **task);
 
@@ -221,7 +272,9 @@ static int dda_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv
 
   /* loop while task is not completed */
   memset(linkdata, 0, 1024);
-  while (linkdata[0] = '\0', readlink(linkpath, linkdata, 1024), !strcmp(linkdata, NOLOGINFORYOU))
+  while (linkdata[0] = '\0', readlink(linkpath, linkdata, 1024), !strcmp(linkdata, NOLOGINFORYOU)) {
+    sleep(1);
+  }
   free(id);
 
   /* Don't free these, it makes pam forget who you are */
@@ -276,9 +329,7 @@ static void randomtask(char **task) {
   }
 }
 /*}}}*/
-#endif /* WITH_DDA */
 
-#ifdef WITH_MATH
 /* Simple math captcha {{{ */
 static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
   int x, y, z, answer = 0;
@@ -306,7 +357,6 @@ static int math_captcha(pam_handle_t *pamh, int flags, int argc, const char *arg
 
   return PAM_SUCCESS;
 }/*}}}*/
-#endif /* WITH_MATH */
 
 /* String Generation Captcha {{{ */
 static int randomstring_captcha(pam_handle_t *pamh, int flags, int argc, const char *argv[]) {
@@ -331,15 +381,11 @@ static int randomstring_captcha(pam_handle_t *pamh, int flags, int argc, const c
   return ret;
 }/*}}}*/
 
-static int (*captchas[])(pam_handle_t *, int, int, const char **) = {
-  randomstring_captcha,
-#ifdef WITH_MATH
-  math_captcha,
-#endif
-#ifdef WITH_DDA
-  dda_captcha
-#endif
-};
+//static int (*captchas[])(pam_handle_t *, int, int, const char **);// = {
+  //randomstring_captcha,
+  //math_captcha,
+  //dda_captcha
+//};
 
 PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t *pamh, int flags,
@@ -351,6 +397,10 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
   pam_get_item(pamh, PAM_USER, (const void **)&user);
   pam_get_item(pamh, PAM_RHOST, (const void **)&host);
 
+  /* Captcha function array */
+  captcha_func_t *captchas;
+  int num_captchas = 0;
+
   srand(time(NULL)); /* XXX: Should we seed by something less predictable? */
 
   /* XXX: Uncomment this to have the screen cleared before proceeding */
@@ -361,7 +411,9 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 
   openlog("pam_captcha", 0, LOG_AUTHPRIV);
 
-  r = rand() % (sizeof(captchas) / sizeof(*captchas));
+  init_captcha_list(pamh, &captchas, &num_captchas);
+
+  r = rand() % num_captchas;
   ret = captchas[r](pamh, flags, argc, argv);
 
   if (ret != PAM_SUCCESS) {
