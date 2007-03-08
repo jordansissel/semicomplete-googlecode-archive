@@ -616,9 +616,13 @@ sub generate_config {
   my $match = $opts->{"m"};
   my $reaction = $opts->{"r"} || "%=LINE%";
 
+  my $files = "-";
+  $files = join(",",@ARGV) if (@ARGV);
+    
+
   $reaction =~ s/"/\\"/g;
   my $conf = qq(
-  exec "cat" {
+  catlist "$files" {
     type "all" {
       match = "$match";
       reaction = { print meta2string("$reaction\n", \$v); };
