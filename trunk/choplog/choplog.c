@@ -10,6 +10,8 @@ static char *prefix = "/tmp/split.";
 static int byte_size = 20<<20;   /* 20 megs default */
 static char *current_output_file = NULL;
 
+static int verbose = 0;
+static int xargs = 0;
 static int bytes_written = 0;
 static int split_count = 0;
 
@@ -19,17 +21,28 @@ void newfile(FILE **ofpp);
 
 void usage(char *msg) {
   printf("Usage: choplog [-p output_path_prefix] [-b byte_size]\n");
+  printf("               [-x]");
+  printf(" -x outputs the file name when that file is done being written."
+         " For use with xargs.\n");
   if (msg != NULL)
     printf("error: %s\n", msg);
 
   exit(1);
 }
 
+void close_output(FILE *fp, char *filename) {
+  if (xargs && filename) {
+    printf("%s\n", filename);
+    fflush(stdout);
+  }
+  fclose(fp);
+}
+
 int main(int argc, char **argv) {
   char *ep;
   int ch;
   
-  while ((ch = getopt(argc, argv, "-p:b:")) != -1)
+  while ((ch = getopt(argc, argv, "xp:b:")) != -1)
     switch (ch) {
       case 'p':
         prefix = strdup(optarg);
@@ -37,6 +50,9 @@ int main(int argc, char **argv) {
       case 'b':
         if ((byte_size = strtol(optarg, &ep, 10)) <= 0 || *ep)
           usage("illegal byte size");
+        break;
+      case 'x':
+        xargs++;
         break;
       default:
         usage("Invalid option");
@@ -56,12 +72,12 @@ int main(int argc, char **argv) {
 void newfile(FILE **ofpp) {
   char *newfilename;
   if (*ofpp)
-    fclose(*ofpp);
+    close_output(*ofpp, current_output_file);
 
   asprintf(&newfilename, "%s%05d", prefix, split_count);
   *ofpp = fopen(newfilename, "w");
 
-  fprintf(stderr, "New file: %s\n", newfilename);
+  //fprintf(stderr, "New file: %s\n", newfilename);
 
   if (*ofpp == NULL) {
     fprintf(stderr, "Problem opening '%s'\n", newfilename);
@@ -118,6 +134,6 @@ void split(char *file) {
     output(buf, bytes, &ofp);
     
   if (ofp)
-    fclose(ofp);
+    close_output(ofp, current_output_file);
 
 }
