@@ -18,7 +18,7 @@ void split(char *file);
 void newfile(FILE **ofpp);
 
 void usage(char *msg) {
-  printf("Usage: fastsplit [-p output_path_prefix] [-b byte_size]\n");
+  printf("Usage: choplog [-p output_path_prefix] [-b byte_size]\n");
   if (msg != NULL)
     printf("error: %s\n", msg);
 
