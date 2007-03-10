@@ -92,12 +92,12 @@ my %MATCH = (
 # parsedate - convert time values
 # uid2user - uid lookups for usernames
 my $filters = {
-  qr/shnq/ => sub { s/([`(){}[\]\$*?!|;'"])/\\$1/g; $_ },
-  qr/shdq/ => sub { s/([`\$"])/\\$1/g; $_ },
+  qr/shnq/ => sub { s/([`^()&{}[\]\$*?!|;'"\\])/\\$1/g; $_ },
+  qr/shdq/ => sub { s/([\\`\$"])/\\$1/g; $_ },
   qr/e\[((?:(?:\\])|(?:[^\]]))*)\]/ => sub { s/([$^N])/\\$1/g; $_ },
   #qr/e(.)((??{"([^$1]+)"}))$1/ => sub { print STDERR " foo '$1'\n"; return 1 },
 
-  qr/stripquotes/ => sub { s/^(['"])//; s/$1$//; $_ },
+  qr/stripquotes/ => sub { s/^(['"])//; s/$2$//; $_ },
   qr/parsedate/ => sub { str2time($_) },
   qr/strftime\(($RE{quoted})\)/ => sub { 
       my $m = substr($^N, 1, -1);
