@@ -1,6 +1,6 @@
 #!/bin/sh
 
-collector="localhost"
+collector="http://localhost/~jls/stats/updater.py"
 
 update() {
   while true; do
@@ -10,9 +10,12 @@ update() {
      | gawk '$1 ~ /^[0-9][0-9]*$/ {a=$1; $1=""; gsub(" ","_",$0); print "C_"$0"="a}' \
      | sed -e 's/__*/_/;'\
      | tr -d '()[]{}' \
-     | tr '\n' '&' ; echo) \
-     | sed -e 's,^,'$collector'?,' \
-     | xargs -n1 wget -q -O /dev/null
+     | tr '\n' '&'
+     echo
+    ) \
+    | sed -e 's,^,'$collector'?,' \
+    | xargs -n1 wget -q -O /dev/null
+    #| xargs -n1 GET
 
     duration=`perl -le "print 50 - (time() - $time)"`
     sleep $duration
