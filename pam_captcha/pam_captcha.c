@@ -180,6 +180,7 @@ static void figlet(pam_handle_t *pamh, char *fmt, ...) {
   }
 
   free(buffer);
+  pclose(fp);
 }
 
 static void pamprompt(pam_handle_t *pamh, int style, char **resp, char *fmt, ...) {/*{{{*/
