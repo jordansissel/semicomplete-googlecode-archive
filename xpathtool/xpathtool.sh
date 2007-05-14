@@ -59,7 +59,4 @@ XML
 
 xsltproc $XSLTPROC_FLAGS $TMP - \
 | ([ "$OUTPUTMETHOD" != "text" -a ! -z "$PRETTY" ] && xmllint --format - || cat)
-#[ "$OUTPUTMETHOD" != "text" -a ! -z "$PRETTY" ] && echo "pretty" || echo "ugly"
-#echo
-#cat $TMP
 rm $TMP
