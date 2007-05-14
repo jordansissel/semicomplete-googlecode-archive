@@ -34,12 +34,14 @@ cat << XML \
 | m4 -DXPATH="$XPATH" \
      -DDOINDENT="$DOINDENT" \
      -DSTRIPSPACE="$STRIPSPACE" \
+     -DPRETTY="$PRETTY" \
      -DOUTPUTMETHOD="$OUTPUTMETHOD" > $TMP
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 <xsl:output method="OUTPUTMETHOD" indent="DOINDENT"/>
 <xsl:strip-space elements="STRIPSPACE" />
 
 <xsl:template match="/">
+  <toplevel>
   <xsl:for-each select="XPATH">
     <xsl:choose>
       <xsl:when test="'OUTPUTMETHOD' = 'text'">
@@ -50,6 +52,7 @@ cat << XML \
       </xsl:otherwise>
     </xsl:choose>
   </xsl:for-each>
+  </toplevel>
 </xsl:template>
 </xsl:stylesheet>
 XML
