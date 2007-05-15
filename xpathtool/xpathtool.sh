@@ -1,6 +1,5 @@
 #!/bin/sh
 
-
 TMP=`mktemp /tmp/xpathtool.XXXXX`
 DOINDENT="yes"
 OUTPUTMETHOD="text"
@@ -15,6 +14,7 @@ while [ $# -gt 0 ]; do
     --otext) OUTPUTMETHOD="text" ;;
     --oxml) OUTPUTMETHOD="xml" ;;
     --ohtml) OUTPUTMETHOD="html" ;;
+    --oxsl) OUTPUTMETHOD="xsl" ;;
     --indent) DOINDENT="yes" ;;
     --noindent) DOINDENT="no" ;;
     --stripspace=*) STRIPSPACE="${1%*=}" ;;
@@ -57,6 +57,11 @@ cat << XML \
 </xsl:stylesheet>
 XML
 
-xsltproc $XSLTPROC_FLAGS $TMP - \
+if [ "$OUTPUTMETHOD" = "xsl" ] ; then
+  cat $TMP
+else
+  xsltproc $XSLTPROC_FLAGS $TMP -
+fi \
 | ([ "$OUTPUTMETHOD" != "text" -a ! -z "$PRETTY" ] && xmllint --format - || cat)
+
 rm $TMP
