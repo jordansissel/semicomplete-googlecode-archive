@@ -43,6 +43,7 @@ int main() {
 
     printf("%d %d %d %d\n", control, alt, key_l, key_two);
 
+    return;
     XTestFakeKeyEvent(xdpy, alt, True, CurrentTime);
     XTestFakeKeyEvent(xdpy, key_two, True, CurrentTime);
     XTestFakeKeyEvent(xdpy, key_two, False, CurrentTime);
