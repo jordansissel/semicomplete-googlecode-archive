@@ -1,10 +1,17 @@
 /* xdo
  *
+ * Compile:
+ *   gcc `pkg-config --cflags --libs x11 xtst` xdo.c -o xdo
+ *
+ *   FWIW, pkg-config above outputs this:
+ *   -D_THREAD_SAFE -I/usr/local/include  -L/usr/local/lib -lX11 -lXtst
+ *
  * "do" things normally done from the keyboard and mouse
  *
  * Implemented:
  * type something_to_type
  * move xcoord ycoord [screennum]
+ * click mouse_button
  * key key_sequence
  * sleep sleep_in_ms
  *
@@ -63,6 +70,7 @@ static dispatch_t commands[] = {
   "key", cmd_key,
   "sleep", cmd_sleep,
   "move", cmd_move,
+  "click", cmd_click,
   NULL, NULL,
 };
 
@@ -372,6 +380,17 @@ void cmd_move(char *args) {
   sscanf(args, "%d %d %d", &x, &y, &screen);
 
   XTestFakeMotionEvent(xdpy, -1, x, y, CurrentTime);
+
+  XFlush(xdpy);
+}
+
+void cmd_click(char *args) {
+  int button;
+
+  button = atoi(args);
+  printf("Button: %d\n", button);
+  XTestFakeButtonEvent(xdpy, button, True, CurrentTime);
+  XTestFakeButtonEvent(xdpy, button, False, CurrentTime);
 
   XFlush(xdpy);
 }
