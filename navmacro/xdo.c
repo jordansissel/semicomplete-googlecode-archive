@@ -1,4 +1,27 @@
-/* xquerytree 
+/* xdo
+ *
+ * "do" things normally done from the keyboard and mouse
+ *
+ * Implemented:
+ * type something_to_type
+ * move xcoord ycoord [screennum]
+ * key key_sequence
+ * sleep sleep_in_ms
+ *
+ * Commands a separated by semicolon and/or newlines.
+ *
+ * Example:
+ *
+ * Hello world using faked keyboard input
+ * echo 'type hello world' | ./xdo
+ *
+ * Use this while firefox is focused to go to google:
+ * echo 'key ctrl+l; sleep 1; type http://www.google.com/; key Return' | ./xdo
+ *   - This does:
+ *     1) Ctrl+L to focus the URL bar
+ *     2) Sleep to let the event propogate
+ *     3) Type http://www.google.com/
+ *     4) Press return
  */
 
 #include <sys/select.h>
@@ -14,8 +37,10 @@
 
 int main_loop();
 void xdo(char *cmd);
-void char2code(char key);
+int get_keycode(char key);
+int get_shift(char key);
 void populate_charcode_map();
+char char_from_keystring(char *keysym);
 
 /* Commands */
 void cmd_type(char *args);
@@ -47,17 +72,64 @@ static char *symbol_map[] = {
   "control", "Control_L",
   "meta", "Meta_L",
   "super", "Super_L",
+  "shift", "Shift_L",
   NULL, NULL,
 };
 
 typedef struct charcodemap {
   char key;
   int code;
+  int shift;
 } charcodemap_t;
+
+typedef struct keysymcharmap {
+  char *keysym;
+  char key;
+} keysymcharmap_t;
 
 static charcodemap_t *charcodes = NULL;
 static int keycode_lowest;
+static int keycode_highest;
 static Display *xdpy = NULL;
+
+keysymcharmap_t keysymcharmap[] = {
+  "Return", '\n',
+  "ampersand", '&',
+  "apostrophe", '\'',
+  "asciicircum", '^',
+  "asciitilde", '~',
+  "asterisk", '*',
+  "at", '@',
+  "backslash", '\\',
+  "bar", '|',
+  "braceleft", '{',
+  "braceright", '}',
+  "bracketleft", '[',
+  "bracketright", ']',
+  "colon", ':',
+  "comma", ',',
+  "dollar", '$',
+  "equal", '=',
+  "exclam", '!',
+  "grave", '`',
+  "greater", '>',
+  "less", '<',
+  "minus", '-',
+  "numbersign", '#',
+  "parenleft", '(',
+  "parenright", ')',
+  "percent", '%',
+  "period", '.',
+  "plus", '+',
+  "question", '?',
+  "quotedbl", '"',
+  "semicolon", ';',
+  "slash", '/',
+  "space", ' ',
+  "tab", '\t',
+  "underscore", '_',
+  NULL, 0,
+};
 
 int main() {
   char *display_name = NULL;
@@ -87,26 +159,80 @@ void populate_charcode_map() {
   int key_low, key_high;
   int dummy;
   int i;
+  int charcodes_len;
+
   XDisplayKeycodes(xdpy, &key_low, &key_high);
 
-  charcodes = malloc((key_high - key_low) * sizeof(charcodemap_t));
+  /* Double in size because there's actually 2 characters per key
+   * shifted and nonshifted. */
+  charcodes_len = (key_high - key_low) * 2;
+  charcodes = malloc(charcodes_len * sizeof(charcodemap_t));
+  memset(charcodes, 0, charcodes_len * sizeof(charcodemap_t));
+
+  int shiftcode = XKeysymToKeycode(xdpy, XStringToKeysym("Shift_L"));
+
   keycode_lowest = key_low;
+  keycode_highest = key_high;
 
+  //printf("Low/High: %d/%d\n", key_low, key_high);
   for (i = key_low; i <= key_high; i++) {
-    XKeyEvent ke;
-    char keybuf[2];
-    memset(keybuf, 0, 2);
-    ke.type = KeyPress;
-    ke.display = xdpy;
-    ke.state = 0;
-    ke.keycode = i;
+    char *keybuf;
+    int j;
 
-    XLookupString(&ke, keybuf, 1, &dummy, NULL);
-    printf("%d => %s\n", i, keybuf);
-    charcodes[i - key_low].key = keybuf[0];
-    charcodes[i - key_low].code = i;
+    for (j = 0; j <= 1; j++) {
+      int index = (i * 2 + j) - key_low;
+      keybuf = XKeysymToString(XKeycodeToKeysym(xdpy, i, j));
+      if (keybuf != NULL) {
+        //printf("%d => %s\n", i, keybuf);
+        charcodes[index].key = char_from_keystring(keybuf);
+      } else {
+        //printf("No such key for code %d\n", i);
+        charcodes[index].key = -1;
+      }
+      charcodes[index].code = i;
+      charcodes[index].shift = j ? shiftcode : 0;
+    }
+  }
+  //printf("end: %d\n", i);
+
+}
+
+int get_keycode(char key) {
+  int i;
+  int len = keycode_highest - keycode_lowest;
+  for (i = 0; i < len; i++) {
+    //if (charcodes[i].key != -1)
+      //printf("%c vs %c\n", charcodes[i].key, key);
+    if (charcodes[i].key == key)
+      return charcodes[i].code;
   }
 
+  return -1;
+}
+
+int get_shift(char key) {
+  int i;
+  int len = keycode_highest - keycode_lowest;
+  for (i = 0; i < len; i++) {
+    if (charcodes[i].key == key)
+      return charcodes[i].shift;
+  }
+
+  return 0;
+}
+
+char char_from_keystring(char *keysym) {
+  int i;
+
+  for (i = 0; keysymcharmap[i].keysym; i++) {
+    if (!strcmp(keysymcharmap[i].keysym, keysym))
+      return keysymcharmap[i].key;
+  }
+
+  if (strlen(keysym) == 1)
+    return keysym[0];
+
+  return -1;
 }
 
 int main_loop() {
@@ -148,19 +274,28 @@ void xdo(char *cmd) {
 }
 
 void cmd_type(char *args) {
-  int i;
-  int len;
-  char key;
-  int keycode;
-  memset(key, 0, 2);
+  int i = 0;
+  int len = 0;
+  char key = 0;
+  int keycode = 0;
+  int shift = 0;
 
   len = strlen(args);
 
+  //printf("Typing: %s\n", args);
   for (i = 0; i < len; i++) {
     key = *(args + i);
-    keycode = char2code(key[0]);
+    keycode = get_keycode(key);
+    shift = get_shift(key);
+    //printf("K: %d (%s)\n", keycode, (shift ? "shifted" : ""));
+    if (shift)
+      XTestFakeKeyEvent(xdpy, shift, True, CurrentTime);
+
     XTestFakeKeyEvent(xdpy, keycode, True, CurrentTime);
     XTestFakeKeyEvent(xdpy, keycode, False, CurrentTime);
+
+    if (shift)
+      XTestFakeKeyEvent(xdpy, shift, False, CurrentTime);
     XFlush(xdpy);
   }
 }
