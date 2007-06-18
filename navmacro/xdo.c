@@ -14,6 +14,8 @@
 
 int main_loop();
 void xdo(char *cmd);
+void char2code(char key);
+void populate_charcode_map();
 
 /* Commands */
 void cmd_type(char *args);
@@ -35,10 +37,27 @@ static dispatch_t commands[] = {
   "type", cmd_type,
   "key", cmd_key,
   "sleep", cmd_sleep,
+  "move", cmd_move,
   NULL, NULL,
 };
 
-static Display *xdpy;
+static char *symbol_map[] = {
+  "alt", "Alt_L",
+  "ctrl", "Control_L",
+  "control", "Control_L",
+  "meta", "Meta_L",
+  "super", "Super_L",
+  NULL, NULL,
+};
+
+typedef struct charcodemap {
+  char key;
+  int code;
+} charcodemap_t;
+
+static charcodemap_t *charcodes = NULL;
+static int keycode_lowest;
+static Display *xdpy = NULL;
 
 int main() {
   char *display_name = NULL;
@@ -59,8 +78,37 @@ int main() {
     return 1;
   }
 
+  populate_charcode_map();
+
   return main_loop();
 } 
+
+void populate_charcode_map() {
+  int key_low, key_high;
+  int dummy;
+  int i;
+  XDisplayKeycodes(xdpy, &key_low, &key_high);
+
+  charcodes = malloc((key_high - key_low) * sizeof(charcodemap_t));
+  keycode_lowest = key_low;
+
+  for (i = key_low; i <= key_high; i++) {
+    XKeyEvent ke;
+    char keybuf[2];
+    memset(keybuf, 0, 2);
+    ke.type = KeyPress;
+    ke.display = xdpy;
+    ke.state = 0;
+    ke.keycode = i;
+
+    XLookupString(&ke, keybuf, 1, &dummy, NULL);
+    printf("%d => %s\n", i, keybuf);
+    charcodes[i - key_low].key = keybuf[0];
+    charcodes[i - key_low].code = i;
+  }
+
+}
+
 int main_loop() {
 #define READBUFSIZE (4096)
 #define COMMANDSEP (";\n")
@@ -102,15 +150,15 @@ void xdo(char *cmd) {
 void cmd_type(char *args) {
   int i;
   int len;
-  char key[2];
+  char key;
+  int keycode;
   memset(key, 0, 2);
 
   len = strlen(args);
 
   for (i = 0; i < len; i++) {
-    int keycode;
-    key[0] = *(args + i);
-    keycode = XKeysymToKeycode(xdpy, XStringToKeysym(key));
+    key = *(args + i);
+    keycode = char2code(key[0]);
     XTestFakeKeyEvent(xdpy, keycode, True, CurrentTime);
     XTestFakeKeyEvent(xdpy, keycode, False, CurrentTime);
     XFlush(xdpy);
@@ -124,6 +172,7 @@ void cmd_key(char *args) {
   int *keys = NULL;
   int nkeys = 0;
   int keys_len = 10;
+  char *strptr = NULL;
 
   keys = malloc(keys_len * sizeof(int));
 
@@ -132,16 +181,28 @@ void cmd_key(char *args) {
     return;
   }
 
-  tok = strtok_r(args, "+", &tokctx);
-  while (tok != NULL) {
-    /* Lowercase it */
-    //for (i = 0; tok[i] != (char)NULL; i++)
-      //tok[i] = tolower(tok[i]);
+  strptr = args;
 
-    printf("key: %s\n", tok);
-    keys[nkeys] = XKeysymToKeycode(xdpy, XStringToKeysym(tok));
+  while ((tok = strtok_r(strptr, "+", &tokctx)) != NULL) {
+    int keysym;
+    if (strptr != NULL)
+      strptr = NULL;
+
+    /* Check if 'tok' (string keysym) is an alias to another key */
+    for (i = 0; symbol_map[i] != NULL; i+=2)
+      if (!strcasecmp(tok, symbol_map[i]))
+        tok = symbol_map[i + 1];
+
+    keysym = XStringToKeysym(tok);
+    if (keysym == NoSymbol) {
+      fprintf(stderr, "(symbol) No such key name '%s'. Ignoring it.\n", tok);
+      continue;
+    }
+
+    keys[nkeys] = XKeysymToKeycode(xdpy, keysym);
+
     if (keys[nkeys] == 0) {
-      fprintf(stderr, "No such key name '%s'. Ignoring it.\n", tok);
+      fprintf(stderr, "No such key '%s'. Ignoring it.\n", tok);
       continue;
     }
 
@@ -150,8 +211,6 @@ void cmd_key(char *args) {
       keys_len *= 2;
       keys = realloc(keys, keys_len);
     }
-    
-    tok = strtok_r(NULL, "+", &tokctx);
   }
 
   for (i = 0; i < nkeys; i++)
@@ -170,4 +229,20 @@ void cmd_sleep(char *args) {
   t.tv_sec = sleep_ms / 1000;
   t.tv_usec = (sleep_ms % 1000) * 1000; /* milliseconds -> microseconds */
   select(0, NULL, NULL, NULL, &t);
+}
+
+void cmd_move(char *args) {
+  int x, y;
+  int screen;
+  sscanf(args, "%d %d %d", &x, &y, &screen);
+
+  XTestFakeMotionEvent(xdpy, -1, x, y, CurrentTime);
+
+  XFlush(xdpy);
+}
+
+void strtolower(char *str) {
+  int i;
+  for (i = 0; str[i] != (char)NULL; i++)
+    str[i] = tolower(str[i]);
 }
