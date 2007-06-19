@@ -26,9 +26,15 @@ static GdkPixmap *pixmap_top;
 static GdkPixmap *pixmap_bottom;
 
 static gboolean
-input_event(GtkWidget *widget, ...) {
+input_changed_event(GtkWidget *widget, gpointer userdata) {
   g_print("input\n");
-  return FALSE;
+  return TRUE;
+}
+
+static gboolean
+input_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) {
+  g_print("key %d\n", event->hardware_keycode);
+  // keycode 9 == Escape
 }
 
 static gboolean
@@ -143,13 +149,14 @@ static void destroy( GtkWidget *widget, gpointer   data ) {
 int main( int argc, char **argv ) {
   GtkWidget *window;
   GtkWidget *input;
+  GtkWidget *label;
   GtkWidget *draw_top;
   GtkWidget *draw_bottom;
   GtkWidget *vbox;
   
   gtk_init (&argc, &argv);
 
-  window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+  window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
   gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER_ALWAYS);
   g_signal_connect(G_OBJECT (window), "delete_event",
                    G_CALLBACK (delete_event), NULL);
@@ -163,7 +170,12 @@ int main( int argc, char **argv ) {
   vbox = gtk_vbox_new(FALSE, 0);
   
   input = gtk_entry_new();
-  g_signal_connect(G_OBJECT(input), "key_press_event", G_CALLBACK (input_event), NULL);
+  g_signal_connect(G_OBJECT(input), "changed", G_CALLBACK (input_changed_event), NULL);
+  g_signal_connect_after(G_OBJECT(input), "key-press-event", G_CALLBACK (input_key_press), NULL);
+  gtk_widget_set_size_request(input, -1, 1);
+  
+  label = gtk_label_new("");
+  gtk_label_set_markup(GTK_LABEL(label), "foo bar <b>baz</b>");
 
   draw_top = gtk_drawing_area_new();
   draw_bottom = gtk_drawing_area_new();
@@ -181,7 +193,8 @@ int main( int argc, char **argv ) {
 
   gtk_container_add(GTK_CONTAINER(vbox), draw_top);
   gtk_container_add(GTK_CONTAINER(vbox), input);
-  gtk_container_add(GTK_CONTAINER (vbox), draw_bottom);
+  gtk_container_add(GTK_CONTAINER(vbox), label);
+  gtk_container_add(GTK_CONTAINER(vbox), draw_bottom);
 
   gtk_container_add(GTK_CONTAINER(window), vbox);
 
