@@ -1,5 +1,8 @@
 CFLAGS=-g
 
+clean:
+	rm *.o
+
 navmacro: navmacro.o
 	gcc $(CFLAGS) `pkg-config --libs x11 gtk+-2.0` navmacro.o -o $@
 
