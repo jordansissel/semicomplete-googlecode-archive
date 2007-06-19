@@ -6,8 +6,6 @@
  *
  */
 
-
-
 #include <X11/Xlib.h>
 #include <X11/Xresource.h>
 #include <X11/Xutil.h>
@@ -26,6 +24,12 @@ static struct xdpyinfo {
 
 static GdkPixmap *pixmap_top;
 static GdkPixmap *pixmap_bottom;
+
+static gboolean
+input_event(GtkWidget *widget, ...) {
+  g_print("input\n");
+  return FALSE;
+}
 
 static gboolean
 configure_event_border_top( GtkWidget *widget, GdkEventConfigure *event ) {
@@ -107,6 +111,7 @@ static void activate( GtkWidget *widget, gpointer   data ) {
   int window_id;
   XSetWindowAttributes winattr;
   GdkScreen *gdk_screen;
+  int grabstatus;
 
   xwin.display = GDK_WINDOW_XDISPLAY(widget->window);
   window_id = GDK_WINDOW_XID(widget->window);
@@ -114,19 +119,25 @@ static void activate( GtkWidget *widget, gpointer   data ) {
   /* Tell window managers to not manage us */
   winattr.override_redirect = 1;
   XChangeWindowAttributes(xwin.display, window_id, CWOverrideRedirect, &winattr);
-
   /* Set width to 100% of the screen */
   gdk_screen = gtk_widget_get_screen(widget);
   xwin.width = gdk_screen_get_width(gdk_screen);
-  gtk_window_set_default_size(GTK_WINDOW(widget), xwin.width, -1);
+  gtk_window_set_default_size(GTK_WINDOW(widget), xwin.width / 2, -1);
+
+}
+
+static void configure_event_mainwindow( GtkWidget *widget, gpointer data ) {
+  int grabstatus;
+  int window_id;
+
+  window_id = GDK_WINDOW_XID(widget->window);
+  grabstatus = XGrabKeyboard(xwin.display, window_id, FALSE, GrabModeSync, GrabModeAsync, CurrentTime);
+  if (grabstatus != GrabSuccess)
+    printf("Failed to grab the display: %d\n", grabstatus);
 }
 
 static void destroy( GtkWidget *widget, gpointer   data ) {
   gtk_main_quit ();
-}
-
-static void hello( GtkWidget *widget, gpointer   data ) {
-  g_print("foo: %d\n", GDK_WINDOW_XID(widget->window));
 }
 
 int main( int argc, char **argv ) {
@@ -146,11 +157,13 @@ int main( int argc, char **argv ) {
                    G_CALLBACK (destroy), NULL);
   g_signal_connect(G_OBJECT(window), "realize",
                    G_CALLBACK(activate), NULL);
+  g_signal_connect(G_OBJECT(window), "configure_event",
+                   G_CALLBACK(configure_event_mainwindow), NULL);
 
   vbox = gtk_vbox_new(FALSE, 0);
   
   input = gtk_entry_new();
-  g_signal_connect(G_OBJECT(input), "clicked", G_CALLBACK (hello), NULL);
+  g_signal_connect(G_OBJECT(input), "key_press_event", G_CALLBACK (input_event), NULL);
 
   draw_top = gtk_drawing_area_new();
   draw_bottom = gtk_drawing_area_new();
@@ -173,6 +186,7 @@ int main( int argc, char **argv ) {
   gtk_container_add(GTK_CONTAINER(window), vbox);
 
   gtk_widget_show_all(window);
+  gtk_widget_grab_focus(GTK_WIDGET(input));
 
   gtk_main();
   return 0;
