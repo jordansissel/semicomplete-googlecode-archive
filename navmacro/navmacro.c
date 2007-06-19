@@ -15,6 +15,8 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkx.h>
 
+#include "xdo.h"
+
 #define BORDER_SIZE (3)
 
 typedef struct ui {
@@ -32,6 +34,7 @@ ui_t ui;
 static struct xdpyinfo {
   Display *display;
   int width;
+  int main_window;
 } xwin;
 
 static gboolean
@@ -44,12 +47,51 @@ input_changed_event(GtkWidget *widget, gpointer userdata) {
 }
 
 static gboolean
+input_activate(GtkWidget *widget, gpointer userdata) {
+  const gchar *field_value;
+
+  field_value = gtk_entry_get_text(GTK_ENTRY(widget));
+  if (!strcmp(field_value, "ffup")) {
+    xdo_t *xdo = xdo_new_with_opened_display(xwin.display, NULL, 0);
+    if (xdo != NULL) {
+      XUngrabKeyboard(xwin.display, CurrentTime);
+      XFlush(xwin.display);
+      xdo_keysequence(xdo, strdup("alt+2"));
+      usleep(50*1000);
+      xdo_keysequence(xdo, strdup("ctrl+l"));
+      xdo_keysequence(xdo, strdup("BackSpace"));
+      xdo_mousemove(xdo, 55, 55);
+      xdo_click(xdo, 2);
+      xdo_keysequence(xdo, strdup("Return"));
+      XGrabKeyboard(xwin.display, xwin.main_window, FALSE, GrabModeSync, GrabModeAsync, CurrentTime);
+      xdo_free(xdo);
+      gtk_main_quit();
+    }
+  }
+  if (!strcmp(field_value, "ffsp")) {
+    xdo_t *xdo = xdo_new_with_opened_display(xwin.display, NULL, 0);
+    if (xdo != NULL) {
+      XUngrabKeyboard(xwin.display, CurrentTime);
+      XFlush(xwin.display);
+      xdo_keysequence(xdo, strdup("alt+2"));
+      usleep(50*1000);
+      xdo_keysequence(xdo, strdup("ctrl+j"));
+      xdo_keysequence(xdo, strdup("BackSpace"));
+      xdo_mousemove(xdo, 600, 35);
+      xdo_click(xdo, 2);
+      xdo_keysequence(xdo, strdup("ctrl+alt+Return"));
+      XGrabKeyboard(xwin.display, xwin.main_window, FALSE, GrabModeSync, GrabModeAsync, CurrentTime);
+      xdo_free(xdo);
+      gtk_main_quit();
+    }
+  }
+  return TRUE;
+}
+
+static gboolean
 input_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) {
-
   if (event->hardware_keycode == 9) // Escape
-    gtk_main_quit ();
-
-  //g_print("key %d\n", event->hardware_keycode);
+    gtk_main_quit();
 }
 
 
@@ -58,17 +100,16 @@ static gboolean delete_event( GtkWidget *widget, GdkEvent *event, gpointer data 
 }
 
 static void realize_mainwindow( GtkWidget *widget, gpointer data) {
-  int window_id;
   XSetWindowAttributes winattr;
   GdkScreen *gdk_screen;
   int grabstatus;
 
   xwin.display = GDK_WINDOW_XDISPLAY(widget->window);
-  window_id = GDK_WINDOW_XID(widget->window);
+  xwin.main_window = GDK_WINDOW_XID(widget->window);
 
   /* Tell window managers to not manage us */
   winattr.override_redirect = 1;
-  XChangeWindowAttributes(xwin.display, window_id, CWOverrideRedirect, &winattr);
+  XChangeWindowAttributes(xwin.display, xwin.main_window, CWOverrideRedirect, &winattr);
   /* Set width to 100% of the screen */
   gdk_screen = gtk_widget_get_screen(widget);
   xwin.width = gdk_screen_get_width(gdk_screen);
@@ -78,10 +119,8 @@ static void realize_mainwindow( GtkWidget *widget, gpointer data) {
 
 static void configure_event_mainwindow( GtkWidget *widget, gpointer data ) {
   int grabstatus;
-  int window_id;
 
-  window_id = GDK_WINDOW_XID(widget->window);
-  grabstatus = XGrabKeyboard(xwin.display, window_id, FALSE, GrabModeSync, GrabModeAsync, CurrentTime);
+  grabstatus = XGrabKeyboard(xwin.display, xwin.main_window, FALSE, GrabModeSync, GrabModeAsync, CurrentTime);
   if (grabstatus != GrabSuccess)
     printf("Failed to grab the display: %d\n", grabstatus);
 }
@@ -108,6 +147,7 @@ int main( int argc, char **argv ) {
   
   ui.user_input = gtk_entry_new();
   g_signal_connect(G_OBJECT(ui.user_input), "changed", G_CALLBACK (input_changed_event), NULL);
+  g_signal_connect(G_OBJECT(ui.user_input), "activate", G_CALLBACK (input_activate), NULL);
   g_signal_connect_after(G_OBJECT(ui.user_input), "key-press-event", G_CALLBACK (input_key_press), NULL);
   
   ui.status_label = gtk_label_new("");

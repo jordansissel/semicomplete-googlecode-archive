@@ -12,6 +12,7 @@
 #include <X11/extensions/XTest.h>
 
 #include "xdo.h"
+#include "xdo_util.h"
 
 static void _xdo_keydown(xdo_t *xdo, int keycode);
 static void _xdo_keyup(xdo_t *xdo, int keycode);
@@ -26,25 +27,36 @@ static int _xdo_get_shiftcode_if_needed(xdo_t *xdo, char key);
 /* context-free functions */
 char _keysym_to_char(char *keysym);
 
-xdo_t* xdo_new(char *display) {
+xdo_t* xdo_new(char *display_name) {
+  Display *xdpy;
+
+  if ((xdpy = XOpenDisplay(display_name)) == NULL) {
+    fprintf(stderr, "Error: Can't open display: %s\n", display_name);
+    return NULL;
+  }
+
+  return xdo_new_with_opened_display(xdpy, display_name, 1);
+}
+
+xdo_t* xdo_new_with_opened_display(Display *xdpy, char *display, 
+                                   int close_display_when_freed) {
   xdo_t *xdo = NULL;
 
-  if (display == NULL)
-    fprintf(stderr, "xdo_new: display I was given is a null pointer\n");
+  if (xdpy == NULL) {
+    fprintf(stderr, "xdo_new: xdisplay I was given is a null pointer\n");
+    return NULL;
+  }
 
   /* XXX: Check for NULL here */
   xdo = malloc(sizeof(xdo_t));
   memset(xdo, 0, sizeof(xdo_t));
 
-  /* XXX: Check for NULL here */
-  //xdo->display_name = (char *)strdup(display);
-  xdo->display_name = display;
+  xdo->xdpy = xdpy;
+  xdo->close_display_when_freed = close_display_when_freed;
 
-  if ((xdo->xdpy = XOpenDisplay(xdo->display_name)) == NULL) {
-    fprintf(stderr, "Error: Can't open display: %s\n", xdo->display_name);
-    xdo_free(xdo);
-    return NULL;
-  }
+  /* XXX: Check for NULL here */
+  if (display == NULL)
+    display = "unknown";
 
   if (!_xdo_has_xtest(xdo)) {
     fprintf(stderr, "Error: XTEST extension unavailable on '%s'.", 
@@ -60,8 +72,11 @@ xdo_t* xdo_new(char *display) {
 }
 
 void xdo_free(xdo_t *xdo) {
-  free(xdo->display_name);
-  if (xdo->xdpy)
+  if (xdo->display_name)
+    free(xdo->display_name);
+  if (xdo->charcodes)
+    free(xdo->charcodes);
+  if (xdo->xdpy && xdo->close_display_when_freed)
     XCloseDisplay(xdo->xdpy);
   free(xdo);
 }
@@ -232,11 +247,8 @@ static void _xdo_populate_charcode_map(xdo_t *xdo) {
      xdo->charcodes[index].key = _keysym_to_char(keybuf);
      xdo->charcodes[index].code = i;
      xdo->charcodes[index].shift = j ? shift_keycode : 0;
-     printf("index; %d %d\n", index, xdo->keycode_low);
     }
   }
-  printf("Expected end: %d\n", keycodes_length);
-  printf("end\n");
 }
 
 /* context-free functions */
@@ -259,6 +271,7 @@ char _keysym_to_char(char *keysym) {
 }
 
 /* main test */
+#ifdef BUILDMAIN
 int main() {
   char *display_name;
   xdo_t *xdo;
@@ -274,10 +287,12 @@ int main() {
 
   xdo = xdo_new(display_name);
   xdo_mousemove(xdo, 100, 100);
-  xdo_keysequence(xdo, yay);
-  xdo_type(xdo, "ls");
-  xdo_keysequence(xdo, "Return");
+  usleep(100 * 1000);
+  xdo_keysequence(xdo, strdup("ctrl+l"));
+  xdo_type(xdo, strdup("ls"));
+  xdo_keysequence(xdo, strdup("Return"));
   xdo_free(xdo);
 
   return 0;
 }
+#endif

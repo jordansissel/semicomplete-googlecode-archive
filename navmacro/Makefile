@@ -3,8 +3,8 @@ CFLAGS=-g
 clean:
 	rm *.o
 
-navmacro: navmacro.o
-	gcc $(CFLAGS) `pkg-config --libs x11 gtk+-2.0` navmacro.o -o $@
+navmacro: navmacro.o xdo.o
+	gcc $(CFLAGS) `pkg-config --libs x11 xtst gtk+-2.0` $> -o $@
 
 navmacro.o:
 	gcc $(CFLAGS) `pkg-config --cflags x11 gtk+-2.0` -c navmacro.c

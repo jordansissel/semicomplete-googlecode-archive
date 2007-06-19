@@ -11,12 +11,6 @@ char *symbol_map[] = {
   NULL, NULL,
 };
 
-/* Map keysym name to actual ascii */
-typedef struct keysymcharmap {
-  char *keysym;
-  char key;
-} keysymcharmap_t;
-
 keysymcharmap_t keysymcharmap[] = {
   "Return", '\n',
   "ampersand", '&',
@@ -55,11 +49,4 @@ keysymcharmap_t keysymcharmap[] = {
   "underscore", '_',
   NULL, 0,
 };
-
-/* map character to keycode */
-typedef struct charcodemap {
-  char key;
-  int code;
-  int shift;
-} charcodemap_t;
 
