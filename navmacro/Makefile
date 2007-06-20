@@ -26,3 +26,11 @@ xdotool.o:
 
 xdotool: xdotool.o xdo.o
 	gcc $(CFLAGS) `pkg-config --libs x11 xtst` $> -o $@
+
+package:
+	NAME=navmacro-`date +%Y%m%d`; \
+	mkdir $$NAME; \
+	cp *.c *.h Makefile $$NAME; \
+	tar -zcf $${NAME}.tar.gz $${NAME}: \
+	rm -rf $${NAME}
+
