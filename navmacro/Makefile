@@ -20,3 +20,9 @@ xdo: xdo.o
 
 xdo.o:
 	gcc $(CFLAGS) `pkg-config --cflags x11 xtst` -c xdo.c
+
+xdotool.o:
+	gcc $(CFLAGS) `pkg-config --cflags x11 xtst` -c xdotool.c
+
+xdotool: xdotool.o xdo.o
+	gcc $(CFLAGS) `pkg-config --libs x11 xtst` $> -o $@
