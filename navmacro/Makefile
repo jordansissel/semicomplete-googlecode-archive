@@ -29,8 +29,8 @@ xdotool: xdotool.o xdo.o
 
 package:
 	NAME=navmacro-`date +%Y%m%d`; \
-	mkdir $$NAME; \
-	cp *.c *.h Makefile $$NAME; \
-	tar -zcf $${NAME}.tar.gz $${NAME}: \
-	rm -rf $${NAME}
+	mkdir $${NAME}; \
+	cp *.c *.h Makefile $${NAME}/; \
+	tar -zcf $${NAME}.tar.gz $${NAME}/; \
+	rm -rf $${NAME}/
 
