@@ -6,6 +6,8 @@
  *
  */
 
+#include <sys/types.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -59,15 +61,17 @@ static void gtk_loop_iteration();
 
 static void exec_macro(const gchar *macro) {
   if (fork() == 0) {
-    const char *argv[3] = { "/bin/sh", "-c", macro };
-    close(0);
-    close(1);
-    close(2);
-    int devnull_r = open("/dev/null", "r");
-    int devnull_w = open("/dev/null", "w");
-    dup(devnull_r, 0);
-    dup(devnull_w, 1);
-    dup(devnull_w, 2);
+    char *argv[3] = { "/bin/sh", "-c", macro };
+    /*
+    * close(0);
+    * close(1);
+    * close(2);
+    * int devnull_r = open("/dev/null", "r");
+    * int devnull_w = open("/dev/null", "w");
+    * dup2(devnull_r, 0);
+    * dup2(devnull_w, 1);
+    * dup2(devnull_w, 2);
+    */
     execve("/bin/sh", argv, environ); 
     exit(0);
   }
