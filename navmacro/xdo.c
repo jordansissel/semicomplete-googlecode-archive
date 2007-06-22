@@ -93,12 +93,18 @@ void xdo_free(xdo_t *xdo) {
 void xdo_window_list_by_regex(xdo_t *xdo, char *regex,
                               Window **windowlist, int *nwindows) {
   regex_t re;
-  regcomp(&re, regex, REG_EXTENDED | REG_ICASE | REG_NOSUB);
   Window *total_window_list = NULL;
   int ntotal_windows = 0;
   int window_list_size = 0;
-
   int matched_window_list_size = 100;
+
+  int ret;
+
+  ret = regcomp(&re, regex, REG_EXTENDED | REG_ICASE);
+  if (ret != 0) {
+    fprintf(stderr, "Failed to compile regex: '%s'\n", regex);
+    return;
+  }
 
   *nwindows = 0;
   *windowlist = malloc(matched_window_list_size * sizeof(Window));
