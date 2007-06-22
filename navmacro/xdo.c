@@ -121,6 +121,8 @@ void xdo_window_list_by_regex(xdo_t *xdo, char *regex,
       }
     }
   }
+
+  regfree(&re);
 }
 
 void xdo_window_move(xdo_t *xdo, int wid, int x, int y) {
@@ -291,7 +293,8 @@ static void _xdo_populate_charcode_map(xdo_t *xdo) {
 
   /* Double size of keycode range because some 
    * keys have "shift" values. ie; 'a' and 'A', '2' and '@' */
-  keycodes_length = (xdo->keycode_high - xdo->keycode_low) * 2 + 1;
+  /* Add 2 to the size because the range [low, high] is inclusive */
+  keycodes_length = (xdo->keycode_high - xdo->keycode_low) * 2 + 2;
   xdo->charcodes = malloc(keycodes_length * sizeof(charcodemap_t));
   memset(xdo->charcodes, 0, keycodes_length * sizeof(charcodemap_t));
 
@@ -362,13 +365,15 @@ static void _xdo_get_child_windows(xdo_t *xdo, Window window,
     *ntotal_windows += 1;
     if (*ntotal_windows == *window_list_size) {
       *window_list_size *= 2;
-      *total_window_list = realloc(*total_window_list, 
+      *total_window_list = realloc(*total_window_list,
                                    *window_list_size * sizeof(Window));
     }
 
     _xdo_get_child_windows(xdo, w, total_window_list,
                            ntotal_windows, window_list_size);
   }
+
+  XFree(children);
 }
 
 int _xdo_regex_match_window(xdo_t *xdo, Window window, regex_t *re) {
@@ -379,6 +384,8 @@ int _xdo_regex_match_window(xdo_t *xdo, Window window, regex_t *re) {
   int i;
 
   XGetWindowAttributes(xdo->xdpy, window, &attr);
+
+  /* XXX: Memory leak here according to valgrind? */
   XGetWMName(xdo->xdpy, window, &tp);
 
   if (tp.nitems > 0) {
