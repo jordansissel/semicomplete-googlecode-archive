@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <regex.h>
+
 #include <X11/Xlib.h>
 #include <X11/Xresource.h>
 #include <X11/Xutil.h>
@@ -23,6 +25,13 @@ static int _xdo_has_xtest(xdo_t *xdo);
 
 static int _xdo_keycode_from_char(xdo_t *xdo, char key);
 static int _xdo_get_shiftcode_if_needed(xdo_t *xdo, char key);
+
+static void _xdo_get_child_windows(xdo_t *xdo, Window window,
+                                   Window **total_window_list, 
+                                   int *ntotal_windows, 
+                                   int *window_list_size);
+
+static int _xdo_regex_match_window(xdo_t *xdo, Window window, regex_t *re);
 
 /* context-free functions */
 char _keysym_to_char(char *keysym);
@@ -79,6 +88,62 @@ void xdo_free(xdo_t *xdo) {
   if (xdo->xdpy && xdo->close_display_when_freed)
     XCloseDisplay(xdo->xdpy);
   free(xdo);
+}
+
+void xdo_get_window_by_regex(xdo_t *xdo, char *regex,
+                             Window **windowlist, int *nwindows) {
+  regex_t re;
+  regcomp(&re, regex, REG_EXTENDED | REG_ICASE | REG_NOSUB);
+  Window *total_window_list = NULL;
+  int ntotal_windows = 0;
+  int window_list_size = 0;
+
+  int matched_window_list_size = 100;
+
+  *nwindows = 0;
+  *windowlist = malloc(matched_window_list_size * sizeof(Window));
+
+  /* regexec(&re, string, 0, NULL, 0) == 0 means MATCH */
+
+  _xdo_get_child_windows(xdo, XDefaultRootWindow(xdo->xdpy), 
+                         &total_window_list, &ntotal_windows,
+                         &window_list_size);
+  int i;
+  for (i = 0; i < ntotal_windows; i++) {
+    if (_xdo_regex_match_window(xdo, total_window_list[i], &re)) {
+      (*windowlist)[*nwindows] = total_window_list[i];
+      (*nwindows)++;
+
+      if (matched_window_list_size == *nwindows) {
+        matched_window_list_size *= 2;
+        *windowlist = realloc(*windowlist, 
+                              matched_window_list_size * sizeof(Window));
+      }
+    }
+  }
+}
+
+void xdo_window_move(xdo_t *xdo, int wid, int x, int y) {
+  XWindowChanges wc;
+  wc.x = x;
+  wc.y = y;
+  XConfigureWindow(xdo->xdpy, wid, CWX | CWY, &wc);
+}
+
+void xdo_window_setsize(xdo_t *xdo, int wid, int width, int height) {
+  XWindowChanges wc;
+  int flags = 0;
+  wc.width = width;
+  wc.height = height;
+  if (width > 0)
+    flags |= CWWidth;
+  if (height > 0)
+    flags |= CWHeight;
+  XConfigureWindow(xdo->xdpy, wid, flags, &wc);
+}
+
+void xdo_window_focus(xdo_t *xdo, int wid) {
+  XSetInputFocus(xdo->xdpy, wid, RevertToParent, CurrentTime);
 }
 
 /* XXX: Include 'screen number' support? */
@@ -270,9 +335,88 @@ char _keysym_to_char(char *keysym) {
   return -1;
 }
 
+  /* regexec(&re, string, 0, NULL, 0) == 0 means MATCH */
+
+static void _xdo_get_child_windows(xdo_t *xdo, Window window,
+                                   Window **total_window_list, 
+                                   int *ntotal_windows,
+                                   int *window_list_size) {
+  Window dummy;
+  int i;
+  Window *children;
+  unsigned int nchildren;
+
+  if (*window_list_size == 0) {
+    *ntotal_windows = 0;
+    *window_list_size = 100;
+    *total_window_list = malloc(*window_list_size * sizeof(Window));
+  }
+
+  /* foo */
+  if (!XQueryTree(xdo->xdpy, window, &dummy, &dummy, &children, &nchildren))
+    return;
+
+  for (i = 0; i < nchildren; i++) {
+    Window w = children[i];
+    (*total_window_list)[*ntotal_windows] = w;
+    *ntotal_windows += 1;
+    if (*ntotal_windows == *window_list_size) {
+      *window_list_size *= 2;
+      *total_window_list = realloc(*total_window_list, 
+                                   *window_list_size * sizeof(Window));
+    }
+
+    _xdo_get_child_windows(xdo, w, total_window_list,
+                           ntotal_windows, window_list_size);
+  }
+}
+
+int _xdo_regex_match_window(xdo_t *xdo, Window window, regex_t *re) {
+  XWindowAttributes attr;
+  XTextProperty tp;
+  XClassHint classhint;
+  char *name;
+  int i;
+
+  XGetWindowAttributes(xdo->xdpy, window, &attr);
+  XGetWMName(xdo->xdpy, window, &tp);
+
+  if (tp.nitems > 0) {
+    int count = 0;
+    char **list = NULL;
+    XmbTextPropertyToTextList(xdo->xdpy, &tp, &list, &count);
+    for (i = 0; i < count; i++) {
+      if (regexec(re, list[i], 0, NULL, 0) == 0) {
+        XFreeStringList(list);
+        return True;
+      }
+      XFreeStringList(list);
+    }
+  }
+
+  if (XGetClassHint(xdo->xdpy, window, &classhint)) {
+    if (classhint.res_name) {
+      if (regexec(re, classhint.res_name, 0, NULL, 0) == 0) {
+        XFree(classhint.res_name);
+        XFree(classhint.res_class);
+        return 1;
+      }
+      XFree(classhint.res_name);
+    }
+    if (classhint.res_class) {
+      if (regexec(re, classhint.res_class, 0, NULL, 0) == 0) {
+        XFree(classhint.res_class);
+        return 1;
+      }
+      XFree(classhint.res_class);
+    }
+  }
+  return 0;
+}
+
 /* main test */
 #ifdef BUILDMAIN
-int main() {
+int main(int argc, char **argv) {
   char *display_name;
   xdo_t *xdo;
 
@@ -283,14 +427,27 @@ int main() {
     exit(1);
   }
 
-  yay = strdup("ctrl+l");
+  //yay = strdup("ctrl+l");
 
   xdo = xdo_new(display_name);
-  xdo_mousemove(xdo, 100, 100);
-  usleep(100 * 1000);
-  xdo_keysequence(xdo, strdup("ctrl+l"));
-  xdo_type(xdo, strdup("ls"));
-  xdo_keysequence(xdo, strdup("Return"));
+  //xdo_mousemove(xdo, 100, 100);
+  //usleep(100 * 1000);
+  //xdo_keysequence(xdo, strdup("ctrl+l"));
+  //xdo_type(xdo, strdup("ls"));
+  //xdo_keysequence(xdo, strdup("Return"));
+
+  
+  Window *list;
+  int nwindows;
+  char *query = "xterm";
+  int i;
+  if (argc > 1)
+    query = argv[1];
+
+  xdo_get_window_by_regex(xdo, query, &list, &nwindows);
+  for (i = 0; i < nwindows; i++) {
+    printf("%d\n", list[i]);
+  }
   xdo_free(xdo);
 
   return 0;

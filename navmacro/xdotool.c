@@ -9,6 +9,9 @@ void cmd_mouseup(int argc, char **args);
 void cmd_click(int argc, char **args);
 void cmd_type(int argc, char **args);
 void cmd_key(int argc, char **args);
+void cmd_windowmove(int argc, char **args);
+void cmd_windowfocus(int argc, char **args);
+void cmd_windowsize(int argc, char **args);
 
 xdo_t *xdo;
 
@@ -16,6 +19,9 @@ struct dispatch {
   const char *name;
   void (*func)(int argc, char **args);
 } dispatch[] = {
+  "windowsize", cmd_windowsize,
+  "windowfocus", cmd_windowfocus,
+  "windowmove", cmd_windowmove,
   "mousemove", cmd_mousemove,
   "mousedown", cmd_mousedown,
   "mouseup", cmd_mouseup,
@@ -127,3 +133,43 @@ void cmd_key(int argc, char **args) {
   }
 }
 
+void cmd_windowmove(int argc, char **args) {
+  int x, y;
+  Window wid;
+  if (argc != 3) {
+    printf("usage: windowmove wid x y\n");
+    return;
+  }
+
+  wid = (int)strtol(args[0], NULL, 0);
+  x = (int)strtol(args[1], NULL, 0);
+  y = (int)strtol(args[2], NULL, 0);
+
+  xdo_window_move(xdo, wid, x, y);
+}
+
+void cmd_windowfocus(int argc, char **args) {
+  Window wid;
+  if (argc != 1) {
+    printf("usage: windowfocus wid\n");
+    return;
+  }
+
+  wid = (int)strtol(args[0], NULL, 0);
+  xdo_window_focus(xdo, wid);
+}
+
+void cmd_windowsize(int argc, char **args) {
+  int width, height;
+  Window wid;
+  if (argc != 3) {
+    printf("usage: windowsize wid width height\n");
+    return;
+  }
+
+  wid = (int)strtol(args[0], NULL, 0);
+  width = (int)strtol(args[1], NULL, 0);
+  height = (int)strtol(args[2], NULL, 0);
+
+  xdo_window_setsize(xdo, wid, width, height);
+}
