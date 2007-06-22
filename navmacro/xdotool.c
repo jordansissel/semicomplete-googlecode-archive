@@ -12,6 +12,7 @@ void cmd_key(int argc, char **args);
 void cmd_windowmove(int argc, char **args);
 void cmd_windowfocus(int argc, char **args);
 void cmd_windowsize(int argc, char **args);
+void cmd_search(int argc, char **args);
 
 xdo_t *xdo;
 
@@ -19,6 +20,7 @@ struct dispatch {
   const char *name;
   void (*func)(int argc, char **args);
 } dispatch[] = {
+  "search", cmd_search,
   "windowsize", cmd_windowsize,
   "windowfocus", cmd_windowfocus,
   "windowmove", cmd_windowmove,
@@ -172,4 +174,23 @@ void cmd_windowsize(int argc, char **args) {
   height = (int)strtol(args[2], NULL, 0);
 
   xdo_window_setsize(xdo, wid, width, height);
+}
+
+void cmd_search(int argc, char **args) {
+  Window *list;
+  int nwindows;
+  int i;
+
+  if (argc != 1) {
+    printf("usage: search regex_pattern\n");
+    return;
+  }
+
+  xdo_window_list_by_regex(xdo, *args, &list, &nwindows);
+  for (i = 0; i < nwindows; i++) {
+    printf("%d\n", list[i]);
+  }
+
+  /* Free list as it's malloc'd by xdo_window_list_by_regex */
+  free(list);
 }

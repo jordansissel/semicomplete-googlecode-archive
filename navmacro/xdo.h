@@ -49,5 +49,5 @@ void xdo_window_setsize(xdo_t *xdo, int wid, int w, int h);
 void xdo_window_focus(xdo_t *xdo, int wid);
 
 /* Returns: windowlist and nwindows */
-void xdo_get_window_by_regex(xdo_t *xdo, char *regex, 
-                             Window **windowlist, int *nwindows);
+void xdo_window_list_by_regex(xdo_t *xdo, char *regex, 
+                              Window **windowlist, int *nwindows);

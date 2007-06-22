@@ -90,8 +90,8 @@ void xdo_free(xdo_t *xdo) {
   free(xdo);
 }
 
-void xdo_get_window_by_regex(xdo_t *xdo, char *regex,
-                             Window **windowlist, int *nwindows) {
+void xdo_window_list_by_regex(xdo_t *xdo, char *regex,
+                              Window **windowlist, int *nwindows) {
   regex_t re;
   regcomp(&re, regex, REG_EXTENDED | REG_ICASE | REG_NOSUB);
   Window *total_window_list = NULL;
@@ -444,7 +444,7 @@ int main(int argc, char **argv) {
   if (argc > 1)
     query = argv[1];
 
-  xdo_get_window_by_regex(xdo, query, &list, &nwindows);
+  xdo_window_list_by_regex(xdo, query, &list, &nwindows);
   for (i = 0; i < nwindows; i++) {
     printf("%d\n", list[i]);
   }
