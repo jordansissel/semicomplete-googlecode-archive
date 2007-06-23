@@ -1,0 +1,2 @@
+#content jquerycmd jar:jquerycmd.jar!/content/
+content jquerycmd file:jquerycmd/
