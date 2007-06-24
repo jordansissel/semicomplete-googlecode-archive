@@ -20,8 +20,6 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkx.h>
 
-#include "xdo.h"
-
 #define BORDER_SIZE (3)
 
 #define UI_INACTIVE 0
@@ -209,7 +207,8 @@ static void ui_init() {
 
   PangoFontDescription *pfd;
   pfd = pango_font_description_new();
-  pango_font_description_set_size(pfd, 14 * PANGO_SCALE);
+  pango_font_description_set_size(pfd, 16 * PANGO_SCALE);
+  //pango_font_description_set_weight(pfd, PANGO_WEIGHT_BOLD);
   gtk_widget_modify_font(ui.user_input, pfd);
 
   gtk_container_set_border_width(GTK_CONTAINER(ui.window), 5);
