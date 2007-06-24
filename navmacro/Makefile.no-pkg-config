@@ -1,0 +1,38 @@
+CFLAGS=-g -I/usr/local/include -I/usr/X11R6/include -I/usr/local/include/gtk-2.0 -I/usr/local/include/cairo/ -I/usr/local/include/gdk/ -I/usr/local/include/pango-1.0/ -I/usr/local/include/glib-2.0/ -I/usr/local/include/atk-1.0/
+#-I/usr/local/include/gdk/
+LDFLAGS=-L/usr/local/lib -lgtk-x11-2.0
+
+clean:
+	rm *.o
+
+navmacro: navmacro.o
+	gcc $(CFLAGS) $(LDFLAGS) navmacro.o -o $@
+
+navmacro.o:
+	gcc $(CFLAGS) -c navmacro.c
+
+querytree: querytree.o
+	gcc $(CFLAGS) `pkg-config --libs x11` querytree.o -o $@
+
+querytree.o:
+	gcc $(CFLAGS) `pkg-config --cflags x11` -c querytree.c
+
+xdo:  xdo.c
+	gcc -DBUILDMAIN $(CFLAGS) `pkg-config --cflags --libs x11 xtst` xdo.c -o $@
+
+xdo.o:
+	gcc $(CFLAGS) `pkg-config --cflags x11 xtst` -c xdo.c
+
+xdotool.o:
+	gcc $(CFLAGS) `pkg-config --cflags x11 xtst` -c xdotool.c
+
+xdotool: xdotool.o xdo.o
+	gcc $(CFLAGS) `pkg-config --libs x11 xtst` xdotool.o xdo.o -o $@
+
+package:
+	NAME=navmacro-`date +%Y%m%d`; \
+	mkdir $${NAME}; \
+	rsync --exclude .svn -av *.c *.h README Makefile examples $${NAME}/; \
+	tar -zcf $${NAME}.tar.gz $${NAME}/; \
+	rm -rf $${NAME}/
+
