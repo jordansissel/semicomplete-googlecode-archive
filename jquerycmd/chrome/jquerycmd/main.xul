@@ -1,9 +1,15 @@
 <?xml version="1.0"?>
 <?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
 
-
-<window xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul" 
-        onload="alert(window.arguments[0].QueryInterface(Components.interfaces.nsICommandLine).getArgument(0))" >
+<window xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+        id="main-window"
+        screenX="4" screenY="4" width="100" height="100" sizemode="minimized"
+        >
+  <script type="application/x-javascript" src="jquery-latest.pack.js"/>
+  <script type="application/x-javascript" src="jquerycmd.js"/>
+  <vbox flex="1">
+    <browser flex="1" id="main-browser" type="content-primary" />
+  </vbox>
 </window>
 
 
