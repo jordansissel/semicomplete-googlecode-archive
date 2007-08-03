@@ -1,0 +1,50 @@
+divert(-1)
+changecom(`###')
+define(fatal, `
+  divert(0)dnl
+  errprint(`$1')dnl
+  m4exit(1)dnl
+')
+
+define(`file_header', `
+#include <stdio.h>
+#include <dlfcn.h>
+$1_includes
+')
+
+define(`override_header', `
+  void *handle = NULL;
+  //This will turn the function proto into a function pointer declaration
+  patsubst($1_proto, $1, `(*real_func)') = NULL;
+  handle = dlopen("/lib/libc.so.6", RTLD_LAZY);
+
+  if (handle == NULL) {
+    fprintf(stderr, "Failed to dlopen libc\n");
+    return -1;
+  }
+  real_func = dlsym(handle, "$1");
+  ')
+
+
+# Function prototypes
+define(`bind_proto',`int bind(int s, const struct sockaddr *addr, socklen_t addrlen)')
+define(`open_proto',`int open(const char *path, int flags, ...)')
+
+# Function includes
+define(`bind_includes', `
+#include <sys/types.h>
+#include <sys/socket.h>
+')
+define(`open_includes', `
+#include <fcntl.h>
+')
+
+define(`override', `
+  ifdef(`$1_proto', , `fatal(`No such function "$1" known')')
+  file_header($1)
+  $1_proto {
+    override_header($1)
+    $2
+  }
+  ')
+divert(0)dnl
