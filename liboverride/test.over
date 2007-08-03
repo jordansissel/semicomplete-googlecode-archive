@@ -1,4 +1,14 @@
-override(bind, `
+#include <netinet/in.h>
+
+override(`open', `
   {
-    printf("bind() called\n");
-  }')
+    fprintf(stderr, "open: %s\n", path);
+  }
+')
+
+override(`connect', `
+  {
+    struct sockaddr_in *addr = (struct sockaddr_in *)name;
+    fprintf(stderr, "Connect: %s:%d\n", inet_ntoa(addr->sin_addr), htons(addr->sin_port));
+  }
+')

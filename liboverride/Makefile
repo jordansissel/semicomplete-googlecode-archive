@@ -21,12 +21,15 @@ socket.o: socket.c
 
 %.o: %.c
 	@CFLAGS="$(CFLAGS)"; \
-	[ "`uname`" = "Linux" ] && CFLAGS="$${CFLAGS} -ldl"; \
 	set -x; \
-	gcc $(DYNFLAGS) $$CFLAGS $< -o $@
+	gcc -c $$CFLAGS $< -o $@
 
-%.c: %.over
+%.c-pre_sed: %.over
 	m4 funcdefs $< > $@
 
+%.c: %.c-pre_sed
+	sed -E -e '/\/\/RETURNVARS/ { s,//RETURNVARS[^(]+,,; s/[[:alpha:]_]+ //g; s/[/()*]//g; }' $< \
+	> $@
+
 clean:
-	rm -f *.o *.so
+	rm -f *.o *.so *.c

@@ -9,7 +9,7 @@ define(fatal, `
 define(`file_header', `
 #include <stdio.h>
 #include <dlfcn.h>
-$1_includes
+ifdef(`$1_includes', `$1_includes')
 ')
 
 define(`override_header', `
@@ -27,16 +27,24 @@ define(`override_header', `
 
 
 # Function prototypes
+define(`malloc_proto',`void *malloc(size_t size)')
 define(`bind_proto',`int bind(int s, const struct sockaddr *addr, socklen_t addrlen)')
+define(`connect_proto',`int connect(int s, const struct sockaddr *name, socklen_t namelen)')
 define(`open_proto',`int open(const char *path, int flags, ...)')
+define(`open_call', `path, flags')
 
 # Function includes
-define(`bind_includes', `
+define(`bind_includes', `network_includes')
+define(`connect_includes', `network_includes')
+define(`network_includes', `
 #include <sys/types.h>
 #include <sys/socket.h>
 ')
 define(`open_includes', `
 #include <fcntl.h>
+')
+define(`malloc_includes', `
+#include <stdlib.h>
 ')
 
 define(`override', `
@@ -45,6 +53,12 @@ define(`override', `
   $1_proto {
     override_header($1)
     $2
+
+    return real_func(
+      ifdef(`$1_call', `$1_call', 
+      //RETURNVARS $1_proto
+      )
+    );
   }
   ')
 divert(0)dnl
