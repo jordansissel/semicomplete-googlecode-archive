@@ -31,6 +31,7 @@ define(`malloc_proto',`void *malloc(size_t size)')
 define(`bind_proto',`int bind(int s, const struct sockaddr *addr, socklen_t addrlen)')
 define(`connect_proto',`int connect(int s, const struct sockaddr *name, socklen_t namelen)')
 define(`open_proto',`int open(const char *path, int flags, ...)')
+# Hack because open uses ... for the last arg.
 define(`open_call', `path, flags')
 
 # Function includes
