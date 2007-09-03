@@ -1,8 +1,8 @@
-#include <netinet/in.h>
+#include <stdlib.h>
 
-override(`connect', `
+override(`malloc', `
   {
-    fprintf(stderr, "connect: %s\n", path);
+    fprintf(stderr, "malloc: %d\n", size);
   }
 ')
 

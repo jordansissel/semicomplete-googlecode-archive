@@ -1,0 +1,7 @@
+#include <stdio.h>
+
+override(`XTestFakeButtonEvent', `
+  {
+    printf("Button: %d %s\n", button, (is_press) ? "down" : "up");
+  }
+')

@@ -16,7 +16,7 @@ define(`override_header', `
   void *handle = NULL;
   //This will turn the function proto into a function pointer declaration
   patsubst($1_proto, $1, `(*real_func)') = NULL;
-  handle = dlopen("/lib/libc.so.6", RTLD_LAZY);
+  handle = dlopen("$1_library", RTLD_LAZY);
 
   if (handle == NULL) {
     fprintf(stderr, "Failed to dlopen libc\n");
@@ -34,6 +34,9 @@ define(`open_proto',`int open(const char *path, int flags, ...)')
 # Hack because open uses ... for the last arg.
 define(`open_call', `path, flags')
 
+# X Functions
+define(`XTestFakeButtonEvent_proto', `int XTestFakeButtonEvent(Display* dpy, unsigned int button, Bool is_press, unsigned long delay)')
+
 # Function includes
 define(`bind_includes', `network_includes')
 define(`connect_includes', `network_includes')
@@ -47,6 +50,19 @@ define(`open_includes', `
 define(`malloc_includes', `
 #include <stdlib.h>
 ')
+
+define(`XTestFakeButtonEvent_includes', `
+#include <X11/Xlib.h>
+#include <X11/extensions/XTest.h>
+')
+
+# Libraries
+define(`libc_library', `/lib/libc.so.6')
+define(`malloc_library', `libc_library')
+define(`open_library', `libc_library')
+define(`connect_library', `libc_library')
+define(`bind_library', `libc_library')
+define(`XTestFakeButtonEvent_library', `/usr/lib/X11/libXtst.so.6')
 
 define(`override', `
   ifdef(`$1_proto', , `fatal(`No such function "$1" known')')

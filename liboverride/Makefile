@@ -28,7 +28,9 @@ socket.o: socket.c
 	m4 funcdefs $< > $@
 
 %.c: %.c-pre_sed
-	sed -E -e '/\/\/RETURNVARS/ { s,//RETURNVARS[^(]+,,; s/[[:alpha:]_]+ //g; s/[/()*]//g; }' $< \
+	sed -re '' < /dev/null > /dev/null 2>&1 && sed="sed -re" || true; \
+	sed -Ee '' < /dev/null > /dev/null 2>&1 && sed="sed -Ee" || true; \
+	$$sed '/\/\/RETURNVARS/ { s,//RETURNVARS[^(]+,,; s/[[:alpha:]_*]+ //g; s/[/()*]//g; }' $< \
 	> $@
 
 clean:
