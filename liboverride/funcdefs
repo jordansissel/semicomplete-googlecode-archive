@@ -16,10 +16,12 @@ define(`override_header', `
   void *handle = NULL;
   //This will turn the function proto into a function pointer declaration
   patsubst($1_proto, $1, `(*real_func)') = NULL;
-  handle = dlopen("$1_library", RTLD_LAZY);
+  const char library[] = "$1_library";
+  handle = dlopen(library, RTLD_LAZY);
 
   if (handle == NULL) {
-    fprintf(stderr, "Failed to dlopen libc\n");
+    fprintf(stderr, "Failed to dlopen %s\n", library);
+    fprintf(stderr, "dlerror says: %s\n", dlerror());
     return -1;
   }
   real_func = dlsym(handle, "$1");
@@ -36,6 +38,10 @@ define(`open_call', `path, flags')
 
 # X Functions
 define(`XTestFakeButtonEvent_proto', `int XTestFakeButtonEvent(Display* dpy, unsigned int button, Bool is_press, unsigned long delay)')
+define(`XGrabKey_proto', `int XGrabKey(Display* display, int keycode, unsigned int modifiers, Window grab_window, Bool owner_events, int pointer_mode, int keyboard_mode)')
+define(`XGrabKeyboard_proto', `int XGrabKeyboard(Display* display, Window grab_window, Bool owner_events, int pointer_mode, int keyboard_mode, Time time)')
+define(`XUngrabKey_proto', `int XUngrabKey(Display* display, int keycode, unsigned int modifiers, Window grab_window)')
+define(`XUngrabKeyboard_proto', `int XUngrabKeyboard(Display* display, Time time)')
 
 # Function includes
 define(`bind_includes', `network_includes')
@@ -52,8 +58,15 @@ define(`malloc_includes', `
 ')
 
 define(`XTestFakeButtonEvent_includes', `
-#include <X11/Xlib.h>
+Xlib_includes
 #include <X11/extensions/XTest.h>
+')
+define(`XGrabKey_includes', `Xlib_includes')
+define(`XGrabKeyboard_includes', `Xlib_includes')
+define(`XUngrabKey_includes', `Xlib_includes')
+define(`XUngrabKeyboard_includes', `Xlib_includes')
+define(`Xlib_includes', `
+#include <X11/Xlib.h>
 ')
 
 # Libraries
@@ -62,7 +75,11 @@ define(`malloc_library', `libc_library')
 define(`open_library', `libc_library')
 define(`connect_library', `libc_library')
 define(`bind_library', `libc_library')
-define(`XTestFakeButtonEvent_library', `/usr/lib/X11/libXtst.so.6')
+define(`XTestFakeButtonEvent_library', `/usr/lib/libXtst.so')
+define(`XGrabKey_library', `/usr/lib/libX11.so')
+define(`XGrabKeyboard_library', `/usr/lib/libX11.so')
+define(`XUngrabKey_library', `/usr/lib/libX11.so')
+define(`XUngrabKeyboard_library', `/usr/lib/libX11.so')
 
 define(`override', `
   ifdef(`$1_proto', , `fatal(`No such function "$1" known')')

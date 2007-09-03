@@ -1,7 +1,24 @@
 #include <stdio.h>
 
 override(`XTestFakeButtonEvent', `
+  { printf("Button: %d %s\n", button, (is_press) ? "down" : "up"); }')
+
+override(`XGrabKey', `
+  { 
+    printf("Grab: keycode:%d modifiers:%d, grab_window:%d owner_events:%d pointer_mode:%d, keyboard_mode:%d\n", keycode, modifiers, grab_window, owner_events, pointer_mode, keyboard_mode); 
+  }')
+
+override(`XGrabKeyboard', `
+  { 
+    printf("GrabKeyboard: grab_window:%d owner_events:%d pointer_mode:%d, keyboard_mode:%d time:%d\n", grab_window, owner_events, pointer_mode, keyboard_mode, time);
+  }')
+
+override(`XUngrabKey', `
   {
-    printf("Button: %d %s\n", button, (is_press) ? "down" : "up");
-  }
-')
+    printf("Ungrab: keycode:%d modifiers:%d grab_window:%d\n", keycode, modifiers, grab_window);
+  }')
+
+override(`XUngrabKeyboard', `
+  {
+    printf("UngrabKeyboard: time:%d\n", time);
+  }')
