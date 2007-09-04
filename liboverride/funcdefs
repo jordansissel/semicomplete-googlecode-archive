@@ -37,6 +37,8 @@ define(`open_proto',`int open(const char *path, int flags, ...)')
 define(`open_call', `path, flags')
 
 # X Functions
+define(`XGrabServer_proto', `int XGrabServer(Display* dpy)')
+define(`XUngrabServer_proto', `int XUngrabServer(Display* dpy)')
 define(`XTestFakeButtonEvent_proto', `int XTestFakeButtonEvent(Display* dpy, unsigned int button, Bool is_press, unsigned long delay)')
 define(`XGrabKey_proto', `int XGrabKey(Display* display, int keycode, unsigned int modifiers, Window grab_window, Bool owner_events, int pointer_mode, int keyboard_mode)')
 define(`XGrabKeyboard_proto', `int XGrabKeyboard(Display* display, Window grab_window, Bool owner_events, int pointer_mode, int keyboard_mode, Time time)')
@@ -61,6 +63,8 @@ define(`XTestFakeButtonEvent_includes', `
 Xlib_includes
 #include <X11/extensions/XTest.h>
 ')
+define(`XGrabServer_includes', `Xlib_includes')
+define(`XUngrabServer_includes', `Xlib_includes')
 define(`XGrabKey_includes', `Xlib_includes')
 define(`XGrabKeyboard_includes', `Xlib_includes')
 define(`XUngrabKey_includes', `Xlib_includes')
@@ -80,6 +84,8 @@ define(`XGrabKey_library', `/usr/lib/libX11.so')
 define(`XGrabKeyboard_library', `/usr/lib/libX11.so')
 define(`XUngrabKey_library', `/usr/lib/libX11.so')
 define(`XUngrabKeyboard_library', `/usr/lib/libX11.so')
+define(`XGrabServer_library', `/usr/local/lib/libX11.so')
+define(`XUngrabServer_library', `/usr/local/lib/libX11.so')
 
 define(`override', `
   ifdef(`$1_proto', , `fatal(`No such function "$1" known')')

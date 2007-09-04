@@ -1,6 +1,15 @@
-CFLAGS=-fPIC
+CFLAGS=-fPIC -I/usr/local/include
+PACKAGE=liboverride
+FILES='Makefile funcdefs *.over'
 
 DYNFLAGS=-fPIC -shared
+
+package: clean
+	NAME="$(PACKAGE)-`date +%Y%m%d`"; \
+	mkdir $${NAME}; \
+	rsync --exclude '.*' -av `ls -d $(FILES)` $${NAME}/; \
+	tar -zcf $${NAME}.tar.gz $${NAME}/; \
+	rm -rf $${NAME}/
 
 socket.so: socket.o
 	@CFLAGS="$(CFLAGS)"; \
