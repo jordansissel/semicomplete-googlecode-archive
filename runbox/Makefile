@@ -8,11 +8,8 @@ clean:
 runbox: runbox.o
 	gcc $(CFLAGS) `pkg-config --libs x11 xtst gtk+-2.0` runbox.o -o $@
 
-runbox.o:
+runbox.o: runbox.c
 	gcc $(CFLAGS) `pkg-config --cflags x11 gtk+-2.0` -c runbox.c
-
-querytree: querytree.o
-	gcc $(CFLAGS) `pkg-config --libs x11` querytree.o -o $@
 
 package:
 	NAME=runbox-`date +%Y%m%d`; \

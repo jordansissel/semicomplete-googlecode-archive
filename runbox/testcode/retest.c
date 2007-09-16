@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
   printf("Re: %s\n", re_str);
   printf("test: %s\n", string);
 
-  regcomp(&re, re_str, REG_EXTENDED | REG_ICASE | REG_NOSUB);
+  regcomp(&re, re_str, REG_EXTENDED | REG_ICASE);
   if (regexec(&re, string, 0, NULL, 0) == 0) {
     printf("Match\n");
   } else {

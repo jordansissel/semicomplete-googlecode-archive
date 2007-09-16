@@ -1,8 +1,5 @@
 /*
- * Pointer navigation macros 
- *
- * Compile with:
- * gcc `pkg-config --cflags --libs x11 gtk+-2.0` navmacro.c
+ * Run things.
  *
  */
 
@@ -25,7 +22,7 @@
 #define UI_INACTIVE 0
 #define UI_ACTIVE 1
 
-extern char **environ;
+//extern char **environ;
 
 typedef struct ui {
   GtkWidget *window;
@@ -57,22 +54,22 @@ static void x_unbindkey();
 static void x_loop_iteration();
 static void gtk_loop_iteration();
 
-static void exec_macro(const gchar *macro) {
-  if (fork() == 0) {
-    char *argv[3] = { "/bin/sh", "-c", macro };
-    /*
-    * close(0);
-    * close(1);
-    * close(2);
-    * int devnull_r = open("/dev/null", "r");
-    * int devnull_w = open("/dev/null", "w");
-    * dup2(devnull_r, 0);
-    * dup2(devnull_w, 1);
-    * dup2(devnull_w, 2);
-    */
-    execve("/bin/sh", argv, environ); 
-    exit(0);
-  }
+static void exec_cmd(const gchar *cmd) {
+  if (fork() != 0)
+    return;
+
+  char *argv[4] = { "/bin/sh", "-c", (char *)cmd, NULL };
+  int devnull_r = open("/dev/null", "r");
+  int devnull_w = open("/dev/null", "w");
+
+  close(0);
+  close(1);
+  close(2);
+  dup2(devnull_r, 0);
+  dup2(devnull_w, 1);
+  dup2(devnull_w, 2);
+  execvp("/bin/sh", argv);
+  exit(0);
 }
 
 static void show_ui() {
@@ -116,7 +113,7 @@ input_activate(GtkWidget *widget, gpointer userdata) {
   const gchar *field_value;
 
   field_value = gtk_entry_get_text(GTK_ENTRY(widget));
-  exec_macro(field_value);
+  exec_cmd(field_value);
 
   hide_ui();
   return TRUE;
@@ -266,7 +263,7 @@ static void x_bindkey() {
   int keycode;
   
   root = XDefaultRootWindow(xwin.x_display);
-  keycode = XKeysymToKeycode(xwin.x_display, XStringToKeysym("apostrophe"));
+  keycode = XKeysymToKeycode(xwin.x_display, XStringToKeysym("space"));
   
   XGrabKey(xwin.x_display, keycode, ControlMask, root, False, GrabModeAsync, GrabModeAsync);
   XFlush(xwin.x_display);
