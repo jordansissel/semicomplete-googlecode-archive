@@ -293,7 +293,7 @@ def main():
 
   # At this point, we might have '< options.n' tokens left.
   if len(tokens) > 0:
-    pool.addtask(command, tokens[:options.n], instance_count)
+    pool.addtask(command, tokens[:options.n], task_id)
     del tokens[:]
 
   pool.finish()
