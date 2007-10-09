@@ -113,7 +113,7 @@ class ThreadPool(object):
           self.handle_task(task)
 
     def handle_task(self, task):
-      global options
+      #global options
       command = " ".join(task.command)
       args = " ".join(task.args)
       proc = Proc(self._path)
@@ -224,8 +224,6 @@ def expand_hosts(hostlist):
 
 def main():
   global options
-  global hosts
-  global pool
 
   (options, args) = parser.parse_args()
   logging.basicConfig(
