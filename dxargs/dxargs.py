@@ -26,7 +26,11 @@ parser.add_option("--ssh_opts", dest="ssh_opts",
                   default="-o 'StrictHostKeyChecking no' -c blowfish -C -T")
 
 sessions = {}
-stdout_lock = threading.Lock()
+
+output_locks = {
+  sys.stdout: threading.Lock(),
+  sys.stderr: threading.Lock(),
+}
 
 class ThreadPool(object):
   def __init__(self, size):
@@ -109,10 +113,16 @@ class ThreadPool(object):
           self.handle_task(task)
 
     def handle_task(self, task):
+      global options
       command = " ".join(task.command)
       args = " ".join(task.args)
       proc = Proc(self._path)
-      proc.start()
+      #proc.start()
+
+      if options.t:
+        output(sys.stderr, "%d/%s: %s %s\n" 
+               % (self._index, self._host, command, task.args,))
+
       proc.runcmd("set -- %s" % args)
       proc.runcmd("JOBINDEX=%d" % (self._index))
       proc.runcmd("TASK=%d" % (task.task_id))
@@ -187,31 +197,30 @@ def fatal(msg):
   print >>sys.stderr, "Fatal: %s" % msg
   sys.exit(1)
 
-def xargs(command, args):
-  global sessions
-  global options
-
-  logging.info("sessions: %s" % sessions)
-  if host_index not in sessions:
-    logging.info("new session to %s" % host)
-    sessions[host_index] = Session(host, host_index)
-
-  session = sessions[host_index]
-  proc = session.newproc()
-
-  # Accept strings or lists
-  if isinstance(command, str):
-    command = [command]
-
 def output(fd, data):
-  if (fd == sys.stdout):
-    stdout_lock.acquire()
+  if fd in output_locks:
+    output_locks[fd].acquire()
 
   fd.write(data)
 
-  if (fd == sys.stdout):
+  if fd in output_locks:
     fd.flush()
-    stdout_lock.release()
+    output_locks[fd].release()
+
+def expand_hosts(hostlist):
+  new_hostlist = []
+  for i in hostlist:
+    if "*" in i:
+      (host, repeats) = i.split("*", 1)
+      try:
+        repeats = int(repeats)
+      except Exception, e:
+        fatal("Failed to convert '%s' to integer in string '%s'" % (repeats, i))
+      new_hostlist.extend([host for j in range(repeats)])
+    else:
+      new_hostlist.append(i)
+
+  return new_hostlist
 
 def main():
   global options
@@ -239,6 +248,8 @@ def main():
     fd.close()
   else:
     fatal("No hosts to connect to. Specirfy --hosts or --hosts_file")
+
+  hosts = expand_hosts(hosts)
 
   if options.P == 0:
     options.P = len(hosts)
