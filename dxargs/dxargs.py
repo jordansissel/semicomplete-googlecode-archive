@@ -68,6 +68,8 @@ class ThreadPool(object):
       self.task_id = task_id
 
   class SSHWorker(threading.Thread):
+    sessions = {}
+
     def __init__(self, queue, done):
       self.queue = queue
       self.done = done
@@ -78,6 +80,7 @@ class ThreadPool(object):
       logging.info("Setting worker params: %s/%s" % (index, host))
       self._host = host
       self._index = index
+      self._proc = None
       self._path = "%s/dxargs.%s.%d" % (options.ssh_sock_dir, host, index)
       self._ssh_cmd = ("ssh -nNM -S '%s' %s %s" 
                        % (self._path, options.ssh_opts, self._host))
@@ -101,16 +104,25 @@ class ThreadPool(object):
                              "cannot continue: %s" % self._path)
         sys.exit(1)
 
-      logging.info("Starting master session for %d/%s" % (self._index, self._host))
-      self._proc = popen2.Popen3(self._ssh_cmd)
-
       functype = lambda : True
       while not self.done.isSet():
         task = self.queue.get()
         if type(task.command) == type(functype):
           task.command()
         else:
+          if self._proc is None:
+            self.get_session()
           self.handle_task(task)
+
+    def get_session(self):
+      if self._ssh_cmd in self.sessions:
+        logging.info("Starting master session for %d/%s" 
+                     % (self._index, self._host))
+        self._proc = self.sessions[self._ssh_cmd]
+      else:
+        logging.info("Using existing master session to %d/%s" 
+                     % (self._index, self._host))
+        self._proc = popen2.Popen3(self._ssh_cmd)
 
     def handle_task(self, task):
       #global options
@@ -242,7 +254,7 @@ def main():
     hosts = options.hosts.split()
   elif options.hosts_file:
     fd = open(options.hosts_file, "r")
-    hosts = [x for x in fd.readlines() if not x.startswith("#")]
+    hosts = [x.strip() for x in fd.readlines() if not x.startswith("#")]
     fd.close()
   else:
     fatal("No hosts to connect to. Specirfy --hosts or --hosts_file")
