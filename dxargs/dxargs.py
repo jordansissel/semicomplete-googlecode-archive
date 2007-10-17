@@ -19,6 +19,8 @@ parser.add_option("-l", type="int", dest="l")
 parser.add_option("-t", action="store_true", dest="t")
 parser.add_option("--verbose", action="store_true", dest="verbose")
 parser.add_option("--output_dir", dest="output_dir")
+parser.add_option("--report_output_filenames", action="store_true",
+                  dest="report_output_filenames")
 parser.add_option("--hosts_file", dest="hosts_file")
 parser.add_option("--hosts", dest="hosts")
 parser.add_option("--ssh_sock_dir", dest="ssh_sock_dir", default="/tmp")
@@ -31,6 +33,9 @@ output_locks = {
   sys.stdout: threading.Lock(),
   sys.stderr: threading.Lock(),
 }
+
+# This gets set if you use --output_dir
+input_set_loghandle = None
 
 class ThreadPool(object):
   def __init__(self, size):
@@ -107,7 +112,7 @@ class ThreadPool(object):
       functype = lambda : True
       while not self.done.isSet():
         task = self.queue.get()
-        if type(task.command) == type(functype):
+        if hasattr(task.command, "__call__"):
           task.command()
         else:
           if self._proc is None:
@@ -152,6 +157,7 @@ class ThreadPool(object):
                      self._host, 
                      time.time()))
         fd = open(filename, "w")
+        output(input_set_loghandle, "%s %s\n" % (filename, args))
 
       return_code = -1
       while True:
@@ -161,6 +167,9 @@ class ThreadPool(object):
           break
           #logging.error("Unexpected EOF from proc on %s" % host)
         output(fd, line)
+
+      fd.close()
+      output(sys.stdout, "%s\n" % filename)
 
       if return_code != 0:
         fatal("Nonzero return code from child on host '%s'.\nCommand was: %s" 
@@ -236,12 +245,18 @@ def expand_hosts(hostlist):
 
 def main():
   global options
+  global input_set_loghandle
 
   (options, args) = parser.parse_args()
   logging.basicConfig(
     level=(options.verbose and logging.INFO or logging.WARNING),
     format="%(asctime)s %(levelname)s %(message)s"
   )
+
+  if options.output_dir:
+    filename = "%s/%d.input_map" % (options.output_dir, os.getpid())
+    input_set_loghandle = open(filename, "w")
+    output_locks[input_set_loghandle] = threading.Lock()
 
   if not os.path.isdir(options.ssh_sock_dir):
     fatal("ssh socket dir is not a directory or does not exist: %s" 
@@ -301,7 +316,7 @@ def main():
       if host_index == options.P:
         host_index = 0
 
-  # At this point, we might have '< options.n' tokens left.
+  # At this point, we might have some input remaining to process
   if len(tokens) > 0:
     pool.addtask(command, tokens[:options.n], task_id)
     del tokens[:]
