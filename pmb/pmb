@@ -2,7 +2,7 @@
 
 # Defaults
 HOSTNAME=`hostname`
-BACKUPLOCATION="/usr/backup"
+BACKUPLOCATION="NOT_SET"
 BYHOSTNAME=1
 RSYNC_RSH="ssh"
 RSYNC_OPTS=
@@ -12,9 +12,12 @@ VERBOSE=0
 COMMAND="backup"
 
 for i in /usr/local/etc . $HOME; do
-	[ -f "$i/pmb_rc" ] && . $i/pmb_rc
-	[ -f "$i/.pmbrc" ] && . $i/.pmbrc
+	[ -f "$i/pmb.rc" ] && . $i/pmb.rc && echo Reading $i/pmb.rc
+	[ -f "$i/.pmbrc" ] && . $i/.pmbrc && echo Reading $i/.pmbrc
 done
+
+echo $BACKUPLOCATION
+exit
 
 OPTS=`getopt RBCSqvrh: $*`
 if [ "$?" -ne "0" ]; then
@@ -45,8 +48,9 @@ while [ $# -gt 0 ]; do
 done
 
 # Don't let the rc file override these 
+# But use the options given from the rc file to generate these.
 RSYNC_OPTS="$RSYNC_OPTS -a --delete --link-dest=../backup.1"
-BACKUPDIR=`echo $BACKUPLOCATION | sed -e 's/^.*://'`
+BACKUPDIR=`echo $BACKUPLOCATION | sed -e 's/^[^:]*://'`
 
 if [ "$BYHOSTNAME" -eq 1 ]; then
 	BACKUPLOCATION="${BACKUPLOCATION}/${HOSTNAME}"

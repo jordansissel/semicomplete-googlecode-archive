@@ -12,4 +12,3 @@ RSYNC_RSH="ssh -c blowfish -l ${USER}"
 
 # Directories to backup
 TARGETS="/home/jls/projects /home/jls/.zshrc /home/jls/.vimrc /home/jls/.screenrc"
-
