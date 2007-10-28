@@ -1,6 +1,5 @@
-
 # Where to store backups
-BACKUPLOCATION="whack.csh.rit.edu:/usr/backup"
+BACKUPLOCATION="binary.databits.net:/home/jls/backups"
 
 # Backup to: $BACKUPLOCATION/hostname/
 BYHOSTNAME=1
@@ -12,5 +11,5 @@ USER="jls"
 RSYNC_RSH="ssh -c blowfish -l ${USER}"
 
 # Directories to backup
-TARGETS="/users/u9/psionic"
+TARGETS="/home/jls/projects /home/jls/.zshrc /home/jls/.vimrc /home/jls/.screenrc"
 

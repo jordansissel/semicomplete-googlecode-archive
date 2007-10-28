@@ -161,7 +161,7 @@ do_checkfile() {
 	rsync -rn $RSYNC_OPTS --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err \
 		| grep -v '^receiving file' | sed -ne '/^$/q;p' > $BTMP.1
 
-	FILESCHANGED=`wc -l $BTMP.1 | awk '{print $1}`
+	FILESCHANGED=`wc -l $BTMP.1 | awk '{print $1}'`
 	if [ "$FILESCHANGED" -gt 0 ]; then
 		echo "Files changed:"
 		sed -e 's/^/   /' $BTMP.1
