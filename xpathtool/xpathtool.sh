@@ -3,7 +3,7 @@
 # Copyright 2007 Jordan Sissel
 # License is BSD, which you should find attached with this package.
 
-TMP=`mktemp /tmp/xpathtool.XXXXX`
+TMP=`mktemp /tmp/xpathtool.XXXXXX`
 DOINDENT="yes"
 OUTPUTMETHOD="text"
 STRIPSPACE=""
