@@ -7,19 +7,23 @@ use POSIX qw(strftime);
 
 my $font = "/usr/lib/j2re1.5-sun/lib/fonts/LucidaSansRegular.ttf";
 
-#system("rm input_*.jpg");
-foreach my $i (glob("nightmap.*.jpg")) {
-  my $output = "input_$i.jpg";
-  my @ostat = stat($output);
-  my @istat = stat($i);
-  next if ($ostat[9] > $istat[9]);
+my $tmp = $ARGV[0];
+
+foreach my $i (glob("mapdata/nightmap.*.jpg")) {
+  my @f = split("/", $i);
+  my $f = $f[1];
+  my $output = "$tmp/input_$f";
+  my @ostat = stat($output); my $omtime = $ostat[9] || 0;
+  my @istat = stat($i); my $imtime = $istat[9] || 0;
+  next if ($omtime > $imtime);
   my $image = Image::Magick->new();
-  my @time = split(/\./, $i);
-  print "$i ", join("/", @time), "\n";
+  my @time = split(/\./, $f);
+  print STDERR "$f ", join("/", @time), "\n";
   my $text = strftime("%Y/%m/%d %H:%M GMT %z", localtime($time[1]));
   $image->Read("$i");
+  next if ($image->Get("width") != 602);
   $image->Annotate(font=>$font, pointsize=>24, fill=>"green", text=>$text, gravity=>"SouthEast");
   $image->Write($output);
 }
 
-system("mencoder mf://input_*.jpg -mf w=602:h=250:fps=25:type=jpg -ovc lavc -lavcopts vcodec=mpeg4:mbd=2:trell -oac copy -o output.avi");
+#system("mencoder mf://input_*.jpg -mf w=602:h=250:fps=25:type=jpg -ovc lavc -lavcopts vcodec=mpeg4:mbd=2:trell -oac copy -o output.avi");
