@@ -33,7 +33,7 @@ black.jpg:
 
 clean:
 	rm halo3logo.jpg intro_frame_*.jpg \
-	$(ANNOTATE_DIR) $(INTRO_DIR) \
 	annotate intro \
 	> /dev/null 2>&1 || true
+	rm -rf $(ANNOTATE_DIR) $(INTRO_DIR) \
 

@@ -19,10 +19,15 @@ foreach my $i (glob("mapdata/nightmap.*.jpg")) {
   my $image = Image::Magick->new();
   my @time = split(/\./, $f);
   print STDERR "$f ", join("/", @time), "\n";
-  my $text = strftime("%Y/%m/%d %H:%M GMT %z", localtime($time[1]));
   $image->Read("$i");
   next if ($image->Get("width") != 602);
+
+  my $text = strftime("%Y/%m/%d %H:%M GMT %z", localtime($time[1]));
   $image->Annotate(font=>$font, pointsize=>24, fill=>"green", text=>$text, gravity=>"SouthEast");
+
+  $text = strftime("%A", localtime($time[1]));
+  $image->Annotate(font=>$font, pointsize=>20, fill=>"green", text=>$text, gravity=>"NorthEast");
+
   $image->Write($output);
 }
 
