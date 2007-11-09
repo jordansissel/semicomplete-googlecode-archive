@@ -5,8 +5,8 @@ halo3logo.jpg: h3icon_1600.jpg
 	convert h3icon_1600.jpg -crop 1600x664+0+310 -resize 602!x250! $@
 
 intro: halo3logo.jpg
-	#sh makeintro.sh
-	mencoder mf://intro_frame_*.jpg -mf w=602:h=250:fps=25:type=jpg -ovc lavc -lavcopts vcodec=mpeg4:mbd=2:trell -oac copy -o intro.avi
+	sh makeintro.sh
+	#mencoder mf://intro_frame_*.jpg -mf w=602:h=250:fps=25:type=jpg -ovc lavc -lavcopts vcodec=mpeg4:mbd=2:trell -oac copy -o intro.avi
 
 black.jpg:
 	convert -size 602x250 xc:black $@
