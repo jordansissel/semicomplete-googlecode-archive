@@ -9,10 +9,11 @@ all: intro annotate
 #mencoder crashes unless I strace it? Sigh.
 video.avi: 
 	rm output.avi > /dev/null 2>&1 || true
-	tmp=`mktemp`; \
+	tmp=`mktemp /tmp/video.XXXXXXXX`; \
 	mencoder mf://$(INTRO_DIR)/*.jpg -mf w=602:h=250:fps=25:type=jpg -ovc copy -aspect 2.42:1 -oac copy -o $$tmp.1; \
 	mencoder mf://$(ANNOTATE_DIR)/*.jpg -mf w=602:h=250:fps=25:type=jpg -ovc copy -aspect 2.42:1 -oac copy -o $$tmp.2; \
-	strace -o /dev/null mencoder $$tmp.1 $$tmp.2 -ovc lavc -aspect 2.42:1 -oac copy -lavcopts vcodec=mpeg4:trell:mbd=2 -o output.avi; \
+	mencoder $$tmp.1 $$tmp.2 -ovc lavc -aspect 2.42:1 -oac copy -lavcopts vcodec=mpeg4:trell:mbd=2 -o output.avi; \
+	#strace -o /dev/null mencoder $$tmp.1 $$tmp.2 -ovc lavc -aspect 2.42:1 -oac copy -lavcopts vcodec=mpeg4:trell:mbd=2 -o output.avi; \
 
 
 halo3logo.jpg: h3icon_1600.jpg
@@ -23,10 +24,12 @@ intro: halo3logo.jpg Makefile
 	sh makeintro.sh $(INTRO_DIR)
 	touch intro
 
-annotate: Makefile
+annotate: .annotate
+
+.annotate: Makefile
 	mkdir $(ANNOTATE_DIR) || true
 	perl annotate.pl $(ANNOTATE_DIR) 
-	touch annotate
+	touch $@
 
 black.jpg:
 	convert -size 602x250 xc:black $@

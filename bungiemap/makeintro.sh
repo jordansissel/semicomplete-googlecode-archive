@@ -6,6 +6,13 @@ if [ ! -d "$tmp" ] ; then
   exit 1
 fi
 
+which seq > /dev/null 2>&1
+if [ $? -ne 0 ] ; then
+  seq () {
+    jot $*
+  }
+fi
+
 geom="602x250"
 frame_rate="25"
 last_frame=0
