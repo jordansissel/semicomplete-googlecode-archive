@@ -35,7 +35,6 @@ def search(tags, sort, group=None):
     "api_key": api_key,
     "tags": tags,
     "sort": sort,
-    "group_id": "31917163@N00",
   }
 
   if group:
@@ -48,4 +47,4 @@ def search(tags, sort, group=None):
     photo = Photo(photo_el)
     print photo.GetURL()
 
-search("blue", "interestingness-desc")
+search(sys.argv[1], "interestingness-desc")
