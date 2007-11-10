@@ -18,15 +18,28 @@ class Photo(object):
             "/%s/%s_%s.jpg"
             % (self._farm, self._server, self._id, self._secret))
 
+def get_group_id(group):
+  data = {
+    "method": "flickr.groups.search",
+    "api_key": api_key,
+    "text": group,
+  }
+  url = "%s?%s" % (api_url, urllib.urlencode(data))
+  xml = urllib.urlopen(url).read()
+  doc = minidom.parseString(xml)
+  return xpath.Evaluate("//group[0]/@nsid")[0]
 
-def search(tags, sort):
+def search(tags, sort, group=None):
   data = {
     "method": "flickr.photos.search",
-    "api_key": "47d801c03cd569142aad928fac0d09a4",
+    "api_key": api_key,
     "tags": tags,
     "sort": sort,
     "group_id": "31917163@N00",
   }
+
+  if group:
+    data["group_id"] = get_group_id(group)
 
   url = "%s?%s" % (api_url, urllib.urlencode(data))
   photoxml = urllib.urlopen(url).read()
