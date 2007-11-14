@@ -12,8 +12,8 @@ VERBOSE=0
 COMMAND="backup"
 
 for i in /usr/local/etc . $HOME; do
-	[ -f "$i/pmb.rc" ] && . $i/pmb.rc && echo Reading $i/pmb.rc
-	[ -f "$i/.pmbrc" ] && . $i/.pmbrc && echo Reading $i/.pmbrc
+  [ -f "$i/pmb.rc" ] && . $i/pmb.rc && echo Reading $i/pmb.rc
+  [ -f "$i/.pmbrc" ] && . $i/.pmbrc && echo Reading $i/.pmbrc
 done
 
 echo $BACKUPLOCATION
@@ -21,30 +21,30 @@ exit
 
 OPTS=`getopt RBCSqvrh: $*`
 if [ "$?" -ne "0" ]; then
-	echo "Bad usage" >&2
-	exit 1
+  echo "Bad usage" >&2
+  exit 1
 fi
 
 set -- $OPTS
 
 while [ $# -gt 0 ]; do
-	case $1 in
-		-q) QUIET=1 ;;
-		-v) VERBOSE=1 ;;
-		-r) RECURSIVE=1 ;;
-		-h) 
-			echo "!!! Masquerading as $2"
-			HOSTNAME=$2
-		  	shift ;;
-		-C) COMMAND="checkfile" ;;
-		-B) COMMAND="backup" ;;
-		-R) COMMAND="recover" ;;
+  case $1 in
+    -q) QUIET=1 ;;
+    -v) VERBOSE=1 ;;
+    -r) RECURSIVE=1 ;;
+    -h) 
+      echo "!!! Masquerading as $2"
+      HOSTNAME=$2
+        shift ;;
+    -C) COMMAND="checkfile" ;;
+    -B) COMMAND="backup" ;;
+    -R) COMMAND="recover" ;;
 
-		-S) COMMAND="rotate" ;;
+    -S) COMMAND="rotate" ;;
 
-		--) shift; break ;;
-	esac
-	shift
+    --) shift; break ;;
+  esac
+  shift
 done
 
 # Don't let the rc file override these 
@@ -53,118 +53,129 @@ RSYNC_OPTS="$RSYNC_OPTS -a --delete --link-dest=../backup.1"
 BACKUPDIR=`echo $BACKUPLOCATION | sed -e 's/^[^:]*://'`
 
 if [ "$BYHOSTNAME" -eq 1 ]; then
-	BACKUPLOCATION="${BACKUPLOCATION}/${HOSTNAME}"
-	BACKUPDIR="${BACKUPDIR}/${HOSTNAME}"
+  BACKUPLOCATION="${BACKUPLOCATION}/${HOSTNAME}"
+  BACKUPDIR="${BACKUPDIR}/${HOSTNAME}"
 fi
 
 export RSYNC_RSH
 
 warn() {
-	echo "$@" 1>&2
+  echo "$@" 1>&2
 }
 
 fatal() {
-	warn "Error: $@"
-	exit 1
+  warn "Error: $@"
+  exit 1
 }
 
 # This should only be run on the backup server itself
 shiftdirs() {
-	mkdir -p $BACKUPDIR
-	CWD=$PWD
-	cd $BACKUPDIR
-	pwd
-	DIRS=`find backup.* -type d -name 'backup.*' -maxdepth 0 2> /dev/null| sort -rn -t '.' -k 2`
-	if [ ! -z "$DIRS" ]; then
-		for i in $DIRS; do
-			[ ! -d "$i" ] && fatal "$i is not a directory."
-			DEST=${i%%.*}.$((${i##*.} + 1))
-			echo ": $i -> $DEST"
-			mv $i $DEST
-		done
-	fi
+  mkdir -p $BACKUPDIR
+  CWD=$PWD
+  cd $BACKUPDIR
+  pwd
+  DIRS=`find backup.* -type d -name 'backup.*' -maxdepth 0 2> /dev/null| sort -rn -t '.' -k 2`
+  if [ ! -z "$DIRS" ]; then
+    for i in $DIRS; do
+      [ ! -d "$i" ] && fatal "$i is not a directory."
+      DEST=${i%%.*}.$((${i##*.} + 1))
+      echo ": $i -> $DEST"
+      mv $i $DEST
+    done
+  fi
 
-	# Only keep 19 backups?
-	rm -rf backup.20
+  # Only keep 19 backups?
+  rm -rf backup.20
 
-	mkdir backup.0
-	cd $CWD
-	pwd
+  mkdir backup.0
+  cd $CWD
+  pwd
 }
 
 normalize_path() {
-	P=$1
-	TMP=`realpath "$P"`
-	if [ $? -eq 0 ]; then
-		P=$TMP
-	else 
-		TMP=`realpath $PWD`/$P
-		if [ $? -eq 0 ]; then
-			P=$TMP
-		else 
-			echo "no realpath, doing path sanitizing... ($TMP)" >&2
-			[ "${P#/}" = "${P}" ] && P=$PWD/$P
-		fi
-	fi
-	echo "$P"
+  P=$1
+  TMP=`realpath "$P"`
+  if [ $? -eq 0 ]; then
+    P=$TMP
+  else 
+    TMP=`realpath $PWD`/$P
+    if [ $? -eq 0 ]; then
+      P=$TMP
+    else 
+      echo "no realpath, doing path sanitizing... ($TMP)" >&2
+      [ "${P#/}" = "${P}" ] && P=$PWD/$P
+    fi
+  fi
+  echo "$P"
 }
 
 normalize_all() {
-	while [ $# -gt 0 ]; do
-		normalize_path $1
-		shift
-	done
+  while [ $# -gt 0 ]; do
+    normalize_path $1
+    shift
+  done
 }
 
 rotate_backups() {
-	SERVER=`echo $BACKUPLOCATION | awk -F: '{print $1}'`
+  SERVER=`echo $BACKUPLOCATION | awk -F: '{print $1}'`
 
-	#echo "Backup location: $BACKUPLOCATION"
+  #echo "Backup location: $BACKUPLOCATION"
 
-	# If backup is local, awk won't grok anything
-	if [ "$SERVER" = "$BACKUPLOCATION" ]; then
-		echo "LOCAL!!!"
-		$0 -S
-	else
-		# Remote backup server
-		echo "**** REMOTE!!!"
-		ssh ${USER}@$SERVER "pmb -S -h $HOSTNAME" | sed -e 's/^/rotate: /'
-	fi
+  # If backup is local, awk won't grok anything
+  if [ "$SERVER" = "$BACKUPLOCATION" ]; then
+    echo "LOCAL!!!"
+    $0 -S
+  else
+    # Remote backup server
+    echo "**** REMOTE!!!"
+    ssh ${USER}@$SERVER "pmb -S -h $HOSTNAME" | sed -e 's/^/rotate: /'
+  fi
 }
 
 do_backup() {
-	BTMP="/tmp/backup.$USER.$$"
+  BTMP="/tmp/backup.$USER.$$"
 
-	if [ $# -eq 0 ]; then
-		find $TARGETS > $BTMP
-	else
-		find `normalize_all $*` > $BTMP
-	fi
+  if [ $# -eq 0 ]; then
+    find $TARGETS > $BTMP
+  else
+    find `normalize_all $*` > $BTMP
+  fi
 
-	echo "ROTATING"
-	rotate_backups
-	echo "ROTATION DONE"
+  echo "ROTATING"
+  rotate_backups
+  echo "ROTATION DONE"
 
-	echo "Targets: $TARGETS"
-	# Do the backup
-	rsync -v $RSYNC_OPTS --files-from=$BTMP / ${BACKUPLOCATION}/backup.0
+  echo "Targets: $TARGETS"
 
-	[ -f "$BTMP" ] && rm $BTMP
+  # Do the backup
+  ssh ${USER}@$SERVER "mkdir -p ${BACKUPLOCATION}/backup.0"
+  rsync -v $RSYNC_OPTS --files-from=$BTMP / ${BACKUPLOCATION}/backup.0
+
+  [ -f "$BTMP" ] && rm $BTMP
 }
 
 do_checkfile() {
-	BTMP="/tmp/backup.$USER.check"
-	#echo "Backup: $BACKUPLOCATION"
+  BTMP="/tmp/backup.$USER.check"
+  #echo "Backup: $BACKUPLOCATION"
 
-	[ -z "$*" ] && echo "No files specified, using '.'" && set -- .
+  [ -z "$*" ] && echo "No files specified, using '.'" && set -- .
 
-	normalize_all $* > $BTMP
+  normalize_all $* > $BTMP
 
-	sed -e 's/^/Checking: /' $BTMP
-	echo
-	rsync -rn $RSYNC_OPTS --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err \
-		| grep -v '^receiving file' | sed -ne '/^$/q;p' > $BTMP.1
+  sed -e 's/^/Checking: /' $BTMP
+  echo
+  rsync -rn $RSYNC_OPTS --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err \
+    | grep -v '^receiving file' | sed -ne '/^$/q;p' > $BTMP.1
 
+<<<<<<< .mine
+  FILESCHANGED=`wc -l $BTMP.1 | awk '{print $1}`
+  if [ "$FILESCHANGED" -gt 0 ]; then
+    echo "Files changed:"
+    sed -e 's/^/   /' $BTMP.1
+  else
+    echo "No files changed"
+  fi
+=======
 	FILESCHANGED=`wc -l $BTMP.1 | awk '{print $1}'`
 	if [ "$FILESCHANGED" -gt 0 ]; then
 		echo "Files changed:"
@@ -172,52 +183,53 @@ do_checkfile() {
 	else
 		echo "No files changed"
 	fi
+>>>>>>> .r1597
 
-	cat $BTMP.err
+  cat $BTMP.err
 
-	rm $BTMP $BTMP.1 $BTMP.err 
+  rm $BTMP $BTMP.1 $BTMP.err 
 }
 
 do_recover() {
-	BTMP="/tmp/backup.$USER.check"
+  BTMP="/tmp/backup.$USER.check"
 
-	[ -z "$*" ] && echo "No files specified, using '.'" && set -- .
+  [ -z "$*" ] && echo "No files specified, using '.'" && set -- .
 
-	do_checkfile $* | sed -e 's/^/=>  /'
-	normalize_all $* > $BTMP
+  do_checkfile $* | sed -e 's/^/=>  /'
+  normalize_all $* > $BTMP
 
-	echo "This will delete the existing files"
-	echo -n "Are you sure you want to do this? (y/n) "
-	read y
+  echo "This will delete the existing files"
+  echo -n "Are you sure you want to do this? (y/n) "
+  read y
 
-	case $y in
-		[yY]|[yY][eE][sS]) ;;
-		*) echo "Cancelled"; return ;;
-	esac
+  case $y in
+    [yY]|[yY][eE][sS]) ;;
+    *) echo "Cancelled"; return ;;
+  esac
 
-	
-	echo "Performing recovery..."
-	rsync -rva $RSYNC_OPTS --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err
-	
-	#	| grep -v '^receiving file' | sed -ne '/^$/q;p' | sed -e 's/^/Restoring: /'
+  
+  echo "Performing recovery..."
+  rsync -rva $RSYNC_OPTS --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err
+  
+  #  | grep -v '^receiving file' | sed -ne '/^$/q;p' | sed -e 's/^/Restoring: /'
 
-	
+  
 
-	if wc -l $BTMP.err | awk '($1 == 0) { exit(1) }'; then
-		echo "Errors:"
-		cat $BTMP.err | sed -e 's/^/   /'
-	fi
+  if wc -l $BTMP.err | awk '($1 == 0) { exit(1) }'; then
+    echo "Errors:"
+    cat $BTMP.err | sed -e 's/^/   /'
+  fi
 
-	rm $BTMP $BTMP.err
+  rm $BTMP $BTMP.err
 }
 
 do_rotate() {
-	shiftdirs
+  shiftdirs
 }
 
 case $COMMAND in
-	backup) do_backup $* ;;
-	checkfile) do_checkfile $* ;;
-	recover) do_recover $* ;;
-	rotate) do_rotate $* ;;
+  backup) do_backup $* ;;
+  checkfile) do_checkfile $* ;;
+  recover) do_recover $* ;;
+  rotate) do_rotate $* ;;
 esac
