@@ -1,0 +1,9 @@
+#include <stdio.h>
+
+override(`XGrabServer', `{ 
+  return 1;
+  }')
+
+override(`XUngrabServer', `{ 
+  return 1;
+  }')
