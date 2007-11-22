@@ -1,0 +1,5 @@
+== Data Storage
+Database for storing key+timestamp => value pairs
+
+== Data Manipulation:
+commandline tool to add data

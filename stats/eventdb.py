@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 from bsddb import db
 
@@ -6,6 +6,7 @@ import os
 import time
 import struct
 import cPickle
+import numpy as N
 
 # database:
 # timestamp should be 64bit value: epoch in milliseconds == 52 bits.
@@ -44,16 +45,16 @@ class Entry(object):
 
 class RecDB(object):
 
-  def __init__(self, db_path, create_if_necessary=False):
+  def __init__(self, db_path):
     self._db_path = db_path
     self._keys_db_path = "%s.keys" % db_path
-    if create_if_necessary and not os.path.exists(self._db_path):
-      self.CreateBDB()
-
     self._dbh = None
     self._keys_dbh = None
 
-  def Open(self):
+  def Open(self, create_if_necessary=False):
+    if create_if_necessary and not os.path.exists(self._db_path):
+      self.CreateBDB()
+
     self._dbh = db.DB()
     self._keys_dbh = db.DB()
     self.OpenBDB()
@@ -93,6 +94,10 @@ class RecDB(object):
   def GenerateDBKey(self, row, timestamp=None):
     if timestamp is None:
       timestamp = time.time() * 1000000
+    elif isinstance(timestamp, float):
+      # if we've been given a float assume it's time.time()'s output
+      timestamp *= 1000000
+    timestamp = long(timestamp)
     return self.GenerateDBKeyWithTimestamp(row, timestamp)
 
   def GenerateDBKeyWithTimestamp(self, row, timestamp):
@@ -138,8 +143,9 @@ class RecDB(object):
     value = cPickle.dumps(value)
     self._dbh.put(key, value)
 
-  def Add(self, key, value, timestamp=None):
-    dbkey = self.GenerateDBKey(key, timestamp)
+  # XXX: Do we even want this?
+  def Add(self, row, value, timestamp=None):
+    key = self.GenerateDBKey(row, timestamp)
     try:
       iter = self.ItemIterator(dbkey)
       (old_key, old_value) = iter.next()
@@ -147,6 +153,16 @@ class RecDB(object):
     except StopIteration:
       pass
     self.Set(key, value, timestamp)
+
+  def Delete(self, row, timestamp):
+    key = self.GenerateDBKey(row, timestamp)
+    cursor = self._dbh.cursor()
+    cursor.set(key)
+    cursor.delete()
+
+  def DeleteRow(self, row):
+    for entry in self.ItemIteratorByRows([row]):
+      self.Delete(entry.row, entry.timestamp)
 
   def ItemIterator(self, start_row=""):
     cursor = self._dbh.cursor()
@@ -177,26 +193,48 @@ class RecDB(object):
         break;
       yield entry
 
+  def FetchAggregate(self, rows, time_bucket, aggregate_func):
+    data = {}
+    for entry in self.ItemIteratorByRows(rows):
+      bucket = entry.timestamp - (entry.timestamp % time_bucket)
+      data.setdefault(bucket, [])
+      if type(entry.value) == type(""):
+        print "foo", entry
+      data[bucket].append(entry.value)
+
+    aggregates = []
+    keys = sorted(data.keys())
+    for key in keys:
+      aggregates.append((key, aggregate_func(data[key])))
+
+    return aggregates
+
+
 def test():
   f = "/tmp/test2"
-  RecDB(f, create_if_necessary=True).PurgeDatabase()
-  x = RecDB(f, create_if_necessary=True)
-  x.Open()
+  RecDB(f).PurgeDatabase()
+  x = RecDB(f)
+  x.Open(create_if_necessary=True)
 
-  for i in range(1000):
+  for i in range(10):
     x.Set("foo", i)
-  for i in range(1000):
+  for i in range(10):
     x.Set("test", i)
 
-  for z in range(30):
-    for i in x.ItemIteratorByRows(["foo"]):
-      print "%s[%s]: %s" % (i.row, i.timestamp, i.value)
+  x.Set("one", 1, 1)
+  x.Delete("one", 1)
+
+  x.DeleteRow("foo")
+  x.DeleteRow("test")
+
+  for i in x.ItemIterator():
+    print "%s[%s]: %s" % (i.row, i.timestamp, i.value)
 
 def score():
   f = "/tmp/test2"
-  RecDB(f, create_if_necessary=True).PurgeDatabase()
-  db = RecDB(f, create_if_necessary=True)
-  db.Open()
+  RecDB(f).PurgeDatabase()
+  db = RecDB(f)
+  db.Open(create_if_necessary=True)
 
   import subprocess
   for x in range(5):
