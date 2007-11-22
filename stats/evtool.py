@@ -51,6 +51,7 @@ def Fetch(args):
 
 def FetchSum(args):
   time_bucket = int(args[0]) * 1000000
+  #rate_divisor = float(args[1])
   aggregate_func = lambda x: N.sum(x)
   rows = args[1:]
   aggregates = db.FetchAggregate(rows, time_bucket, aggregate_func)
@@ -61,29 +62,30 @@ def FetchSum(args):
 
   dates = []
   values = []
+
   for (key, value) in aggregates:
-    dates.append(date2num(datetime.date.fromtimestamp(key / 1000000)))
+    dates.append(date2num(datetime.datetime.fromtimestamp(key / 1000000)))
     values.append(value)
+
+  for (d,v) in zip(dates, values):
+    print "%s: %s" % (d, v)
 
   fig = figure()
   ax = fig.add_subplot(111)
   ax.plot_date(dates, values, '-')
   rule = rrulewrapper(DAILY, interval=7)
-  ax.xaxis.set_major_locator(MonthLocator())
-  ax.xaxis.set_major_formatter(DateFormatter("%B"))
+  #ax.xaxis.set_major_locator(MonthLocator())
+  #ax.xaxis.set_major_formatter(DateFormatter("%B"))
   #ax.xaxis.set_major_locator(RRuleLocator(rule))
-  ax.xaxis.set_minor_locator(WeekdayLocator(MONDAY))
-  #ax.xaxis.set_minor_formatter(DateFormatter("%b %d"))
-  #ax.autoscale_view()
+  ax.xaxis.set_major_locator(WeekdayLocator(MONDAY))
+  ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
 
   ax.fmt_xdata = DateFormatter('%Y-%m-%d')
-  #ax.fmt_ydata = lambda x: "%d" % x
   ax.grid(True)
   fig.autofmt_xdate()
 
   fig.savefig('hits.png', format="png")
   show()
-
 
 
 def main(args):

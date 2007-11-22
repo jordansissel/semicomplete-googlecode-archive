@@ -198,8 +198,6 @@ class RecDB(object):
     for entry in self.ItemIteratorByRows(rows):
       bucket = entry.timestamp - (entry.timestamp % time_bucket)
       data.setdefault(bucket, [])
-      if type(entry.value) == type(""):
-        print "foo", entry
       data[bucket].append(entry.value)
 
     aggregates = []
