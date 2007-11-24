@@ -6,7 +6,7 @@ import os
 import time
 import struct
 import cPickle
-import numpy as N
+#import numpy as N
 
 # database:
 # timestamp should be 64bit value: epoch in milliseconds == 52 bits.
@@ -105,15 +105,17 @@ class RecDB(object):
     return "%s%s" % (row, To64(timestamp))
 
   def GetRowID(self, row, create_if_necessary=False):
-    cursor = self._keys_dbh.cursor()
-    record = cursor.set(row)
-    cursor.close()
-    if record:
-      id = record[1]
-    elif create_if_necessary:
-      id = self.CreateRowID(row)
-    else:
-      raise RowNotFound("Row '%s' not known to database" % row)
+    try:
+      cursor = self._keys_dbh.cursor()
+      record = cursor.set(row)
+      cursor.close()
+      if record:
+        id = record[1]
+    except bsddb.DBNotFoundError:
+      if create_if_necessary:
+        id = self.CreateRowID(row)
+      else:
+        raise RowNotFound("Row '%s' not known to database" % row)
     return id
 
   def GetRowByID(self, id):
