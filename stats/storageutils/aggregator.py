@@ -7,35 +7,86 @@ RULE_AVERAGE=1
 RULE_MIN=2
 RULE_MAX=3
 RULE_LAST=4
+RULE_TOTAL=5
+
+STEP_COUNT=1
+STEP_TIME=2
 
 class DuplicateRuleTarget(Exception):
   pass
 
+def StringToType(string):
+  return {
+    "average": RULE_AVERAGE,
+    "min": RULE_MIN,
+    "max": RULE_MAX,
+    "last": RULE_LAST,
+    "total": RULE_TOTAL,
+    "time": STEP_TIME,
+    "count": STEP_COUNT,
+  }[string]
+
 class Rule(object):
-  def __init__(self, source_key, target_key, type, xff, steps):
-    self._source = source_key
-    self._target = target_key
-    self._type = type
-    self._xff = xff
-    self._steps = steps
+  init_attrs = ("_source", "_target", "_ruletype", "_xff", "_steps", "_step_type")
+  restore_attrs = ("_hits",)
+
+  def __init__(self, source, target, ruletype, xff, steps, step_type):
+    self._source = source
+    self._target = target
+    self._ruletype = ruletype
+    self._xff = int(xff)
+    self._steps = int(steps)
+    self._step_type = step_type
+
+    if isinstance(self._ruletype, str):
+      self._ruletype = StringToType(self._ruletype)
+    if isinstance(self._step_type, str):
+      self._step_type = StringToType(self._step_type)
+
+    if self._step_type == STEP_TIME:
+      self._next_timestamp = 0
 
     self._dispatch = {
       RULE_AVERAGE: lambda x: sum(x) / float(len(x)),
       RULE_MIN: lambda x: min(x),
       RULE_MAX: lambda x: max(x),
       RULE_LAST: lambda x: x[0],
+      RULE_TOTAL: lambda x: sum(x),
     }
 
-    self._hits = self._steps
+    self._hits = 0
 
-  def Evaluate(self, unused_args, db):
-    self._hits -= 1
-    if self._hits > 0:
+  def Pickleable(self):
+    attrs = self.init_attrs + self.restore_attrs
+    data = {}
+    for i in attrs:
+      data[i] = getattr(self, i)
+    return data
+
+  @classmethod
+  def CreateFromDict(self, data):
+    args = {}
+    for i in self.init_attrs:
+      args[i[1:]] = data[i]
+    obj = Rule(**args)
+    for i in self.restore_attrs:
+      setattr(obj, i, data[i])
+    return obj
+
+  def Evaluate(self, unused_args, db, row, value, timestamp):
+    if self._step_type == STEP_TIME:
+      self.EvaluateTime(unused_args, db, row, value, timestamp)
+    elif self._step_type == STEP_COUNT:
+      self.EvaluateCount(unused_args, db, row, value, timestamp)
+
+  def EvaluateCount(self, unused_args, db, row, value, timestamp):
+    self._hits += 1
+    if self._hits < self._steps:
       return
-    self._hits = self._steps
-    values = []
+    self._hits = 0
     count = 0
-    last_timestamp = 0
+    values = []
+    last_timestamp = None
     for entry in db.ItemIteratorByRows([self._source]):
       assert entry.row == self._source
       count += 1
@@ -43,8 +94,31 @@ class Rule(object):
       last_timestamp = entry.timestamp
       if count == self._steps:
         break;
-    result = self._dispatch[self._type](values)
-    db.Set(self._target, result, last_timestamp)
+
+  def EvaluateTime(self, unused_args, db, row, value, timestamp):
+    if timestamp < self._next_timestamp:
+      return
+    #print "time eval"
+    period = self._steps * 1000000
+    bucket = timestamp - (timestamp % period)
+    start = bucket
+    end = bucket + period
+    values = []
+    last_timestamp = None
+    #print "Searching for [%d, %d]" % (start, end)
+    #print ": %s" % (self._source)
+    for entry in db.ItemIteratorByRows([self._source]):
+      if entry.timestamp > end:
+        continue
+      if entry.timestamp < start:
+        break;
+      values.append(entry.value)
+      last_timestamp = entry.timestamp
+
+    self._next_timestamp = end
+    if last_timestamp is not None:
+      result = self._dispatch[self._ruletype](values)
+      db.Set(self._target, result, last_timestamp)
 
 class Collector(simpledb.SimpleDB):
   def __init__(self, db_path, encode_keys=False):
@@ -62,16 +136,17 @@ class Collector(simpledb.SimpleDB):
   def LoadRules(self):
     self._ruledb.Open(create_if_necessary=True)
     for entry in self._ruledb.ItemIterator():
-      self.AddRule(entry.value)
+      self.AddRule(Rule.CreateFromDict(entry.value), save_rule=False)
 
-  def AddRule(self, rule):
+  def AddRule(self, rule, save_rule=True):
     if rule._target in self._rules:
       raise DuplicateRuleTarget("Attempt to add rule creating rows '%s'"
                                 "aborted. A rule already exists to "
                                 "generate this row." % rule._target)
     self.AddRowListener(rule._source, rule.Evaluate)
     self._rules[rule._target] = rule
-    self._ruledb.Set("rule", rule)
+    if save_rule:
+      self._ruledb.Set("rule", rule.Pickleable())
 
   def AddRowListener(self, row, callback, *args):
     self._row_listeners.setdefault(row, [])
@@ -82,7 +157,7 @@ class Collector(simpledb.SimpleDB):
     simpledb.SimpleDB.Set(self, row, value, timestamp)
     if row in self._row_listeners:
       for (listener, args) in self._row_listeners[row]:
-        listener(args, self)
+        listener(args, self, row, value, timestamp)
 
 def test():
   import random
@@ -107,4 +182,4 @@ def test():
   for i in db.ItemIteratorByRows(["hits.mean.1day"]):
     print i
 
-test()
+#test()

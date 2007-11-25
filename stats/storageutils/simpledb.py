@@ -36,6 +36,12 @@ def From64(data):
 def KeyToRowAndTimestamp(key):
   return (key[:-8], From64(key[-8:]))
 
+def EndRow(row):
+  x = ord(row[-1])
+  if x == 255:
+    return EndRow(row[:-1])
+  return row[:-1] + chr(x + 1)
+
 class Entry(object):
   def __init__(self, row, timestamp, value):
     self.row = row
@@ -54,7 +60,7 @@ class SimpleDB(object):
   Backed with BDB.
   """
 
-  def __init__(self, db_path, encode_keys=True):
+  def __init__(self, db_path, encode_keys=False):
     self._db_path = db_path
     self._dbh = None
 
@@ -120,8 +126,8 @@ class SimpleDB(object):
   def GenerateDBKeyWithTimestamp(self, row, timestamp):
     if self.use_key_db:
       row = self.GetRowID(row, create_if_necessary=True)
-    if "keys" not in self._db_path:
-      print "%s @ %s" % (row, timestamp)
+    #if "keys" not in self._db_path:
+      #print "%s @ %s" % (row, timestamp)
 
     timestamp = (1<<63) - timestamp
     return "%s%s" % (row, To64(timestamp))
@@ -211,9 +217,13 @@ class SimpleDB(object):
 
   def ItemIteratorByRows(self, rows=[]):
     for row in rows:
-      for entry in self.ItemIterator(row):
+      start = row
+      end = EndRow(row)
+      for entry in self.ItemIterator("%s" % start):
         if entry.row != row:
-          break;
+          continue
+        if entry.row > row:
+          break
         yield entry
 
   def ItemIteratorByRowRange(self, start_row, end_row):
