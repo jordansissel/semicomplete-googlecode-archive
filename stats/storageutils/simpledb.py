@@ -28,10 +28,10 @@ class DBNotOpened(Exception):
 
 # use big endian packing since little endian sucks at sorting.
 def To64(num):
-  return struct.pack(">q", long(num))
+  return struct.pack(">Q", long(num))
 
 def From64(data):
-  return struct.unpack(">q", data)[0]
+  return struct.unpack(">Q", data)[0]
 
 def KeyToRowAndTimestamp(key):
   return (key[:-8], From64(key[-8:]))
@@ -57,9 +57,11 @@ class SimpleDB(object):
   def __init__(self, db_path, encode_keys=True):
     self._db_path = db_path
     self._dbh = None
+
+    self._dbe = db.DBEnv()
     self.use_key_db = encode_keys
     if self.use_key_db:
-      self._keydb_path = "%s.keys" % db_path
+      self._keydb_path = "%s.keys" % self._db_path
       self._keydb = None
 
   def Open(self, create_if_necessary=False):
@@ -97,12 +99,14 @@ class SimpleDB(object):
   def PurgeDatabase(self):
     if self._dbh:
       self._dbh.close()
-    if self.use_key_db and self._keydb:
-      self._keydb.PurgeDatabase()
     if os.path.exists(self._db_path):
       os.unlink(self._db_path)
-    if os.path.exists(self._keydb_path):
-      os.unlink(self._keydb_path)
+
+    if self.use_key_db:
+      if self._keydb:
+        self._keydb.PurgeDatabase()
+      if os.path.exists(self._keydb_path):
+        os.unlink(self._keydb_path)
 
   def GenerateDBKey(self, row, timestamp=None):
     if timestamp is None:
@@ -116,6 +120,10 @@ class SimpleDB(object):
   def GenerateDBKeyWithTimestamp(self, row, timestamp):
     if self.use_key_db:
       row = self.GetRowID(row, create_if_necessary=True)
+    if "keys" not in self._db_path:
+      print "%s @ %s" % (row, timestamp)
+
+    timestamp = (1<<63) - timestamp
     return "%s%s" % (row, To64(timestamp))
 
   def GetRowID(self, row, create_if_necessary=False):
@@ -124,11 +132,10 @@ class SimpleDB(object):
 
     id = None
     try:
-      record = self._keydb.ItemIteratorByRows([row]).next()
+      record = self._keydb.GetFirst(row)
       if record:
         id = record.value
-    except StopIteration:
-      # item not found
+    except RowNotFound:
       pass
 
     if id is None:
@@ -141,11 +148,7 @@ class SimpleDB(object):
   def GetRowByID(self, id):
     if not self.use_key_db:
       return id
-    iterator = self._keydb.ItemIteratorByRows([id])
-    try:
-      record = iterator.next()
-    except StopIteration:
-      raise RowNotFound(id)
+    record = self._keydb.GetFirst(id)
     if record:
       return record.value
     return None
@@ -185,6 +188,7 @@ class SimpleDB(object):
     while record:
       (key, value) = record
       (row, timestamp) = KeyToRowAndTimestamp(key)
+      timestamp = (1<<63) - timestamp
       try:
         row = self.GetRowByID(row)
       except RowNotFound:
@@ -335,25 +339,25 @@ def proftest():
   SimpleDB(f).PurgeDatabase()
   db = SimpleDB(f, encode_keys=True)
   db.Open(create_if_necessary=True)
-  iterations = 3000
+  iterations = 10
 
   db.Set("one", 1)
   db.Set("two", 2)
 
   print "Set foo/bar/baz"
   for i in range(iterations):
-    db.Set("foo", i, i)
-    db.Set("bar", i, i)
-    db.Set("baz", i, i)
+    db.Set("foo", i)
+    db.Set("bar", i)
+    db.Set("baz", i)
 
-  print "Set i"
-  for i in range(100):
-    for j in range(100):
-      db.Set(str(i), j, j)
+  #print "Set i"
+  #for i in range(100):
+    ###for j in range(100):
+      #db.Set(str(i), j, j)
 
   print "Scan"
   for i in db.ItemIterator():
-    pass
+    print i
 
   print "Delete"
   db.DeleteRow("bar")
@@ -373,7 +377,8 @@ def profile(func, *args):
 
 #testclean()
 
-profile(proftest)
+#profile(proftest)
+#proftest()
 
 def cachetest():
   x = Cache(5)
