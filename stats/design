@@ -3,3 +3,8 @@ Database for storing key+timestamp => value pairs
 
 == Data Manipulation:
 commandline tool to add data
+
+== Aggregates
+"create aggregate"
+  Aggregate data and store the computed results in the database.
+  
