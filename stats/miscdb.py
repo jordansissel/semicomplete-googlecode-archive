@@ -53,11 +53,40 @@ class Cache(dict):
     return dict.__delitem__(self, key)
 
   def __add_key(self, key):
-    print "OK"
     self._key_list.append(key)
-    print len(self._key_list) > self._maxsize
     if len(self._key_list) > self._maxsize:
       del self[self._key_list.pop(0)]
+
+def memoize(func):
+  m = Memoize(func)
+  def newfunc(*args, **kwds):
+    return m(*args, **kwds)
+  newfunc.__name__ = "(memoized)%s" % func.__name__
+  newfunc.__doc__ = func.__doc__
+  return newfunc
+
+class Memoize(object):
+  """ Memoizing decorator class.
+
+  Taken mostly from:
+  http://wiki.python.org/moin/PythonDecoratorLibrary
+  """
+  def __init__(self, func, size=100):
+    self._func = func
+    self._cache = Cache(size)
+    self.__name__ = "(memoized)%s" % func.__name__
+
+  def __call__(self, *args, **kwds):
+    try:
+      return self._cache[args]
+    except KeyError:
+      self._cache[args] = value = self._func(*args, **kwds)
+      return value
+    except TypeError:
+      return self._func(*args)
+
+  def __repr__(self):
+    return self._func.__doc__
 
 class Entry(object):
   def __init__(self, row, timestamp, value):
@@ -78,7 +107,6 @@ class SimpleDB(object):
     self._dbh = None
     self.use_key_db = encode_keys
     if self.use_key_db:
-      self.use_key_db = True
       self._keydb_path = "%s.keys" % db_path
       self._keydb = None
 
@@ -121,6 +149,8 @@ class SimpleDB(object):
       self._keydb.PurgeDatabase()
     if os.path.exists(self._db_path):
       os.unlink(self._db_path)
+    if os.path.exists(self._keydb_path):
+      os.unlink(self._keydb_path)
 
   def GenerateDBKey(self, row, timestamp=None):
     if timestamp is None:
@@ -131,11 +161,13 @@ class SimpleDB(object):
     timestamp = long(timestamp)
     return self.GenerateDBKeyWithTimestamp(row, timestamp)
 
+  #@memoize
   def GenerateDBKeyWithTimestamp(self, row, timestamp):
     if self.use_key_db:
       row = self.GetRowID(row, create_if_necessary=True)
     return "%s%s" % (row, To64(timestamp))
 
+  #@memoize
   def GetRowID(self, row, create_if_necessary=False):
     if not self.use_key_db:
       return row
@@ -203,7 +235,10 @@ class SimpleDB(object):
     while record:
       (key, value) = record
       (row, timestamp) = KeyToRowAndTimestamp(key)
-      row = self.GetRowByID(row)
+      try:
+        row = self.GetRowByID(row)
+      except RowNotFound:
+        print "Failed finding row '%s'" % row
       value = cPickle.loads(record[1])
       yield Entry(row, timestamp, value)
       record = cursor.next()
@@ -348,9 +383,9 @@ def testclean():
 def proftest():
   f = "/tmp/test2"
   SimpleDB(f).PurgeDatabase()
-  db = SimpleDB(f)
+  db = SimpleDB(f, encode_keys=True)
   db.Open(create_if_necessary=True)
-  iterations = 1000
+  iterations = 3000
 
   db.Set("one", 1)
   db.Set("two", 2)
@@ -362,8 +397,9 @@ def proftest():
     db.Set("baz", i, i)
 
   print "Set i"
-  for i in range(iterations):
-    db.Set(str(i), i, i)
+  for i in range(100):
+    for j in range(100):
+      db.Set(str(i), j, j)
 
   print "Scan"
   for i in db.ItemIterator():
