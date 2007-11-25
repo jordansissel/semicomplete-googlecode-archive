@@ -6,7 +6,6 @@ import os
 import time
 import struct
 import cPickle
-#import numpy as N
 
 # database:
 # timestamp should be 64bit value: epoch in milliseconds == 52 bits.
@@ -37,57 +36,6 @@ def From64(data):
 def KeyToRowAndTimestamp(key):
   return (key[:-8], From64(key[-8:]))
 
-class Cache(dict):
-  def __init__(self, size=100):
-    self._maxsize = size
-    self._key_list = []
-
-  def __setitem__(self, key, value):
-    if not self.has_key(key):
-      self.__add_key(key)
-    return dict.__setitem__(self, key, value)
-
-  def __delitem__(self, key):
-    if key in self._key_list:
-      self._key_list.remove(key)
-    return dict.__delitem__(self, key)
-
-  def __add_key(self, key):
-    self._key_list.append(key)
-    if len(self._key_list) > self._maxsize:
-      del self[self._key_list.pop(0)]
-
-def memoize(func):
-  m = Memoize(func)
-  def newfunc(*args, **kwds):
-    return m(*args, **kwds)
-  newfunc.__name__ = "(memoized)%s" % func.__name__
-  newfunc.__doc__ = func.__doc__
-  return newfunc
-
-class Memoize(object):
-  """ Memoizing decorator class.
-
-  Taken mostly from:
-  http://wiki.python.org/moin/PythonDecoratorLibrary
-  """
-  def __init__(self, func, size=100):
-    self._func = func
-    self._cache = Cache(size)
-    self.__name__ = "(memoized)%s" % func.__name__
-
-  def __call__(self, *args, **kwds):
-    try:
-      return self._cache[args]
-    except KeyError:
-      self._cache[args] = value = self._func(*args, **kwds)
-      return value
-    except TypeError:
-      return self._func(*args)
-
-  def __repr__(self):
-    return self._func.__doc__
-
 class Entry(object):
   def __init__(self, row, timestamp, value):
     self.row = row
@@ -101,6 +49,10 @@ class Entry(object):
     return str(self)
 
 class SimpleDB(object):
+  """ Simple timestamped key-value pair storage space. 
+
+  Backed with BDB.
+  """
 
   def __init__(self, db_path, encode_keys=True):
     self._db_path = db_path
@@ -161,13 +113,11 @@ class SimpleDB(object):
     timestamp = long(timestamp)
     return self.GenerateDBKeyWithTimestamp(row, timestamp)
 
-  #@memoize
   def GenerateDBKeyWithTimestamp(self, row, timestamp):
     if self.use_key_db:
       row = self.GetRowID(row, create_if_necessary=True)
     return "%s%s" % (row, To64(timestamp))
 
-  #@memoize
   def GetRowID(self, row, create_if_necessary=False):
     if not self.use_key_db:
       return row
