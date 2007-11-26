@@ -30,23 +30,7 @@ def StringToType(string):
     "count": STEP_COUNT,
   }[string]
 
-class Trigger(object):
-  valid_operations = ( OP_GET, OP_SET, OP_DELETE )
-  init_attrs = ("source_rows", "operations")
-  def __init__(self, source_rows, operations):
-    self._source_rows = source_rows
-    self._operations = operations
-
-  def Callback(self, db, row, value, timestamp, args):
-    raise NotImplemented("You must override this function")
-
-  def AsDict(self):
-    data = {}
-    for attr in self.init_attrs:
-      data[attr] = getattr(self, "_%s" % attr)
-    return data
-
-class Rule(Trigger):
+class Rule(object):
   init_attrs = ("_source", "_target", "_ruletype", "_xff", "_steps", "_step_type")
   restore_attrs = ("_hits",)
 
@@ -76,7 +60,10 @@ class Rule(Trigger):
 
     self._hits = 0
 
-  def Pickleable(self):
+  def __hash__(self):
+    return hash(self._target)
+
+  def ToDict(self):
     attrs = self.init_attrs + self.restore_attrs
     data = {}
     for i in attrs:
@@ -85,6 +72,11 @@ class Rule(Trigger):
 
   @classmethod
   def CreateFromDict(self, data):
+    """ Factory-type method to create a Rule instance from a dictionary.
+
+    For a Rule instance 'obj', 
+      Rule.CreateFromDict(obj.ToDict()) == obj
+    """
     args = {}
     for i in self.init_attrs:
       args[i[1:]] = data[i]
@@ -93,12 +85,11 @@ class Rule(Trigger):
       setattr(obj, i, data[i])
     return obj
 
-
   def Notify(self, unused_args, db, row, value, timestamp):
     # Record a notification somewhere
     pass
 
-  Callback = Notify
+  __call__ = Notify
 
   def Evaluate(self, unused_args, db, row, value, timestamp):
     if self._step_type == STEP_TIME:
@@ -176,7 +167,7 @@ class Collector(simpledb.SimpleDB):
     if save_rule:
       self._ruledb.Set("rule", rule.Pickleable())
 
-  def AddRowListener(self, row, callback, *args):
+  def AddRowListener(self, row, operation, callback)
     self._row_listeners.setdefault(row, [])
     self._row_listeners[row].append((callback, args))
 

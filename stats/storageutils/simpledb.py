@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
-from bsddb import db
+from bsddb import db as bdb
 
 import os
 import time
 import struct
 import cPickle
-
+#from threading import Lock
 
 # database:
 # timestamp should be 64bit value: epoch in milliseconds == 52 bits.
@@ -15,7 +15,7 @@ import cPickle
 
 # if row -> id not exists, add to database
 
-BDB_ACCESS_FLAGS = db.DB_BTREE
+BDB_ACCESS_FLAGS = bdb.DB_BTREE
 NEXT_ID_KEY = "_next_id"
 TIMESTAMP_MAX = (1<<63)
 
@@ -38,10 +38,11 @@ def From64(data):
 def KeyToRowAndTimestamp(key):
   return (key[:-8], From64(key[-8:]))
 
+# Do we need this?
 def EndRow(row):
   x = ord(row[-1])
   if x == 255:
-    return EndRow(row[:-1])
+    return EndRow("%s\0" % row[:-1])
   return row[:-1] + chr(x + 1)
 
 class Entry(object):
@@ -56,35 +57,69 @@ class Entry(object):
   def __repr__(self):
     return str(self)
 
+def synchronized_method(func):
+  def newfunc(self, *args, **kwds):
+    assert(hasattr(self, "_lock"))
+    self._lock.acquire()
+    func(self, *args, **kwds)
+    self._lock.release()
+  newfunc.__name__ = "(synchronized)%s" % func.__name__
+  newfunc.__doc__ = func.__doc__
+  newfunc.__dict__.update(func.__dict__)
+
 class SimpleDB(object):
   """ Simple timestamped key-value pair storage space. 
 
   Backed with BDB.
   """
 
-  def __init__(self, db_path, encode_keys=False):
-    self._db_path = db_path
-    self._dbh = None
+  def __init__(self, db_root, db_name="main", encode_keys=False):
+    assert os.path.isdir(db_root)
 
-    self._dbe = db.DBEnv()
+    self._db_root = db_root
+    self._db_name = db_name
+    self._db_path = "%s/%s" % (self._db_root, self._db_name)
+    self._dbh = None
+    self._dbenv = None
+    #self._lock = Lock()
+
     self.use_key_db = encode_keys
     if self.use_key_db:
-      self._keydb_path = "%s.keys" % self._db_path
+      self._keydb_path = "%s/keys" % self._db_root
       self._keydb = None
 
+  def _SetDBEnv(self, dbenv):
+    self._dbenv = dbenv
+
   def Open(self, create_if_necessary=False):
-    if create_if_necessary and not os.path.exists(self._db_path):
+    # XXX: Make sure this is the correct way to do this.
+    if not os.path.isdir(self._db_root) and create_if_necessary:
+      os.mkdir(self._db_root)
+
+    if type(self._dbenv) != "DBEnv":
+      self._dbenv = bdb.DBEnv()
+      self._dbenv.set_cachesize(0, 20<<20)
+      flags = bdb.DB_INIT_LOCK | bdb.DB_INIT_MPOOL \
+              | (create_if_necessary and bdb.DB_CREATE)
+      self._dbenv.open(self._db_root, flags)
+
+    if create_if_necessary:
       self._CreateBDB()
 
-    self._dbh = db.DB()
-    self._dbh.set_cachesize(0, 20<<20)
+    self._dbh = bdb.DB(self._dbenv)
     self._OpenBDB()
 
     if self.use_key_db:
       self._CreateKeyDB(create_if_necessary)
 
+  def Close(self):
+    self._dbh.close()
+    if self.use_key_db:
+      self._keydb.close()
+
   def _CreateKeyDB(self, create_if_necessary=False):
-    self._keydb = SimpleDB(self._keydb_path, encode_keys=False)
+    self._keydb = SimpleDB(self._db_root, db_name="keys", encode_keys=False)
+    self._keydb._SetDBEnv(self._dbenv)
     self._keydb.Open(create_if_necessary=create_if_necessary)
 
     # Initialize id to 1 if not found
@@ -94,28 +129,21 @@ class SimpleDB(object):
       self._keydb.Set(NEXT_ID_KEY, 1, 0)
 
   def _CreateBDB(self):
-    if os.path.exists(self._db_path):
-      raise DBExists("Refusing to overwrite existing file: %s" % self._db_path)
-    handle = db.DB()
+    #if os.path.exists(self._db_root):
+      #raise DBExists("Refusing to overwrite existing file: %s" % self._db_path)
+    handle = bdb.DB(self._dbenv)
     handle.set_pagesize(4096)
-    handle.open(self._db_path, None, BDB_ACCESS_FLAGS, db.DB_CREATE);
+    handle.open(self._db_path, self._db_name, BDB_ACCESS_FLAGS, bdb.DB_CREATE);
     handle.close()
 
   def _OpenBDB(self):
-    self._dbh.open(self._db_path, None,
-                   BDB_ACCESS_FLAGS, db.DB_DIRTY_READ)
+    self._dbh.open(self._db_path, self._db_name, BDB_ACCESS_FLAGS, 0)
 
   def PurgeDatabase(self):
     if self._dbh:
       self._dbh.close()
-    if os.path.exists(self._db_path):
-      os.unlink(self._db_path)
-
-    if self.use_key_db:
-      if self._keydb:
-        self._keydb.PurgeDatabase()
-      if os.path.exists(self._keydb_path):
-        os.unlink(self._keydb_path)
+    if self.use_key_db and self._keydb:
+      self._keydb.PurgeDatabase()
 
   def GenerateDBKey(self, row, timestamp=None):
     if timestamp is None:
@@ -222,7 +250,6 @@ class SimpleDB(object):
   def ItemIteratorByRows(self, rows=[]):
     for row in rows:
       start = row
-      end = EndRow(row)
       for entry in self.ItemIterator("%s" % start):
         if entry.row != row:
           break
@@ -328,74 +355,17 @@ def score():
   for i in db.ItemIterator():
     print i
 
-def testclean():
-  f = "/tmp/test2"
-  SimpleDB(f).PurgeDatabase()
-  db = SimpleDB(f)
-  db.Open(create_if_necessary=True)
-
-  print "set"
-  db.Set("foo", "bar", 0)
-  db.Set("foo2", "bar2", 0)
-  #print [x for x in db.ItemIterator()]
-  print "del"
-  db.Delete("foo", 0)
-  #print [x for x in db.ItemIterator()]
-  print "clean"
-  db.Clean()
-  print [x for x in db.ItemIterator()]
-  print [x for x in db._keydb.ItemIterator()]
-
-def proftest():
-  f = "/tmp/test2"
-  SimpleDB(f).PurgeDatabase()
-  db = SimpleDB(f, encode_keys=True)
-  db.Open(create_if_necessary=True)
-  iterations = 10
-
-  db.Set("one", 1)
-  db.Set("two", 2)
-
-  print "Set foo/bar/baz"
-  for i in range(iterations):
-    db.Set("foo", i)
-    db.Set("bar", i)
-    db.Set("baz", i)
-
-  #print "Set i"
-  #for i in range(100):
-    ###for j in range(100):
-      #db.Set(str(i), j, j)
-
-  print "Scan"
-  for i in db.ItemIterator():
+def test():
+  #import tempfile
+  tmpdir = "/tmp/tdb" #tempfile.mkdtemp()
+  print tmpdir
+  d = SimpleDB(tmpdir)
+  d.Open(create_if_necessary=True)
+  for i in range(1000000):
+    if i % 10000 == 0:
+      print i
+    d.Set("foo", i, i)
+  for i in d.ItemIterator():
     print i
 
-  print "Delete"
-  db.DeleteRow("bar")
-  db.DeleteRow("one")
-  db.DeleteRow("two")
-
-  print "Clean"
-  db.Clean()
-  print "Done"
-
-def profile(func, *args):
-  import hotshot
-  output = "/tmp/my.profile"
-  p = hotshot.Profile(output)
-  p.runcall(func, *args)
-  p.close()
-
-#testclean()
-
-#profile(proftest)
-#proftest()
-
-def cachetest():
-  x = Cache(5)
-
-  for i in range(100):
-    x[i] = i
-
-  print x
+#test()
