@@ -79,6 +79,7 @@ class SimpleDB(object):
     self._db_path = "%s/%s" % (self._db_root, self._db_name)
     self._dbh = None
     self._dbenv = None
+    #print "DB: %s" % db_name
     #self._lock = Lock()
 
     self.use_key_db = encode_keys
@@ -218,25 +219,6 @@ class SimpleDB(object):
     for entry in self.ItemIteratorByRows([row]):
       self.Delete(entry.row, entry.timestamp)
 
-  def ItemIterator(self, start_row="", start_timestamp=TIMESTAMP_MAX):
-    cursor = self._dbh.cursor()
-    if start_row:
-      start_row = self.GetRowID(start_row)
-    start_row = self.GenerateDBKeyWithTimestamp(start_row, start_timestamp)
-    record = cursor.set_range(start_row)
-    while record:
-      (key, value) = record
-      (row, timestamp) = KeyToRowAndTimestamp(key)
-      timestamp = TIMESTAMP_MAX - timestamp
-      try:
-        row = self.GetRowByID(row)
-      except RowNotFound:
-        print "Failed finding row '%s'" % row
-      value = cPickle.loads(record[1])
-      yield Entry(row, timestamp, value)
-      record = cursor.next()
-    cursor.close()
-
   def GetNewest(self, row):
     iterator = self.ItemIterator(row)
     try:
@@ -248,10 +230,31 @@ class SimpleDB(object):
       return entry
     raise RowNotFound(row)
 
-  def ItemIteratorByRows(self, rows=[]):
+  def ItemIterator(self, start_row="", start_timestamp=TIMESTAMP_MAX, end_timestamp=0):
+    cursor = self._dbh.cursor()
+    if start_row:
+      start_row = self.GetRowID(start_row)
+    start_row = self.GenerateDBKeyWithTimestamp(start_row, start_timestamp)
+    record = cursor.set_range(start_row)
+    while record:
+      (key, value) = record
+      (row, timestamp) = KeyToRowAndTimestamp(key)
+      timestamp = TIMESTAMP_MAX - timestamp
+      if timestamp < end_timestamp:
+        break
+      try:
+        row = self.GetRowByID(row)
+      except RowNotFound:
+        print "Failed finding row '%s'" % row
+      value = cPickle.loads(record[1])
+      yield Entry(row, timestamp, value)
+      record = cursor.next()
+    cursor.close()
+
+  def ItemIteratorByRows(self, rows=[], start_timestamp=TIMESTAMP_MAX, end_timestamp=0):
     for row in rows:
-      start = row
-      for entry in self.ItemIterator("%s" % start):
+      for entry in self.ItemIterator(row, start_timestamp, end_timestamp):
+        #print "ItemRowIter: %s vs %s" % (row, entry.row)
         if entry.row != row:
           break
         yield entry

@@ -2,6 +2,7 @@
 
 import simpledb
 import time
+import threading
 
 # rrdtoolisms
 RULE_AVERAGE=1
@@ -44,8 +45,11 @@ class ThreadSafeDict(dict):
     dict.__init__(self, *args, **kwds)
     self.__lock = threading.RLock()
     funcs = self.__dict__.keys()
-    for name in funcs
-      setattr(self, name) = synchronized(getattr(self, name))
+    for name in funcs:
+      if name in ("lock", "release"):
+        continue
+      if hasattr(getattr(self, name), "__call__"):
+        setattr(self, name, synchronized(getattr(self, name)))
 
   def lock(self):
     self.__lock.acquire()
@@ -57,24 +61,37 @@ class RuleEvaluator(threading.Thread):
   def __init__(self):
     threading.Thread.__init__(self)
     self._notifications = ThreadSafeDict()
+    self._done= threading.Event()
+    self._done.clear()
 
   def run(self):
-    while True:
+    done = False
+    while not done:
+      done = self._done.isSet()
       print "Eval iteration"
       self._notifications.lock()
       if len(self._notifications.keys()):
         self.ProcessEvaluations()
       self._notifications.release()
-      time.sleep(10)
+
+      # sleep for a little
+      # XXX: If we try to evaluate while updating, segfault happens.
+      self._done.wait(1)
 
   def Notify(self, notification):
     self._notifications.setdefault(notification, 0)
     self._notifications[notification] += 1
 
   def ProcessEvaluations(self):
-    for i in self._notifications:
-      print "%s: %s" % (i, self._notifications[i])
-      del self._notifications[i]
+    keys_to_remove = []
+    for notification in self._notifications:
+      rule = notification._rule
+      rule.Evaluate(notification._start)
+    for notification in keys_to_remove:
+      self._notifications[notification]
+
+  def Finish(self):
+    self._done.set()
 
 class RuleNotification(object):
   def __init__(self, rule, start, end):
@@ -84,6 +101,11 @@ class RuleNotification(object):
 
   def __hash__(self):
     return hash(self._rule) + hash(self._start) + hash(self._end)
+
+  def __cmp__(self, other):
+    return cmp(self._rule, other._rule) \
+           or cmp(self._start, other._start) \
+           or cmp(self._end, other._end)
 
 class Rule(object):
   init_attrs = ("_source", "_target", "_ruletype", "_xff", "_steps", "_step_type")
@@ -99,6 +121,7 @@ class Rule(object):
 
     # Rule Evaluator
     self._evaluator = None
+    self._db = None
 
     if isinstance(self._ruletype, str):
       self._ruletype = StringToType(self._ruletype)
@@ -117,6 +140,9 @@ class Rule(object):
     }
 
     self._hits = 0
+
+  def SetDB(self, db):
+    self._db = db
 
   def __hash__(self):
     return hash(self._target)
@@ -146,30 +172,33 @@ class Rule(object):
       setattr(obj, i, data[i])
     return obj
 
-  def Notify(self, unused_args, db, row, value, timestamp):
+  def Notify(self, unused_args, db, timestamp):
     # Record a notification somewhere
     if self._step_type == STEP_COUNT:
       raise NotImplemented("COUNT not implemented for rules")
-    if not self._evaluator
+    if not self._evaluator:
       raise NotImplemented("No evaluator for this rule. Cannot notify.")
     (start, end) = self.GetTimeRangeForTimestamp(timestamp)
+    #print "schedule eval for: (%s) %s, %s" % (timestamp/1000000, start/1000000, end/1000000)
 
-    key = (self._target, start, end)
-    self._evaluator.
+    notification = RuleNotification(self, start, end)
+    self._evaluator.Notify(notification)
 
-  def GetTimeRangeForTimestamp(self, timestamp)
+  def GetTimeRangeForTimestamp(self, timestamp):
     period = self._steps * 1000000
-    end = timestamp - (timestamp % period)
-    start = end - period
+    start = timestamp - (timestamp % period)
+    end = start + period
     return (start, end)
 
-  def Evaluate(self, unused_args, db, row, value, timestamp):
+  def Evaluate(self, timestamp, *args):
+    print "Evaluate called"
     if self._step_type == STEP_TIME:
-      self.EvaluateTime(unused_args, db, row, value, timestamp)
+      self.EvaluateTime(timestamp, *args)
     elif self._step_type == STEP_COUNT:
-      self.EvaluateCount(unused_args, db, row, value, timestamp)
+      self.EvaluateCount(timestamp, *args)
 
-  def EvaluateCount(self, unused_args, db, row, value, timestamp):
+  def EvaluateCount(self, timestamp, *args):
+    assert(False)
     self._hits += 1
     if self._hits < self._steps:
       return
@@ -177,7 +206,7 @@ class Rule(object):
     count = 0
     values = []
     last_timestamp = None
-    for entry in db.ItemIteratorByRows([self._source]):
+    for entry in self._db.ItemIteratorByRows([self._source]):
       assert entry.row == self._source
       count += 1
       values.append(entry.value)
@@ -185,32 +214,33 @@ class Rule(object):
       if count == self._steps:
         break;
 
-  def EvaluateTime(self, unused_args, db, row, value, timestamp):
-    if timestamp < self._next_timestamp:
-      return
+  def EvaluateTime(self, timestamp, *args):
     #print "time eval"
+    #for i in self._db.ItemIterator():
+      #print "%s: %s" % (timestamp, i)
     (start, end) = self.GetTimeRangeForTimestamp(timestamp)
-    period = self._steps * 1000000
-    end = timestamp - (timestamp % period)
-    start = bucket - period
-    end = bucket
+    #print "range: (%s) (%s, %s)" % (timestamp/1000000, end/1000000, start/1000000)
     values = []
     last_timestamp = None
-    for entry in db.ItemIteratorByRows([self._source]):
+    count = 0
+    for entry in self._db.ItemIteratorByRows([self._source]):
+      count += 1
+      #print "evaltime: %d" % (entry.timestamp/1000000)
       if entry.timestamp > end:
+        #print "cont: %s > (%s, %s)" % (entry.timestamp/1000000, end/1000000, start/1000000)
         continue
       if entry.timestamp < start:
-        break;
+        #print "break: %s > (%s, %s)" % (entry.timestamp/1000000, end/1000000, start/1000000)
+        break
+      #print "found: %s" % (entry.timestamp / 1000000)
       values.append(entry.value)
       last_timestamp = entry.timestamp
+    print "Count: %d" % count
 
-    print "val: %d" % len(values)
-    print "(%d, %d)" % (start / 1000000, end / 1000000)
-
-    self._next_timestamp = end
     if last_timestamp is not None:
       result = self._dispatch[self._ruletype](values)
-      db.Set(self._target, result, last_timestamp)
+      print "Set: %s@%s => %s" % (self._target, end, result)
+      self._db.Set(self._target, result, end)
 
 class FancyDB(simpledb.SimpleDB):
   def __init__(self, db_path, encode_keys=False):
@@ -219,12 +249,18 @@ class FancyDB(simpledb.SimpleDB):
     self._ruledb = simpledb.SimpleDB(db_path, db_name="rules", encode_keys=False)
     self._rules = {}
     self._evaluator = RuleEvaluator()
+    self._evaluator.start()
 
   def Open(self, create_if_necessary=True):
     simpledb.SimpleDB.Open(self, create_if_necessary)
     self._ruledb.Open(create_if_necessary=True)
-    print self._dbenv
     self.LoadRules()
+
+  def Close(self):
+    self._evaluator.Finish()
+    self._evaluator.join()
+    simpledb.SimpleDB.Close(self)
+    self._ruledb.Close()
 
   def PurgeDatabase(self):
     simpledb.SimpleDB.PurgeDatabase(self)
@@ -240,12 +276,13 @@ class FancyDB(simpledb.SimpleDB):
                                 "aborted. A rule already exists to "
                                 "generate this row." % rule._target)
     rule.SetEvaluator(self._evaluator)
+    rule.SetDB(self)
     self.AddRowListener(rule._source, rule.Notify)
     self._rules[rule._target] = rule
     if save_rule:
-      self._ruledb.Set("rule", rule.Pickleable())
+      self._ruledb.Set("rule", rule.ToDict())
 
-  def AddRowListener(self, row, operation, callback)
+  def AddRowListener(self, row, callback, *args):
     self._row_listeners.setdefault(row, [])
     self._row_listeners[row].append((callback, args))
 
@@ -254,7 +291,8 @@ class FancyDB(simpledb.SimpleDB):
     simpledb.SimpleDB.Set(self, row, value, timestamp)
     if row in self._row_listeners:
       for (listener, args) in self._row_listeners[row]:
-        listener(args, self, row, value, timestamp)
+        #listener(args, self, row, value, timestamp)
+        listener(args, self, timestamp)
 
 def test():
   import random
