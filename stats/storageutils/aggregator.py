@@ -73,6 +73,10 @@ class Rule(object):
       setattr(obj, i, data[i])
     return obj
 
+  def Notify(self, unused_args, db, row, value, timestamp):
+    # Record a notification somewhere
+    pass
+
   def Evaluate(self, unused_args, db, row, value, timestamp):
     if self._step_type == STEP_TIME:
       self.EvaluateTime(unused_args, db, row, value, timestamp)
@@ -101,12 +105,10 @@ class Rule(object):
     #print "time eval"
     period = self._steps * 1000000
     bucket = timestamp - (timestamp % period)
-    start = bucket
-    end = bucket + period
+    start = bucket - period
+    end = bucket
     values = []
     last_timestamp = None
-    #print "Searching for [%d, %d]" % (start, end)
-    #print ": %s" % (self._source)
     for entry in db.ItemIteratorByRows([self._source]):
       if entry.timestamp > end:
         continue
@@ -114,6 +116,9 @@ class Rule(object):
         break;
       values.append(entry.value)
       last_timestamp = entry.timestamp
+
+    print "val: %d" % len(values)
+    print "(%d, %d)" % (start / 1000000, end / 1000000)
 
     self._next_timestamp = end
     if last_timestamp is not None:
@@ -143,7 +148,7 @@ class Collector(simpledb.SimpleDB):
       raise DuplicateRuleTarget("Attempt to add rule creating rows '%s'"
                                 "aborted. A rule already exists to "
                                 "generate this row." % rule._target)
-    self.AddRowListener(rule._source, rule.Evaluate)
+    self.AddRowListener(rule._source, rule.Notify)
     self._rules[rule._target] = rule
     if save_rule:
       self._ruledb.Set("rule", rule.Pickleable())

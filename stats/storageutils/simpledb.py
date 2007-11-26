@@ -7,6 +7,7 @@ import time
 import struct
 import cPickle
 
+
 # database:
 # timestamp should be 64bit value: epoch in milliseconds == 52 bits.
 # row should be 64bit id
@@ -16,6 +17,7 @@ import cPickle
 
 BDB_ACCESS_FLAGS = db.DB_BTREE
 NEXT_ID_KEY = "_next_id"
+TIMESTAMP_MAX = (1<<63)
 
 class DBExists(Exception):
   pass
@@ -75,6 +77,7 @@ class SimpleDB(object):
       self._CreateBDB()
 
     self._dbh = db.DB()
+    self._dbh.set_cachesize(0, 20<<20)
     self._OpenBDB()
 
     if self.use_key_db:
@@ -86,7 +89,7 @@ class SimpleDB(object):
 
     # Initialize id to 1 if not found
     try:
-      self._keydb.GetFirst(NEXT_ID_KEY)
+      self._keydb.GetNewest(NEXT_ID_KEY)
     except RowNotFound:
       self._keydb.Set(NEXT_ID_KEY, 1, 0)
 
@@ -129,7 +132,7 @@ class SimpleDB(object):
     #if "keys" not in self._db_path:
       #print "%s @ %s" % (row, timestamp)
 
-    timestamp = (1<<63) - timestamp
+    timestamp = TIMESTAMP_MAX - timestamp
     return "%s%s" % (row, To64(timestamp))
 
   def GetRowID(self, row, create_if_necessary=False):
@@ -138,7 +141,7 @@ class SimpleDB(object):
 
     id = None
     try:
-      record = self._keydb.GetFirst(row)
+      record = self._keydb.GetNewest(row)
       if record:
         id = record.value
     except RowNotFound:
@@ -154,7 +157,7 @@ class SimpleDB(object):
   def GetRowByID(self, id):
     if not self.use_key_db:
       return id
-    record = self._keydb.GetFirst(id)
+    record = self._keydb.GetNewest(id)
     if record:
       return record.value
     return None
@@ -162,7 +165,7 @@ class SimpleDB(object):
   def CreateRowID(self, row):
     if not self.use_key_db:
       return row
-    next_id = self._keydb.GetFirst(NEXT_ID_KEY).value
+    next_id = self._keydb.GetNewest(NEXT_ID_KEY).value
     id = To64(next_id)
     # Map row => id, and id => row
     self._keydb.Set(row, id, 0)
@@ -186,15 +189,16 @@ class SimpleDB(object):
     for entry in self.ItemIteratorByRows([row]):
       self.Delete(entry.row, entry.timestamp)
 
-  def ItemIterator(self, start_row=""):
+  def ItemIterator(self, start_row="", start_timestamp=TIMESTAMP_MAX):
     cursor = self._dbh.cursor()
     if start_row:
       start_row = self.GetRowID(start_row)
+    start_row = self.GenerateDBKeyWithTimestamp(start_row, start_timestamp)
     record = cursor.set_range(start_row)
     while record:
       (key, value) = record
       (row, timestamp) = KeyToRowAndTimestamp(key)
-      timestamp = (1<<63) - timestamp
+      timestamp = TIMESTAMP_MAX - timestamp
       try:
         row = self.GetRowByID(row)
       except RowNotFound:
@@ -204,7 +208,7 @@ class SimpleDB(object):
       record = cursor.next()
     cursor.close()
 
-  def GetFirst(self, row):
+  def GetNewest(self, row):
     iterator = self.ItemIterator(row)
     try:
       entry = iterator.next()
@@ -221,8 +225,6 @@ class SimpleDB(object):
       end = EndRow(row)
       for entry in self.ItemIterator("%s" % start):
         if entry.row != row:
-          continue
-        if entry.row > row:
           break
         yield entry
 
@@ -247,7 +249,7 @@ class SimpleDB(object):
       failcount = 0
       for row in (entry.value, entry.row):
         try:
-          item = self.GetFirst(row)
+          item = self.GetNewest(row)
         except RowNotFound:
           failcount += 1
       if failcount == 2:
