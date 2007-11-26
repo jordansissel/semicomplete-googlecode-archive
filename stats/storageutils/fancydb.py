@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import simpledb
+import time
 
 # rrdtoolisms
 RULE_AVERAGE=1
@@ -30,6 +31,60 @@ def StringToType(string):
     "count": STEP_COUNT,
   }[string]
 
+def synchronized(func):
+  def newfunc(self, *args, **kwds):
+    assert hasattr(self, "__lock")
+    self.__lock.acquire()
+    func(self, *args, **kwds)
+    self.__lock.release()
+  return newfunc
+
+class ThreadSafeDict(dict):
+  def __init__(self, *args, **kwds):
+    dict.__init__(self, *args, **kwds)
+    self.__lock = threading.RLock()
+    funcs = self.__dict__.keys()
+    for name in funcs
+      setattr(self, name) = synchronized(getattr(self, name))
+
+  def lock(self):
+    self.__lock.acquire()
+
+  def release(self):
+    self.__lock.release()
+
+class RuleEvaluator(threading.Thread):
+  def __init__(self):
+    threading.Thread.__init__(self)
+    self._notifications = ThreadSafeDict()
+
+  def run(self):
+    while True:
+      print "Eval iteration"
+      self._notifications.lock()
+      if len(self._notifications.keys()):
+        self.ProcessEvaluations()
+      self._notifications.release()
+      time.sleep(10)
+
+  def Notify(self, notification):
+    self._notifications.setdefault(notification, 0)
+    self._notifications[notification] += 1
+
+  def ProcessEvaluations(self):
+    for i in self._notifications:
+      print "%s: %s" % (i, self._notifications[i])
+      del self._notifications[i]
+
+class RuleNotification(object):
+  def __init__(self, rule, start, end):
+    self._rule = rule
+    self._start = start
+    self._end = end
+
+  def __hash__(self):
+    return hash(self._rule) + hash(self._start) + hash(self._end)
+
 class Rule(object):
   init_attrs = ("_source", "_target", "_ruletype", "_xff", "_steps", "_step_type")
   restore_attrs = ("_hits",)
@@ -41,6 +96,9 @@ class Rule(object):
     self._xff = int(xff)
     self._steps = int(steps)
     self._step_type = step_type
+
+    # Rule Evaluator
+    self._evaluator = None
 
     if isinstance(self._ruletype, str):
       self._ruletype = StringToType(self._ruletype)
@@ -62,6 +120,9 @@ class Rule(object):
 
   def __hash__(self):
     return hash(self._target)
+
+  def SetEvaluator(self, evaluator):
+    self._evaluator = evaluator
 
   def ToDict(self):
     attrs = self.init_attrs + self.restore_attrs
@@ -87,9 +148,20 @@ class Rule(object):
 
   def Notify(self, unused_args, db, row, value, timestamp):
     # Record a notification somewhere
-    pass
+    if self._step_type == STEP_COUNT:
+      raise NotImplemented("COUNT not implemented for rules")
+    if not self._evaluator
+      raise NotImplemented("No evaluator for this rule. Cannot notify.")
+    (start, end) = self.GetTimeRangeForTimestamp(timestamp)
 
-  __call__ = Notify
+    key = (self._target, start, end)
+    self._evaluator.
+
+  def GetTimeRangeForTimestamp(self, timestamp)
+    period = self._steps * 1000000
+    end = timestamp - (timestamp % period)
+    start = end - period
+    return (start, end)
 
   def Evaluate(self, unused_args, db, row, value, timestamp):
     if self._step_type == STEP_TIME:
@@ -117,8 +189,9 @@ class Rule(object):
     if timestamp < self._next_timestamp:
       return
     #print "time eval"
+    (start, end) = self.GetTimeRangeForTimestamp(timestamp)
     period = self._steps * 1000000
-    bucket = timestamp - (timestamp % period)
+    end = timestamp - (timestamp % period)
     start = bucket - period
     end = bucket
     values = []
@@ -139,13 +212,18 @@ class Rule(object):
       result = self._dispatch[self._ruletype](values)
       db.Set(self._target, result, last_timestamp)
 
-class Collector(simpledb.SimpleDB):
+class FancyDB(simpledb.SimpleDB):
   def __init__(self, db_path, encode_keys=False):
     simpledb.SimpleDB.__init__(self, db_path, encode_keys=False)
     self._row_listeners = {}
-    self._ruledb_path = "%s.rules" % (db_path)
-    self._ruledb = simpledb.SimpleDB(self._ruledb_path, encode_keys=False)
+    self._ruledb = simpledb.SimpleDB(db_path, db_name="rules", encode_keys=False)
     self._rules = {}
+    self._evaluator = RuleEvaluator()
+
+  def Open(self, create_if_necessary=True):
+    simpledb.SimpleDB.Open(self, create_if_necessary)
+    self._ruledb.Open(create_if_necessary=True)
+    print self._dbenv
     self.LoadRules()
 
   def PurgeDatabase(self):
@@ -153,7 +231,6 @@ class Collector(simpledb.SimpleDB):
     self._ruledb.PurgeDatabase()
 
   def LoadRules(self):
-    self._ruledb.Open(create_if_necessary=True)
     for entry in self._ruledb.ItemIterator():
       self.AddRule(Rule.CreateFromDict(entry.value), save_rule=False)
 
@@ -162,6 +239,7 @@ class Collector(simpledb.SimpleDB):
       raise DuplicateRuleTarget("Attempt to add rule creating rows '%s'"
                                 "aborted. A rule already exists to "
                                 "generate this row." % rule._target)
+    rule.SetEvaluator(self._evaluator)
     self.AddRowListener(rule._source, rule.Notify)
     self._rules[rule._target] = rule
     if save_rule:
@@ -181,10 +259,9 @@ class Collector(simpledb.SimpleDB):
 def test():
   import random
   import time
-  f = "/tmp/test2"
-  db = Collector(f, encode_keys=False)
-  db.PurgeDatabase()
+  db = FancyDB(f, encode_keys=False)
   db.Open(create_if_necessary=True)
+  return
   start = int(time.time())
 
   r_hourly = Rule("hits.minute", "hits.mean.1hour", RULE_AVERAGE, 1, 60)

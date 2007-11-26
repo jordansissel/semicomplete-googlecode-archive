@@ -74,8 +74,6 @@ class SimpleDB(object):
   """
 
   def __init__(self, db_root, db_name="main", encode_keys=False):
-    assert os.path.isdir(db_root)
-
     self._db_root = db_root
     self._db_name = db_name
     self._db_path = "%s/%s" % (self._db_root, self._db_name)
@@ -90,6 +88,9 @@ class SimpleDB(object):
 
   def _SetDBEnv(self, dbenv):
     self._dbenv = dbenv
+
+  def _GetDBEnv(self):
+    return self._dbenv
 
   def Open(self, create_if_necessary=False):
     # XXX: Make sure this is the correct way to do this.
