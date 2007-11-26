@@ -60,37 +60,45 @@ class ThreadSafeDict(dict):
 class RuleEvaluator(threading.Thread):
   def __init__(self):
     threading.Thread.__init__(self)
-    self._notifications = ThreadSafeDict()
-    self._done= threading.Event()
+    self._notifications = dict()
+    self._lock = threading.Condition()
+    self._done = threading.Event()
     self._done.clear()
 
   def run(self):
     done = False
     while not done:
-      done = self._done.isSet()
+      # Wait for data.
+      self._lock.acquire()
+      while len(self._notifications) == 0 and not self._done.isSet():
+        print "waiting on len > 0"
+        self._lock.wait()
       print "Eval iteration"
-      self._notifications.lock()
-      if len(self._notifications.keys()):
-        self.ProcessEvaluations()
-      self._notifications.release()
-
-      # sleep for a little
-      # XXX: If we try to evaluate while updating, segfault happens.
+      done = self._done.isSet()
+      self.ProcessEvaluations()
+      self._lock.release()
       self._done.wait(1)
 
   def Notify(self, notification):
+    self._lock.acquire()
     self._notifications.setdefault(notification, 0)
     self._notifications[notification] += 1
+    self._lock.notify()
+    self._lock.release()
 
   def ProcessEvaluations(self):
     keys_to_remove = []
     for notification in self._notifications:
       rule = notification._rule
       rule.Evaluate(notification._start)
+      keys_to_remove.append(notification)
     for notification in keys_to_remove:
-      self._notifications[notification]
+      del self._notifications[notification]
 
   def Finish(self):
+    self._lock.acquire()
+    self._lock.notifyAll()
+    self._lock.release()
     self._done.set()
 
 class RuleNotification(object):
@@ -223,14 +231,13 @@ class Rule(object):
     values = []
     last_timestamp = None
     count = 0
-    for entry in self._db.ItemIteratorByRows([self._source]):
+    for entry in self._db.ItemIteratorByRows([self._source], start_timestamp=end, end_timestamp=start):
       count += 1
-      #print "evaltime: %d" % (entry.timestamp/1000000)
       if entry.timestamp > end:
-        #print "cont: %s > (%s, %s)" % (entry.timestamp/1000000, end/1000000, start/1000000)
+        print "WTF cont"
         continue
       if entry.timestamp < start:
-        #print "break: %s > (%s, %s)" % (entry.timestamp/1000000, end/1000000, start/1000000)
+        print "WTF break"
         break
       #print "found: %s" % (entry.timestamp / 1000000)
       values.append(entry.value)

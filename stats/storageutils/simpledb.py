@@ -234,6 +234,10 @@ class SimpleDB(object):
     cursor = self._dbh.cursor()
     if start_row:
       start_row = self.GetRowID(start_row)
+
+    if end_timestamp > start_timestamp:
+      start_timestamp, end_timestamp = end_timestamp, start_timestamp
+
     start_row = self.GenerateDBKeyWithTimestamp(start_row, start_timestamp)
     record = cursor.set_range(start_row)
     while record:
