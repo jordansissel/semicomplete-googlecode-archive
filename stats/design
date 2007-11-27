@@ -1,10 +1,47 @@
 == Data Storage
 Database for storing key+timestamp => value pairs
 
+Timestamps are stored as ((1<<63) - timestamp_in_micros) so iteration is in
+stack ordering (FILO)
+
 == Data Manipulation:
 commandline tool to add data
 
 == Aggregates
 "create aggregate"
   Aggregate data and store the computed results in the database.
-  
+
+  Aggregation rules:
+    formula => output_row
+
+  When to compute rules?
+    1) On collection?
+    2) Periodically?
+
+    ???
+
+*** Must implement locking.
+
+  write (row, value, timestamp) 
+  if rule on row:
+    convert timestamp to (start, end) based on rule
+    store evaluation request:
+      (rule, start, end, hitcount)
+
+Rules are Triggers that have a callback of Notify.
+Triggers:
+  db.AddTrigger(row, operation, callback)
+
+???
+Triggers are filters, so we can modify data inbound/outbound?
+  store (Set, Delete)
+  retrieve (Get)
+
+
+
+Eval thread
+
+DB thread
+  Set(row ...)
+    wq
+
