@@ -8,9 +8,9 @@ With 2 rules (optimized chaining)
     hits.mean.1hour => hits.mean.1day @ 60*60*24
   insertion rate = 12280/sec
 
-With 1 rule
-    hits.minute => hits.mean.1hour @ 60*60
-  insertion rate = 12300/sec
+With 9 rules (optimized chaining):
+  insertion rate: 10000/sec
 
 With 0 rules:
-  insertion rate = 40000/sec
+  trial 1: 40000/sec
+  trial 2: 26700/sec
