@@ -61,7 +61,8 @@ class RuleEvaluator(threading.Thread):
   def __init__(self):
     threading.Thread.__init__(self)
     self._notifications = dict()
-    self._lock = threading.Condition()
+    self._lock = threading.Condition(threading.RLock())
+    print "lock orig: %s" % self._lock
     self._done = threading.Event()
     self._done.clear()
 
@@ -70,30 +71,36 @@ class RuleEvaluator(threading.Thread):
     while not done:
       # Wait for data.
       self._lock.acquire()
+      print "evaluator lock: %s/%s" % (self._lock, threading.currentThread())
       while len(self._notifications) == 0 and not self._done.isSet():
-        print "waiting on len > 0"
+        print "evaluator wait: %s" % threading.currentThread()
         self._lock.wait()
-      print "Eval iteration"
+      print "evaluator (wait finished, lock is mine)"
       done = self._done.isSet()
-      self.ProcessEvaluations()
+      notifications = self._notifications
+      self._notifications = dict()
+      print "evaluator released: %s" % threading.currentThread()
+
+      self.Process(notifications)
       self._lock.release()
       self._done.wait(1)
 
   def Notify(self, notification):
+    #print "notify lock attempt by %s" % threading.currentThread()
     self._lock.acquire()
+    #print "notify lock: %s/%s" % (self._lock, threading.currentThread())
     self._notifications.setdefault(notification, 0)
     self._notifications[notification] += 1
-    self._lock.notify()
+    self._lock.notifyAll()
+    #print "notify release: %s" % threading.currentThread()
     self._lock.release()
 
-  def ProcessEvaluations(self):
-    keys_to_remove = []
-    for notification in self._notifications:
-      rule = notification._rule
-      rule.Evaluate(notification._start)
-      keys_to_remove.append(notification)
-    for notification in keys_to_remove:
-      del self._notifications[notification]
+  def Process(self, notifications):
+    for n in notifications:
+      #print "proc loop enter : %s" % threading.currentThread()
+      rule = n._rule
+      rule.Evaluate(n._start)
+      #print "proc loop bottom : %s" % threading.currentThread()
 
   def Finish(self):
     self._lock.acquire()
@@ -187,8 +194,6 @@ class Rule(object):
     if not self._evaluator:
       raise NotImplemented("No evaluator for this rule. Cannot notify.")
     (start, end) = self.GetTimeRangeForTimestamp(timestamp)
-    #print "schedule eval for: (%s) %s, %s" % (timestamp/1000000, start/1000000, end/1000000)
-
     notification = RuleNotification(self, start, end)
     self._evaluator.Notify(notification)
 
@@ -199,7 +204,7 @@ class Rule(object):
     return (start, end)
 
   def Evaluate(self, timestamp, *args):
-    print "Evaluate called"
+    #print "Evaluate called"
     if self._step_type == STEP_TIME:
       self.EvaluateTime(timestamp, *args)
     elif self._step_type == STEP_COUNT:
@@ -242,7 +247,6 @@ class Rule(object):
       #print "found: %s" % (entry.timestamp / 1000000)
       values.append(entry.value)
       last_timestamp = entry.timestamp
-    print "Count: %d" % count
 
     if last_timestamp is not None:
       result = self._dispatch[self._ruletype](values)
@@ -264,6 +268,7 @@ class FancyDB(simpledb.SimpleDB):
     self.LoadRules()
 
   def Close(self):
+    print "Closing fancydb %s" % self._db_name
     self._evaluator.Finish()
     self._evaluator.join()
     simpledb.SimpleDB.Close(self)
