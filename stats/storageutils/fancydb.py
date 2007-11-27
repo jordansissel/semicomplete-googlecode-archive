@@ -88,7 +88,6 @@ class RuleEvaluator(threading.Thread):
   def Notify(self, notification):
     #print "notify lock attempt by %s" % threading.currentThread()
     self._lock.acquire()
-    #print "notify lock: %s/%s" % (self._lock, threading.currentThread())
     self._notifications.setdefault(notification, 0)
     self._notifications[notification] += 1
     self._lock.notifyAll()
@@ -188,7 +187,6 @@ class Rule(object):
     return obj
 
   def Notify(self, unused_args, db, timestamp):
-    # Record a notification somewhere
     if self._step_type == STEP_COUNT:
       raise NotImplemented("COUNT not implemented for rules")
     if not self._evaluator:
@@ -250,7 +248,7 @@ class Rule(object):
 
     if last_timestamp is not None:
       result = self._dispatch[self._ruletype](values)
-      #print "Set: %s@%s => %s" % (self._target, end, result)
+      print "Set: %s@%s => %s" % (self._target, end, result)
       self._db.Set(self._target, result, end)
 
 class FancyDB(simpledb.SimpleDB):
@@ -270,12 +268,13 @@ class FancyDB(simpledb.SimpleDB):
   def Close(self):
     print "Closing fancydb %s" % self._db_name
     self._evaluator.Finish()
-    #print "Waiting for evaluator thread to finish"
+    print "Waiting for evaluator thread to finish"
     self._evaluator.join()
-    #print "Closing simpledb"
+    print "Closing simpledb"
     simpledb.SimpleDB.Close(self)
-    #print "Closing ruledb"
+    print "Closing ruledb"
     self._ruledb.Close()
+    print "Done closing"
 
   def PurgeDatabase(self):
     simpledb.SimpleDB.PurgeDatabase(self)
@@ -306,7 +305,6 @@ class FancyDB(simpledb.SimpleDB):
     simpledb.SimpleDB.Set(self, row, value, timestamp)
     if row in self._row_listeners:
       for (listener, args) in self._row_listeners[row]:
-        #listener(args, self, row, value, timestamp)
         listener(args, self, timestamp)
 
 def test():
@@ -343,4 +341,4 @@ def test():
 
   db.Close()
 
-test()
+#test()
