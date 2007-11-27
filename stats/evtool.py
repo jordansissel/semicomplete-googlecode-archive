@@ -28,7 +28,7 @@ def Update(args):
     if count % 1000 == 0:
       print count
     (row, value) = entry.split(":", 1)
-    timestamp = time.time()
+    timestamp = long(time.time() * 1000000)
     if "@" in row:
       (row, timestamp) = row.split("@", 1)
 
@@ -72,36 +72,47 @@ def Create(args):
   # noop, already created
   return
 
-def Graph(args):
-  row = args[0]
+def Purge(args):
+  db.PurgeDatabase()
 
-  from pylab import figure, show, axis
+def Graph(args):
+  rows = args
+
+  from pylab import figure, show, axis, ylabel
   import datetime
   from matplotlib.dates import MonthLocator, RRuleLocator, rrulewrapper, DateFormatter, DAILY, MONDAY, WeekdayLocator
 
-  dates = []
-  values = []
-
-  for entry in db.ItemIteratorByRows([row]):
-    (timestamp, value) = (entry.timestamp, entry.value)
-    dates.append(date2num(datetime.datetime.fromtimestamp(timestamp / 1000000)))
-    values.append(value)
-
-  for (d,v) in zip(dates, values):
-    print "%s: %s" % (d, v)
-
   fig = figure()
-  ax = fig.add_subplot(111)
-  ax.plot_date(dates, values, '-')
+  legend_items = []
+  for row in rows:
+    dates = []
+    values = []
+    for entry in db.ItemIteratorByRows([row]):
+      (timestamp, value) = (entry.timestamp, entry.value)
+      dates.append(date2num(datetime.datetime.fromtimestamp(timestamp / 1000000)))
+      values.append(value)
+
+    #for (d,v) in zip(dates, values):
+      #print "%s: %s" % (d, v)
+
+    ax = fig.add_subplot(111)
+    line = ax.plot_date(dates, values, '-', lw=.5)
+    ax.xaxis.set_major_locator(MonthLocator())
+    ax.xaxis.set_major_formatter(DateFormatter("%b '%y"))
+    ax.fmt_xdata = DateFormatter('%Y-%m-%d')
+    ax.grid(True)
+    legend_items.append((line, "%s (per day)" % row))
+    #print sorted(dir(ax))
+
+  figlegend([x[0] for x in legend_items],
+            [x[1] for x in legend_items],
+            'upper right')
+            
   rule = rrulewrapper(DAILY, interval=7)
-  ax.xaxis.set_major_locator(MonthLocator())
-  ax.xaxis.set_major_formatter(DateFormatter("%b '%y"))
   #ax.xaxis.set_major_locator(RRuleLocator(rule))
   #ax.xaxis.set_major_locator(WeekdayLocator(MONDAY))
   #ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
 
-  ax.fmt_xdata = DateFormatter('%Y-%m-%d')
-  ax.grid(True)
   fig.autofmt_xdate()
 
   fig.savefig('hits.png', format="png")
@@ -121,6 +132,7 @@ def main(args):
     "fetch": Fetch,
     "graph": Graph,
     "update": Update,
+    "purge": Purge,
   }
 
   if action in dispatch:
@@ -130,10 +142,8 @@ def main(args):
       raise
     finally:
       db.Close()
-
   else:
     print "Unknown action '%s'" % action
 
 if __name__ == "__main__":
   main(args)
-  db.Close()
