@@ -103,10 +103,10 @@ class RuleEvaluator(threading.Thread):
       #print "proc loop bottom : %s" % threading.currentThread()
 
   def Finish(self):
+    self._done.set()
     self._lock.acquire()
     self._lock.notifyAll()
     self._lock.release()
-    self._done.set()
 
 class RuleNotification(object):
   def __init__(self, rule, start, end):
@@ -250,7 +250,7 @@ class Rule(object):
 
     if last_timestamp is not None:
       result = self._dispatch[self._ruletype](values)
-      print "Set: %s@%s => %s" % (self._target, end, result)
+      #print "Set: %s@%s => %s" % (self._target, end, result)
       self._db.Set(self._target, result, end)
 
 class FancyDB(simpledb.SimpleDB):
@@ -270,8 +270,11 @@ class FancyDB(simpledb.SimpleDB):
   def Close(self):
     print "Closing fancydb %s" % self._db_name
     self._evaluator.Finish()
+    #print "Waiting for evaluator thread to finish"
     self._evaluator.join()
+    #print "Closing simpledb"
     simpledb.SimpleDB.Close(self)
+    #print "Closing ruledb"
     self._ruledb.Close()
 
   def PurgeDatabase(self):
@@ -309,23 +312,35 @@ class FancyDB(simpledb.SimpleDB):
 def test():
   import random
   import time
+  import tempfile
+  f = tempfile.mkdtemp()
   db = FancyDB(f, encode_keys=False)
   db.Open(create_if_necessary=True)
-  return
   start = int(time.time())
 
-  r_hourly = Rule("hits.minute", "hits.mean.1hour", RULE_AVERAGE, 1, 60)
-  r_daily = Rule("hits.minute", "hits.mean.1day", RULE_AVERAGE, 1, 60 * 24)
+  r_hourly = Rule("hits.minute", "hits.mean.1hour", RULE_TOTAL, 1, 60*60, STEP_TIME)
+  #r_daily = Rule("hits.mean.1hour", "hits.mean.1day", RULE_TOTAL, 1, 60*60*24, STEP_TIME)
+  r_daily = Rule("hits.minute", "hits.mean.1day", RULE_TOTAL, 1, 60*60*24, STEP_TIME)
   db.AddRule(r_hourly)
   db.AddRule(r_daily)
 
   # Insert data once a minute
-  for i in range(24 * 60 * 7):
-    db.Set("hits.minute", random.randint(1000,2000), (start + (60 * i)) * 1000000)
+  count = 0
+  s = time.time()
+  #for i in range(24 * 60 * 7):
+  for i in range(100000):
+    if count % 10000 == 0:
+      print count
+    count += 1
+    #db.Set("hits.minute", random.randint(1000,2000), (start + (60 * i)) * 1000000)
+    db.Set("hits.minute", count, (start + (60 * i)) * 1000000)
+  print count / (time.time() - s)
 
-  for i in db.ItemIteratorByRows(["hits.mean.1hour"]):
-    print i
-  for i in db.ItemIteratorByRows(["hits.mean.1day"]):
-    print i
+  #for i in db.ItemIteratorByRows(["hits.mean.1hour"]):
+    #print i
+  #for i in db.ItemIteratorByRows(["hits.mean.1day"]):
+    #print i
 
-#test()
+  db.Close()
+
+test()

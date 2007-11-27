@@ -144,6 +144,8 @@ class SimpleDB(object):
   def PurgeDatabase(self):
     if self._dbh:
       self._dbh.close()
+    if os.path.exists(self._db_path):
+      os.unlink(self._db_path)
     if self.use_key_db and self._keydb:
       self._keydb.PurgeDatabase()
 
@@ -364,9 +366,8 @@ def score():
     print i
 
 def test():
-  #import tempfile
-  tmpdir = "/tmp/tdb" #tempfile.mkdtemp()
-  print tmpdir
+  import tempfile
+  tmpdir = tempfile.mkdtemp()
   d = SimpleDB(tmpdir)
   d.Open(create_if_necessary=True)
   for i in range(1000000):
