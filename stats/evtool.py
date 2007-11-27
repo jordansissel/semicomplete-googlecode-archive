@@ -5,7 +5,7 @@ import os
 import time
 from optparse import OptionParser
 
-from eventdb import RecDB
+from storageutils import fancydb
 import numpy as N
 from pylab import *
 
@@ -14,7 +14,7 @@ action = sys.argv[1]
 file = sys.argv[2]
 args = sys.argv[3:]
 
-db = RecDB(file)
+db = fancydb.FancyDB(file, encode_keys=False)
 db.Open(create_if_necessary=True);
 
 def Update(args):
@@ -22,7 +22,11 @@ def Update(args):
   if args[0] == "-":
     args = sys.stdin
 
+  count = 0
   for entry in args:
+    count += 1
+    if count % 1000 == 0:
+      print count
     (row, value) = entry.split(":", 1)
     timestamp = time.time()
     if "@" in row:
@@ -38,7 +42,22 @@ def Update(args):
       except ValueError:
         continue
 
+    for numtype in (int, float):
+      try:
+        timestamp = numtype(timestamp)
+        break;
+      except ValueError:
+        continue
+
     db.Set(row, value, timestamp)
+
+def AddRule(args):
+  if len(args) != 5:
+    print "Usage: source_row target_row type steps steptype"
+    return 1
+
+  (source, target, type, steps, steptype) = args
+  db.AddRule(fancydb.Rule(source, target, type, 1, steps, steptype))
 
 def Fetch(args):
   if len(args):
@@ -49,12 +68,12 @@ def Fetch(args):
   for entry in iterator:
     print entry
 
-def FetchSum(args):
-  time_bucket = int(args[0]) * 1000000
-  #rate_divisor = float(args[1])
-  aggregate_func = lambda x: N.sum(x)
-  rows = args[1:]
-  aggregates = db.FetchAggregate(rows, time_bucket, aggregate_func)
+def Create(args):
+  # noop, already created
+  return
+
+def Graph(args):
+  row = args[0]
 
   from pylab import figure, show, axis
   import datetime
@@ -63,8 +82,9 @@ def FetchSum(args):
   dates = []
   values = []
 
-  for (key, value) in aggregates:
-    dates.append(date2num(datetime.datetime.fromtimestamp(key / 1000000)))
+  for entry in db.ItemIteratorByRows([row]):
+    (timestamp, value) = (entry.timestamp, entry.value)
+    dates.append(date2num(datetime.datetime.fromtimestamp(timestamp / 1000000)))
     values.append(value)
 
   for (d,v) in zip(dates, values):
@@ -74,32 +94,46 @@ def FetchSum(args):
   ax = fig.add_subplot(111)
   ax.plot_date(dates, values, '-')
   rule = rrulewrapper(DAILY, interval=7)
-  #ax.xaxis.set_major_locator(MonthLocator())
-  #ax.xaxis.set_major_formatter(DateFormatter("%B"))
+  ax.xaxis.set_major_locator(MonthLocator())
+  ax.xaxis.set_major_formatter(DateFormatter("%b '%y"))
   #ax.xaxis.set_major_locator(RRuleLocator(rule))
-  ax.xaxis.set_major_locator(WeekdayLocator(MONDAY))
-  ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
+  #ax.xaxis.set_major_locator(WeekdayLocator(MONDAY))
+  #ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
 
   ax.fmt_xdata = DateFormatter('%Y-%m-%d')
   ax.grid(True)
   fig.autofmt_xdate()
 
   fig.savefig('hits.png', format="png")
-  show()
 
+def profile(func, *args):
+  import hotshot
+  output = "/tmp/my.profile"
+  p = hotshot.Profile(output)
+  p.runcall(func, *args)
+  p.close()
 
 def main(args):
   global action
   dispatch = {
+    "addrule": AddRule,
+    "create": Create,
     "fetch": Fetch,
+    "graph": Graph,
     "update": Update,
-    "fetchsum": FetchSum,
   }
 
   if action in dispatch:
-    dispatch[action](args)
+    try:
+      dispatch[action](args)
+    except Exception, e:
+      raise
+    finally:
+      db.Close()
+
   else:
     print "Unknown action '%s'" % action
 
 if __name__ == "__main__":
   main(args)
+  db.Close()
