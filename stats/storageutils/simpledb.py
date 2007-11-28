@@ -108,7 +108,6 @@ class SimpleDB(object):
     if create_if_necessary:
       self._CreateBDB()
 
-    self._dbh = bdb.DB(self._dbenv)
     self._OpenBDB()
 
     if self.use_key_db:
@@ -139,6 +138,7 @@ class SimpleDB(object):
     handle.close()
 
   def _OpenBDB(self):
+    self._dbh = bdb.DB(self._dbenv)
     self._dbh.open(self._db_path, self._db_name, BDB_ACCESS_FLAGS, 0)
 
   def PurgeDatabase(self):
