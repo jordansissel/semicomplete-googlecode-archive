@@ -3,7 +3,6 @@
 import simpledb
 import time
 import threading
-from Queue import Queue
 
 # rrdtoolisms
 RULE_AVERAGE=1
@@ -41,6 +40,23 @@ def synchronized(func):
     self.__lock.release()
   return newfunc
 
+class ThreadSafeDict(dict):
+  def __init__(self, *args, **kwds):
+    dict.__init__(self, *args, **kwds)
+    self.__lock = threading.RLock()
+    funcs = self.__dict__.keys()
+    for name in funcs:
+      if name in ("lock", "release"):
+        continue
+      if hasattr(getattr(self, name), "__call__"):
+        setattr(self, name, synchronized(getattr(self, name)))
+
+  def lock(self):
+    self.__lock.acquire()
+
+  def release(self):
+    self.__lock.release()
+
 class RuleEvaluator(threading.Thread):
   def __init__(self):
     threading.Thread.__init__(self)
@@ -49,35 +65,34 @@ class RuleEvaluator(threading.Thread):
     print "lock orig: %s" % self._lock
     self._done = threading.Event()
     self._done.clear()
-    self._queue = Queue()
 
   def run(self):
-    interval = 5
     done = False
-    last_run = 0
     while not done:
+      # Wait for data.
+      self._lock.acquire()
+      print "evaluator lock: %s/%s" % (self._lock, threading.currentThread())
+      while len(self._notifications) == 0 and not self._done.isSet():
+        print "evaluator wait: %s" % threading.currentThread()
+        self._lock.wait()
+      print "evaluator (wait finished, lock is mine)"
       done = self._done.isSet()
-      loop_start = time.time()
-      self.one_iteration()
-      sleeptime = interval - (time.time() - loop_start)
-      if sleeptime > 0:
-        self._done.wait(sleeptime)
+      notifications = self._notifications
+      self._notifications = dict()
+      print "evaluator released: %s" % threading.currentThread()
 
-  def one_iteration(self):
-    size = self._queue.qsize()
-    if size == 0:
-      return
-
-    notifications = dict()
-    for i in range(size):
-      n = self._queue.get()
-      notifications.setdefault(n,0)
-      notifications[n] += 1
-
-    self.Process(notifications)
+      self.Process(notifications)
+      self._lock.release()
+      self._done.wait(1)
 
   def Notify(self, notification):
-    self._queue.put(notification)
+    #print "notify lock attempt by %s" % threading.currentThread()
+    self._lock.acquire()
+    self._notifications.setdefault(notification, 0)
+    self._notifications[notification] += 1
+    self._lock.notifyAll()
+    #print "notify release: %s" % threading.currentThread()
+    self._lock.release()
 
   def Process(self, notifications):
     for n in notifications:
@@ -91,7 +106,6 @@ class RuleEvaluator(threading.Thread):
     self._lock.acquire()
     self._lock.notifyAll()
     self._lock.release()
-
 
 class RuleNotification(object):
   def __init__(self, rule, start, end):
