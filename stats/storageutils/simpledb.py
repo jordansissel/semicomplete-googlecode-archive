@@ -6,7 +6,8 @@ import os
 import time
 import struct
 import cPickle
-#from threading import Lock
+import threading
+import Queue
 
 # database:
 # timestamp should be 64bit value: epoch in milliseconds == 52 bits.
@@ -67,6 +68,105 @@ def synchronized_method(func):
   newfunc.__doc__ = func.__doc__
   newfunc.__dict__.update(func.__dict__)
 
+class DBDictCursor(object):
+  def __init__(self, data):
+    self._data = data
+    self._keys = data.keys()
+    self._index = 0
+
+  def close(self):
+    pass
+
+  def delete(self):
+    del self._data[self._keys[self._index]]
+
+  def set(self, key):
+    index = 0
+    for i in self._keys:
+      if i == key:
+        self._index = index
+        return self._CurrentPair()
+      index += 1
+    raise bdb.DBNotFoundError, key
+
+  def set_range(self, key):
+    index = 0
+    for i in self._keys:
+      if i >= key:
+        self._index = index
+        return self._CurrentPair()
+        return
+      index += 1
+
+  def _CurrentPair(self):
+    key = self._keys[self._index]
+    return (key, self._data[key])
+
+  def next(self):
+    self._index += 1
+    if self._index >= len(self._keys):
+      #raise bdb.DBNotFoundError, "End of database reached."
+      return None
+    return self._CurrentPair()
+
+class DBDict(dict):
+  def cursor(self):
+    return DBDictCursor(self)
+
+  def truncate(self):
+    self.clear()
+
+  def close(self):
+    pass
+
+
+class FlushWorker(threading.Thread):
+  def __init__(self, simpledb):
+    threading.Thread.__init__(self)
+    self._queue = Queue.Queue()
+    self._data_lock = threading.Condition()
+    self._done = threading.Event()
+    self._done.clear()
+    self._simpledb = simpledb
+
+  def AddDatabaseToFlushQueue(self, dbh):
+    self._data_lock.acquire()
+    self._queue.put(dbh)
+    self._data_lock.notifyAll()
+    self._data_lock.release()
+
+  def run(self):
+    done = False
+    dbh = None
+    while not done:
+      self._data_lock.acquire()
+      self._data_lock.wait()
+      size = self._queue.qsize()
+      self._data_lock.release()
+
+      for i in range(size):
+        dbh = self._queue.get()
+        #self._simpledb.FlushMemoryDatabase(dbh)
+        self.FlushDBH(dbh)
+      done = self._done.isSet()
+
+  def FlushDBH(self, dbh):
+    print ":: flushing memory database %s" % ( threading.currentThread())
+    mydb = self._simpledb
+    for entry in mydb._db_ItemIterator(dbh):
+      #print "%s/%s %s" % (threading.currentThread(), dbh, entry)
+      mydb._db_Set(mydb._dbh, entry.row, entry.value, entry.timestamp)
+    dbh.truncate()
+    dbh.close()
+    del dbh
+
+  def Finish(self):
+    print "finish"
+    self._done.set()
+    self._data_lock.acquire()
+    self._data_lock.notifyAll()
+    self._data_lock.release()
+
 class SimpleDB(object):
   """ Simple timestamped key-value pair storage space. 
 
@@ -78,9 +178,13 @@ class SimpleDB(object):
     self._db_name = db_name
     self._db_path = "%s/%s" % (self._db_root, self._db_name)
     self._dbh = None
+    self._memory_dbh = None
     self._dbenv = None
-    #print "DB: %s" % db_name
-    #self._lock = Lock()
+    self._memory_db_size = 0
+    self.MAX_MEMORY_DB_SIZE = 500<<20
+    self._flushlock = threading.RLock()
+    self._flushworker = FlushWorker(self)
+    self._flushworker.start()
 
     self.use_key_db = encode_keys
     if self.use_key_db:
@@ -108,18 +212,29 @@ class SimpleDB(object):
     if create_if_necessary:
       self._CreateBDB()
 
-    self._dbh = bdb.DB(self._dbenv)
     self._OpenBDB()
+    self._OpenMemoryBDB()
 
     if self.use_key_db:
       self._CreateKeyDB(create_if_necessary)
 
+  def FlushMemoryDatabase(self):
+    self._flushlock.acquire()
+    old_memory_dbh = self._memory_dbh
+    self._OpenMemoryBDB()
+    self._flushlock.release()
+    self._flushworker.AddDatabaseToFlushQueue(old_memory_dbh)
+
   def Close(self):
+    self.FlushMemoryDatabase()
+    self._flushworker.Finish()
+    self._flushworker.join()
     print "simpledb: closing _dbh"
     self._dbh.close()
     print "simpledb: closed _dbh"
     if self.use_key_db:
       self._keydb.close()
+    print "Done"
 
   def _CreateKeyDB(self, create_if_necessary=False):
     self._keydb = SimpleDB(self._db_root, db_name="keys", encode_keys=False)
@@ -141,7 +256,13 @@ class SimpleDB(object):
     handle.close()
 
   def _OpenBDB(self):
+    self._dbh = bdb.DB(self._dbenv)
     self._dbh.open(self._db_path, self._db_name, BDB_ACCESS_FLAGS, 0)
+
+  def _OpenMemoryBDB(self):
+    #self._memory_dbh = bdb.DB(self._dbenv)
+    #self._memory_dbh.open(None, None, BDB_ACCESS_FLAGS, bdb.DB_CREATE)
+    self._memory_dbh = DBDict()
 
   def PurgeDatabase(self):
     if self._dbh:
@@ -208,10 +329,21 @@ class SimpleDB(object):
     return id
 
   def Set(self, row, value, timestamp=None):
+    # XXX: This should be done in a separate thread.
+    bytes = self._db_Set(self._memory_dbh, row, value, timestamp)
+
+    self._memory_db_size += bytes
+    if self._memory_db_size >= self.MAX_MEMORY_DB_SIZE:
+      print "Bytes: %d" % self._memory_db_size
+      self.FlushMemoryDatabase()
+      self._memory_db_size = 0
+
+  def _db_Set(self, dbh, row, value, timestamp=None):
     assert row is not None
     key = self.GenerateDBKey(row, timestamp)
     value = cPickle.dumps(value)
-    self._dbh[key] = value
+    dbh[key] = value
+    return len(value) + len(row) + 8
 
   def Delete(self, row, timestamp):
     key = self.GenerateDBKey(row, timestamp)
@@ -234,8 +366,16 @@ class SimpleDB(object):
       return entry
     raise RowNotFound(row)
 
-  def ItemIterator(self, start_row="", start_timestamp=TIMESTAMP_MAX, end_timestamp=0):
-    cursor = self._dbh.cursor()
+  def ItemIterator(self, start_row="", start_timestamp=TIMESTAMP_MAX, 
+                   end_timestamp=0):
+    for dbh in (self._memory_dbh, self._dbh):
+      for entry in self._db_ItemIterator(dbh, start_row, start_timestamp, 
+                                         end_timestamp):
+        yield entry
+
+  def _db_ItemIterator(self, dbh, start_row="", start_timestamp=TIMESTAMP_MAX,
+                       end_timestamp=0):
+    cursor = dbh.cursor()
     if start_row:
       start_row = self.GetRowID(start_row)
 
@@ -257,7 +397,10 @@ class SimpleDB(object):
       value = cPickle.loads(record[1])
       yield Entry(row, timestamp, value)
       record = cursor.next()
-    cursor.close()
+    try:
+      cursor.close()
+    except bdb.DBInvalidArgError, e:
+      print "Error when closing cursor: %s" % e
 
   def ItemIteratorByRows(self, rows=[], start_timestamp=TIMESTAMP_MAX, end_timestamp=0):
     for row in rows:
@@ -309,20 +452,6 @@ class SimpleDB(object):
       aggregates.append((key, aggregate_func(data[key])))
 
     return aggregates
-
-class DictDB(SimpleDB):
-  def __getitem__(self, key):
-    try:
-      iterator = self.ItemIteratorByRows([key])
-      return iterator.next().value
-    except RowNotFound:
-      raise KeyError, key
-
-  def __setitem__(self, key, value):
-    self.Set(key, value, 0)
-
-  def __delitem__(self, key):
-    self.Delete(key)
 
 
 def test():
