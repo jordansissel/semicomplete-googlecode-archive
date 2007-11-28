@@ -50,9 +50,10 @@ class RuleEvaluator(threading.Thread):
     self._done = threading.Event()
     self._done.clear()
     self._queue = Queue()
+    self._row_listeners = dict()
 
   def run(self):
-    interval = 5
+    interval = 1
     done = False
     last_run = 0
     while not done:
@@ -70,14 +71,23 @@ class RuleEvaluator(threading.Thread):
 
     notifications = dict()
     for i in range(size):
-      n = self._queue.get()
-      notifications.setdefault(n,0)
-      notifications[n] += 1
+      (row, timestamp) = self._queue.get()
+      if row not in self._row_listeners:
+        continue
+      for (rule, args) in self._row_listeners[row]:
+        n = rule.GetRuleNotificationForTimestamp(timestamp)
+        notifications.setdefault(n,0)
+        notifications[n] += 1
 
     self.Process(notifications)
 
-  def Notify(self, notification):
-    self._queue.put(notification)
+  def NotifyRowUpdate(self, row, timestamp):
+    self._queue.put((row, timestamp))
+
+  def AddRule(self, rule, *args):
+    row = rule._source
+    self._row_listeners.setdefault(row, [])
+    self._row_listeners[row].append((rule, args))
 
   def Process(self, notifications):
     for n in notifications:
@@ -172,14 +182,15 @@ class Rule(object):
       setattr(obj, i, data[i])
     return obj
 
-  def Notify(self, unused_args, db, timestamp):
+  def GetRuleNotificationForTimestamp(self, timestamp):
     if self._step_type == STEP_COUNT:
       raise NotImplemented("COUNT not implemented for rules")
     if not self._evaluator:
       raise NotImplemented("No evaluator for this rule. Cannot notify.")
     (start, end) = self.GetTimeRangeForTimestamp(timestamp)
     notification = RuleNotification(self, start, end)
-    self._evaluator.Notify(notification)
+    #self._evaluator.NotifyRowUpdate(notification)
+    return notification
 
   def GetTimeRangeForTimestamp(self, timestamp):
     period = self._steps * 1000000
@@ -240,7 +251,7 @@ class Rule(object):
 class FancyDB(simpledb.SimpleDB):
   def __init__(self, db_path, encode_keys=False):
     simpledb.SimpleDB.__init__(self, db_path, encode_keys=False)
-    self._row_listeners = {}
+    #self._row_listeners = {}
     self._ruledb = simpledb.SimpleDB(db_path, db_name="rules", encode_keys=False)
     self._rules = {}
     self._evaluator = RuleEvaluator()
@@ -277,21 +288,18 @@ class FancyDB(simpledb.SimpleDB):
                                 "generate this row." % rule._target)
     rule.SetEvaluator(self._evaluator)
     rule.SetDB(self)
-    self.AddRowListener(rule._source, rule.Notify)
-    self._rules[rule._target] = rule
+    self._evaluator.AddRule(rule)
+    #self._rules[rule._target] = rule
     if save_rule:
       self._ruledb.Set("rule", rule.ToDict())
-
-  def AddRowListener(self, row, callback, *args):
-    self._row_listeners.setdefault(row, [])
-    self._row_listeners[row].append((callback, args))
 
   def Set(self, row, value, timestamp=None):
     #print "%s @ %s" % (row, timestamp)
     simpledb.SimpleDB.Set(self, row, value, timestamp)
-    if row in self._row_listeners:
-      for (listener, args) in self._row_listeners[row]:
-        listener(args, self, timestamp)
+    self._evaluator.NotifyRowUpdate(row, timestamp)
+    #if row in self._row_listeners:
+      #for (listener, args) in self._row_listeners[row]:
+        #listener(args, self, timestamp)
 
 def test():
   import random
