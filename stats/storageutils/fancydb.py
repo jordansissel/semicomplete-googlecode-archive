@@ -3,7 +3,6 @@
 import simpledb
 import time
 import threading
-#from Queue import Queue
 
 # rrdtoolisms
 RULE_AVERAGE=1
@@ -72,31 +71,30 @@ class RuleEvaluator(threading.Thread):
     while not done:
       # Wait for data.
       self._lock.acquire()
-      #print "evaluator lock: %s/%s" % (self._lock, threading.currentThread())
+      print "evaluator lock: %s/%s" % (self._lock, threading.currentThread())
       while len(self._notifications) == 0 and not self._done.isSet():
         print "evaluator wait: %s" % threading.currentThread()
         self._lock.wait()
-      #print "evaluator (wait finished, lock is mine)"
+      print "evaluator (wait finished, lock is mine)"
       done = self._done.isSet()
       notifications = self._notifications
       self._notifications = dict()
-      #print "evaluator released: %s" % threading.currentThread()
+      print "evaluator released: %s" % threading.currentThread()
 
       self.Process(notifications)
       self._lock.release()
       self._done.wait(1)
 
-  def Notify(self, notifications):
+  def Notify(self, notification):
     #print "notify lock attempt by %s" % threading.currentThread()
     self._lock.acquire()
-    for n in notifications:
-      self._notifications[n] = 1
+    self._notifications.setdefault(notification, 0)
+    self._notifications[notification] += 1
     self._lock.notifyAll()
     #print "notify release: %s" % threading.currentThread()
     self._lock.release()
 
   def Process(self, notifications):
-    print "Doing %d evals" % len(notifications)
     for n in notifications:
       #print "proc loop enter : %s" % threading.currentThread()
       rule = n._rule
@@ -188,17 +186,14 @@ class Rule(object):
       setattr(obj, i, data[i])
     return obj
 
-  def Notify(self, timestamps):
+  def Notify(self, unused_args, db, timestamp):
     if self._step_type == STEP_COUNT:
       raise NotImplemented("COUNT not implemented for rules")
     if not self._evaluator:
       raise NotImplemented("No evaluator for this rule. Cannot notify.")
-
-    notifications = []
-    for timestamp in timestamps:
-      (start, end) = self.GetTimeRangeForTimestamp(timestamp)
-      notifications.append(RuleNotification(self, start, end))
-    self._evaluator.Notify(notifications)
+    (start, end) = self.GetTimeRangeForTimestamp(timestamp)
+    notification = RuleNotification(self, start, end)
+    self._evaluator.Notify(notification)
 
   def GetTimeRangeForTimestamp(self, timestamp):
     period = self._steps * 1000000
@@ -246,14 +241,14 @@ class Rule(object):
         continue
       if entry.timestamp < start:
         print "WTF break"
-        break;
+        break
       #print "found: %s" % (entry.timestamp / 1000000)
       values.append(entry.value)
       last_timestamp = entry.timestamp
 
     if last_timestamp is not None:
       result = self._dispatch[self._ruletype](values)
-      #print "Set: %s@%s => %s" % (self._target, end, result)
+      print "Set: %s@%s => %s" % (self._target, end, result)
       self._db.Set(self._target, result, end)
 
 class FancyDB(simpledb.SimpleDB):
@@ -264,9 +259,6 @@ class FancyDB(simpledb.SimpleDB):
     self._rules = {}
     self._evaluator = RuleEvaluator()
     self._evaluator.start()
-    self._rule_hits = {}
-    #self._rule_hits = Queue()
-    self._rule_hit_count = 0
 
   def Open(self, create_if_necessary=True):
     simpledb.SimpleDB.Open(self, create_if_necessary)
@@ -274,8 +266,6 @@ class FancyDB(simpledb.SimpleDB):
     self.LoadRules()
 
   def Close(self):
-    # Run callbacks, if there are any left.
-    self.RunCallbacks()
     print "Closing fancydb %s" % self._db_name
     self._evaluator.Finish()
     print "Waiting for evaluator thread to finish"
@@ -284,7 +274,7 @@ class FancyDB(simpledb.SimpleDB):
     simpledb.SimpleDB.Close(self)
     print "Closing ruledb"
     self._ruledb.Close()
-    print "Done everything fancydb"
+    print "Done closing"
 
   def PurgeDatabase(self):
     simpledb.SimpleDB.PurgeDatabase(self)
@@ -308,30 +298,14 @@ class FancyDB(simpledb.SimpleDB):
 
   def AddRowListener(self, row, callback, *args):
     self._row_listeners.setdefault(row, [])
-    self._row_listeners[row].append(callback)
+    self._row_listeners[row].append((callback, args))
 
   def Set(self, row, value, timestamp=None):
     #print "%s @ %s" % (row, timestamp)
     simpledb.SimpleDB.Set(self, row, value, timestamp)
-    for listener in self._row_listeners.get(row, []):
-      self.AddCallbackHit(listener, timestamp)
-
-  def AddCallbackHit(self, listener, timestamp):
-    self._evaluator._lock.acquire()
-    MAX_QUEUED_RULE_CALLBACKS = 1000
-    self._rule_hits.setdefault(listener, [])
-    self._rule_hits[listener].append(timestamp)
-    self._rule_hit_count += 1
-    if self._rule_hit_count >= MAX_QUEUED_RULE_CALLBACKS:
-      self.RunCallbacks()
-    self._evaluator._lock.release()
-
-  def RunCallbacks(self):
-    data = self._rule_hits.copy()
-    self._rule_hits = {}
-    self._rule_hit_count = 0
-    for (listener, timestamps) in data.iteritems():
-      listener(timestamps)
+    if row in self._row_listeners:
+      for (listener, args) in self._row_listeners[row]:
+        listener(args, self, timestamp)
 
 def test():
   import random

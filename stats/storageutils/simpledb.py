@@ -115,9 +115,7 @@ class SimpleDB(object):
       self._CreateKeyDB(create_if_necessary)
 
   def Close(self):
-    print "simpledb: closing _dbh"
     self._dbh.close()
-    print "simpledb: closed _dbh"
     if self.use_key_db:
       self._keydb.close()
 
