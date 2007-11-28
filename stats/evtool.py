@@ -25,7 +25,7 @@ def Update(args):
   count = 0
   for entry in args:
     count += 1
-    if count % 1000 == 0:
+    if count % 5000 == 0:
       print count
     (row, value) = entry.split(":", 1)
     timestamp = long(time.time() * 1000000)
@@ -118,6 +118,8 @@ def Graph(args):
   fig.savefig('hits.png', format="png")
 
 def profile(func, *args):
+  func(*args)
+  return
   import hotshot
   output = "/tmp/my.profile"
   p = hotshot.Profile(output)
@@ -137,7 +139,7 @@ def main(args):
 
   if action in dispatch:
     try:
-      dispatch[action](args)
+      profile(dispatch[action], args)
     except Exception, e:
       raise
     finally:

@@ -303,9 +303,10 @@ class FancyDB(simpledb.SimpleDB):
   def Set(self, row, value, timestamp=None):
     #print "%s @ %s" % (row, timestamp)
     simpledb.SimpleDB.Set(self, row, value, timestamp)
-    if row in self._row_listeners:
-      for (listener, args) in self._row_listeners[row]:
-        listener(args, self, timestamp)
+    #if row in self._row_listeners:
+      #for (listener, args) in self._row_listeners[row]:
+    for (listener, args) in self._row_listeners.get(row, []):
+      listener(args, self, timestamp)
 
 def test():
   import random
