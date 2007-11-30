@@ -28,11 +28,13 @@ class SimpleDBTestBasics(mytest.EnhancedTestCase):
     os.rmdir(self._db_root)
 
   def testGetNewest(self):
+    #os.environ["DEBUG"] = ""
     self.db.Set("foo", "one", 0)
     self.db.Set("foo", "two", 1)
     self.db.Set("foo", "three", 2)
     entry = self.db.GetNewest("foo")
     self.assertEquals(entry.value, "three")
+    #del os.environ["DEBUG"]
 
   def testIterationOrderIsNewestTimestampFirst(self):
     self.db.Set("foo", "b", 30)
@@ -59,6 +61,52 @@ class SimpleDBTestBasics(mytest.EnhancedTestCase):
     self.db.Close()
     self.db.Open()
     self.assertEquals(self.db.GetNewest("test").value, "foo")
+
+  def testDeleteEntry(self):
+    row = "foo"
+    self.db.Set(row, "bar", 1)
+    self.assertEquals(self.db.GetNewest(row).value, "bar")
+    self.db.Delete(row, 1)
+    def x():
+      self.db.GetNewest(row)
+    self.assertRaises(simpledb.RowNotFound, x)
+
+  def testDeleteRow(self):
+    return True
+    row = "foo"
+    self.db.Set(row, "bar", 100)
+    self.db.Set(row, "baz", 99)
+    for i in range(10):
+      self.db.Set(row, i, i)
+    self.assertEquals(self.db.GetNewest(row).value, "bar")
+    self.db.Delete(row, )
+    self.assertEquals(self.db.GetNewest(row).value, "baz")
+    self.db.DeleteRow(row)
+    def x():
+      self.db.GetNewest(row)
+    self.assertRaises(simpledb.RowNotFound, x)
+
+class SimpleDBTestBasicsWithKeyEncoding(SimpleDBTestBasics):
+  def setUp(self):
+    self._db_root = mktmpdir()
+    logging.basicConfig(
+      level=logging.INFO,
+      format="%(asctime)s %(levelname)s %(message)s",
+      filename="/tmp/testlog"
+      )
+
+    self.db = simpledb.SimpleDB(self._db_root, encode_keys=True)
+    self.db.Open(create_if_necessary=True)
+
+  def testKeysDBExists(self):
+    self.assert_(self.db._keydb)
+
+  def testKeyDBInsertion(self):
+    row = "foo"
+    self.db.Set(row, "bar")
+    entry = self.db._keydb.GetNewest(row)
+    self.assertEquals(entry.row, row)
+    self.assertEquals(entry.value, simpledb.To64(1))
 
 if __name__ == "__main__":
   mytest.main()

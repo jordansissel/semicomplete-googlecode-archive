@@ -10,6 +10,7 @@ RULE_MIN=2
 RULE_MAX=3
 RULE_LAST=4
 RULE_TOTAL=5
+RULE_RATE=6
 
 STEP_COUNT=1
 STEP_TIME=2
@@ -28,6 +29,7 @@ def StringToType(string):
     "max": RULE_MAX,
     "last": RULE_LAST,
     "total": RULE_TOTAL,
+    "rate": RULE_RATE,
     "time": STEP_TIME,
     "count": STEP_COUNT,
   }[string]
@@ -146,14 +148,47 @@ class Rule(object):
       self._next_timestamp = 0
 
     self._dispatch = {
-      RULE_AVERAGE: lambda x: sum(x) / float(len(x)),
-      RULE_MIN: lambda x: min(x),
-      RULE_MAX: lambda x: max(x),
-      RULE_LAST: lambda x: x[0],
-      RULE_TOTAL: lambda x: sum(x),
+      RULE_AVERAGE: self.ComputeAverage,
+      RULE_MIN: self.ComputeMin,
+      RULE_MAX: self.ComputeMax,
+      RULE_LAST: self.ComputeLast,
+      RULE_TOTAL: self.ComputeTotal,
+      RULE_RATE: self.ComputeRate,
     }
 
     self._hits = 0
+
+  def ComputeAverage(self, values, timestamps):
+    return sum(values) / float(len(values))
+
+  def ComputeMin(self, values, timestamps):
+    return min(values)
+
+  def ComputeMax(self, values, timestamps):
+    return max(values)
+
+  def ComputeTotal(self, values, timestamps):
+    return sum(values)
+
+  def ComputeLast(self, values, timestamps):
+    return values[0]
+
+  def ComputeRate(self, values, timestamps):
+    """ This function assumes the value is a counter that never decreases.
+    If it does decrease, it considers the counter to have reset.
+    """
+    # Check if the counter has reset
+    if len(values) < 2:
+      return 0
+    if values[0] < values[-1]:
+      print "RESET"
+      values[-1] = 0
+    delta = float(values[0] - values[-1])
+    duration = float(timestamps[0] - timestamps[-1])
+    print values
+    print timestamps
+    print "%f / %f" % (delta, duration)
+    return delta / duration
 
   def SetDB(self, db):
     self._db = db
@@ -232,6 +267,7 @@ class Rule(object):
     (start, end) = self.GetTimeRangeForTimestamp(timestamp)
     #print "range: (%s) (%s, %s)" % (timestamp/1000000, end/1000000, start/1000000)
     values = []
+    timestamps = []
     last_timestamp = None
     count = 0
     for entry in self._db.ItemIteratorByRows([self._source], start_timestamp=end, end_timestamp=start):
@@ -244,10 +280,11 @@ class Rule(object):
         break
       #print "found: %s" % (entry.timestamp / 1000000)
       values.append(entry.value)
+      timestamps.append(entry.timestamp)
       last_timestamp = entry.timestamp
 
     if last_timestamp is not None:
-      result = self._dispatch[self._ruletype](values)
+      result = self._dispatch[self._ruletype](values, timestamps)
       print "Set: %s@%s => %s" % (self._target, end, result)
       self._db.Set(self._target, result, end)
 

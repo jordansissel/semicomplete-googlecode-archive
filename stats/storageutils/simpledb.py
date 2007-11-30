@@ -4,6 +4,7 @@ from bsddb import db as bdb
 
 import os
 import time
+import sys
 import struct
 import cPickle
 #from threading import Lock
@@ -36,7 +37,10 @@ def From64(data):
   return struct.unpack(">Q", data)[0]
 
 def KeyToRowAndTimestamp(key):
-  return (key[:-8], From64(key[-8:]))
+  return (key[:-9], From64(key[-8:]))
+
+def RowAndTimestampToKey(row, timestamp):
+  return "%s\xFF%s" % (row, To64(timestamp))
 
 # Do we need this?
 def EndRow(row):
@@ -79,13 +83,22 @@ class SimpleDB(object):
     self._db_path = "%s/%s" % (self._db_root, self._db_name)
     self._dbh = None
     self._dbenv = None
-    #print "DB: %s" % db_name
     #self._lock = Lock()
 
     self.use_key_db = encode_keys
     if self.use_key_db:
       self._keydb_path = "%s/keys" % self._db_root
       self._keydb = None
+
+  def debug(self, string):
+    if "DEBUG" not in os.environ:
+      self.debug = lambda *args: True
+      return
+
+    caller = sys._getframe(1)
+    code = caller.f_code
+    filename = code.co_filename.split("/")[-1]
+    print "%s:%d(db:%s): %s" % (filename, caller.f_lineno, self._db_name, string)
 
   def _SetDBEnv(self, dbenv):
     self._dbenv = dbenv
@@ -114,12 +127,14 @@ class SimpleDB(object):
       self._CreateKeyDB(create_if_necessary)
 
   def Close(self):
-    self._dbh.close()
-    if self.use_key_db:
-      self._keydb.close()
+    if self._dbh is not None:
+      self._dbh.close()
+    if self.use_key_db and self._keydb:
+      self._keydb.Close()
 
   def _CreateKeyDB(self, create_if_necessary=False):
-    self._keydb = SimpleDB(self._db_root, db_name="keys", encode_keys=False)
+    self._keydb = SimpleDB(self._db_root, db_name="%s_keys" % self._db_name,
+                           encode_keys=False)
     self._keydb._SetDBEnv(self._dbenv)
     self._keydb.Open(create_if_necessary=create_if_necessary)
 
@@ -128,6 +143,7 @@ class SimpleDB(object):
       self._keydb.GetNewest(NEXT_ID_KEY)
     except RowNotFound:
       self._keydb.Set(NEXT_ID_KEY, 1, 0)
+      self.debug("Setting %s" % NEXT_ID_KEY)
 
   def _CreateBDB(self):
     #if os.path.exists(self._db_root):
@@ -161,17 +177,21 @@ class SimpleDB(object):
   def GenerateDBKeyWithTimestamp(self, row, timestamp):
     if self.use_key_db:
       row = self.GetRowID(row, create_if_necessary=True)
-    #if "keys" not in self._db_path:
-      #print "%s @ %s" % (row, timestamp)
 
+    # Invert timestamp
     timestamp = TIMESTAMP_MAX - timestamp
-    return "%s%s" % (row, To64(timestamp))
+    return RowAndTimestampToKey(row, timestamp)
 
   def GetRowID(self, row, create_if_necessary=False):
+    self.debug("getrowid: %s" % row)
+    if row == "":
+      return To64(0)
+
     if not self.use_key_db:
       return row
 
     id = None
+    self.debug("Finding row id for %s" % row)
     try:
       record = self._keydb.GetNewest(row)
       if record:
@@ -183,7 +203,9 @@ class SimpleDB(object):
       if create_if_necessary:
         id = self.CreateRowID(row)
       else:
-        raise RowNotFound("Row '%s' not known to database" % row)
+        for i in self._keydb.ItemIterator():
+          print i
+        raise RowNotFound("Row '%s' not known to key database (%s)" % (row, self._db_name))
     return id
 
   def GetRowByID(self, id):
@@ -207,9 +229,11 @@ class SimpleDB(object):
 
   def Set(self, row, value, timestamp=None):
     assert row is not None
+    self.debug("Set request: %s@%s: %s" % (row, timestamp, value))
     key = self.GenerateDBKey(row, timestamp)
     value = cPickle.dumps(value)
     self._dbh[key] = value
+    self.debug("Set actual %s => %r" % (key, value))
 
   def Delete(self, row, timestamp):
     key = self.GenerateDBKey(row, timestamp)
@@ -219,48 +243,71 @@ class SimpleDB(object):
 
   def DeleteRow(self, row):
     for entry in self.ItemIteratorByRows([row]):
+      print "Deleting %s" % entry
       self.Delete(entry.row, entry.timestamp)
 
   def GetNewest(self, row):
-    iterator = self.ItemIterator(row)
+    self.debug("GetNewest: %s" % row)
+    iterator = self.ItemIteratorByRows([row], start_timestamp=TIMESTAMP_MAX)
     try:
       entry = iterator.next()
     except StopIteration:
       raise RowNotFound(row)
 
+    self.debug("getnewest entry: %s" % entry)
+    self.debug("getnewest wanted row: %r" % row)
     if entry.row == row:
       return entry
     raise RowNotFound(row)
 
-  def ItemIterator(self, start_row="", start_timestamp=TIMESTAMP_MAX, end_timestamp=0):
+  def ItemIterator(self, start_row="", start_timestamp=0,
+                   end_timestamp=TIMESTAMP_MAX):
     cursor = self._dbh.cursor()
-    if start_row:
-      start_row = self.GetRowID(start_row)
+    self.debug("start_row: %s" % start_row)
 
-    if end_timestamp > start_timestamp:
+    if end_timestamp < start_timestamp:
       start_timestamp, end_timestamp = end_timestamp, start_timestamp
 
-    start_row = self.GenerateDBKeyWithTimestamp(start_row, start_timestamp)
-    record = cursor.set_range(start_row)
+    # Invert timestamp
+    start_timestamp = TIMESTAMP_MAX - start_timestamp
+    end_timestamp = TIMESTAMP_MAX - end_timestamp
+
+
+    start_key = RowAndTimestampToKey(start_row, start_timestamp)
+    self.debug("start_key: %s" % start_row)
+    if start_row:
+      record = cursor.set_range("%s" % start_key)
+    else:
+      record = cursor.first()
     while record:
+      self.debug("Rec: %s" % (record,))
       (key, value) = record
       (row, timestamp) = KeyToRowAndTimestamp(key)
       timestamp = TIMESTAMP_MAX - timestamp
+      self.debug("datafound: %s / %s" % (timestamp, row))
       if timestamp < end_timestamp:
+        self.debug("row timestamp < end timestamp: %s < %s == %s"
+                   % (timestamp, end_timestamp, timestamp - end_timestamp))
         break
       try:
         row = self.GetRowByID(row)
       except RowNotFound:
         print "Failed finding row '%s'" % row
       value = cPickle.loads(record[1])
-      yield Entry(row, timestamp, value)
+      entry = Entry(row, timestamp, value)
+      self.debug("rowfound: %s" % entry)
+      yield entry
       record = cursor.next()
+    self.debug("endofiter record: %s" % record)
     cursor.close()
 
-  def ItemIteratorByRows(self, rows=[], start_timestamp=TIMESTAMP_MAX, end_timestamp=0):
+  def ItemIteratorByRows(self, rows=[], start_timestamp=0,
+                         end_timestamp=TIMESTAMP_MAX):
     for row in rows:
-      for entry in self.ItemIterator(row, start_timestamp, end_timestamp):
-        #print "ItemRowIter: %s vs %s" % (row, entry.row)
+      key = self.GetRowID(row)
+      self.debug("by row/key: %s/%s" % (row, key))
+      for entry in self.ItemIterator(key, start_timestamp, end_timestamp):
+        self.debug("ItemRowIter: %s vs %s == %s" % (row, entry.row, row == entry.row))
         if entry.row != row:
           break
         yield entry
