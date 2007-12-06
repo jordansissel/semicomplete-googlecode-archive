@@ -17,6 +17,16 @@ args = sys.argv[3:]
 db = fancydb.FancyDB(file, encode_keys=False)
 db.Open(create_if_necessary=True);
 
+def debug(string):
+  if "DEBUG" not in os.environ:
+    debug = lambda *args: True
+    return
+
+  caller = sys._getframe(1)
+  code = caller.f_code
+  filename = code.co_filename.split("/")[-1]
+  print "%s:%d: %s" % (filename, caller.f_lineno, string)
+
 def Update(args):
   # If 'evtool.py update foo.db -' use stdin to read updates from.
   if args[0] == "-":
@@ -26,7 +36,7 @@ def Update(args):
   for entry in args:
     count += 1
     if count % 5000 == 0:
-      print count
+      debug(count)
     (row, value) = entry.split(":", 1)
     timestamp = long(time.time() * 1000000)
     if "@" in row:
@@ -75,15 +85,44 @@ def Create(args):
 def Purge(args):
   db.PurgeDatabase()
 
+def _time(func, *args):
+  import time
+  size = args[0]
+  start = time.time()
+  print "Starting %s" % func.__name__
+  size = func(*args) or size
+  duration = time.time() - start
+  print "%s: %f/sec" % (func.__name__, (size) / duration)
+
+def t_m1000writes(size):
+  for i in range(size):
+    db.Set(i % 1000, i, i)
+
+def t_reads(*args):
+  count = 0
+  for i in db.ItemIterator():
+    count += 1
+  return count
+
+def Test(args):
+  size = int(args[0])
+  _time(t_m1000writes, size)
+  _time(t_reads, size)
+
 def Graph(args):
   rows = args
-
-  from pylab import figure, show, axis, ylabel
   import datetime
-  from matplotlib.dates import MonthLocator, RRuleLocator, rrulewrapper, DateFormatter, DAILY, MONDAY, WeekdayLocator
+  from matplotlib.dates import MonthLocator, RRuleLocator, rrulewrapper, DateFormatter, DAILY, MONDAY, MONTHLY, WeekdayLocator
 
-  fig = figure()
+  fig = figure(figsize=(5, 5))
+  rc("axes", linewidth=.5, labelsize=10, titlesize=11)
+  rc("xtick", labelsize=10)
+  rc("ytick", labelsize=10)
+  rc("font", family="monospace", size=10)
+  rc("legend", fontsize=10, markerscale=0, labelsep=0)
+  rc("figure.subplot", bottom=.5)
   legend_items = []
+  #count = 0
   for row in rows:
     dates = []
     values = []
@@ -92,34 +131,55 @@ def Graph(args):
       dates.append(date2num(datetime.datetime.fromtimestamp(timestamp / 1000000)))
       values.append(value)
 
-    #for (d,v) in zip(dates, values):
-      #print "%s: %s" % (d, v)
-
-    ax = fig.add_subplot(111)
+    #ax = fig.add_subplot((len(rows) * 100) + 10 + count)
+    #ax = fig.add_subplot(111)
+    #ax = axis()
+    ax = subplot(111)
+    print ax
+    #count += 1
+    #print dir(ax)
     line = ax.plot_date(dates, values, '-', lw=.5)
+    line[0].set_label(row)
+    legend_items.append((line, "%s (per day)" % row))
     ax.xaxis.set_major_locator(MonthLocator())
     ax.xaxis.set_major_formatter(DateFormatter("%b '%y"))
-    ax.fmt_xdata = DateFormatter('%Y-%m-%d')
+    #rule = rrulewrapper(MONTHLY, interval=2)
+    #ax.xaxis.set_major_locator(RRuleLocator(rule))
+    #ax.fmt_xdata = DateFormatter('%Y-%m-%d')
+    ax.fmt_xdata = DateFormatter('%H:%M')
     ax.grid(True)
-    legend_items.append((line, "%s (per day)" % row))
-    #print sorted(dir(ax))
+    #print sorted(dir(ax.xaxis))
+    ##print sorted(dir(ax))
+    (x,y,w,h) = ax.get_position()
+    ax.set_position((x, y, w, .3))
 
-  figlegend([x[0] for x in legend_items],
-            [x[1] for x in legend_items],
-            'upper right')
-            
-  rule = rrulewrapper(DAILY, interval=7)
+  #legend = figlegend([x[0] for x in legend_items],
+           #[x[1] for x in legend_items],
+           #'lower center')
+  #fig.subplots_adjust(hspace=0.2)
+  l = legend(loc='lower center')
+  print (gca().get_position()[2]/l.get_frame().get_width(), -.3)
+  #(x,y,w,h) = gca().get_position()
+  #gca().set_position((x, y, w, .3))
+
+  #print l.get_position()
+  #print legend.set_alpha(50)
+  #print sorted(dir(legend))
+  l.get_frame().set_alpha(50)
+  #rule = rrulewrapper(DAILY, interval=7)
   #ax.xaxis.set_major_locator(RRuleLocator(rule))
   #ax.xaxis.set_major_locator(WeekdayLocator(MONDAY))
   #ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
 
-  fig.autofmt_xdate()
+  #xlabel("", font)
+  #ylabel("hits/day", font)
 
+  fig.autofmt_xdate()
   fig.savefig('hits.png', format="png")
 
 def profile(func, *args):
-  func(*args)
-  return
+  #func(*args)
+  #return
   import hotshot
   output = "/tmp/my.profile"
   p = hotshot.Profile(output)
@@ -135,6 +195,7 @@ def main(args):
     "graph": Graph,
     "update": Update,
     "purge": Purge,
+    "test": Test,
   }
 
   if action in dispatch:
@@ -149,3 +210,4 @@ def main(args):
 
 if __name__ == "__main__":
   main(args)
+  #print "Dying..."

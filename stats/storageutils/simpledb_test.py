@@ -62,6 +62,24 @@ class SimpleDBTestBasics(mytest.EnhancedTestCase):
     self.db.Open()
     self.assertEquals(self.db.GetNewest("test").value, "foo")
 
+  def testTimestampRestrictedIteration(self):
+    for i in range(20):
+      self.db.Set("test", i, i)
+
+    expected = (
+      "test@10:10",
+      "test@9:9",
+      "test@8:8",
+      "test@7:7",
+      "test@6:6",
+      "test@5:5",
+    )
+    results = []
+    for x in self.db.ItemIteratorByRows(["test"], 5, 10):
+      results.append("%s@%d:%d" % (x.row, x.timestamp, x.value))
+
+    self.assertListEquals(expected, results)
+
   def testDeleteEntry(self):
     row = "foo"
     self.db.Set(row, "bar", 1)

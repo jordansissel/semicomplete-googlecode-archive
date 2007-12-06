@@ -56,7 +56,7 @@ class Entry(object):
     self.value = value
 
   def __str__(self):
-    return "%s[%s]: %s" % (self.row, self.timestamp, self.value)
+    return "%s %s %s" % (self.row, self.timestamp, self.value)
 
   def __repr__(self):
     return str(self)
@@ -233,7 +233,7 @@ class SimpleDB(object):
     key = self.GenerateDBKey(row, timestamp)
     value = cPickle.dumps(value)
     self._dbh[key] = value
-    self.debug("Set actual %s => %r" % (key, value))
+    self.debug("Set actual %r => %r" % (key, value))
 
   def Delete(self, row, timestamp):
     key = self.GenerateDBKey(row, timestamp)
@@ -248,7 +248,7 @@ class SimpleDB(object):
 
   def GetNewest(self, row):
     self.debug("GetNewest: %s" % row)
-    iterator = self.ItemIteratorByRows([row], start_timestamp=TIMESTAMP_MAX)
+    iterator = self.ItemIteratorByRows([row])
     try:
       entry = iterator.next()
     except StopIteration:
@@ -262,25 +262,29 @@ class SimpleDB(object):
 
   def ItemIterator(self, start_row="", start_timestamp=0,
                    end_timestamp=TIMESTAMP_MAX):
+    print "itemiterator: %s %s %s" % (start_row, start_timestamp, end_timestamp)
     cursor = self._dbh.cursor()
-    self.debug("start_row: %s" % start_row)
+    self.debug("start_row: %r" % start_row)
 
-    if end_timestamp < start_timestamp:
+    #self.debug("%s / %s / %s" % (start_row, start_timestamp, end_timestamp))
+    if end_timestamp > start_timestamp:
       start_timestamp, end_timestamp = end_timestamp, start_timestamp
 
     # Invert timestamp
-    start_timestamp = TIMESTAMP_MAX - start_timestamp
-    end_timestamp = TIMESTAMP_MAX - end_timestamp
+    conv_start_timestamp = TIMESTAMP_MAX - start_timestamp
+    #end_timestamp = TIMESTAMP_MAX - end_timestamp
 
-
-    start_key = RowAndTimestampToKey(start_row, start_timestamp)
-    self.debug("start_key: %s" % start_row)
     if start_row:
-      record = cursor.set_range("%s" % start_key)
+      self.debug("%s / %s / %s" % (start_row, start_timestamp, end_timestamp))
+      start_key = RowAndTimestampToKey(start_row, conv_start_timestamp)
+      self.debug("start_key: %r" % start_key)
+      record = cursor.set_range(start_key)
+      self.debug("srowrec %r" % (record,))
     else:
+      self.debug("starting at first entry")
       record = cursor.first()
     while record:
-      self.debug("Rec: %s" % (record,))
+      self.debug("Rec: %r" % (record,))
       (key, value) = record
       (row, timestamp) = KeyToRowAndTimestamp(key)
       timestamp = TIMESTAMP_MAX - timestamp
@@ -298,17 +302,20 @@ class SimpleDB(object):
       self.debug("rowfound: %s" % entry)
       yield entry
       record = cursor.next()
-    self.debug("endofiter record: %s" % record)
+      self.debug("Next: %r" % (record,))
+    self.debug("endofiter record: %r" % (record,))
     cursor.close()
 
   def ItemIteratorByRows(self, rows=[], start_timestamp=0,
                          end_timestamp=TIMESTAMP_MAX):
+    self.debug("itemiteratorbyrows: %r, [%r, %r]" % (rows, start_timestamp, end_timestamp))
     for row in rows:
       key = self.GetRowID(row)
-      self.debug("by row/key: %s/%s" % (row, key))
+      self.debug("by row/key: %r/%r" % (row, key))
       for entry in self.ItemIterator(key, start_timestamp, end_timestamp):
-        self.debug("ItemRowIter: %s vs %s == %s" % (row, entry.row, row == entry.row))
+        self.debug("ItemRowIter: %r vs %r == %r" % (row, entry.row, row == entry.row))
         if entry.row != row:
+          self.debug("Breaking search: %r != %r" % (entry.row, row))
           break
         yield entry
 

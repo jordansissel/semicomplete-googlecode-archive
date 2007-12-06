@@ -7,9 +7,7 @@ stack ordering (FILO)
 == Data Manipulation:
 commandline tool to add data
 
-== Aggregates
-"create aggregate"
-  Aggregate data and store the computed results in the database.
+== Aggregates "create aggregate" Aggregate data and store the computed results in the database.
 
   Aggregation rules:
     formula => output_row
@@ -37,11 +35,11 @@ Triggers are filters, so we can modify data inbound/outbound?
   store (Set, Delete)
   retrieve (Get)
 
+Split fancydb.Set() and rule evaluation? Done.
 
+RATE rule:
+  (val[n-1] - val[n]) / (time[n-1] - time[n])
 
-Eval thread
-
-DB thread
-  Set(row ...)
-    wq
+  Assuming it's a counter, and we want the rate across the entire data set:
+  (val[0] - val[-1]) / (time[0] - time[-1])
 

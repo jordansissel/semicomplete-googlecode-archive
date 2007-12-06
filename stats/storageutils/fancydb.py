@@ -10,7 +10,9 @@ RULE_MIN=2
 RULE_MAX=3
 RULE_LAST=4
 RULE_TOTAL=5
+
 RULE_RATE=6
+RULE_EXPIRE=7
 
 STEP_COUNT=1
 STEP_TIME=2
@@ -30,6 +32,7 @@ def StringToType(string):
     "last": RULE_LAST,
     "total": RULE_TOTAL,
     "rate": RULE_RATE,
+    "expire": RULE_EXPIRE,
     "time": STEP_TIME,
     "count": STEP_COUNT,
   }[string]
@@ -64,7 +67,7 @@ class RuleEvaluator(threading.Thread):
     threading.Thread.__init__(self)
     self._notifications = dict()
     self._lock = threading.Condition(threading.RLock())
-    print "lock orig: %s" % self._lock
+    #print "lock orig: %s" % self._lock
     self._done = threading.Event()
     self._done.clear()
 
@@ -73,15 +76,15 @@ class RuleEvaluator(threading.Thread):
     while not done:
       # Wait for data.
       self._lock.acquire()
-      print "evaluator lock: %s/%s" % (self._lock, threading.currentThread())
+      #print "evaluator lock: %s/%s" % (self._lock, threading.currentThread())
       while len(self._notifications) == 0 and not self._done.isSet():
-        print "evaluator wait: %s" % threading.currentThread()
+        #print "evaluator wait: %s" % threading.currentThread()
         self._lock.wait()
-      print "evaluator (wait finished, lock is mine)"
+      #print "evaluator (wait finished, lock is mine)"
       done = self._done.isSet()
       notifications = self._notifications
       self._notifications = dict()
-      print "evaluator released: %s" % threading.currentThread()
+      #print "evaluator released: %s" % threading.currentThread()
 
       self.Process(notifications)
       self._lock.release()
@@ -90,13 +93,14 @@ class RuleEvaluator(threading.Thread):
   def Notify(self, notification):
     #print "notify lock attempt by %s" % threading.currentThread()
     self._lock.acquire()
-    self._notifications.setdefault(notification, 0)
-    self._notifications[notification] += 1
+    #self._notifications.setdefault(notification, 0)
+    self._notifications[notification] = 1
     self._lock.notifyAll()
     #print "notify release: %s" % threading.currentThread()
     self._lock.release()
 
   def Process(self, notifications):
+    #print "Processing %d notifications" % (len(notifications))
     for n in notifications:
       #print "proc loop enter : %s" % threading.currentThread()
       rule = n._rule
@@ -270,7 +274,8 @@ class Rule(object):
     timestamps = []
     last_timestamp = None
     count = 0
-    for entry in self._db.ItemIteratorByRows([self._source], start_timestamp=end, end_timestamp=start):
+    #print "Eval on row %s" % self._source
+    for entry in self._db.ItemIteratorByRows([self._source], start_timestamp=start, end_timestamp=end):
       count += 1
       if entry.timestamp > end:
         print "WTF cont"
@@ -285,7 +290,7 @@ class Rule(object):
 
     if last_timestamp is not None:
       result = self._dispatch[self._ruletype](values, timestamps)
-      print "Set: %s@%s => %s" % (self._target, end, result)
+      #print "Set: %s@%s => %s" % (self._target, end, result)
       self._db.Set(self._target, result, end)
 
 class FancyDB(simpledb.SimpleDB):
@@ -303,15 +308,15 @@ class FancyDB(simpledb.SimpleDB):
     self.LoadRules()
 
   def Close(self):
-    print "Closing fancydb %s" % self._db_name
+    self.debug("Closing fancydb %s" % self._db_name)
     self._evaluator.Finish()
-    print "Waiting for evaluator thread to finish"
+    self.debug("Waiting for evaluator thread to finish")
     self._evaluator.join()
-    print "Closing simpledb"
+    self.debug("Closing simpledb")
     simpledb.SimpleDB.Close(self)
-    print "Closing ruledb"
+    self.debug("Closing ruledb")
     self._ruledb.Close()
-    print "Done closing"
+    self.debug("Done closing")
 
   def PurgeDatabase(self):
     simpledb.SimpleDB.PurgeDatabase(self)
