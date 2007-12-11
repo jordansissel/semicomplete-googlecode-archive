@@ -96,7 +96,7 @@ def _time(func, *args):
 
 def t_m1000writes(size):
   for i in range(size):
-    db.Set(i % 1000, i, i)
+    db.Set(i - (i % 1000), i, i)
 
 def t_reads(*args):
   count = 0
@@ -106,6 +106,11 @@ def t_reads(*args):
 
 def Test(args):
   size = int(args[0])
+
+  db.AddRule(fancydb.Rule(1000, "agg.1000", "total", 1, 10, "time"))
+  db.AddRule(fancydb.Rule(2000, "agg.2000", "total", 1, 10, "time"))
+  db.AddRule(fancydb.Rule(3000, "agg.3000", "total", 1, 10, "time"))
+
   _time(t_m1000writes, size)
   _time(t_reads, size)
 
@@ -120,52 +125,52 @@ def Graph(args):
   rc("ytick", labelsize=10)
   rc("font", family="monospace", size=10)
   rc("legend", fontsize=10, markerscale=0, labelsep=0)
-  rc("figure.subplot", bottom=.5)
+  #rc("figure.subplot", bottom=.5)
   legend_items = []
   #count = 0
-  for row in rows:
+  for (index, row) in enumerate(rows):
     dates = []
     values = []
     for entry in db.ItemIteratorByRows([row]):
       (timestamp, value) = (entry.timestamp, entry.value)
-      dates.append(date2num(datetime.datetime.fromtimestamp(timestamp / 1000000)))
+      #dates.append(date2num(datetime.datetime.fromtimestamp(timestamp / 1000000)))
+      dates.append(timestamp / 1000000)
       values.append(value)
 
     #ax = fig.add_subplot((len(rows) * 100) + 10 + count)
-    #ax = fig.add_subplot(111)
+    #ax = fig.add_subplot(len(rows), 1, index + 1)
+    ax = fig.add_subplot(1, 1, 1)
     #ax = axis()
-    ax = subplot(111)
-    print ax
     #count += 1
     #print dir(ax)
-    line = ax.plot_date(dates, values, '-', lw=.5)
-    line[0].set_label(row)
-    legend_items.append((line, "%s (per day)" % row))
-    ax.xaxis.set_major_locator(MonthLocator())
-    ax.xaxis.set_major_formatter(DateFormatter("%b '%y"))
+    #line = ax.plot_date(dates, values, '-', lw=.5)
+    line = ax.plot(dates, values, '-', lw=.5)
+    legend_items.append((line, "%s" % row))
+    #ax.xaxis.set_major_locator(MonthLocator())
+    #ax.xaxis.set_major_formatter(DateFormatter("%b '%y"))
     #rule = rrulewrapper(MONTHLY, interval=2)
     #ax.xaxis.set_major_locator(RRuleLocator(rule))
     #ax.fmt_xdata = DateFormatter('%Y-%m-%d')
-    ax.fmt_xdata = DateFormatter('%H:%M')
+    #ax.fmt_xdata = DateFormatter('%H:%M')
     ax.grid(True)
     #print sorted(dir(ax.xaxis))
     ##print sorted(dir(ax))
-    (x,y,w,h) = ax.get_position()
-    ax.set_position((x, y, w, .3))
+    #(x,y,w,h) = ax.get_position()
+    #ax.set_position((x, y, w, .3))
 
-  #legend = figlegend([x[0] for x in legend_items],
-           #[x[1] for x in legend_items],
-           #'lower center')
+  legend = figlegend([x[0] for x in legend_items],
+           [x[1] for x in legend_items],
+           'lower center')
   #fig.subplots_adjust(hspace=0.2)
-  l = legend(loc='lower center')
-  print (gca().get_position()[2]/l.get_frame().get_width(), -.3)
+  #l = legend(loc='lower center')
+  #print (gca().get_position()[2]/l.get_frame().get_width(), -.3)
   #(x,y,w,h) = gca().get_position()
   #gca().set_position((x, y, w, .3))
 
   #print l.get_position()
-  #print legend.set_alpha(50)
+  print legend.set_alpha(50)
   #print sorted(dir(legend))
-  l.get_frame().set_alpha(50)
+  #l.get_frame().set_alpha(50)
   #rule = rrulewrapper(DAILY, interval=7)
   #ax.xaxis.set_major_locator(RRuleLocator(rule))
   #ax.xaxis.set_major_locator(WeekdayLocator(MONDAY))
@@ -178,8 +183,8 @@ def Graph(args):
   fig.savefig('hits.png', format="png")
 
 def profile(func, *args):
-  #func(*args)
-  #return
+  func(*args)
+  return
   import hotshot
   output = "/tmp/my.profile"
   p = hotshot.Profile(output)

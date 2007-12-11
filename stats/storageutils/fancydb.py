@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
+from __future__ import with_statement
 import simpledb
 import time
 import threading
-import numpy as P
+import numpy as N
 
 # rrdtoolisms
 RULE_AVERAGE=1
@@ -33,41 +34,17 @@ def StringToType(string):
     "last": RULE_LAST,
     "total": RULE_TOTAL,
     "rate": RULE_RATE,
+    "stddev": RULE_STDDEV,
+    "variance": RULE_VARIANCE,
     "time": STEP_TIME,
     "count": STEP_COUNT,
   }[string]
-
-def synchronized(func):
-  def newfunc(self, *args, **kwds):
-    assert hasattr(self, "__lock")
-    self.__lock.acquire()
-    func(self, *args, **kwds)
-    self.__lock.release()
-  return newfunc
-
-class ThreadSafeDict(dict):
-  def __init__(self, *args, **kwds):
-    dict.__init__(self, *args, **kwds)
-    self.__lock = threading.RLock()
-    funcs = self.__dict__.keys()
-    for name in funcs:
-      if name in ("lock", "release"):
-        continue
-      if hasattr(getattr(self, name), "__call__"):
-        setattr(self, name, synchronized(getattr(self, name)))
-
-  def lock(self):
-    self.__lock.acquire()
-
-  def release(self):
-    self.__lock.release()
 
 class RuleEvaluator(threading.Thread):
   def __init__(self):
     threading.Thread.__init__(self)
     self._notifications = dict()
     self._lock = threading.Condition(threading.RLock())
-    #print "lock orig: %s" % self._lock
     self._done = threading.Event()
     self._done.clear()
 
@@ -75,32 +52,30 @@ class RuleEvaluator(threading.Thread):
     done = False
     while not done:
       # Wait for data.
-      self._lock.acquire()
-      print "evaluator lock: %s/%s" % (self._lock, threading.currentThread())
-      while len(self._notifications) == 0 and not self._done.isSet():
-        print "evaluator wait: %s" % threading.currentThread()
-        self._lock.wait()
-      print "evaluator (wait finished, lock is mine)"
-      done = self._done.isSet()
-      notifications = self._notifications
-      self._notifications = dict()
-      print "evaluator released: %s" % threading.currentThread()
-
+      with self._lock:
+        #print "evaluator lock: %s/%s" % (self._lock, threading.currentThread())
+        while len(self._notifications) == 0 and not self._done.isSet():
+          #print "evaluator wait: %s" % threading.currentThread()
+          #print len(self._notifications) == 0, not self._done.isSet()
+          #print "Lock: %s" % self._lock
+          self._lock.wait()
+        #print "evaluator (wait finished, lock is mine)"
+        done = (len(self._notifications) == 0 and self._done.isSet())
+        notifications = self._notifications
+        self._notifications = dict()
+      #print "evaluator released: %s" % threading.currentThread()
       self.Process(notifications)
-      self._lock.release()
       self._done.wait(1)
 
-  def Notify(self, notification):
+  def EvaluatorNotify(self, notification):
     #print "notify lock attempt by %s" % threading.currentThread()
-    self._lock.acquire()
-    self._notifications.setdefault(notification, 0)
-    self._notifications[notification] = 1
-    #self._lock.notifyAll()
-    print "notify release: %s" % threading.currentThread()
-    #self._lock.release()
+    with self._lock:
+      self._notifications.setdefault(notification, 0)
+      self._notifications[notification] = 1
+    #print "notify release: %s" % threading.currentThread()
 
   def Process(self, notifications):
-    print "Processing %d notifications" % (len(notifications))
+    #print "Processing %d notifications" % (len(notifications))
     for n in notifications:
       #print "proc loop enter : %s" % threading.currentThread()
       rule = n._rule
@@ -109,9 +84,10 @@ class RuleEvaluator(threading.Thread):
 
   def Finish(self):
     self._done.set()
-    self._lock.acquire()
-    self._lock.notifyAll()
-    self._lock.release()
+    #print "evaluator finish Lock: %s" % self._lock
+    #print "evaluator finish RuleEvaluator self: %s" % self
+    with self._lock:
+      self._lock.notifyAll()
 
 class RuleNotification(object):
   def __init__(self, rule, start, end):
@@ -165,16 +141,16 @@ class Rule(object):
     self._hits = 0
 
   def ComputeAverage(self, values, timestamps):
-    return P.mean(values)
+    return N.mean(values)
 
   def ComputeMin(self, values, timestamps):
-    return P.min(values)
+    return N.min(values)
 
   def ComputeMax(self, values, timestamps):
-    return P.max(values)
+    return N.max(values)
 
   def ComputeTotal(self, values, timestamps):
-    return P.sum(values)
+    return N.sum(values)
 
   def ComputeLast(self, values, timestamps):
     return values[0]
@@ -187,17 +163,18 @@ class Rule(object):
     if len(values) < 2:
       return 0
     if values[0] < values[-1]:
-      print "RESET"
+      print "RESET: %s" % values
       values[-1] = 0
     delta = float(values[0] - values[-1])
-    duration = float(timestamps[0] - timestamps[-1])
+    duration = float(timestamps[0] - timestamps[-1]) / 1000000
+    #print "(%d) %d / %d = %f" % (len(values), delta, duration, delta / duration)
     return delta / duration
 
   def ComputeStandardDeviation(self, values, timestamps):
-    return P.std(values)
+    return N.std(values)
 
   def ComputeVariance(self, values, timestamps):
-    return P.var(values)
+    return N.var(values)
 
   def SetDB(self, db):
     self._db = db
@@ -230,14 +207,14 @@ class Rule(object):
       setattr(obj, i, data[i])
     return obj
 
-  def Notify(self, unused_args, db, timestamp):
+  def RuleNotify(self, unused_args, db, timestamp):
     if self._step_type == STEP_COUNT:
       raise NotImplemented("COUNT not implemented for rules")
     if not self._evaluator:
       raise NotImplemented("No evaluator for this rule. Cannot notify.")
     (start, end) = self.GetTimeRangeForTimestamp(timestamp)
     notification = RuleNotification(self, start, end)
-    self._evaluator.Notify(notification)
+    self._evaluator.EvaluatorNotify(notification)
 
   def GetTimeRangeForTimestamp(self, timestamp):
     period = self._steps * 1000000
@@ -295,7 +272,7 @@ class Rule(object):
 
     if last_timestamp is not None:
       result = self._dispatch[self._ruletype](values, timestamps)
-      print "Set: %s@%s => %s" % (self._target, end, result)
+      #print "Set: %s@%s => %s" % (self._target, end, result)
       self._db.Set(self._target, result, end)
 
 class FancyDB(simpledb.SimpleDB):
@@ -314,9 +291,10 @@ class FancyDB(simpledb.SimpleDB):
 
   def Close(self):
     self.debug("Closing fancydb %s" % self._db_name)
-    self._evaluator.Finish()
-    self.debug("Waiting for evaluator thread to finish")
-    self._evaluator.join()
+    while self._evaluator.isAlive():
+      self._evaluator.Finish()
+      self.debug("Waiting for evaluator thread to finish")
+      self._evaluator.join(1)
     self.debug("Closing simpledb")
     simpledb.SimpleDB.Close(self)
     self.debug("Closing ruledb")
@@ -336,9 +314,10 @@ class FancyDB(simpledb.SimpleDB):
       raise DuplicateRuleTarget("Attempt to add rule creating rows '%s'"
                                 "aborted. A rule already exists to "
                                 "generate this row." % rule._target)
+    #print "Add rule: %s => %s" % (rule._source, rule._target)
     rule.SetEvaluator(self._evaluator)
     rule.SetDB(self)
-    self.AddRowListener(rule._source, rule.Notify)
+    self.AddRowListener(rule._source, rule.RuleNotify)
     self._rules[rule._target] = rule
     if save_rule:
       self._ruledb.Set("rule", rule.ToDict())
@@ -356,6 +335,8 @@ class FancyDB(simpledb.SimpleDB):
       #for (listener, args) in self._row_listeners[row]:
         #listener(args, self, timestamp)
 
+    #print row, self._row_listeners.get(row, [])
+    #print self._row_listeners
     for (listener, args) in self._row_listeners.get(row, []):
       listener(args, self, timestamp)
 

@@ -1,4 +1,4 @@
 
 
 test: bdb.c
-	gcc bdb.c -o test -ldb
+	gcc -g bdb.c -o test -ldb
