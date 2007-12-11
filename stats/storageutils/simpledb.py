@@ -203,8 +203,8 @@ class SimpleDB(object):
       if create_if_necessary:
         id = self.CreateRowID(row)
       else:
-        for i in self._keydb.ItemIterator():
-          print i
+        #for i in self._keydb.ItemIterator():
+          #print i
         raise RowNotFound("Row '%s' not known to key database (%s)" % (row, self._db_name))
     return id
 
@@ -262,7 +262,7 @@ class SimpleDB(object):
 
   def ItemIterator(self, start_row="", start_timestamp=0,
                    end_timestamp=TIMESTAMP_MAX):
-    print "itemiterator: %s %s %s" % (start_row, start_timestamp, end_timestamp)
+    #print "itemiterator: %s %s %s" % (start_row, start_timestamp, end_timestamp)
     cursor = self._dbh.cursor()
     self.debug("start_row: %r" % start_row)
 

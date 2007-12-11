@@ -3,6 +3,7 @@
 import simpledb
 import time
 import threading
+import numpy as P
 
 # rrdtoolisms
 RULE_AVERAGE=1
@@ -10,9 +11,9 @@ RULE_MIN=2
 RULE_MAX=3
 RULE_LAST=4
 RULE_TOTAL=5
-
 RULE_RATE=6
-RULE_EXPIRE=7
+RULE_STDDEV=7
+RULE_VARIANCE=8
 
 STEP_COUNT=1
 STEP_TIME=2
@@ -32,7 +33,6 @@ def StringToType(string):
     "last": RULE_LAST,
     "total": RULE_TOTAL,
     "rate": RULE_RATE,
-    "expire": RULE_EXPIRE,
     "time": STEP_TIME,
     "count": STEP_COUNT,
   }[string]
@@ -76,15 +76,15 @@ class RuleEvaluator(threading.Thread):
     while not done:
       # Wait for data.
       self._lock.acquire()
-      #print "evaluator lock: %s/%s" % (self._lock, threading.currentThread())
+      print "evaluator lock: %s/%s" % (self._lock, threading.currentThread())
       while len(self._notifications) == 0 and not self._done.isSet():
-        #print "evaluator wait: %s" % threading.currentThread()
+        print "evaluator wait: %s" % threading.currentThread()
         self._lock.wait()
-      #print "evaluator (wait finished, lock is mine)"
+      print "evaluator (wait finished, lock is mine)"
       done = self._done.isSet()
       notifications = self._notifications
       self._notifications = dict()
-      #print "evaluator released: %s" % threading.currentThread()
+      print "evaluator released: %s" % threading.currentThread()
 
       self.Process(notifications)
       self._lock.release()
@@ -93,14 +93,14 @@ class RuleEvaluator(threading.Thread):
   def Notify(self, notification):
     #print "notify lock attempt by %s" % threading.currentThread()
     self._lock.acquire()
-    #self._notifications.setdefault(notification, 0)
+    self._notifications.setdefault(notification, 0)
     self._notifications[notification] = 1
-    self._lock.notifyAll()
-    #print "notify release: %s" % threading.currentThread()
-    self._lock.release()
+    #self._lock.notifyAll()
+    print "notify release: %s" % threading.currentThread()
+    #self._lock.release()
 
   def Process(self, notifications):
-    #print "Processing %d notifications" % (len(notifications))
+    print "Processing %d notifications" % (len(notifications))
     for n in notifications:
       #print "proc loop enter : %s" % threading.currentThread()
       rule = n._rule
@@ -158,21 +158,23 @@ class Rule(object):
       RULE_LAST: self.ComputeLast,
       RULE_TOTAL: self.ComputeTotal,
       RULE_RATE: self.ComputeRate,
+      RULE_STDDEV: self.ComputeStandardDeviation,
+      RULE_VARIANCE: self.ComputeVariance,
     }
 
     self._hits = 0
 
   def ComputeAverage(self, values, timestamps):
-    return sum(values) / float(len(values))
+    return P.mean(values)
 
   def ComputeMin(self, values, timestamps):
-    return min(values)
+    return P.min(values)
 
   def ComputeMax(self, values, timestamps):
-    return max(values)
+    return P.max(values)
 
   def ComputeTotal(self, values, timestamps):
-    return sum(values)
+    return P.sum(values)
 
   def ComputeLast(self, values, timestamps):
     return values[0]
@@ -189,10 +191,13 @@ class Rule(object):
       values[-1] = 0
     delta = float(values[0] - values[-1])
     duration = float(timestamps[0] - timestamps[-1])
-    print values
-    print timestamps
-    print "%f / %f" % (delta, duration)
     return delta / duration
+
+  def ComputeStandardDeviation(self, values, timestamps):
+    return P.std(values)
+
+  def ComputeVariance(self, values, timestamps):
+    return P.var(values)
 
   def SetDB(self, db):
     self._db = db
@@ -290,7 +295,7 @@ class Rule(object):
 
     if last_timestamp is not None:
       result = self._dispatch[self._ruletype](values, timestamps)
-      #print "Set: %s@%s => %s" % (self._target, end, result)
+      print "Set: %s@%s => %s" % (self._target, end, result)
       self._db.Set(self._target, result, end)
 
 class FancyDB(simpledb.SimpleDB):
@@ -341,6 +346,7 @@ class FancyDB(simpledb.SimpleDB):
   def AddRowListener(self, row, callback, *args):
     self._row_listeners.setdefault(row, [])
     self._row_listeners[row].append((callback, args))
+    self.debug("Added row listener for row '%s': %s" % (row, callback.__name__))
 
   def Set(self, row, value, timestamp=None):
     #print "%s @ %s" % (row, timestamp)
