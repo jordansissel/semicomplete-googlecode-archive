@@ -364,7 +364,10 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   }
   def do_GET(self):
     streamer = BingeCometStreamer(self)
-    (path, query) = self.path.split("?", 1)
+    if "?" in self.path:
+      (path, query) = self.path.split("?", 1)
+    else:
+      (path, query) = (self.path, "")
     if path == "/bingerpc":
       fields = cgi.parse_qs(query)
       callback = fields.get("callback", [None])[0]
@@ -373,29 +376,39 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       self.serve_file(path)
 
   def serve_file(self, path):
-    fullpath = os.path.abspath(path)
+    fullpath = os.path.abspath(path[1:])
     pwd = os.getcwd()
     if not fullpath.startswith(pwd):
-      self.serve_error(403, "Invalid path: path")
+      self.serve_error(403, "Invalid path: %s" % path)
       return
 
     if os.path.isdir(fullpath):
       self.serve_error(403, "Directory listing not implemented")
+      return
 
     try:
       fd = open(fullpath, "r")
     except IOError, e:
-      self.serve_error(403, e)
+      self.serve_error(403, "Error occured while opening file.")
+      print >>sys.stderr, e
       return
 
     extension = fullpath.split(".")[-1]
-    content_type = self.content_type.get(extension, "text/plain")
+    content_type = self.content_types.get(extension, "text/plain")
 
+    self.send_response(200)
     self.send_header("Content-type", content_type)
     self.end_headers()
     for i in fd:
       self.wfile.write(i)
     fd.close()
+
+  def serve_error(self, code, message):
+    self.send_response(code)
+    self.send_header("Content-type", "text/plain")
+    self.end_headers()
+
+    self.wfile.write(message)
 
 class BingeCometStreamer(object):
   def __init__(self, request_handler_object):
