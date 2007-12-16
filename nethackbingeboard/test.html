@@ -3,35 +3,74 @@
   <style type="text/css">
     body {
       z-index:0;
+      font-family: mono;
       position: relative;
     }
 
-    .background {
+    #background {
       position: absolute;
       left: 0px;
       top: -.2em;
       z-index: -1;
 
       opacity: .1;
-      font-family: courier;
       font-weight: bold;
-      font-size: 700px;
-
+      font-size: 600px;
     }
 
-    .content {
-      background: none
+    #bingeboard {
     }
+
+    #bingeboard_table {
+      border: 2px solid black;
+      -moz-border-radius: 10;
+      margin: auto;
+      border-spacing: 0px;
+      background: url('translucent.png');
+    }
+
+    #bingeboard_table tr.header  {
+      background-color: #DDEEEE;
+      border-bottom: 1px solid black;
+    }
+
+    #bingeboard_table tr {
+      padding: 5px;
+    }
+
+    #bingeboard_table td {
+      padding-left: 3px;
+      padding-right: 3px;
+      border-left: 1px solid #CCCCCC;
+    }
+
+    .empty_player {
+      display: none;
+    }
+
   </style>
-  <script src="http://jqueryjs.googlecode.com/files/jquery-1.2.1.min.js"></script>
+  <!--<script src="http://jqueryjs.googlecode.com/files/jquery-1.2.1.min.js"></script>-->
+  <script src="http://jqueryjs.googlecode.com/files/jquery-1.2.1.js"></script>
   <script src="/js/bingeboard.js"></script>
 </head>
 <body>
-  <div class="background">@</div>
-  <div class="content">
-    <pre>
-      stuff
-    </pre>
+  <div id="background">@</div>
+  <div id="bingeboard">
+    <table id="bingeboard_table">
+      <tr class="header">
+        <th> Player </th>
+        <th> Race </th>
+        <th> Class </th>
+        <th> Gender </th>
+        <th> Moves </th>
+        <th> DL </th>
+        <th> EXP </th>
+        <th> AC </th>
+        <th> Wishes </th>
+        <th> Prays </th>
+        <th> Deaths </th>
+      </tr>
+    </table>
   </div>
 </body>
 </html>

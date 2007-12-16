@@ -367,7 +367,11 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     if "?" in self.path:
       (path, query) = self.path.split("?", 1)
     else:
+
       (path, query) = (self.path, "")
+    if path == "/":
+      path = "/index.html"
+
     if path == "/bingerpc":
       fields = cgi.parse_qs(query)
       callback = fields.get("callback", [None])[0]
