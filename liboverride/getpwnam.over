@@ -1,0 +1,25 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+override(`getpwnam', `
+  {
+    struct passwd *ppw;
+
+    ppw = real_func(name);
+    fprintf(stderr, "== getpwnam(\"%s\")\n", name);
+    if (ppw == NULL) {
+#define FAKE_GECOS "FAKEFAKE"
+#define FAKE_SHELL "/bin/sh"
+      ppw = getpwnam("root");
+      strlcpy(ppw->pw_name, name, strlen(name)+1);
+      ppw->pw_change = 0;
+      ppw->pw_uid = 60000;
+      ppw->pw_gid = 60000;
+      strlcpy(ppw->pw_gecos, FAKE_GECOS, strlen(FAKE_GECOS) + 1);
+      strlcpy(ppw->pw_shell, FAKE_SHELL, strlen(FAKE_SHELL) + 1);
+      return ppw;
+    }
+  }
+')
+

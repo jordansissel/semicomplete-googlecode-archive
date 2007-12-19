@@ -2,21 +2,7 @@
 
 override(`connect', `
   {
-      struct sockaddr_in *addr = (struct sockaddr_in*) name;
-      int type;
-      socklen_t len;
-      getsockopt(s, SOL_SOCKET, SO_TYPE, &type, &len);
-
-      switch (type) {
-        case SOCK_STREAM:
-          fprintf(stderr, "stream connect: fd=%d host=%s:%d\n", s, inet_ntoa(addr->sin_addr), htons(addr->sin_port)); break;
-        case SOCK_DGRAM:
-          fprintf(stderr, "dgram connect: fd=%d host=%s:%d\n", s, inet_ntoa(addr->sin_addr), htons(addr->sin_port)); break;
-        case SOCK_RAW:
-          fprintf(stderr, "raw connect: fd=%d host=%s:%d\n", s, inet_ntoa(addr->sin_addr), htons(addr->sin_port)); break;
-        default:
-          fprintf(stderr, "unknown connect: fd=%d host=%s:%d\n", s, inet_ntoa(addr->sin_addr), htons(addr->sin_port)); break;
-      }
+    printf("omgwtfbbq\n");
   }
 ')
 

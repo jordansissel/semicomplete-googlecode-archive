@@ -33,6 +33,8 @@ define(`malloc_proto',`void *malloc(size_t size)')
 define(`bind_proto',`int bind(int s, const struct sockaddr *addr, socklen_t addrlen)')
 define(`connect_proto',`int connect(int s, const struct sockaddr *name, socklen_t namelen)')
 define(`open_proto',`int open(const char *path, int flags, ...)')
+define(`getpwnam_proto', `struct passwd *getpwnam(const char *name)')
+define(`chroot_proto', `int chroot(const char *dirname)')
 # Hack because open uses ... for the last arg.
 define(`open_call', `path, flags')
 
@@ -46,6 +48,10 @@ define(`XUngrabKey_proto', `int XUngrabKey(Display* display, int keycode, unsign
 define(`XUngrabKeyboard_proto', `int XUngrabKeyboard(Display* display, Time time)')
 
 # Function includes
+define(`getpwnam_includes', `
+#include <sys/types.h>
+#include <pwd.h>
+')
 define(`bind_includes', `network_includes')
 define(`connect_includes', `network_includes')
 define(`network_includes', `
@@ -79,6 +85,7 @@ define(`malloc_library', `libc_library')
 define(`open_library', `libc_library')
 define(`connect_library', `libc_library')
 define(`bind_library', `libc_library')
+define(`getpwnam_library', `libc_library')
 define(`XTestFakeButtonEvent_library', `/usr/lib/libXtst.so')
 define(`XGrabKey_library', `/usr/lib/libX11.so')
 define(`XGrabKeyboard_library', `/usr/lib/libX11.so')
