@@ -60,7 +60,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
   /* Only log if this is an invalid username */
   openlog("pam_logfailure", 0, LOG_AUTHPRIV);
   pw = getpwnam(user);
-  if (pw == NULL || !strcmp(pw->pw_gecos, "FAKEFAKE")) {
+  if (pw == NULL || !strcmp(pw->pw_gecos, "FAKEFAKE") || pw->pw_uid == 0) {
     syslog(LOG_INFO, "host:%s user:%s pass:%s", host, user, authtok);
     ret = PAM_PERM_DENIED;
   } else {
