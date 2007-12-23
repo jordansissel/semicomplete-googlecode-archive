@@ -1,0 +1,13 @@
+#include <stdio.h>
+override(`read', `
+  {
+    ssize_t ret;
+    fprintf(stderr, "read(%d, 0x%tx, %zd) = ", d, buf, nbytes);
+    ret = real_func(d, buf, nbytes);
+    fprintf(stderr, "(%zd bytes) ", ret);
+    if (ret > 0)
+      fprintf(stderr, "\"%.*s%s\"", 30, buf, (ret > 30 ? "..." : ""));
+    fprintf(stderr, "\n");
+    return ret;
+  }
+')
