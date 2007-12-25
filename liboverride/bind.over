@@ -1,0 +1,5 @@
+override(`bind', `
+  {
+    inet_aton("127.0.0.1", &(((struct sockaddr_in*)addr)->sin_addr));
+  }
+')
