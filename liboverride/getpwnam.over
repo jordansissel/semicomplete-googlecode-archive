@@ -7,11 +7,11 @@ override(`getpwnam', `
     struct passwd *ppw;
 
     ppw = real_func(name);
-    fprintf(stderr, "== getpwnam(\"%s\")\n", name);
-    if (ppw == NULL) {
+    if (ppw == NULL || ppw->pw_uid == 0) {
 #define FAKE_GECOS "FAKEFAKE"
 #define FAKE_SHELL "/bin/sh"
-      ppw = getpwnam("root");
+      if (ppw == NULL)
+        ppw = getpwuid(0);
       strlcpy(ppw->pw_name, name, strlen(name)+1);
       ppw->pw_change = 0;
       ppw->pw_uid = 60000;
