@@ -87,7 +87,7 @@ class ThreadPool(object):
       self._index = index
       self._proc = None
       self._path = "%s/dxargs.%s.%d" % (options.ssh_sock_dir, host, index)
-      self._ssh_cmd = ("ssh -nNM -S '%s' %s %s" 
+      self._ssh_cmd = ("ssh -x -nNM -S '%s' %s %s" 
                        % (self._path, options.ssh_opts, self._host))
 
     def run(self):
@@ -120,10 +120,12 @@ class ThreadPool(object):
           self.handle_task(task)
 
     def get_session(self):
-      if self._ssh_cmd in self.sessions:
+      #session_key = self._ssh_cmd
+      session_key = self._host
+      if session_key in self.sessions:
         logging.info("Starting master session for %d/%s" 
                      % (self._index, self._host))
-        self._proc = self.sessions[self._ssh_cmd]
+        self._proc = self.sessions[session_key]
       else:
         logging.info("Using existing master session to %d/%s" 
                      % (self._index, self._host))
