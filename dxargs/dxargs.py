@@ -15,9 +15,10 @@ import logging
 parser = OptionParser()
 parser.add_option("-n", type="int", dest="n", default=500)
 parser.add_option("-P", type="int", dest="P", default=1)
-parser.add_option("-l", type="int", dest="l")
+parser.add_option("-l", type="int", dest="l", default=0)
 parser.add_option("-t", action="store_true", dest="t")
 parser.add_option("--verbose", action="store_true", dest="verbose")
+parser.add_option("--collate_output", action="store_true", dest="collate_output");
 parser.add_option("--output_dir", dest="output_dir")
 parser.add_option("--report_output_filenames", action="store_true",
                   dest="report_output_filenames")
@@ -25,7 +26,7 @@ parser.add_option("--hosts_file", dest="hosts_file")
 parser.add_option("--hosts", dest="hosts")
 parser.add_option("--ssh_sock_dir", dest="ssh_sock_dir", default="/tmp")
 parser.add_option("--ssh_opts", dest="ssh_opts", 
-                  default="-o 'StrictHostKeyChecking no' -c blowfish -C -T")
+                  default="-o 'StrictHostKeyChecking no' -o 'PreferredAuthentications publickey' -c blowfish -C -T")
 
 sessions = {}
 
@@ -80,6 +81,18 @@ class ThreadPool(object):
       self.done = done
       self._pid = os.getpid()
       threading.Thread.__init__(self)
+
+    def output(self, fd, data, args=None):
+      if fd in output_locks:
+        output_locks[fd].acquire()
+
+      if args and options.collate_output:
+        fd.write("%s/%s: " % (self._host, args));
+      fd.write(data)
+
+      if fd in output_locks:
+        fd.flush()
+        output_locks[fd].release()
 
     def SetParams(self, host, index):
       logging.info("Setting worker params: %s/%s" % (index, host))
@@ -139,7 +152,7 @@ class ThreadPool(object):
       #proc.start()
 
       if options.t:
-        output(sys.stderr, "%d/%s: %s %s\n" 
+        self.output(sys.stderr, "%d/%s: %s %s\n" 
                % (self._index, self._host, command, task.args,))
 
       proc.runcmd("set -- %s" % args)
@@ -159,7 +172,7 @@ class ThreadPool(object):
                      self._host, 
                      time.time()))
         fd = open(filename, "w")
-        output(input_set_loghandle, "%s %s\n" % (filename, args))
+        self.output(input_set_loghandle, "%s %s\n" % (filename, args))
 
       return_code = -1
       while True:
@@ -168,10 +181,11 @@ class ThreadPool(object):
           return_code = proc.finish()
           break
           #logging.error("Unexpected EOF from proc on %s" % host)
-        output(fd, line)
+        self.output(fd, line, args);
 
-      fd.close()
-      output(sys.stdout, "%s\n" % filename)
+      if options.output_dir:
+        fd.close()
+        self.output(sys.stdout, "%s\n" % filename)
 
       if return_code != 0:
         fatal("Nonzero return code from child on host '%s'.\nCommand was: %s" 
@@ -219,16 +233,6 @@ class Proc(object):
 def fatal(msg):
   print >>sys.stderr, "Fatal: %s" % msg
   sys.exit(1)
-
-def output(fd, data):
-  if fd in output_locks:
-    output_locks[fd].acquire()
-
-  fd.write(data)
-
-  if fd in output_locks:
-    fd.flush()
-    output_locks[fd].release()
 
 def expand_hosts(hostlist):
   new_hostlist = []
@@ -305,8 +309,14 @@ def main():
   # XXX: Should we read bytes here, instead of lines?
 
   task_id = 0
+  if options.l > 0:
+    options.n = options.l
+    tokfunc = lambda x: [x.rstrip("\n")]
+  else:
+    tokfunc = lambda x: x.split()
+
   for i in sys.stdin:
-    cur_tokens = [x for x in i.split()]
+    cur_tokens = [x for x in tokfunc(i)]
     tokens.extend(cur_tokens)
     while len(tokens) >= options.n:
       pool.addtask(command, tokens[:options.n], task_id)
@@ -314,7 +324,6 @@ def main():
       host_index += 1
       task_id += 1
 
-      #if host_index == len(hosts):
       if host_index == options.P:
         host_index = 0
 
