@@ -43,3 +43,27 @@ RATE rule:
   Assuming it's a counter, and we want the rate across the entire data set:
   (val[0] - val[-1]) / (time[0] - time[-1])
 
+
+---------------
+
+C?
+
+'key' is a variable name + optional tags
+'value' is anything, probably a number
+
+3 types: double, int/long, string
+
+Key format:
+<variable><tags>
+
+variable = <string>
+tag = <string_tag_name><tag_value>
+
+Loosely, something like tcp packets sent:
+
+variable: tcp_packets_out
+tags: machine=teabag,interface=em0
+
+tag values can be any of the types
+value can be any type
+
