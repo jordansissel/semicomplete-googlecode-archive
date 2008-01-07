@@ -1,4 +1,4 @@
-/* xquerytree 
+/* Random XTEST fiddling.
  */
 
 #include <stdlib.h>

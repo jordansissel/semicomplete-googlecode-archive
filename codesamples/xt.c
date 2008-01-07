@@ -1,4 +1,4 @@
-/* xquerytree 
+/* xlib (X11) keypress example
  */
 
 #include <stdlib.h>

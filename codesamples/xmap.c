@@ -1,4 +1,4 @@
-/* xquerytree 
+/* xmap
  */
 
 #include <stdlib.h>
