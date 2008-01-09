@@ -1,4 +1,9 @@
 
+CFLAGS+=-g -I/usr/local/include
+LDFLAGS+=-L/usr/local/lib -lonig
 
-grokre: grokre.cc
-	g++ -g -I/usr/local/include -L/usr/local/lib -lonig $< -o $@
+grokre: grokre.o grokmatch.o grokregex.o
+	g++ $(LDFLAGS) grokre.o grokmatch.o grokregex.o -o $@
+
+.o: .cc
+	g++ $(CFLAGS) $< -o $@
