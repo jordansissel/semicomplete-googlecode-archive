@@ -24,8 +24,7 @@ typedef map<string, string> ssmap_t;
 struct is_private {
   bool operator()(ssub_match const &sub) const {
     /* try to match 192.168/16, 10/8, and 172.16/12 */
-    sregex rfc1918re;
-    rfc1918re = \
+    sregex rfc1918re = \
        sregex::compile("^(?:192\\.168|10|172\\.(?:1[6-9]|2[0-9]|3[01]))\\.");
     smatch m;
     bool ret;
