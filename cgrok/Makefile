@@ -1,14 +1,20 @@
 
-CFLAGS+=-g -I/usr/local/include
-LDFLAGS+=-L/usr/local/lib -lonig
+CPP=ccache g++
+CFLAGS=-I/usr/local/include -pipe
+LDFLAGS+=-L/usr/local/lib -pipe
 
 grokre: grokre.o grokmatch.o grokregex.o
-	g++ $(LDFLAGS) grokre.o grokmatch.o grokregex.o -o $@
+	$(CPP) $(LDFLAGS) -lonig grokre.o grokmatch.o grokregex.o -o $@
+
+boost: boost_xpressive_test.o
+	$(CPP) $(LDFLAGS) boost_xpressive_test.o -o $@
 
 clean:
 	rm *.o grokre > /dev/null 2>&1 || true
 
-.cc.o:
-	g++ $(CFLAGS) -c -o $@ $<
+.cpp.o:
+	$(CPP) $(CFLAGS) -c -o $@ $<
 
+.cc.o:
+	$(CPP) $(CFLAGS) -c -o $@ $<
 
