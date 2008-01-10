@@ -17,12 +17,11 @@ class GrokRegex {
     ~GrokRegex();
     
     GrokMatch* match(string pattern);
+    const OnigRegex regex;
+    const string pattern;
     
   private:
-    OnigRegex regex;
-    OnigRegion *region;
     OnigErrorInfo errinfo;
-    string pattern;
 };  
 
 class OnigurumaException: public exception {
