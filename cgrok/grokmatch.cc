@@ -5,9 +5,12 @@
 GrokMatch::GrokMatch(const GrokRegex *gre, OnigRegion * const region, const string text) {
   this->gre = gre;
   this->region = region;
-  this->text = "foo";
+  //this->text = "foo";
 
-  onig_foreach_name(gre->regex, this->name_callback, (void *)this);
+  //reinterpret_cast< int (*)(const OnigUChar*, const OnigUChar*, int, int*, OnigRegexType*, void*) >(&this->name_callback),
+  onig_foreach_name(gre->regex, 
+                    this->name_callback,
+                    (void *)this);
 }
 
 GrokMatch::~GrokMatch() {
