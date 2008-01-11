@@ -13,12 +13,14 @@ class GrokRegex {
     GrokRegex(const string pattern);
     ~GrokRegex();
 
-    //GrokMatch *search(string pattern);
+    void search(const string text);
   private:
     sregex regex;
     const string pattern;
+    bool regex_created;
 
     void GenerateRegexFromPattern(const string pattern);
+    void AppendRegex(sregex re);
 };
 
 #endif /* ifndef GROKREGEX_H */

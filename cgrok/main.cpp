@@ -14,5 +14,9 @@ int main(int argc, char **argv) {
   string pattern(argv[1]);
   GrokRegex foo(pattern);
 
+  foo.search("foo");
+  foo.search("foo bar baz");
+  foo.search("test %FOO% bar");
+
   return 0;
 }
