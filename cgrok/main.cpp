@@ -1,11 +1,12 @@
 
 #include <iostream>
 #include <string>
-#include "grokregex.h"
-#include "grokpatterns.h"
+#include <boost/xpressive/xpressive.hpp>
+
 using namespace std;
 using namespace boost::xpressive;
 
+#include "grokpatternset.hpp"
 
 #if 0
 int main_1(int argc, char **argv) {
@@ -26,7 +27,16 @@ int main_1(int argc, char **argv) {
 
 int main(int argc, char **argv) {
   GrokPatternSet<sregex> pset;
-
-  pset.AddPattern("WORD", "\b\\w+\b");
+  pset.AddPattern("WORD", "\\w+");
   pset.AddPattern("NUMBER", "(?:[+-]?(?:(?:[0-9]+(?:\\.[0-9]*)?)|(?:\\.[0-9]+)))");
+
+  string str = "   Hello 3.4414  ";
+  smatch m;
+  int ret;
+
+  ret = regex_search(str, m, pset.patterns["NUMBER"].regex);
+  cout << "Match: " << ret << endl;
+  cout << "M: " << m[0] << endl;
+
+  return 0;
 }
