@@ -1,11 +1,14 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
-
 #include "grokregex.h"
+#include "grokpatterns.h"
+using namespace std;
+using namespace boost::xpressive;
 
-int main(int argc, char **argv) {
+
+#if 0
+int main_1(int argc, char **argv) {
   if (argc == 1) {
     cout << "Usage: $0 pattern" << endl;
     return 1;
@@ -14,9 +17,16 @@ int main(int argc, char **argv) {
   string pattern(argv[1]);
   GrokRegex foo(pattern);
 
-  foo.search("foo");
-  foo.search("foo bar baz");
-  foo.search("test %FOO% bar");
-
+  for (int x = 2; x < argc; x++) {
+    foo.search(string(argv[x]));
+  }
   return 0;
+}
+#endif
+
+int main(int argc, char **argv) {
+  GrokPatternSet<sregex> pset;
+
+  pset.AddPattern("WORD", "\b\\w+\b");
+  pset.AddPattern("NUMBER", "(?:[+-]?(?:(?:[0-9]+(?:\\.[0-9]*)?)|(?:\\.[0-9]+)))");
 }

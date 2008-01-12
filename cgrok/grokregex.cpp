@@ -100,6 +100,6 @@ void GrokRegex::search(const string text) {
   ret = regex_search(text, m, this->regex);
   if (ret) {
     cout << "Match: " << ret << " / '" << m[0] << "'" << endl;
-    cout << "Match: " << ret << " / '" << m[1] << "'" << endl;
+    //cout << "Match: " << ret << " / '" << m[1] << "'" << endl;
   }
 }
