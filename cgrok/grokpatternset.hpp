@@ -26,13 +26,12 @@ class GrokPatternSet {
 
 template <typename regex_type>
 GrokPatternSet<regex_type>::GrokPatternSet(void) {
-  cout << "Constructor" << endl;
+  /* Nothing to do */
 }
 
 template <typename regex_type>
 GrokPatternSet<regex_type>::~GrokPatternSet() {
   /* nothing to do */ 
-  cout << "deconstructor" << endl;
 }
 
 template <typename regex_type>

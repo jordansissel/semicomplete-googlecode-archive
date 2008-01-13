@@ -18,16 +18,15 @@ int main(int argc, char **argv) {
   pset.Merge(default_set);
 
   string str = "   Hello 3.4414  ";
-  //smatch m;
-  //int ret;
 
-  GrokRegex<sregex> gre("%NUMBER%");
+  if (argc != 2) {
+    cout << "Usage: $0 [regexp]" << endl;
+    exit(1);
+  }
+
+  GrokRegex<sregex> gre(argv[1]);
   gre.AddPatternSet(default_set);
   //gre.Search(str);
-
-  //ret = regex_search(str, m, pset.patterns["NUMBER"].regex);
-  //cout << "Match: " << ret << endl;
-  //cout << "M: " << m[0] << endl;
 
   return 0;
 }
