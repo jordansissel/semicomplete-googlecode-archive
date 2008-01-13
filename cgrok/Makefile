@@ -13,7 +13,7 @@ test_patterns: main.o
 clean:
 	rm *.o grokre test test_patterns > /dev/null 2>&1 || true
 
-main.o: grokpatternset.hpp
+main.o: grokpatternset.hpp grokregex.hpp
 grokpatternset.hpp: grokpattern.hpp
 
 .cpp.o:

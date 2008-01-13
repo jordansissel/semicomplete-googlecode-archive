@@ -16,8 +16,18 @@ class GrokPattern {
 
     GrokPattern(string regex_string) {
       this->Update(regex_string);
-      /* nothing to do */
     }
+
+    /* copy constructor */
+    GrokPattern(const GrokPattern &p) {
+      this->regex = p.regex;
+      this->regex_str = p.regex_str;
+    }
+
+    //operator=(const GrokPattern &p) {
+      //this->regex = p.regex;
+      ////this->regex_str = p.regex_str;
+    //}
 
     void Update(string regex_string) {
       this->regex_str = regex_string;
