@@ -11,7 +11,9 @@ my $str = "- - [03/Oct/2006:18:37:42 -0400] 65.57.245.11 \"GET / HTTP/1.1\" 200 
 
 while ($iterations < 1000000) {
   if ($str =~ m/$re/) {
-    $count++;
+    if ($1 eq "65.57.245.11") {
+      $count++;
+    }
   }
   $iterations++;
 }

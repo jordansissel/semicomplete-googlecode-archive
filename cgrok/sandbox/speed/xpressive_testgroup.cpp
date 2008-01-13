@@ -20,7 +20,8 @@ int main() {
   
   while (iterations < 1000000) {
     if (regex_search(input, m, ip_re)) {
-      count++;
+      if (m[1].str() == "65.57.245.11")
+        count++;
     }
 
     iterations++;
