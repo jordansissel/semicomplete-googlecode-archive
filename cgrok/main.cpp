@@ -29,8 +29,6 @@ int main(int argc, char **argv) {
     cout << name << " => " << regex_str << endl;
   }
 
-
-
   if (argc != 2) {
     cout << "Usage: $0 [regexp]" << endl;
     exit(1);
