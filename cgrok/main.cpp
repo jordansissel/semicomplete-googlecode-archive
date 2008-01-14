@@ -21,11 +21,15 @@ int main(int argc, char **argv) {
     string::size_type pos;
     string name;
     string regex_str;
+    if (pattern_desc.size() == 0)
+      continue;
+    if (pattern_desc[0] == '#')
+      continue;
     pos = pattern_desc.find_first_of(delim, 0);
     name = pattern_desc.substr(0, pos);
     pos = pattern_desc.find_first_not_of(delim, pos);
     regex_str = pattern_desc.substr(pos, pattern_desc.size() - pos);
-    //default_set.AddPattern(name, regex_str);
+    default_set.AddPattern(name, regex_str);
     cout << name << " => " << regex_str << endl;
   }
 
@@ -39,9 +43,19 @@ int main(int argc, char **argv) {
   gre.AddPatternSet(default_set);
 
   GrokMatch<sregex>::match_map_type m;
-  string str = "1.344 bar";
-  gm = gre.Search(str);
-  m = gm->GetMatches();
+
+  string str;
+  while (getline(cin, str)) {
+    //cout << "Line: " << str << endl;
+    gm = gre.Search(str);
+    if (gm == NULL)
+      continue;
+
+    m = gm->GetMatches();
+    cout << "IP: " << m["IP"] << endl;
+
+    delete gm;
+  }
 
   return 0;
 }

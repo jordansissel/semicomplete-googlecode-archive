@@ -36,7 +36,7 @@ GrokPatternSet<regex_type>::~GrokPatternSet() {
 
 template <typename regex_type>
 void GrokPatternSet<regex_type>::AddPattern(string name_str, string regex_str) {
-  cout << "Name: " << name_str << " == " << regex_str << endl;
+  //cout << "Name: " << name_str << " == " << regex_str << endl;
   this->patterns[name_str].Update(regex_str);
 } 
 
