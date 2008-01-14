@@ -118,6 +118,8 @@ void GrokRegex<regex_type>::RecursiveGenerateRegex(string pattern, int &backref)
       this->backref_map[pattern_alias] = backref;
 
       this->RecursiveGenerateRegex(sub_pattern, backref);
+      /* Append predicate regex if we have one */
+
       *(this->generated_string) += ")";
     } else {
       //cout << "Appending nonpattern '" << pattern_name << "'" << endl;
