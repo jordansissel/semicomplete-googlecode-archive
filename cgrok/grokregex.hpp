@@ -62,7 +62,7 @@ void GrokRegex<regex_type>::GenerateRegex() {
   this->generated_regex = new regex_type(
     regex_type::compile(*(this->generated_string))
   );
-  //cout << "Regex str: " << *(this->generated_string) << endl;
+  cout << "Regex str: " << *(this->generated_string) << endl;
 }
 
 template <typename regex_type>
@@ -70,12 +70,21 @@ void GrokRegex<regex_type>::RecursiveGenerateRegex(string pattern, int &backref)
   sregex not_percent = !+~(as_xpr('%'));
   unsigned int last_pos = 0;
 
-  mark_tag mark_name(1), mark_alias(2);
+  mark_tag mark_name(1), mark_alias(2), mark_predicate(3);
   /* Match %foo(:bar)?% */
   sregex pattern_expr_re(
     as_xpr('%')
-      >> (mark_name = not_percent)
-      >> !(as_xpr(':') >> (mark_alias = not_percent))
+      /* Pattern name and alias (FOO and FOO:BAR) */
+      >> (mark_alias = 
+          (mark_name = +(alnum | digit))
+          >> !(as_xpr(':') >> +(alnum | digit))
+         )
+      /* Predicate conditionals */
+      >> !(mark_predicate = /* predicates are optional */
+          ((boost::xpressive::set= '<', '>', '=') >> !as_xpr('=')
+           | (!as_xpr('!') >> as_xpr('~')))
+           >> not_percent
+          )
     >> '%'
   );
 
@@ -88,6 +97,9 @@ void GrokRegex<regex_type>::RecursiveGenerateRegex(string pattern, int &backref)
   for (; cur != end; cur++) {
     smatch const &match = *cur;
     string pattern_name = match[mark_name].str();
+    string pattern_alias = match[mark_alias].str();
+    cout << "P: " << pattern_name << " / " << pattern_alias << endl;
+    //string pattern_predicate = match[mark_predicate].str();
     if (match.position() > last_pos) {
       string substr = pattern.substr(last_pos, match.position() - last_pos);
       //cout << "Appending substr '" << substr << "'" << endl;
@@ -98,12 +110,12 @@ void GrokRegex<regex_type>::RecursiveGenerateRegex(string pattern, int &backref)
     if (pattern_set.patterns.count(pattern_name) > 0) {
       string sub_pattern = pattern_set.patterns[pattern_name].regex_str;
       backref++;
+
       //cout << "Appending pattern [" << backref << "] '" << pattern_name << "'" << endl;
       //cout << "--> " << sub_pattern << endl;
-      *(this->generated_string) += "(";
-
       //cout << "Setting backref of '" << pattern_name << "' to " << backref << endl;
-      this->backref_map[pattern_name] = backref;
+      *(this->generated_string) += "(";
+      this->backref_map[pattern_alias] = backref;
 
       this->RecursiveGenerateRegex(sub_pattern, backref);
       *(this->generated_string) += ")";
