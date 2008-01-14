@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     pos = pattern_desc.find_first_not_of(delim, pos);
     regex_str = pattern_desc.substr(pos, pattern_desc.size() - pos);
     default_set.AddPattern(name, regex_str);
-    cout << name << " => " << regex_str << endl;
+    //cout << name << " => " << regex_str << endl;
   }
 
   if (argc != 2) {

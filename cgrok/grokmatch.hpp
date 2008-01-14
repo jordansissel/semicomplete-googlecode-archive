@@ -39,7 +39,7 @@ GrokMatch<regex_type>::GrokMatch(const typename regex_type::string_type &data,
     unsigned int capture_num = (*backref_iter).second;
 
     this->matches[name] = match.str(capture_num);
-    cout << "Match: (" << capture_num << ") " << name << " => " << this->matches[name] << endl;
+    //cout << "Match: (" << capture_num << ") " << name << " => " << this->matches[name] << endl;
   }
 }
 
