@@ -32,6 +32,10 @@ GrokMatch<regex_type>::GrokMatch(const typename regex_type::string_type &data,
   map <string, unsigned int>::const_iterator backref_iter;
 
   cout << "Count: " << match.size() << endl;
+  for (int i = 0; i < match.size(); i++) {
+    cout << i << ": " << match.str(i) << endl;
+  }
+
   this->match_string = match.str(0);
   for (backref_iter = backref_map.begin();
        backref_iter != backref_map.end();
