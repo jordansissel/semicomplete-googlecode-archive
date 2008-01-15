@@ -72,7 +72,7 @@ class GrokPredicate {
         }
       }
 
-      cout << "Predicate type: " << (this->type == T_INT ? "int" : "string") << endl;
+      //cout << "Predicate type: " << (this->type == T_INT ? "int" : "string") << endl;
       //cout << "Flags: " << this->flags << endl;
       //cout << "String: " << this->value_string << endl;
     }
