@@ -52,14 +52,13 @@ int main(int argc, char **argv) {
       continue;
 
     m = gm->GetMatches();
-    cout << m["IP"] << endl;
-    //GrokMatch<sregex>::match_map_type::const_iterator iter;
-    //for (iter = m.begin(); iter != m.end(); iter++) {
-      //string key, val;
-      //key = (*iter).first;
-      //val = (*iter).second;
-      //cout << key << " => " << val << endl;
-    //}
+    GrokMatch<sregex>::match_map_type::const_iterator iter;
+    for (iter = m.begin(); iter != m.end(); iter++) {
+      string key, val;
+      key = (*iter).first;
+      val = (*iter).second;
+      cout << key << " => " << val << endl;
+    }
 
     delete gm;
   }

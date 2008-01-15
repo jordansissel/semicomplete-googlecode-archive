@@ -38,9 +38,17 @@ GrokMatch<regex_type>::GrokMatch(const typename regex_type::string_type &data,
     string name = (*backref_iter).first;
     unsigned int capture_num = (*backref_iter).second;
 
-    this->matches[name] = match.str(capture_num);
-    //cout << "Match: (" << capture_num << ") " << name << " => " << this->matches[name] << endl;
+    /* We can probably just assume match[capture_num] in bool context
+     * but might as well use .matched just to be sure */
+    if (match[capture_num].matched) {
+      this->matches[name] = match.str(capture_num);
+      //cout << "Match: (" << capture_num << ") " << name << " => " << this->matches[name] << endl;
+    }
   }
+
+  /* Set some default values */
+  string match_key = "=MATCH";
+  this->matches[match_key] = match.str(0);
 }
 
 template <typename regex_type>
