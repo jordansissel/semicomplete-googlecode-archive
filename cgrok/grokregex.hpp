@@ -4,9 +4,17 @@
 
 #include "grokpatternset.hpp"
 #include "grokmatch.hpp"
+#include "grokpredicate.hpp"
 
 using namespace std;
 using namespace boost::xpressive;
+
+/* Helper function for concatonating regexes */
+template <typename regex_type>
+void _AppendRegex(regex_type **dst_re, regex_type &src_re);
+
+template <typename regex_type>
+void _ApplyPredicate(regex_type &re, string predicate);
 
 template <typename regex_type>
 class GrokRegex {
@@ -25,8 +33,8 @@ class GrokRegex {
     map <string, unsigned int> backref_map;
 
     void GenerateRegex();
-    void RecursiveGenerateRegex(string pattern, int &backref);
-    void AppendRegex(regex_type re);
+    regex_type* RecursiveGenerateRegex(string pattern, int &backref);
+    void _ApplyPredicate(regex_type &re, string predicate);
 };
 
 
@@ -45,30 +53,32 @@ GrokRegex<regex_type>::~GrokRegex() {
 
 template <typename regex_type>
 void GrokRegex<regex_type>::GenerateRegex() {
-
   if (this->generated_regex != NULL)
     delete this->generated_regex;
-  this->generated_regex = new regex_type();
+  this->generated_regex = new regex_type;
 
   if (this->generated_string != NULL)
     delete this->generated_string;
-  this->generated_string = new string();
+  this->generated_string = new string;
 
   int backref = 0;
   this->backref_map.clear();
 
   /* XXX: Enforce a max recursion depth */
-  this->RecursiveGenerateRegex(this->pattern, backref);
-  this->generated_regex = new regex_type(
-    regex_type::compile(*(this->generated_string))
-  );
-  cout << "Regex str: " << *(this->generated_string) << endl;
+  this->generated_regex = this->RecursiveGenerateRegex(this->pattern, backref);
+
+  //this->generated_regex = new regex_type(
+    //regex_type::compile(*(this->generated_string))
+  //);
+  //cout << "Regex str: " << *(this->generated_string) << endl;
+  //cout << "Regex id: " << this->generated_regex->regex_id() << endl;
 }
 
 template <typename regex_type>
-void GrokRegex<regex_type>::RecursiveGenerateRegex(string pattern, int &backref) {
+regex_type* GrokRegex<regex_type>::RecursiveGenerateRegex(string pattern, int &backref) {
   sregex not_percent = !+~(as_xpr('%'));
   unsigned int last_pos = 0;
+  regex_type *re = new regex_type;
 
   mark_tag mark_name(1), mark_alias(2), mark_predicate(3);
   /* Match %foo(:bar)?% */
@@ -98,13 +108,17 @@ void GrokRegex<regex_type>::RecursiveGenerateRegex(string pattern, int &backref)
     smatch const &match = *cur;
     string pattern_name = match[mark_name].str();
     string pattern_alias = match[mark_alias].str();
-    cout << "P: " << pattern_name << " / " << pattern_alias << endl;
-    //string pattern_predicate = match[mark_predicate].str();
+    string pattern_predicate = match[mark_predicate].str();
+    //cout << "P: " << pattern_name << " / " << pattern_alias << endl;
+
     if (match.position() > last_pos) {
       string substr = pattern.substr(last_pos, match.position() - last_pos);
-      //cout << "Appending substr '" << substr << "'" << endl;
+      //cout << "Appending regex '" << substr << "'" << endl;
       *(this->generated_string) += substr;
+      regex_type tmp_re = regex_type::compile(substr);
+      _AppendRegex(&re, tmp_re);
     }
+
     last_pos = match.position() + match.length();
 
     if (pattern_set.patterns.count(pattern_name) > 0) {
@@ -114,23 +128,46 @@ void GrokRegex<regex_type>::RecursiveGenerateRegex(string pattern, int &backref)
       //cout << "Appending pattern [" << backref << "] '" << pattern_name << "'" << endl;
       //cout << "--> " << sub_pattern << endl;
       //cout << "Setting backref of '" << pattern_name << "' to " << backref << endl;
+
       *(this->generated_string) += "(";
       this->backref_map[pattern_alias] = backref;
+      
+      mark_tag backref_tag(backref);
+      regex_type *ptmp_re = this->RecursiveGenerateRegex(sub_pattern, backref);
+      regex_type backref_re;
 
-      this->RecursiveGenerateRegex(sub_pattern, backref);
       /* Append predicate regex if we have one */
+      if (pattern_predicate.size() > 0) {
+        /* Need to track this memory and delete it when we destroy this object. */
+        GrokPredicate<regex_type> *pred = 
+          new GrokPredicate<regex_type>(pattern_predicate);
+        backref_re = (backref_tag = *ptmp_re) [ check(*pred) ];
+      } else {
+        backref_re = (backref_tag = *ptmp_re);
+      }
 
+      _AppendRegex(&re, backref_re);
+      delete ptmp_re;
       *(this->generated_string) += ")";
     } else {
       //cout << "Appending nonpattern '" << pattern_name << "'" << endl;
-      *(this->generated_string) += "%" + pattern_name + "%";
+      string str = "%" + pattern_name + "%";
+      regex_type tmp_re = as_xpr(str);
+      *(this->generated_string) += str;
+      _AppendRegex(&re, tmp_re);
     }
   }
 
   if (last_pos < pattern.size()) {
+    /* XXX: Make this a function */
     string substr = pattern.substr(last_pos, pattern.size() - last_pos);
+    //cout << "Appending regex '" << substr << "'" << endl;
+    regex_type tmp_re = regex_type::compile(substr);
+    _AppendRegex(&re, tmp_re);
     *(this->generated_string) += substr;
   }
+
+  return re;
 }
 
 template <typename regex_type>
@@ -143,8 +180,8 @@ GrokMatch<regex_type>* GrokRegex<regex_type>::Search(const string data) {
   if (!ret)
     return NULL;
 
+  //cout << "Match: " << match.str(0) << endl;
   gm = new GrokMatch<regex_type>(data, match, this->backref_map);
-
   return gm;
 }
 
@@ -153,3 +190,21 @@ void GrokRegex<regex_type>::AddPatternSet(const GrokPatternSet<regex_type> &patt
   this->pattern_set.Merge(pattern_set);
   this->GenerateRegex();
 }
+
+//template <typename regex_type>
+//void GrokRegex<regex_type>::_ApplyPredicate(regex_type &re, string predicate) {
+  //GrokPredicate<regex_type> *pred = new GrokPredicate<regex_type>(predicate);
+  //re >>= check(pred);
+//}
+
+template <typename regex_type>
+void _AppendRegex(regex_type **dst_re, regex_type &src_re) {
+  if (*dst_re == NULL)
+    *dst_re = new regex_type;
+
+  if ((*dst_re)->regex_id() == 0)
+    **dst_re = src_re;
+  else
+    **dst_re >>= src_re;
+}
+

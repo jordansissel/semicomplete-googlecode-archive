@@ -5,18 +5,33 @@
 using namespace boost::xpressive;
 using namespace std;
 
+void append(sregex **re, sregex &source) {
+  if (*re == NULL)
+    *re = new sregex;
+  if ((*re)->regex_id() == 0)
+    **re = source;
+  else
+    **re >>= source;
+}
+
 int main()
 {
-    string str("hello there");
     smatch m;
+    sregex *re = NULL;
+    sregex tmp;
+
+    tmp = sregex::compile("foo");
+    append(&re, tmp);
+    tmp = sregex::compile("bar");
+    append(&re, tmp);
+
+    cout << re->regex_id() << endl;
+    cout << tmp.regex_id() << endl;
     
-    sregex rx = *_ >> bos >> (s1=*_) >> eos >> *_;
-    //sregex rx = sregex::compile(".*^.*$.*");
-    if(regex_search(str, m, rx))
-    {
-        cout << m[0] << endl;
-    }
-    
+    string str("foobar");
+    int ret = regex_search(str, m, *re);
+    cout << "Match: " << ret << endl;
+    cout << "Data: '" << m.str(0) << "'" << endl;
     return 0;
 }
 
