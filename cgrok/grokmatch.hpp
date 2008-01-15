@@ -31,6 +31,7 @@ GrokMatch<regex_type>::GrokMatch(const typename regex_type::string_type &data,
 
   map <string, unsigned int>::const_iterator backref_iter;
 
+  cout << "Count: " << match.size() << endl;
   this->match_string = match.str(0);
   for (backref_iter = backref_map.begin();
        backref_iter != backref_map.end();
@@ -40,10 +41,10 @@ GrokMatch<regex_type>::GrokMatch(const typename regex_type::string_type &data,
 
     /* We can probably just assume match[capture_num] in bool context
      * but might as well use .matched just to be sure */
-    if (match[capture_num].matched) {
+    //if (match[capture_num].matched) {
       this->matches[name] = match.str(capture_num);
-      //cout << "Match: (" << capture_num << ") " << name << " => " << this->matches[name] << endl;
-    }
+      cout << "Match: (" << capture_num << ") " << name << " => " << this->matches[name] << endl;
+    //}
   }
 
   /* Set some default values */

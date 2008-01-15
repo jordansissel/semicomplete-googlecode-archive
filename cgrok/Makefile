@@ -1,7 +1,7 @@
 
 CPP=g++
-#CFLAGS=-I/usr/local/include
-CFLAGS=-O2 -I/usr/local/include
+CFLAGS=-I/usr/local/include
+#CFLAGS=-O2 -I/usr/local/include
 
 all: test_patterns
 
