@@ -10,7 +10,8 @@ class GrokMatch {
 
     GrokMatch(const typename regex_type::string_type &data, 
               const match_results<typename regex_type::iterator_type> &match,
-              const map <string, unsigned int> &backref_map);
+              const map <string, typename regex_type::string_type> backref_map);
+              //const map <string, unsigned int> &backref_map);
     ~GrokMatch();
 
     const match_map_type& GetMatches() {
@@ -27,29 +28,13 @@ class GrokMatch {
 template <typename regex_type>
 GrokMatch<regex_type>::GrokMatch(const typename regex_type::string_type &data, 
           const match_results<typename regex_type::iterator_type> &match,
-          const map <string, unsigned int> &backref_map) {
+          const map <string, typename regex_type::string_type> backref_map) {
+          //const map <string, unsigned int> &backref_map) {
 
   map <string, unsigned int>::const_iterator backref_iter;
 
-  cout << "Count: " << match.size() << endl;
-  for (int i = 0; i < match.size(); i++) {
-    cout << i << ": " << match.str(i) << endl;
-  }
-
   this->match_string = match.str(0);
-  for (backref_iter = backref_map.begin();
-       backref_iter != backref_map.end();
-       backref_iter++) {
-    string name = (*backref_iter).first;
-    unsigned int capture_num = (*backref_iter).second;
-
-    /* We can probably just assume match[capture_num] in bool context
-     * but might as well use .matched just to be sure */
-    //if (match[capture_num].matched) {
-      this->matches[name] = match.str(capture_num);
-      cout << "Match: (" << capture_num << ") " << name << " => " << this->matches[name] << endl;
-    //}
-  }
+  this->matches = backref_map;
 
   /* Set some default values */
   string match_key = "=MATCH";

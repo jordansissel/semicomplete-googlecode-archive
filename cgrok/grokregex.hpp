@@ -32,8 +32,8 @@ class GrokRegex {
     regex_type *generated_regex;
     string *generated_string;
     map <string, unsigned int> backref_map;
-    //vector <typename regex_type::string_type> captures;
-    map <string, typename regex_type::string_type> captures;
+    map <string, typename regex_type::string_type> capture_map;
+    placeholder< map < string, typename regex_type::string_type > > placeholder_map;
 
     void GenerateRegex();
     regex_type* RecursiveGenerateRegex(string pattern, int &backref);
@@ -151,19 +151,15 @@ regex_type* GrokRegex<regex_type>::RecursiveGenerateRegex(string pattern, int &b
           new GrokPredicate<regex_type>(pattern_predicate);
         backref_re = (*ptmp_re) [ check(*pred) ];
       } else {
-        backref_re = (*ptmp_re);
+        backref_re = (*ptmp_re) [ (this->placeholder_map)[pattern_alias] = as<string>(_) ];
       }
 
-      //backref_re = backref_re [ this->map_setter(pattern_alias, as<string>(_)) ];
-      //backref_re = backref_re [ ref(this->captures.push_back()) ];
-      //boost::shared_ptr< GrokRegex<regex_type> > self(this);
-      //value< boost::shared_ptr< GrokRegex<regex_type> > > selfval(self);
+      /* Insert the result into the match */
       //backref_re = backref_re [ self.captures[pattern_alias] = as<string>(_) ];
 
       /* Generate the named regex name for (?$foo)  as 'pattern' + 'backref' */
       re_name << pattern_name;
       re_name << backref;
-
 
       (*this->re_compiler)[re_name.str()] = backref_re;
       re_string += "(?$"+ re_name.str() + ")";
@@ -183,7 +179,7 @@ regex_type* GrokRegex<regex_type>::RecursiveGenerateRegex(string pattern, int &b
     re_string += substr;
   }
 
-  cout << "String: " << re_string << endl;
+  //cout << "String: " << re_string << endl;
   re = new regex_type(this->re_compiler->compile(re_string));
   return re;
 }
@@ -194,15 +190,20 @@ GrokMatch<regex_type>* GrokRegex<regex_type>::Search(const string data) {
   GrokMatch<regex_type>* gm;
   int ret;
 
-  placeholder < map < string, typename regex_type::string_type > > _map;
-  match.let(_map = this->captures);
-  /* Grumble. regex_search() doesn't understand 'const string' */
+  match.let(this->placeholder_map = this->capture_map);
   ret = regex_search(data.begin(), data.end(), match, *(this->generated_regex));
   if (!ret)
     return NULL;
 
+  typename map<string, typename regex_type::string_type>::const_iterator iter;
+
+  //for (iter = this->capture_map.begin(); iter != this->capture_map.end(); iter++) {
+    //cout << "C: " << (*iter).first << " => " << (*iter).second << endl;
+  //}
+
   //cout << "Match: " << match.str(0) << endl;
-  gm = new GrokMatch<regex_type>(data, match, this->backref_map);
+  //gm = new GrokMatch<regex_type>(data, match, this->backref_map);
+  gm = new GrokMatch<regex_type>(data, match, this->capture_map);
   return gm;
 }
 
