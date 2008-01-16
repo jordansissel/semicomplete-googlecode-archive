@@ -149,7 +149,7 @@ regex_type* GrokRegex<regex_type>::RecursiveGenerateRegex(string pattern, int &b
         /* Need to track this memory and delete it when we destroy this object. */
         GrokPredicate<regex_type> *pred = 
           new GrokPredicate<regex_type>(pattern_predicate);
-        backref_re = (*ptmp_re) [ check(*pred) ];
+        backref_re = (*ptmp_re) [ check(*pred) ] [ (this->placeholder_map)[pattern_alias] = as<string>(_) ];
       } else {
         backref_re = (*ptmp_re) [ (this->placeholder_map)[pattern_alias] = as<string>(_) ];
       }
@@ -190,6 +190,8 @@ GrokMatch<regex_type>* GrokRegex<regex_type>::Search(const string data) {
   GrokMatch<regex_type>* gm;
   int ret;
 
+  /* Late binding with Boost.Xpressive. 
+   * Inject capture_map for placeholder_map. */
   match.let(this->placeholder_map = this->capture_map);
   ret = regex_search(data.begin(), data.end(), match, *(this->generated_regex));
   if (!ret)
