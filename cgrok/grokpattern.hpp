@@ -5,10 +5,12 @@
 #include <string>
 using namespace std;
 
+/* XXX: This class was historically more complex. Perhaps we should delete it
+ * now that it's just a string container */
+
 template <typename regex_type>
 class GrokPattern {
   public:
-    //regex_type regex;
     string regex_str;
 
     GrokPattern() {
@@ -18,20 +20,8 @@ class GrokPattern {
       this->Update(regex_string);
     }
 
-    /* copy constructor */
-    //GrokPattern(const GrokPattern &p) {
-      //this->regex = p.regex;
-      //this->regex_str = p.regex_str;
-    //}
-
-    //operator=(const GrokPattern &p) {
-      //this->regex = p.regex;
-      //this->regex_str = p.regex_str;
-    //}
-
     void Update(string regex_string) {
       this->regex_str = regex_string;
-      //this->regex = regex_type::compile(regex_string);
     }
 };
 
