@@ -47,7 +47,7 @@ class GrokTestSuite : public CxxTest::TestSuite {
       delete gm;
     }
 
-    void testSearchLessthanPredicateFailsIfNotLessThan() {
+    void _testSearchIntPredicate(int start_num, int end_num, string predicate, bool should_succeed) {
       string regex = "%INT>30%";
       stringstream ss(stringstream::out | stringstream::in);
       GrokRegex<sregex> gre(regex);
@@ -58,39 +58,29 @@ class GrokTestSuite : public CxxTest::TestSuite {
       pset.AddPattern("INT", "[0-9]+");
       gre.AddPatternSet(pset);
 
-      for (int i = 0; i < 30; i++) {
+      for (int i = start_num; i < end_num; i++) {
         ss << i << endl;
       }
 
       string data;
       while (getline(ss, data)) {
         gm = gre.Search(data);
-        TS_ASSERT(gm == NULL);
+        if (should_succed) {
+          TS_ASSERT(gm != NULL);
+        } else {
+          TS_ASSERT(gm == NULL);
+        }
       }
 
     }
 
     void testSearchLessthanPredicateSuccessIfLessThan() {
-      string regex = "%INT>30%";
-      stringstream ss(stringstream::out | stringstream::in);
-      GrokRegex<sregex> gre(regex);
-      GrokMatch<sregex> *gm = NULL;
-      GrokMatch<sregex>::match_map_type m;
-      
-      GrokPatternSet<sregex> pset;
-      pset.AddPattern("INT", "[0-9]+");
-      gre.AddPatternSet(pset);
+      this->_testSearchIntPredicate(31, 50, ">30", true);
+      this->_testSearchIntPredicate(-10, -1, ">-30", true);
+    }
 
-      for (int i = 31; i < 60; i++) {
-        ss << i << endl;
-      }
-
-      string data;
-      while (getline(ss, data)) {
-        gm = gre.Search(data);
-        TS_ASSERT(gm != NULL);
-        delete gm;
-      }
-
+    void testSearchLessthanPredicateFailIfNotLessThan() {
+      this->_testSearchIntPredicate(0, 29, ">30", false);
+      this->_testSearchIntPredicate(-10, -1, ">30", false);
     }
 };
