@@ -59,6 +59,8 @@ class GrokRegex {
     placeholder< capture_map_t > placeholder_map;
 
     void GenerateRegex() {
+      int backref = 0;
+
       if (this->generated_regex != NULL)
         delete this->generated_regex;
       this->generated_regex = new regex_type;
@@ -72,11 +74,8 @@ class GrokRegex {
         delete this->re_compiler;
       this->re_compiler = new regex_compiler<typename regex_type::iterator_type>;
 
-      int backref = 0;
-
       /* XXX: Enforce a max recursion depth */
       this->generated_regex = this->RecursiveGenerateRegex(this->pattern, backref);
-
       //cout << "Regex str: " << *(this->generated_string) << endl;
     }
 
