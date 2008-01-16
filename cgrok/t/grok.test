@@ -1,0 +1,96 @@
+#include <cxxtest/TestSuite.h>
+
+#include <grokregex.hpp>
+#include <grokmatch.hpp>
+
+#include <sstream>
+
+class GrokTestSuite : public CxxTest::TestSuite {
+  public:
+    void testSearchWithPlainString() {
+      string input = "hello";
+      GrokRegex<sregex> gre(input);
+      GrokMatch<sregex> *gm = NULL;
+      GrokMatch<sregex>::match_map_type m;
+
+      gm = gre.Search(input);
+      TS_ASSERT(gm != NULL);
+
+      m = gm->GetMatches();
+      TS_ASSERT(m["=MATCH"] == input);
+
+      delete gm;
+    }
+
+    void testSearchWithPatternString() {
+      string input = "hello";
+      string regex = "%GREETING%";
+      GrokRegex<sregex> gre(regex);
+      GrokMatch<sregex> *gm = NULL;
+      GrokMatch<sregex>::match_map_type m;
+      
+      GrokPatternSet<sregex> pset;
+      pset.AddPattern("GREETING", "hello");
+
+      /* We should fail matching before we add the pattern set */
+      gm = gre.Search(input);
+      TS_ASSERT(gm == NULL);
+
+      gre.AddPatternSet(pset);
+      gm = gre.Search(input);
+      TS_ASSERT(gm != NULL);
+
+      m = gm->GetMatches();
+      TS_ASSERT(m["=MATCH"] == input);
+      TS_ASSERT(m["GREETING"] == input);
+
+      delete gm;
+    }
+
+    void testSearchLessthanPredicateFailsIfNotLessThan() {
+      string regex = "%INT>30%";
+      stringstream ss(stringstream::out | stringstream::in);
+      GrokRegex<sregex> gre(regex);
+      GrokMatch<sregex> *gm = NULL;
+      GrokMatch<sregex>::match_map_type m;
+      
+      GrokPatternSet<sregex> pset;
+      pset.AddPattern("INT", "[0-9]+");
+      gre.AddPatternSet(pset);
+
+      for (int i = 0; i < 30; i++) {
+        ss << i << endl;
+      }
+
+      string data;
+      while (getline(ss, data)) {
+        gm = gre.Search(data);
+        TS_ASSERT(gm == NULL);
+      }
+
+    }
+
+    void testSearchLessthanPredicateSuccessIfLessThan() {
+      string regex = "%INT>30%";
+      stringstream ss(stringstream::out | stringstream::in);
+      GrokRegex<sregex> gre(regex);
+      GrokMatch<sregex> *gm = NULL;
+      GrokMatch<sregex>::match_map_type m;
+      
+      GrokPatternSet<sregex> pset;
+      pset.AddPattern("INT", "[0-9]+");
+      gre.AddPatternSet(pset);
+
+      for (int i = 31; i < 60; i++) {
+        ss << i << endl;
+      }
+
+      string data;
+      while (getline(ss, data)) {
+        gm = gre.Search(data);
+        TS_ASSERT(gm != NULL);
+        delete gm;
+      }
+
+    }
+};
