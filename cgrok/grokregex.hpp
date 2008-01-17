@@ -31,14 +31,14 @@ class GrokRegex {
     }
     ~GrokRegex() { /* Nothing to do */ }
 
-    void init(const string grok_pattern) {
+    void SetRegex(const string grok_pattern) {
       this->pattern = grok_pattern;
       this->GenerateRegex();
     }
 
-    void init(const char *char_grok_pattern) {
+    void SetRegex(const char *char_grok_pattern) {
       string grok_pattern = char_grok_pattern;
-      this->init(grok_pattern);
+      this->SetRegex(grok_pattern);
     }
 
     void AddPatternSet(const GrokPatternSet<regex_type> &pattern_set) {

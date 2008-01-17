@@ -36,7 +36,7 @@ class GrokPatternsTest : public CxxTest::TestSuite {
     void testFoo() {
       string input = "1.234";
       bool success;
-      gre.init("%NUMBER%");
+      gre.SetRegex("%NUMBER%");
       success = gre.Search(input, gm);
       TS_ASSERT(success);
       matchmap = gm.GetMatches();

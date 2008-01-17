@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  GrokMatch<sregex> *gm;
+  GrokMatch<sregex> gm;
   GrokRegex<sregex> gre(argv[1]);
   gre.AddPatternSet(default_set);
 
@@ -46,21 +46,20 @@ int main(int argc, char **argv) {
 
   string str;
   while (getline(cin, str)) {
+    bool success;
     //cout << "Line: " << str << endl;
-    gm = gre.Search(str);
-    if (gm == NULL)
+    success = gre.Search(str, gm);
+    if (!success)
       continue;
 
-    m = gm->GetMatches();
     GrokMatch<sregex>::match_map_type::const_iterator iter;
+    m = gm.GetMatches();
     for (iter = m.begin(); iter != m.end(); iter++) {
       string key, val;
       key = (*iter).first;
       val = (*iter).second;
       cout << key << " => " << val << endl;
     }
-
-    delete gm;
   }
 
   return 0;
