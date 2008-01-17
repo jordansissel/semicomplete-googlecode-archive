@@ -24,6 +24,6 @@ rsync -a --filter '. FILES' . "$DIR"
 
 # gnu tar sucks, tar -C /tmp doesn't actually change directories for tar
 # creation?
-tar -C /tmp/ -zvcf "${PACKAGE}.tar.gz" "$PACKAGE"
+tar -C /tmp/ -zcf "${PACKAGE}.tar.gz" "$PACKAGE"
 rm -r "$DIR"
 
