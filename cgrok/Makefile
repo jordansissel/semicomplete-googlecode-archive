@@ -1,3 +1,4 @@
+PACKAGE=cgrok
 
 CPP=g++
 CFLAGS=-g -I/usr/local/include
@@ -22,4 +23,8 @@ grokpatternset.hpp: grokpattern.hpp
 
 .cc.o:
 	$(CPP) $(CFLAGS) -c -o $@ $<
+
+package:
+	@svn status -q | wc -l | awk '$$1 > 0 { print "svn changes are not checked in!"; exit(1) }'
+	PACKAGE=$(PACKAGE) sh release.sh
 
