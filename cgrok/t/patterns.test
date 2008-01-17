@@ -1,0 +1,45 @@
+#include <cxxtest/TestSuite.h>
+
+#include <grokregex.hpp>
+#include <grokmatch.hpp>
+
+#include <sstream>
+#include <fstream>
+#include <string>
+
+class GrokPatternsTest : public CxxTest::TestSuite {
+  public:
+    GrokPatternSet<sregex> default_patterns;
+    GrokRegex<sregex> gre;
+    GrokMatch<sregex> gm;
+    GrokMatch<sregex>::match_map_type matchmap;
+
+    void setUp() {
+      ifstream pattern_file("../patterns");
+      string pattern_desc;
+      sregex pattern_re = sregex::compile("^([^#]\\S+)\\s+(.*)$");
+      smatch match;
+
+      while (getline(pattern_file, pattern_desc)) {
+        string name, regex_str;
+        int valid = regex_search(pattern_desc, match, pattern_re);
+        if (!valid)
+          continue;
+        name = match.str(1);
+        regex_str = match.str(2);
+        default_patterns.AddPattern(name, regex_str);
+      }
+
+      gre.AddPatternSet(default_patterns);
+    }
+
+    void testFoo() {
+      string input = "1.234";
+      bool success;
+      gre.init("%NUMBER%");
+      success = gre.Search(input, gm);
+      TS_ASSERT(success);
+      matchmap = gm.GetMatches();
+      TS_ASSERT(matchmap["NUMBER"] == input);
+    }
+};
