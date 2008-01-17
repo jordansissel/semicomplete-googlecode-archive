@@ -75,10 +75,10 @@ class GrokPredicate {
       //cout << "Predicate type: " << (this->type == T_INT ? "int" : "string") << endl;
       //cout << "Flags: " << this->flags << endl;
       //cout << "String: " << this->value_string << endl;
+      //cout << "Int: " << this->value_int << endl;
     }
 
     bool operator()(const sub_match_t &match) const {
-      //cout << "operator() called with match: '"  << match.str() << "'" << endl;
       if (this->flags & P_REGEX) 
         return this->call_regex(match);
       else if (this->type == T_STR)
@@ -97,11 +97,14 @@ class GrokPredicate {
 
     bool call_int(const sub_match_t &match) const {
       int val = 0;
+      int ret;
       stringstream ss(match.str(), stringstream::in);
       ss >> val;
 
+      ret = this->result(val - this->value_int);
+      //cout << val << " vs " << this->value_int << " == " << ret << endl;
       /* Throw an exception if ss.fail() ? */
-      return this->result(val - this->value_int);
+      return ret;
     }
 
     int compare_string(const sub_match_t &match) const {

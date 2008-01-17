@@ -24,8 +24,21 @@ class GrokRegex {
       this->GenerateRegex();
     }
 
-    ~GrokRegex() {
-      /* Nothing to do */
+    GrokRegex() { 
+      this->generated_regex = NULL;
+      this->generated_string = NULL;
+      this->re_compiler = NULL;
+    }
+    ~GrokRegex() { /* Nothing to do */ }
+
+    void init(const string grok_pattern) {
+      this->pattern = grok_pattern;
+      this->GenerateRegex();
+    }
+
+    void init(const char *char_grok_pattern) {
+      string grok_pattern = char_grok_pattern;
+      this->init(grok_pattern);
     }
 
     void AddPatternSet(const GrokPatternSet<regex_type> &pattern_set) {
@@ -33,9 +46,9 @@ class GrokRegex {
       this->GenerateRegex();
     }
 
-    GrokMatch<regex_type>* Search(const typename regex_type::string_type data) {
+    bool Search(const typename regex_type::string_type data, 
+                GrokMatch<regex_type> &gm) {
       match_results<typename regex_type::iterator_type> match;
-      GrokMatch<regex_type>* gm;
       int ret;
 
       /* Late binding with Boost.Xpressive. 
@@ -43,15 +56,16 @@ class GrokRegex {
       match.let(this->placeholder_map = this->capture_map);
       ret = regex_search(data.begin(), data.end(), match, *(this->generated_regex));
       if (!ret)
-        return NULL;
+        return false;
 
-      gm = new GrokMatch<regex_type>(data, match, this->capture_map);
-      return gm;
+      gm.init(data, match, this->capture_map);
+
+      return true;
     }
 
   private:
     GrokPatternSet<regex_type> pattern_set;
-    const string pattern;
+    string pattern;
     regex_compiler<typename regex_type::iterator_type> *re_compiler;
     regex_type *generated_regex;
     string *generated_string;

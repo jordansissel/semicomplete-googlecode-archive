@@ -9,11 +9,13 @@ class GrokMatch {
     //pedef GrokRegex<regex_type>::capture_map_t match_map_type;
     typedef map<string, typename regex_type::string_type> match_map_type;
 
-    GrokMatch(const typename regex_type::string_type &data, 
-          const match_results<typename regex_type::iterator_type> &match,
-          const match_map_type &backref_map) {
+    GrokMatch() { 
+      /* nothing to do */
+    }
 
-      map <string, unsigned int>::const_iterator backref_iter;
+    void init(const typename regex_type::string_type &data, 
+              const match_results<typename regex_type::iterator_type> &match,
+              const match_map_type &backref_map) {
 
       this->match_string = match.str(0);
       this->matches = backref_map;
