@@ -20,8 +20,7 @@ TMP="/tmp"
 PACKAGE="$PACKAGE-$1"
 DIR="${TMP}/${PACKAGE}"
 mkdir "$DIR"
-rsync -a --cvs-exclude --include-from FILES \
-  --exclude .svn --exclude /sandbox/ . "$DIR"
+rsync -av --filter '. FILES' . "$DIR"
 
 # gnu tar sucks, tar -C /tmp doesn't actually change directories for tar
 # creation?
