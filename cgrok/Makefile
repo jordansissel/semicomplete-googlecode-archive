@@ -26,5 +26,6 @@ grokpatternset.hpp: grokpattern.hpp
 
 package:
 	@svn status -q | wc -l | awk '$$1 > 0 { print "svn changes are not checked in!"; exit(1) }'
+	make -C t/ test
 	PACKAGE=$(PACKAGE) sh release.sh
 
