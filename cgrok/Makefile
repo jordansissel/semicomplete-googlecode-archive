@@ -4,17 +4,18 @@ CPP=g++
 CFLAGS=-g -I/usr/local/include
 #CFLAGS=-O2 -I/usr/local/include
 
-all: test_patterns
+all: grok
 
-test: main.o grokregex.o patterns.o 
-	$(CPP) main.o grokregex.o patterns.o -o $@
-
-test_patterns: main.o
+grok: main.o
 	$(CPP) main.o -o $@
+
+patfind: pattern_discovery.o
+	$(CPP) pattern_discovery.o -o $@
 
 clean:
 	rm *.o grokre test test_patterns > /dev/null 2>&1 || true
 
+pattern_discovery.o: grokpatternset.hpp grokregex.hpp grokmatch.hpp grokpredicate.hpp
 main.o: grokpatternset.hpp grokregex.hpp grokmatch.hpp grokpredicate.hpp
 grokpatternset.hpp: grokpattern.hpp
 

@@ -7,7 +7,7 @@ WORD \w+
 NOTSPACE \S+
 DATA .*?
 GREEDYDATA .*
-#QUOTEDSTRING $RE{quoted},
+QUOTEDSTRING (?:(?:")(?:[^\"]*(?:\.[^\"]*)*)(?:")|(?:')(?:[^\']*(?:\.[^\']*)*)(?:')|(?:`)(?:[^\`]*(?:\.[^\`]*)*)(?:`))
 
 # Networking
 MAC (?:%CISCOMAC%|%WINDOWSMAC%|%COMMONMAC%)
@@ -26,8 +26,7 @@ URIPROTO [A-z]+
 URIHOST %IPORHOST%(?:%PORT%)?
 URIPATH (?:\/[^\/\s?]*)+
 URIPARAM \?(?:[A-z0-9]+(?:=(?:[^&]*))?(?:&(?:[A-z0-9]+(?:=(?:[^&]*))?)?)*)?
-#URL qr@%URIPROTO%://(?:%URIHOST%)?(?:%UNIXPATH%)(?:%URIPARAM%)??@,
-URI qr@%URIPROTO%://(?:%URIHOST%)?(?:%URIPATH%)(?:%URIPARAM%)?@,
+URI %URIPROTO%://(?:%URIHOST%)?(?:%URIPATH%)(?:%URIPARAM%)?
 #URI [A-z]+:\/\/(?:%IPORHOST%(?::[0-9]+)?)?(?:\/[^\/\s]*)*(?:\?[^ ]*)?
 
 # Months: January, Feb, 3, 03, 12, December
@@ -48,7 +47,7 @@ SYSLOGDATE %MONTH% +%MONTHDAY% %TIME%
 PROG %WORD%
 PID %INT%
 SYSLOGPROG (?:[A-z][\w-]+(?:\/[\w-]+)?)(?:\[%PID%\])?
-HTTPDATE qr,%MONTHDAY%/%MONTH%/%YEAR%:%TIME% %INT:ZONE%,,
+HTTPDATE %MONTHDAY%/%MONTH%/%YEAR%:%TIME% %INT:ZONE%
 
 # Shortcuts
 QS %QUOTEDSTRING%

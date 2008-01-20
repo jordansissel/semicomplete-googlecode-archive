@@ -15,21 +15,7 @@ class GrokPatternsTest : public CxxTest::TestSuite {
     GrokMatch<sregex>::match_map_type matchmap;
 
     void setUp() {
-      ifstream pattern_file("../patterns");
-      string pattern_desc;
-      sregex pattern_re = sregex::compile("^([^#]\\S+)\\s+(.*)$");
-      smatch match;
-
-      while (getline(pattern_file, pattern_desc)) {
-        string name, regex_str;
-        int valid = regex_search(pattern_desc, match, pattern_re);
-        if (!valid)
-          continue;
-        name = match.str(1);
-        regex_str = match.str(2);
-        default_patterns.AddPattern(name, regex_str);
-      }
-
+      default_patterns.LoadFromFile("../patterns")
       gre.AddPatternSet(default_patterns);
     }
 
