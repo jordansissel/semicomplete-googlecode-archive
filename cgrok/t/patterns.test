@@ -15,7 +15,7 @@ class GrokPatternsTest : public CxxTest::TestSuite {
     GrokMatch<sregex>::match_map_type matchmap;
 
     void setUp() {
-      default_patterns.LoadFromFile("../patterns")
+      default_patterns.LoadFromFile("../patterns");
       gre.AddPatternSet(default_patterns);
     }
 
