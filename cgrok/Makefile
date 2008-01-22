@@ -1,8 +1,10 @@
 PACKAGE=cgrok
 
 CPP=g++
-CFLAGS=-g -I/usr/local/include
-#CFLAGS=-O2 -I/usr/local/include
+CFLAGS=--I/usr/local/include
+
+#CFLAGS+=-g
+CFLAGS+=-O2
 
 all: grok
 
@@ -13,7 +15,7 @@ patfind: pattern_discovery.o
 	$(CPP) pattern_discovery.o -o $@
 
 clean:
-	rm *.o grokre test test_patterns > /dev/null 2>&1 || true
+	rm *.o grokre test test_patterns patfind grok > /dev/null 2>&1 || true
 
 pattern_discovery.o: grokpatternset.hpp grokregex.hpp grokmatch.hpp grokpredicate.hpp
 main.o: grokpatternset.hpp grokregex.hpp grokmatch.hpp grokpredicate.hpp

@@ -22,6 +22,7 @@ class GrokRegex {
       this->generated_regex = NULL;
       this->generated_string = NULL;
       this->re_compiler = NULL;
+      this->track_matches = true;
       this->GenerateRegex();
     }
 
@@ -29,6 +30,7 @@ class GrokRegex {
       this->generated_regex = NULL;
       this->generated_string = NULL;
       this->re_compiler = NULL;
+      this->track_matches = true;
     }
     ~GrokRegex() { /* Nothing to do */ }
 
@@ -76,18 +78,25 @@ class GrokRegex {
       return true;
     }
 
-    //bool Replace(typename regex_type::string_type 
     string Replace(string source, string replacement, bool replace_all=false) {
-      string result;
+      string result = source;
       //cout << "Pattern: " << pattern << endl;
       //cout << "Pattern:: " << *this->generated_string << endl;
       regex_iterator<typename regex_type::iterator_type> 
         iter(source.begin(), source.end(), (*this->generated_regex));
       regex_iterator<typename regex_type::iterator_type> end;
+      int offset = 0;
 
       for (; iter != end; iter++) {
         match_results<typename regex_type::iterator_type> match(*iter);
-        result = match.format(replacement);
+        //result = match.format(replacement);
+        int len;
+        int pos;
+        len = match.length();
+        pos = match.position();
+
+        result.replace(pos, len, replacement);
+
         if (replace_all == false)
           break;
       }
@@ -141,10 +150,10 @@ class GrokRegex {
                              as_xpr('%')
                              /* Pattern name and alias (FOO and FOO:BAR) */
                              >> (mark_alias = 
-                                 (mark_name = +(alnum | digit))
+                                 (mark_name = +(alnum | digit | as_xpr('_')))
                                  >> !(as_xpr(':') >> +(alnum | digit))
                                 )
-                             /* Predicate conditionals */
+                             /* Predicate conditional, optional. */
                              >> !(mark_predicate = /* predicates are optional */
                                   ((boost::xpressive::set= '<', '>', '=') >> !as_xpr('=')
                                    | (!as_xpr('!') >> as_xpr('~')))

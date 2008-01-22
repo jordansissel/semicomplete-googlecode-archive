@@ -14,13 +14,17 @@ using namespace boost::xpressive;
 int main(int argc, char **argv) {
   GrokPatternSet<sregex> default_set;
 
-  if (argc != 2) {
-    cout << "Usage: $0 [regexp]" << endl;
+  if (argc < 2) {
+    cout << "Usage: $0 <regexp> [field1 field2]" << endl;
+    cout << "Example: ./grok '%SYSLOGBASE% .*?%MAC%' MAC" << endl;
     exit(1);
   }
 
   GrokMatch<sregex> gm;
   GrokRegex<sregex> gre(argv[1]);
+
+  argv += 2;
+  argc -= 2;
 
   default_set.LoadFromFile("patterns");
   gre.AddPatternSet(default_set);
@@ -37,11 +41,20 @@ int main(int argc, char **argv) {
 
     GrokMatch<sregex>::match_map_type::const_iterator iter;
     m = gm.GetMatches();
-    for (iter = m.begin(); iter != m.end(); iter++) {
-      string key, val;
-      key = (*iter).first;
-      val = (*iter).second;
-      cout << key << " => " << val << endl;
+    if (argc == 0) {
+      for (iter = m.begin(); iter != m.end(); iter++) {
+        string key, val;
+        key = (*iter).first;
+        val = (*iter).second;
+        cout << key << " => " << val << endl;
+      }
+    } else {
+      for (int i = 0; i < argc; i++) {
+        string key, val;
+        key = argv[i];
+        val = m[key];
+        cout << key << " => " << val << endl;
+      }
     }
   }
 

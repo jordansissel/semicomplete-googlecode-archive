@@ -35,7 +35,7 @@ class GrokPatternSet {
     void LoadFromFile(const char *filename) {
       ifstream pattern_file(filename);
       string pattern_desc;
-      sregex pattern_re = sregex::compile("^([^#]\\S+)\\s+(.*)$");
+      sregex pattern_re = sregex::compile("^([A-z0-9_]+)\\s+(.*)$");
       smatch match;
 
       while (getline(pattern_file, pattern_desc)) {
@@ -52,6 +52,10 @@ class GrokPatternSet {
     void AddPattern(string name_str, string regex_str) {
       this->patterns[name_str].Update(regex_str);
     } 
+
+    void RemovePattern(string name_str) {
+      this->patterns.erase(name_str);
+    }
 
     void Merge(const GrokPatternSet<regex_type> &other_set) {
       typename map< string, GrokPattern<regex_type> >::const_iterator iter;

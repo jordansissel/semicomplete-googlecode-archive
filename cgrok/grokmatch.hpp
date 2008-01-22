@@ -6,7 +6,6 @@ template <typename regex_type>
 class GrokMatch {
 
   public:
-    //pedef GrokRegex<regex_type>::capture_map_t match_map_type;
     typedef map<string, typename regex_type::string_type> match_map_type;
 
     GrokMatch() { 
@@ -19,6 +18,8 @@ class GrokMatch {
 
       this->match_string = match.str(0);
       this->matches = backref_map;
+      this->length = match.length();
+      this->position = match.position();
 
       /* Set some default values */
       string match_key = "=MATCH";
@@ -33,9 +34,23 @@ class GrokMatch {
       return this->matches;
     };
 
+    typename regex_type::string_type GetMatchString() const {
+      return this->match_string;
+    }
+
+    int GetLength() {
+      return this->length;
+    }
+
+    int GetPosition() {
+      return this->position;
+    }
+
   private:
     match_map_type matches;
     typename regex_type::string_type match_string;
+    int length;
+    int position;
 
 };
 
