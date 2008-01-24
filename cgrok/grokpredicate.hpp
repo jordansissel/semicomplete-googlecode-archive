@@ -1,3 +1,6 @@
+#ifndef __GROKPREDICATE_HPP
+#define __GROKPREDICATE_HPP
+
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -144,3 +147,4 @@ class GrokPredicate {
     string value_string;
     regex_type value_regex;
 };
+#endif /* ifndef __GROKPREDICATE_HPP */

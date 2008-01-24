@@ -1,6 +1,5 @@
-
-#ifndef GROKPATTERN_H
-#define GROKPATTERN_H
+#ifndef __GROKPATTERN_HPP
+#define __GROKPATTERN_HPP
 
 #include <string>
 using namespace std;
@@ -25,5 +24,4 @@ class GrokPattern {
     }
 };
 
-#endif /* ifndef GROKPATTERN_H */
-
+#endif /* ifndef __GROKPATTERN_HPP */

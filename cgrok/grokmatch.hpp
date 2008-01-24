@@ -1,6 +1,5 @@
-
-#ifndef __GrokMatch_hpp
-#define __GrokMatch_hpp
+#ifndef __GROKMATCH_HPP
+#define __GROKMATCH_HPP
 
 template <typename regex_type>
 class GrokMatch {
@@ -54,4 +53,4 @@ class GrokMatch {
 
 };
 
-#endif /* __GrokMatch_hpp */
+#endif /* ifndef __GROKMATCH_HPP */

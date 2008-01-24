@@ -1,5 +1,5 @@
-#ifndef GROKPATTERNSET_H
-#define GROKPATTERNSET_H
+#ifndef __GROKPATTERNSET_HPP
+#define __GROKPATTERNSET_HPP
 
 #include <boost/xpressive/xpressive.hpp>
 #include <iostream>
@@ -66,4 +66,4 @@ class GrokPatternSet {
       }
     }
 }; 
-#endif /* ifndef GROKPATTERNSET_H */
+#endif /* ifndef __GROKPATTERNSET_HPP */

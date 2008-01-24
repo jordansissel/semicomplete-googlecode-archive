@@ -1,5 +1,5 @@
-#ifndef __GrokRegex_hpp
-#define __GrokRegex_hpp
+#ifndef __GROKREGEX_HPP
+#define __GROKREGEX_HPP
 
 #include <iostream>
 #include <string>
@@ -249,5 +249,4 @@ class GrokRegex {
       *pregex = new regex_type(this->re_compiler->compile(re_string));
     }
 };
-
-#endif /* ifndef __GrokRegex_hpp */
+#endif /* ifndef __GROKREGEX_HPP */
