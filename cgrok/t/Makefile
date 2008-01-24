@@ -8,8 +8,11 @@ CFLAGS=-g -I./cxxtest -I../
 basic: basic.o
 	$(CXX) $(LDFLAGS) $< -o $@
 
-patterns: patterns.o
+patterns: patterns.o pattern_test_set.generated_test
 	$(CXX) $(LDFLAGS) $< -o $@
+
+pattern_test_set.generated_test: ../patterns
+	sh generate_pattern_test.sh > $@
 
 test: basic patterns
 	./basic

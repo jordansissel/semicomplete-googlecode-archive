@@ -7,25 +7,50 @@
 #include <fstream>
 #include <string>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#define INPUTDIR "input/"
+
 class GrokPatternsTest : public CxxTest::TestSuite {
   public:
     GrokPatternSet<sregex> default_patterns;
     GrokRegex<sregex> gre;
     GrokMatch<sregex> gm;
     GrokMatch<sregex>::match_map_type matchmap;
+    char *filename;
 
     void setUp() {
       default_patterns.LoadFromFile("../patterns");
-      gre.AddPatternSet(default_patterns);
+      this->gre.AddPatternSet(default_patterns);
+      this->filename = NULL;
     }
 
-    void testFoo() {
-      string input = "1.234";
-      bool success;
-      gre.SetRegex("%NUMBER%");
-      success = gre.Search(input, gm);
-      TS_ASSERT(success);
-      matchmap = gm.GetMatches();
-      TS_ASSERT(matchmap["NUMBER"] == input);
+    void tearDown() {
+      if (this->filename != NULL)
+        free(this->filename);
     }
+
+    void _testPatternMatch(string pattern_name, bool match_success=true) {
+      int result;
+      struct stat s;
+      this->filename = (char *)malloc(pattern_name.size() + strlen(INPUTDIR) + 1);
+      sprintf(this->filename, "%s%s\0", INPUTDIR, pattern_name.c_str());
+      result = stat(this->filename, &s);
+      if (result == -1) {
+        cerr << endl << "No test input for success-match on pattern: " << pattern_name << endl;
+        return;
+      }
+
+      gre.SetRegex("%" + pattern_name + "%");
+      ifstream in(this->filename);
+      string line;
+      while (getline(in, line)) {
+        TS_ASSERT(gre.Search(line, gm) == match_success);
+      }
+
+    }
+
+/* INCLUDE: "pattern_test_set.generated_test" */
+    
 };
