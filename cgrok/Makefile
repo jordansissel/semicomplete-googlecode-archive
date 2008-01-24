@@ -30,8 +30,13 @@ grokpatternset.hpp: grokpattern.hpp
 .cc.o:
 	$(CPP) $(CFLAGS) -c -o $@ $<
 
-package:
-	@svn status -q | wc -l | awk '$$1 > 0 { print "svn changes are not checked in!"; exit(1) }'
-	make -C t/ clean test
+package: build-package test-package
+
+build-package:
+	#@svn status -q | wc -l | awk '$$1 > 0 { print "svn changes are not checked in!"; exit(1) }'
 	PACKAGE=$(PACKAGE) sh release.sh
 
+test-package: build-package
+	PKGVER=$(PACKAGE)-`date "+%Y%m%d"`; \
+	tar -C /tmp -xf $${PKGVER}.tar.gz; \
+	make -C /tmp/$${PKGVER}/t test
