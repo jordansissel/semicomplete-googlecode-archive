@@ -45,12 +45,29 @@ class GrokPatternsTest : public CxxTest::TestSuite {
       gre.SetRegex("%" + pattern_name + "%");
       ifstream in(this->filename);
       string line;
+      int lineno = 0;
       while (getline(in, line)) {
-        TS_ASSERT(gre.Search(line, gm) == match_success);
+        lineno += 1;
+        if (gre.Search(line, gm) != match_success) {
+          cerr << "Match test failure. Expected " << match_success << " but got " << !match_success << endl;
+          cerr << " --> Pattern: " << pattern_name << endl;
+          cerr << " --> Input: " << line << endl;
+          TS_FAIL("failure to match at all");
+        } else {
+          matchmap = gm.GetMatches();
+          if (matchmap["=MATCH"] != line) {
+            cerr << "Match test string failure. Did not match entire line as required." << endl;
+            cerr << "Match: '" << matchmap["=MATCH"] << "'" << endl;
+            cerr << "Expected: '" << line << "'" << endl;
+            cerr << "Line number: " << lineno << endl;
+            TS_FAIL("failure on match value");
+          }
+        }
+        
       }
 
     }
 
-/* INCLUDE: "pattern_test_set.generated_test" */
+%PATTERN_TESTS%
     
 };
