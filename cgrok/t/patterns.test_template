@@ -41,8 +41,8 @@ class GrokPatternsTest : public CxxTest::TestSuite {
         //cerr << endl << "No test input for success-match on pattern: " << pattern_name << endl;
         return;
       }
-      cerr << endl << "Running test for : " << pattern_name << "(input == " << 
-           (match_success ? "pass" : "fail") << ")" << endl;
+      //cerr << endl << "Running test for : " << pattern_name << "(input == " << 
+           //(match_success ? "pass" : "fail") << ")" << endl;
 
       gre.SetRegex("%" + pattern_name + "%");
       ifstream in(this->filename);

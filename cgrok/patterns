@@ -8,16 +8,17 @@ NOTSPACE \S+
 DATA .*?
 GREEDYDATA .*
 # This was originally perl's Regex::Common $RE{quoted}, but it didn't work properly.
-QUOTEDSTRING (?:(?<!\\)(?:"(?:(?:\\")*[^"]*)")|(?:'(?:(?:\\")*[^"]*)')|(?:`(?:(?:\\")*[^"]*)`))
+#QUOTEDSTRING (?:(?<!\\)(?:"(?:(?:\\")*(?:[^\"][^"])*)")|(?:'(?:(?:\\")*[^"]*)')|(?:`(?:(?:\\")*[^"]*)`))
+QUOTEDSTRING (?:(?<!\\)(?:"(?:\\.|[^\\"])*")|(?:'(?:\\.|[^\\'])*')|(?:`(?:\\.|[^\\`])*`))
 
 # Networking
 MAC (?:%CISCOMAC%|%WINDOWSMAC%|%COMMONMAC%)
 CISCOMAC (?:(?:[A-Fa-f0-9]{4}\.){2}[A-Fa-f0-9]{4})
 WINDOWSMAC (?:(?:[A-Fa-f0-9]{2}-){5}[A-Fa-f0-9]{2})
 COMMONMAC (?:(?:[A-Fa-f0-9]{2}:){5}[A-Fa-f0-9]{2})
-IP (?:(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2}))
+IP (?<![0-9])(?:(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2}))(?![0-9])
 #HOSTNAME (?:[0-9A-Za-z](?:[-A-Za-z0-9]{0,61})(?:\.[A-Za-z0-9]{1,61})*?)
-HOSTNAME (?:[0-9A-z][0-9A-z-]{0,62})(?:\.(?:[0-9A-z][0-9A-z-]{0,62}))*
+HOSTNAME (?:[0-9A-z][0-9A-z-]{0,62})(?:\.(?:[0-9A-z][0-9A-z-]{0,62}))*\.?
 HOST %HOSTNAME%
 IPORHOST (?:%HOSTNAME%|%IP%)
 
@@ -25,18 +26,18 @@ IPORHOST (?:%HOSTNAME%|%IP%)
 PATH (?:%UNIXPATH%|%WINPATH%)
 UNIXPATH (?<![\w\/])(?:\/[^\/\s?*]*)+
 WINPATH (?:\\[^\\?*]*)+
-URIPROTO [A-z]+
+URIPROTO [A-z+]+
 URIHOST %IPORHOST%(?:%PORT%)?
 # uripath comes loosely from RFC1738, mostly from what Firefox doesn't turn into %xx
 URIPATH (?:/[A-z0-9$.+!*'(),~#%-]*)+
 URIPARAM \?(?:[A-z0-9]+(?:=(?:[^&]*))?(?:&(?:[A-z0-9]+(?:=(?:[^&]*))?)?)*)?
 URIPATHPARAM %URIPATH%(?:%URIPARAM%)?
-URI %URIPROTO%://(?:%URIHOST%)?(?:%URIPATH%)(?:%URIPARAM%)?
+URI %URIPROTO%://(?:%USER%(?::[^@]*)?@)?(?:%URIHOST%)?(?:%URIPATH%)?(?:%URIPARAM%)?
 #URI [A-z]+:\/\/(?:%IPORHOST%(?::[0-9]+)?)?(?:\/[^\/\s]*)*(?:\?[^ ]*)?
 
 # Months: January, Feb, 3, 03, 12, December
 MONTH \b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b
-MONTNUM \b(?:0?[0-9]|1[0-2])\b
+MONTHNUM \b(?:0?[0-9]|1[0-2])\b
 MONTHDAY (?:(?:3[01]|[0-2]?[0-9]))
 
 # Days: Monday, Tue, Thu, 0 (Sunday?), 6 (Saturday?)
@@ -45,7 +46,10 @@ DAY (?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:u
 # Years?
 YEAR %INT%
 # Time: HH:MM:SS
-TIME \d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?
+#TIME \d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?
+# I'm still on the fence about using grok to perform the time match, since it's probably slower.
+# TIME %POSITIVENUM<24%:%POSITIVENUM<60%(?::%POSITIVENUM<60%(?:\.%POSITIVENUM%)?)?
+TIME (?!<[0-9])(?:2[0123]|[01][0-9]):(?:[0-5][0-9])(?::(?:[0-5][0-9])(?:\.[0-9]+)?)?(?![0-9])
 
 # Syslog Dates: Month Day HH:MM:SS
 SYSLOGDATE %MONTH% +%MONTHDAY% %TIME%
