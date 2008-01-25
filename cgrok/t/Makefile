@@ -12,7 +12,9 @@ patterns: patterns.o
 	$(CXX) $(LDFLAGS) $< -o $@
 
 patterns.test: patterns.test_template pattern_test_set.generated_test
+	rm -f $@
 	perl -ne 'if (/%PATTERN_TESTS%/) { print `cat pattern_test_set.generated_test`; } else { print $$_ }' < patterns.test_template > $@
+	chmod 444 $@
 
 pattern_test_set.generated_test: ../patterns generate_pattern_test.sh
 	sh generate_pattern_test.sh > $@
