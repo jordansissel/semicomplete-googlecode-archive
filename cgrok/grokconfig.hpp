@@ -17,11 +17,12 @@ typedef void (*grok_config_method)(string arg);
 class GrokConfig {
   public:
     GrokConfig() {
-      this->re_comment = '#' >> *~_n;
+      this->re_comment = ('#' >> *~_n);
       this->re_whitespace = +_s;
-      this->re_skip = +(this->re_comment | this->re_whitespace);
-      this->re_block_begin = as_xpr('{');
-      this->re_block_end = as_xpr('}') >> !as_xpr(';');
+
+      /* Tokens */
+      this->re_block_begin = *_s >> as_xpr('{');
+      this->re_block_end = *_s >> as_xpr('}') >> !as_xpr(';');
       this->re_string = RE("(?<!\\\\)(?:\"(?:(?:\\\\\")*[^\"]*\"))");
       this->re_number = RE("(?:[+-]?(?:(?:[0-9]+(?:\\.[0-9]*)?)|(?:\\.[0-9]+)))");
 
@@ -31,20 +32,23 @@ class GrokConfig {
 #define R_EQ (+_s >> "=" >> +_s)
 #define R_SEMI (!as_xpr(';'))
 
-      this->re_file = "file" >> +_s >> (s1=re_string) >> +_s >> re_block_begin ;
-      this->re_filelist = "filelist" >> +_s >> (s1=re_string) >> +_s >> re_block_begin;
+      /* Prefixing everything with 'bos >>' is a hack because adding it later
+       * causes captures not to be obeyed. Strange. */
+      this->re_skip = bos >> +(this->re_comment | this->re_whitespace);
+      this->re_file = bos >> "file" >> +_s >> (s1=re_string) >> re_block_begin;
+      this->re_filelist = bos >> "filelist" >> +_s >> (s1=re_string) >> re_block_begin;
 
-      this->re_matchtype = "type" >> R_EQ >>(s1=re_string) >> re_block_begin;
+      this->re_matchtype = bos >> "type" >> +_s >> (s1=re_string) >> re_block_begin;
 
-      this->re_match = "match" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_threshold = "threshold" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_interval = "interval" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_reaction = "reaction" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_key = "key" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_match_syslog = "match_syslog" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_syslog_prog = "syslog_prog" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_syslog_host = "syslog_host" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_shell = "shell" >> R_EQ >> (s1=re_string) >> R_SEMI;
+      this->re_match = bos >> "match" >> R_EQ >> (s1=re_string) >> R_SEMI;
+      this->re_threshold = bos >> "threshold" >> R_EQ >> (s1=re_string) >> R_SEMI;
+      this->re_interval = bos >> "interval" >> R_EQ >> (s1=re_string) >> R_SEMI;
+      this->re_reaction = bos >> "reaction" >> R_EQ >> (s1=re_string) >> R_SEMI;
+      this->re_key = bos >> "key" >> R_EQ >> (s1=re_string) >> R_SEMI;
+      this->re_match_syslog = bos >> "match_syslog" >> R_EQ >> (s1=re_string) >> R_SEMI;
+      this->re_syslog_prog = bos >> "syslog_prog" >> R_EQ >> (s1=re_string) >> R_SEMI;
+      this->re_syslog_host = bos >> "syslog_host" >> R_EQ >> (s1=re_string) >> R_SEMI;
+      this->re_shell = bos >> "shell" >> R_EQ >> (s1=re_string) >> R_SEMI;
     }
 
     void parse(const string config) {
@@ -58,6 +62,9 @@ class GrokConfig {
       if (re.regex_id() != this->re_skip.regex_id()) {
         this->consume(input, m, this->re_skip);
       }
+
+      /* Match ^re */
+      //sregex mre = bos >> re;
       ret = regex_search(input, m, re);
       if (ret) {
         int len = m.position(0) + m.length(0);
@@ -73,20 +80,24 @@ class GrokConfig {
       return false;
     }
 
+    void parse_error(const string &where, string &input) const {
+      cerr << "(" << where << ") Unrecognized input on line " 
+           << this->line_number << ": '"
+           << input.substr(0, input.find("\n")) << "'" << endl;
+    }
+
     void block_config(string &input) {
       smatch m;
       bool done = false;
       while (!done) {
         if (this->consume(input, m, this->re_file)) {
           block_file(input);
-        } else {
-          cerr << "(config) Unrecognized input: '"
-               << input.substr(0, input.find("\n")) << "'" << endl;
-          cerr << "Line: " << this->line_number << endl;
-        }
-
-        if (input.size() == 0)
+        } else if (input.size() == 0) {
+          /* We've reached eof */
           done = true;
+        } else {
+          this->parse_error("main config", input);
+        }
       }
     }
 
@@ -98,11 +109,10 @@ class GrokConfig {
           /* Track the type we're adding */
           block_matchtype(input);
         } else if (this->consume(input, m, this->re_block_end)) {
+          //cout << "(file block) block close found" << endl;
           done = true;
         } else {
-          cerr << "(file block) Unrecognized input: '"
-               << input.substr(0, input.find("\n")) << "'" << endl;
-          cerr << "Line: " << this->line_number << endl;
+          this->parse_error("file block", input);
         }
       }
     }
@@ -116,18 +126,20 @@ class GrokConfig {
         } else if (this->consume(input, m, this->re_threshold)) {
         } else if (this->consume(input, m, this->re_interval)) {
         } else if (this->consume(input, m, this->re_reaction)) {
-          cout << "reaction: " << m.str(1) << endl;
+          string data = m.str(1);
+          /* remove quotes */
+          data = data.substr(1, data.size() - 2);
+          cout << "reaction: " << data << endl;
         } else if (this->consume(input, m, this->re_key)) {
         } else if (this->consume(input, m, this->re_match_syslog)) {
         } else if (this->consume(input, m, this->re_syslog_prog)) {
         } else if (this->consume(input, m, this->re_syslog_host)) {
         } else if (this->consume(input, m, this->re_shell)) {
         } else if (this->consume(input, m, this->re_block_end)) {
+          //cout << "(matchtype block) block close found" << endl;
           done = true;
         } else {
-          cerr << "(matchtype block) Unrecognized input: '"
-               << input.substr(0, input.find("\n")) << "'" << endl;
-          cerr << "Line: " << this->line_number << endl;
+          this->parse_error("matchtype block", input);
         }
       }
     }
