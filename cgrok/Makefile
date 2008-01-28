@@ -20,6 +20,7 @@ patfind: pattern_discovery.o
 clean:
 	rm *.o grokre test test_patterns patfind grok > /dev/null 2>&1 || true
 
+filetest.o: filetest.cpp fileobserver.hpp
 pattern_discovery.o: grokpatternset.hpp grokregex.hpp grokmatch.hpp grokpredicate.hpp
 main.o: grokpatternset.hpp grokregex.hpp grokmatch.hpp grokpredicate.hpp grokconfig.hpp
 grokpatternset.hpp: grokpattern.hpp

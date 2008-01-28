@@ -2,7 +2,6 @@
 #ifndef __GROKCONFIG_HPP
 #define __GROKCONFIG_HPP
 
-#include <strings.h> /* for index() */
 #include <string>
 #include <iostream>
 
@@ -10,7 +9,14 @@
 using namespace boost::xpressive;
 using namespace std;
 
+/* Shorthand to compile a dynamic regex */
 #define RE(x) (sregex::compile(x))
+
+/* Match "\s*=\s*" */
+#define R_EQ (*_s >> "=" >> *_s)
+
+/* optionally match ';' */
+#define R_SEMI (!as_xpr(';'))
 
 typedef void (*grok_config_method)(string arg);
 
@@ -25,12 +31,6 @@ class GrokConfig {
       this->re_block_end = *_s >> as_xpr('}') >> !as_xpr(';');
       this->re_string = RE("(?<!\\\\)(?:\"(?:(?:\\\\\")*[^\"]*\"))");
       this->re_number = RE("(?:[+-]?(?:(?:[0-9]+(?:\\.[0-9]*)?)|(?:\\.[0-9]+)))");
-
-      /* XXX: block types:
-       * patterns, filters
-       * file, exec, catlist, filecmd */
-#define R_EQ (+_s >> "=" >> +_s)
-#define R_SEMI (!as_xpr(';'))
 
       /* Prefixing everything with 'bos >>' is a hack because adding it later
        * causes captures not to be obeyed. Strange. */
@@ -63,12 +63,10 @@ class GrokConfig {
         this->consume(input, m, this->re_skip);
       }
 
-      /* Match ^re */
-      //sregex mre = bos >> re;
       ret = regex_search(input, m, re);
       if (ret) {
         int len = m.position(0) + m.length(0);
-        int pos = -1;
+        int pos = string::npos;
 
         string consumed = input.substr(0, len);
         while ((pos = consumed.find("\n", pos + 1)) != string::npos)
@@ -168,6 +166,9 @@ class GrokConfig {
       sregex re_syslog_prog;
       sregex re_syslog_host;
       sregex re_shell;
+
+    GrokPatternSet patterns;
+
 };
 
 #endif /* ifndef __GROKCONFIG_HPP */
