@@ -173,6 +173,10 @@ class FileObserver {
           done = true;
         else
           buffer.append(readbuf, bytes);
+
+        /* Cut this short if the buffer is big enough */
+        if (buffer.size() > 5<<10)
+          done = true;
       }
 
       /* Look for full lines of text, push them into the data vector */
@@ -192,7 +196,6 @@ class FileObserver {
         old_buffer = buffer.substr(last_pos, buffer.size() - last_pos);
       else
         old_buffer = "";
-
     }
 
   private:

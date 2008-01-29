@@ -59,6 +59,8 @@ class GrokConfig {
 
     bool consume(string &input, smatch &m, sregex &re) {
       int ret;
+
+      /* Skip whitespace and comments */
       if (re.regex_id() != this->re_skip.regex_id()) {
         this->consume(input, m, this->re_skip);
       }
