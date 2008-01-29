@@ -62,6 +62,21 @@ class FileObserver {
       }
     }
 
+    void Merge(FileObserver fo) {
+      vector<DataInput>::iterator di_iter;
+      for (di_iter = fo.inputs.begin(); di_iter != fo.inputs.end(); di_iter++) {
+        this->inputs.push_back(*di_iter);
+      }
+
+      map <int, string>::const_iterator buffer_iter);
+      for (buffer_iter = fo.old_buffers.begin(); 
+           buffer_iter != fo.old_buffers.end();
+           buffer_iter++) {
+        this->old_buffers[ (*buffer_iter).first ] = (*buffer_iter).second;
+      }
+      
+    }
+
     void OpenAll() {
       vector<DataInput>::iterator iter;
       vector<DataInput> inputs_copy = this->inputs;
@@ -148,7 +163,7 @@ class FileObserver {
       bool done;
       struct timeval tv;
       int ret;
-      string buffer = this->old_buffer;
+      string buffer = this->old_buffers[fileno(di.fd)];
       char readbuf[4096];
 
       cout << "Reading from: " << di.data << endl;
@@ -191,16 +206,16 @@ class FileObserver {
         data.push_back(p);
         last_pos = pos + 1;
       }
-
+      
+      string remainder;
       if (last_pos <= buffer.size() - 1)
-        old_buffer = buffer.substr(last_pos, buffer.size() - last_pos);
-      else
-        old_buffer = "";
+         remainder = buffer.substr(last_pos, buffer.size() - last_pos);
+      old_buffers[fileno(di.fd)] = remainder;
     }
 
-  private:
+  protected:
     vector<DataInput> inputs;
-    string old_buffer;
+    map <int, string> old_buffers;
 };
 
 #endif /* ifdef __FILEOBSERVER_HPP */

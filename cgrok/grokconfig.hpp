@@ -4,8 +4,12 @@
 
 #include <string>
 #include <iostream>
+#include <sstream>
 
 #include <boost/xpressive/xpressive.hpp>
+
+#include "watchfileentry.hpp"
+
 using namespace boost::xpressive;
 using namespace std;
 
@@ -20,8 +24,14 @@ using namespace std;
 
 typedef void (*grok_config_method)(string arg);
 
+string StripQuotes(const string &str) {
+  return str.substr(1, str.size() - 2);
+}
+
 class GrokConfig {
   public:
+    typedef vector<WatchFileEntry> watch_file_vector_type;
+
     GrokConfig() {
       this->re_comment = ('#' >> *~_n);
       this->re_whitespace = +_s;
@@ -67,8 +77,8 @@ class GrokConfig {
 
       ret = regex_search(input, m, re);
       if (ret) {
-        int len = m.position(0) + m.length(0);
-        int pos = string::npos;
+        string::size_type len = m.position(0) + m.length(0);
+        string::size_type pos = string::npos;
 
         string consumed = input.substr(0, len);
         while ((pos = consumed.find("\n", pos + 1)) != string::npos)
@@ -91,7 +101,13 @@ class GrokConfig {
       bool done = false;
       while (!done) {
         if (this->consume(input, m, this->re_file)) {
+          WatchFileEntry f;
+          f.name = StripQuotes(m.str(1));
+          f.fo.AddFile(f.name);
+          current_file_entry = f;
           block_file(input);
+          current_file_entry.fo.OpenAll();
+          inputs.push_back(current_file_entry);
         } else if (input.size() == 0) {
           /* We've reached eof */
           done = true;
@@ -107,7 +123,11 @@ class GrokConfig {
       while (!done) {
         if (this->consume(input, m, this->re_matchtype)) {
           /* Track the type we're adding */
+          WatchMatchType m;
+          m.clear();
+          current_match_type = m;
           block_matchtype(input);
+          current_file_entry.match_types.push_back(current_match_type);
         } else if (this->consume(input, m, this->re_block_end)) {
           //cout << "(file block) block close found" << endl;
           done = true;
@@ -120,20 +140,29 @@ class GrokConfig {
     void block_matchtype(string &input) {
       smatch m;
       bool done = false;
+      stringstream strconv(stringstream::in | stringstream::out);
       while (!done) {
         if (this->consume(input, m, this->re_match)) {
           cout << "Match: " << m.str(1) << endl;
+          GrokRegex<sregex> gre(m.str(1));
+          current_match_type.match_strings.push_back(gre);
         } else if (this->consume(input, m, this->re_threshold)) {
+          strconv << m.str(1);
+          strconv >> current_match_type.threshold;
         } else if (this->consume(input, m, this->re_interval)) {
+          strconv << m.str(1);
+          strconv >> current_match_type.interval;
         } else if (this->consume(input, m, this->re_reaction)) {
-          string data = m.str(1);
-          /* remove quotes */
-          data = data.substr(1, data.size() - 2);
-          cout << "reaction: " << data << endl;
+          current_match_type.reaction = StripQuotes(m.str(1));
+          cout << "reaction: " << current_match_type.reaction << endl;
         } else if (this->consume(input, m, this->re_key)) {
+          current_match_type.key = StripQuotes(m.str(1));
         } else if (this->consume(input, m, this->re_match_syslog)) {
+          //current_match_type.match_syslog = StripQuotes(m.str(1));
         } else if (this->consume(input, m, this->re_syslog_prog)) {
+          current_match_type.syslog_prog = StripQuotes(m.str(1));
         } else if (this->consume(input, m, this->re_syslog_host)) {
+          current_match_type.syslog_host = StripQuotes(m.str(1));
         } else if (this->consume(input, m, this->re_shell)) {
         } else if (this->consume(input, m, this->re_block_end)) {
           //cout << "(matchtype block) block close found" << endl;
@@ -142,6 +171,10 @@ class GrokConfig {
           this->parse_error("matchtype block", input);
         }
       }
+    }
+
+    watch_file_vector_type &GetFileEntries() {
+      return inputs;
     }
 
   private:
@@ -169,8 +202,10 @@ class GrokConfig {
       sregex re_syslog_host;
       sregex re_shell;
 
-    GrokPatternSet patterns;
-
+    GrokPatternSet<sregex> patterns;
+    watch_file_vector_type inputs;
+    WatchFileEntry current_file_entry;
+    WatchMatchType current_match_type;
 };
 
 #endif /* ifndef __GROKCONFIG_HPP */

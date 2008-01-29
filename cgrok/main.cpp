@@ -30,5 +30,14 @@ int main(int argc, char **argv) {
 
   config.parse(config_data);
 
+  GrokConfig::watch_file_vector_type::iterator iter;
+  GrokConfig::watch_file_vector_type watches;
+
+  watches = config.GetFileEntries();
+  map < int, DataInput > inputmap;
+  for (iter = watches.begin(); iter != watches.end(); iter++) {
+    cout << "Name: " << (*iter).name << endl;
+  }
+
   return 0;
 }
