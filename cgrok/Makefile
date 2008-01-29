@@ -17,8 +17,11 @@ pattest: pattern_test.o
 patfind: pattern_discovery.o
 	$(CPP) pattern_discovery.o -o $@
 
+filetest: filetest.o
+	$(CPP) filetest.o -o $@
+
 clean:
-	rm *.o grokre test test_patterns patfind grok > /dev/null 2>&1 || true
+	rm *.o grokre test test_patterns patfind grok filetest > /dev/null 2>&1 || true
 
 filetest.o: filetest.cpp fileobserver.hpp
 pattern_discovery.o: grokpatternset.hpp grokregex.hpp grokmatch.hpp grokpredicate.hpp

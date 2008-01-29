@@ -1,15 +1,18 @@
 #ifndef __FILEOBSERVER_HPP
 #define __FILEOBSERVER_HPP
 
-#include <vector>
-#include <string>
-#include <iostream>
-
-using namespace std;
-
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/select.h>
+
+#include <iostream>
+#include <vector>
+#include <string>
+
+using namespace std;
 
 struct DataInput {
   FILE *fd;
@@ -22,34 +25,57 @@ struct DataInput {
 
 class FileObserver {
   public:
-    FileObserver() : inputs() { }
+    typedef pair < DataInput, string > data_pair_type;
+    typedef vector < data_pair_type > data_input_vector_type;
 
-    void AddCommand(string command, string shell) {
+    FileObserver() : inputs(), old_buffer() { }
+
+    void AddCommand(string command) {
       DataInput di;
       di.data = command;
       di.is_command = true;
-      di.shell = shell;
+      di.shell = "/bin/sh";
 
-      /* commands not quite supported yet */
+      cout << "Adding cmd: " << command << endl;
+      this->inputs.push_back(di);
     }
 
     void AddFile(string filename) {
       DataInput di;
       di.data = filename;
-      di.fd = NULL;//fopen(filename.c_str(), "r");
+      di.fd = NULL;
+      di.is_command = false;
+      di.follow = true;
+      cout << "Adding file: " << filename << endl;
 
       this->inputs.push_back(di);
     }
 
+    void AddFileCommand(string command) {
+      FILE *fd = popen(command.c_str(), "r");
+      char buf[4096];
+
+      while (fgets(buf, 4096, fd) != NULL) {
+        buf[ strlen(buf) - 1 ] = '\0';
+        string filename(buf);
+        this->AddFile(buf);
+      }
+    }
+
     void OpenAll() {
       vector<DataInput>::iterator iter;
-      for (iter = this->inputs.begin(); iter != this->inputs.end(); iter++) {
+      vector<DataInput> inputs_copy = this->inputs;
+      this->inputs.clear();
+      for (iter = inputs_copy.begin(); iter != inputs_copy.end(); iter++) {
         DataInput di = *iter;
         if (di.is_command) {
-          cerr << "Commands not yet supported" << endl;
+          this->OpenCommand(di);
         } else {
           this->OpenFile(di);
         }
+        cout << "openall fd: " << di.fd << endl;
+        /* Hack to store the modified DataInput object back */
+        this->inputs.push_back(di);
       }
     }
 
@@ -64,8 +90,114 @@ class FileObserver {
       cerr << "OpenFile success on file: '" << di.data << "'" << endl;
     }
 
+    void OpenCommand(DataInput &di) {
+      di.fd = popen(di.data.c_str(), "r");
+      if (di.fd == NULL) {
+        cerr << "OpenCommand failed on command: '" << di.data << "'" << endl;
+        cerr << "Error was: " << strerror(errno) << endl;
+        return;
+      }
+
+      cerr << "OpenCommand success on command: '" << di.data << "'" << endl;
+    }
+
+    void ReadLines(float timeout, data_input_vector_type &data) {
+      int ret;
+      vector<DataInput>::iterator iter;
+      struct timeval tv;
+      fd_set in_fdset;
+      fd_set err_fdset;
+
+      tv.tv_sec = (long)timeout;
+      tv.tv_usec = (long)(timeout - (tv.tv_sec)) * 1000000L;
+
+      /* Come up with a descriptor set that includes all of the inputs */
+      FD_ZERO(&in_fdset);
+      FD_ZERO(&err_fdset);
+      for (iter = this->inputs.begin(); iter != this->inputs.end(); iter++) {
+        cout << "File: " << (*iter).fd << endl;
+        if ( (*iter).fd != NULL ) {
+          FD_SET(fileno( (*iter).fd ), &in_fdset);
+          FD_SET(fileno( (*iter).fd ), &err_fdset);
+        } else {
+          cout << "Skipping file (no open fd): " << (*iter).data << endl;
+        }
+      }
+
+      ret = select(FD_SETSIZE, &in_fdset, NULL, &err_fdset, &tv);
+      if (ret == -1) {
+        cerr << "Error in select() call" << endl;
+        return;
+      } else if (ret == 0) {
+        return; /* Nothing to read */
+      }
+      cout << "Select returned " << ret << endl;
+
+      /* else, ret > 0, read data from the inputs */
+      for (iter = this->inputs.begin(); iter != this->inputs.end(); iter++) {
+        DataInput di = *iter;
+        if (FD_ISSET(fileno(di.fd), &in_fdset))
+          ReadLinesFromInput(data, di);
+        else if (FD_ISSET(fileno(di.fd), &err_fdset))
+          cout << "Error condition on " << di.data << endl;
+      }
+    }
+
+    void ReadLinesFromInput(data_input_vector_type &data, DataInput &di) {
+      fd_set fdset;
+      bool done;
+      struct timeval tv;
+      int ret;
+      string buffer = this->old_buffer;
+      char readbuf[4096];
+
+      cout << "Reading from: " << di.data << endl;
+
+      while (!done) {
+        FD_ZERO(&fdset);
+        FD_SET(fileno(di.fd), &fdset);
+        tv.tv_sec = 0;
+        tv.tv_usec = 0;
+        ret = select(FD_SETSIZE, &fdset, NULL, &fdset, &tv);
+
+        /* XXX: Handle '< 0' and '== 0' cases separately */
+        if (ret <= 0) {
+          done = true;
+          continue;
+        }
+
+        int bytes;
+
+        bytes = fread(readbuf, 1, 4096, di.fd);
+        if (bytes == 0)
+          done = true;
+        else
+          buffer.append(readbuf, bytes);
+      }
+
+      /* Look for full lines of text, push them into the data vector */
+      int pos = 0;
+      int last_pos = 0;
+      while ((pos = buffer.find("\n", last_pos)) != string::npos) {
+        data_pair_type p;
+        p.first = di;
+        p.second = buffer.substr(last_pos, (pos - last_pos));
+        //cout << "Found line: " << p.second.size() << endl;
+        //cout << "data: " << last_pos << " / " << buffer.length() << endl;
+        data.push_back(p);
+        last_pos = pos + 1;
+      }
+
+      if (last_pos <= buffer.size() - 1)
+        old_buffer = buffer.substr(last_pos, buffer.size() - last_pos);
+      else
+        old_buffer = "";
+
+    }
+
   private:
     vector<DataInput> inputs;
+    string old_buffer;
 };
 
 #endif /* ifdef __FILEOBSERVER_HPP */
