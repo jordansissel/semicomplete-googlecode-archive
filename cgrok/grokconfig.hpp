@@ -52,15 +52,37 @@ class GrokConfig {
       this->re_matchtype = bos >> "type" >> +_s >> (s1=re_string) >> re_block_begin;
 
       this->re_match = bos >> "match" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
+      this->re_reaction = bos >> "reaction" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
       this->re_threshold = bos >> "threshold" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
       this->re_follow = bos >> "follow" >> R_EQ >> (s1=re_boolean) >> R_TERMINATOR;
       this->re_interval = bos >> "interval" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
-      this->re_reaction = bos >> "reaction" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
       this->re_key = bos >> "key" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
       this->re_match_syslog = bos >> "match_syslog" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
       this->re_syslog_prog = bos >> "syslog_prog" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
       this->re_syslog_host = bos >> "syslog_host" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
       this->re_shell = bos >> "shell" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
+
+      //cout << "this->re_comment: " << this->re_comment.regex_id() << endl;
+      //cout << "this->re_whitespace: " << this->re_whitespace.regex_id() << endl;
+      //cout << "this->re_block_begin: " << this->re_block_begin.regex_id() << endl;
+      //cout << "this->re_block_end: " << this->re_block_end.regex_id() << endl;
+      //cout << "this->re_string: " << this->re_string.regex_id() << endl;
+      //cout << "this->re_number: " << this->re_number.regex_id() << endl;
+      //cout << "this->re_boolean: " << this->re_boolean.regex_id() << endl;
+      //cout << "this->re_skip: " << this->re_skip.regex_id() << endl;
+      //cout << "this->re_file: " << this->re_file.regex_id() << endl;
+      //cout << "this->re_filelist: " << this->re_filelist.regex_id() << endl;
+      //cout << "this->re_matchtype: " << this->re_matchtype.regex_id() << endl;
+      //cout << "this->re_match: " << this->re_match.regex_id() << endl;
+      //cout << "this->re_reaction: " << this->re_reaction.regex_id() << endl;
+      //cout << "this->re_threshold: " << this->re_threshold.regex_id() << endl;
+      //cout << "this->re_follow: " << this->re_follow.regex_id() << endl;
+      //cout << "this->re_interval: " << this->re_interval.regex_id() << endl;
+      //cout << "this->re_key: " << this->re_key.regex_id() << endl;
+      //cout << "this->re_match_syslog: " << this->re_match_syslog.regex_id() << endl;
+      //cout << "this->re_syslog_prog: " << this->re_syslog_prog.regex_id() << endl;
+      //cout << "this->re_syslog_host: " << this->re_syslog_host.regex_id() << endl;
+      //cout << "this->re_shell: " << this->re_shell.regex_id() << endl;
     }
 
     void parse(const string config) {
@@ -86,7 +108,7 @@ class GrokConfig {
         while ((pos = consumed.find("\n", pos + 1)) != string::npos)
           this->line_number++;
 
-        cout << "Consuming: '" << input.substr(0, len) << "'" << endl;
+        cout << "Consuming: [" << re.regex_id() << "] '" << input.substr(0, len) << "'" << endl;
         input = input.substr(len, input.size() - len);
         return true;
       }
@@ -154,6 +176,9 @@ class GrokConfig {
         } else if (this->consume(input, m, this->re_threshold)) {
           strconv << m.str(1);
           strconv >> current_match_type.threshold;
+        } else if (this->consume(input, m, this->re_reaction)) {
+          //current_match_type.reaction = StripQuotes(m.str(1));
+          //cout << "reaction: " << current_match_type.reaction << endl;
         } else if (this->consume(input, m, this->re_boolean)) {
           if (m.str(1) == "true" || m.str(1) == "True")
             current_match_type.follow = true;
@@ -162,9 +187,6 @@ class GrokConfig {
         } else if (this->consume(input, m, this->re_interval)) {
           strconv << m.str(1);
           strconv >> current_match_type.interval;
-        } else if (this->consume(input, m, this->re_reaction)) {
-          current_match_type.reaction = StripQuotes(m.str(1));
-          cout << "reaction: " << current_match_type.reaction << endl;
         } else if (this->consume(input, m, this->re_key)) {
           current_match_type.key = StripQuotes(m.str(1));
         } else if (this->consume(input, m, this->re_match_syslog)) {
