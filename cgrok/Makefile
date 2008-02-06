@@ -25,7 +25,7 @@ clean:
 
 filetest.o: filetest.cpp fileobserver.hpp
 pattern_discovery.o: grokpatternset.hpp grokregex.hpp grokmatch.hpp grokpredicate.hpp
-main.o: grokpatternset.hpp grokregex.hpp grokmatch.hpp grokpredicate.hpp grokconfig.hpp
+main.o: grokpatternset.hpp grokregex.hpp grokmatch.hpp grokpredicate.hpp grokconfig.hpp fileobserver.hpp
 grokpatternset.hpp: grokpattern.hpp
 
 .cpp.o:

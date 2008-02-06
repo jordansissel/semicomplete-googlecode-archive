@@ -19,8 +19,8 @@ using namespace std;
 /* Match "\s*=\s*" */
 #define R_EQ (*_s >> "=" >> *_s)
 
-/* optionally match ';' */
-#define R_SEMI (!as_xpr(';'))
+/* match ';' or newline */
+#define R_TERMINATOR (as_xpr(';') | _n)
 
 typedef void (*grok_config_method)(string arg);
 
@@ -41,6 +41,7 @@ class GrokConfig {
       this->re_block_end = *_s >> as_xpr('}') >> !as_xpr(';');
       this->re_string = RE("(?<!\\\\)(?:\"(?:(?:\\\\\")*[^\"]*\"))");
       this->re_number = RE("(?:[+-]?(?:(?:[0-9]+(?:\\.[0-9]*)?)|(?:\\.[0-9]+)))");
+      this->re_boolean = RE("(?:[Tt]rue|[Ff]alse)");
 
       /* Prefixing everything with 'bos >>' is a hack because adding it later
        * causes captures not to be obeyed. Strange. */
@@ -50,15 +51,16 @@ class GrokConfig {
 
       this->re_matchtype = bos >> "type" >> +_s >> (s1=re_string) >> re_block_begin;
 
-      this->re_match = bos >> "match" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_threshold = bos >> "threshold" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_interval = bos >> "interval" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_reaction = bos >> "reaction" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_key = bos >> "key" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_match_syslog = bos >> "match_syslog" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_syslog_prog = bos >> "syslog_prog" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_syslog_host = bos >> "syslog_host" >> R_EQ >> (s1=re_string) >> R_SEMI;
-      this->re_shell = bos >> "shell" >> R_EQ >> (s1=re_string) >> R_SEMI;
+      this->re_match = bos >> "match" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
+      this->re_threshold = bos >> "threshold" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
+      this->re_follow = bos >> "follow" >> R_EQ >> (s1=re_boolean) >> R_TERMINATOR;
+      this->re_interval = bos >> "interval" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
+      this->re_reaction = bos >> "reaction" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
+      this->re_key = bos >> "key" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
+      this->re_match_syslog = bos >> "match_syslog" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
+      this->re_syslog_prog = bos >> "syslog_prog" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
+      this->re_syslog_host = bos >> "syslog_host" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
+      this->re_shell = bos >> "shell" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
     }
 
     void parse(const string config) {
@@ -102,11 +104,12 @@ class GrokConfig {
       while (!done) {
         if (this->consume(input, m, this->re_file)) {
           WatchFileEntry f;
+          cout << "Filename: " << m.str(1) << endl;
           f.name = StripQuotes(m.str(1));
           f.fo.AddFile(f.name);
           current_file_entry = f;
           block_file(input);
-          current_file_entry.fo.OpenAll();
+          //current_file_entry.fo.OpenAll();
           inputs.push_back(current_file_entry);
         } else if (input.size() == 0) {
           /* We've reached eof */
@@ -149,6 +152,11 @@ class GrokConfig {
         } else if (this->consume(input, m, this->re_threshold)) {
           strconv << m.str(1);
           strconv >> current_match_type.threshold;
+        } else if (this->consume(input, m, this->re_boolean)) {
+          if (m.str(1) == "true" || m.str(1) == "True")
+            current_match_type.follow = true;
+          else
+            current_match_type.follow = false;
         } else if (this->consume(input, m, this->re_interval)) {
           strconv << m.str(1);
           strconv >> current_match_type.interval;
@@ -201,6 +209,8 @@ class GrokConfig {
       sregex re_syslog_prog;
       sregex re_syslog_host;
       sregex re_shell;
+      sregex re_follow;
+      sregex re_boolean;
 
     GrokPatternSet<sregex> patterns;
     watch_file_vector_type inputs;

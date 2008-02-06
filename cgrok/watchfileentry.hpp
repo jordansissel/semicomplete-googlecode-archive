@@ -5,12 +5,14 @@
 #include "fileobserver.hpp"
 
 struct WatchMatchType {
-  vector < GrokRegex<sregex> > match_strings;
+  typedef vector < GrokRegex<sregex> > grok_regex_vector_type;
+  grok_regex_vector_type match_strings;
   float threshold;
   float interval;
   string key;
   string reaction;
   bool match_syslog;
+  bool follow;
   string syslog_prog;
   string syslog_host;
   string shell; /* Not supported yet */
@@ -25,18 +27,21 @@ struct WatchMatchType {
     this->syslog_host = "";
     this->shell = "";
     this->match_strings.clear();
+    this->follow = false;
   }
 };
 
-struct WatchFileEntry {
-  FileObserver fo;
-  string name;
-  vector < WatchMatchType > match_types;
+class WatchFileEntry {
+  public:
+    FileObserver fo;
+    string name;
+    vector < WatchMatchType > match_types;
 
-  void clear() {
-    this->name = "";
-    this->match_types.clear();
-  }
+    void clear() {
+      this->name = "";
+      this->match_types.clear();
+    }
+
 };
 
 #endif /* ifndef __WATCHFILEENTRY_HPP */
