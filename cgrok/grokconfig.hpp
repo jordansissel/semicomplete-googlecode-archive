@@ -86,6 +86,7 @@ class GrokConfig {
         while ((pos = consumed.find("\n", pos + 1)) != string::npos)
           this->line_number++;
 
+        cout << "Consuming: '" << input.substr(0, len) << "'" << endl;
         input = input.substr(len, input.size() - len);
         return true;
       }
@@ -144,6 +145,7 @@ class GrokConfig {
       smatch m;
       bool done = false;
       stringstream strconv(stringstream::in | stringstream::out);
+      cout << "Matchtype" << endl;
       while (!done) {
         if (this->consume(input, m, this->re_match)) {
           cout << "Match: " << m.str(1) << endl;
@@ -173,7 +175,7 @@ class GrokConfig {
           current_match_type.syslog_host = StripQuotes(m.str(1));
         } else if (this->consume(input, m, this->re_shell)) {
         } else if (this->consume(input, m, this->re_block_end)) {
-          //cout << "(matchtype block) block close found" << endl;
+          cout << "(matchtype block) block close found" << endl;
           done = true;
         } else {
           this->parse_error("matchtype block", input);

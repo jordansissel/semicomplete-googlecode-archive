@@ -17,22 +17,22 @@ using namespace boost::xpressive;
 typedef map < string, WatchFileEntry > watch_map_type;
 
 void grok_line(const FileObserver::data_pair_type &input_pair, 
-               const watch_map_type &watchmap) {
+               watch_map_type &watchmap) {
   const DataInput &di = input_pair.first;
-  watch_map_type::const_iterator map_entry = watchmap.find(di.data);
-  const WatchFileEntry &wfe = (*map_entry).second;
-  string line = input_pair.second;
+  watch_map_type::iterator map_entry = watchmap.find(di.data);
+  WatchFileEntry &wfe = (*map_entry).second;
+  const string &line = input_pair.second;
 
   cout << "(" << di.data << ") " << line << endl;
 
-  vector<WatchMatchType>::const_iterator wmt_iter;
+  vector<WatchMatchType>::iterator wmt_iter;
 
   for (wmt_iter = wfe.match_types.begin();
        wmt_iter != wfe.match_types.end(); 
        wmt_iter++) {
-    const WatchMatchType::grok_regex_vector_type &gre_vector = \
+    WatchMatchType::grok_regex_vector_type &gre_vector = \
       (*wmt_iter).match_strings;
-    WatchMatchType::grok_regex_vector_type::const_iterator gre_iter;
+    WatchMatchType::grok_regex_vector_type::iterator gre_iter;
 
     if (gre_vector.size() == 0) {
       cout << "Match by default." << endl;
@@ -43,7 +43,7 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
          gre_iter != gre_vector.end();
          gre_iter++) {
       /* XXX: gre.Search() modifies self, so we can't be const... blah */
-      const GrokRegex<sregex> &gre = (*gre_iter);
+      GrokRegex<sregex> &gre = (*gre_iter);
       GrokMatch<sregex> gm;
       if (gre.Search(line, gm)) {
         GrokMatch<sregex>::match_map_type::const_iterator m_iter;
@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     config_data += buffer;
   }
 
-  cout << config_data << endl;
+  //cout << config_data << endl;
 
   config.parse(config_data);
 
