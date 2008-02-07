@@ -6,6 +6,7 @@
 
 struct WatchMatchType {
   typedef vector < GrokRegex<sregex> > grok_regex_vector_type;
+  string type_name; /* "foo" from 'type "foo" {' in grok.conf  */
   grok_regex_vector_type match_strings;
   float threshold;
   float interval;

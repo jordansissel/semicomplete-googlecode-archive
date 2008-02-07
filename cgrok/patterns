@@ -25,6 +25,9 @@ IPORHOST (?:%HOSTNAME%|%IP%)
 # paths
 PATH (?:%UNIXPATH%|%WINPATH%)
 UNIXPATH (?<![\w\/])(?:\/[^\/\s?*]*)+
+LINUXTTY (?:/dev/pts/%POSITIVENUM%)
+BSDTTY (?:/dev/tty[pq][a-z0-9])
+TTY (?:%BSDTTY%|%LINUXTTY)
 WINPATH (?:\\[^\\?*]*)+
 URIPROTO [A-z+]+
 URIHOST %IPORHOST%(?:%PORT%)?
@@ -33,7 +36,6 @@ URIPATH (?:/[A-z0-9$.+!*'(),~#%-]*)+
 URIPARAM \?(?:[A-z0-9]+(?:=(?:[^&]*))?(?:&(?:[A-z0-9]+(?:=(?:[^&]*))?)?)*)?
 URIPATHPARAM %URIPATH%(?:%URIPARAM%)?
 URI %URIPROTO%://(?:%USER%(?::[^@]*)?@)?(?:%URIHOST%)?(?:%URIPATH%)?(?:%URIPARAM%)?
-#URI [A-z]+:\/\/(?:%IPORHOST%(?::[0-9]+)?)?(?:\/[^\/\s]*)*(?:\?[^ ]*)?
 
 # Months: January, Feb, 3, 03, 12, December
 MONTH \b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b
@@ -60,6 +62,7 @@ HTTPDATE %MONTHDAY%/%MONTH%/%YEAR%:%TIME% %INT:ZONE%
 
 # Shortcuts
 QS %QUOTEDSTRING%
+
 
 # Log formats
 SYSLOGBASE %SYSLOGDATE% %HOSTNAME% %SYSLOGPROG%:

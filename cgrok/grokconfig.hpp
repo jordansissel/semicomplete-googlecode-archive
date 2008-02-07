@@ -33,6 +33,7 @@ class GrokConfig {
     typedef vector<WatchFileEntry> watch_file_vector_type;
 
     GrokConfig() {
+      this->patterns.LoadFromFile("patterns");
       this->re_comment = ('#' >> *~_n);
       this->re_whitespace = +_s;
 
@@ -108,7 +109,7 @@ class GrokConfig {
         while ((pos = consumed.find("\n", pos + 1)) != string::npos)
           this->line_number++;
 
-        cout << "Consuming: [" << re.regex_id() << "] '" << input.substr(0, len) << "'" << endl;
+        //cout << "Consuming: [" << re.regex_id() << "] '" << input.substr(0, len) << "'" << endl;
         input = input.substr(len, input.size() - len);
         return true;
       }
@@ -149,9 +150,10 @@ class GrokConfig {
       while (!done) {
         if (this->consume(input, m, this->re_matchtype)) {
           /* Track the type we're adding */
-          WatchMatchType m;
-          m.clear();
-          current_match_type = m;
+          WatchMatchType wmt;
+          wmt.clear();
+          wmt.type_name = StripQuotes(m.str(1));
+          current_match_type = wmt;
           block_matchtype(input);
           current_file_entry.match_types.push_back(current_match_type);
         } else if (this->consume(input, m, this->re_block_end)) {
@@ -171,14 +173,15 @@ class GrokConfig {
       while (!done) {
         if (this->consume(input, m, this->re_match)) {
           cout << "Match: " << m.str(1) << endl;
-          GrokRegex<sregex> gre(m.str(1));
+          GrokRegex<sregex> gre(StripQuotes(m.str(1)));
+          gre.AddPatternSet(this->patterns);
           current_match_type.match_strings.push_back(gre);
         } else if (this->consume(input, m, this->re_threshold)) {
           strconv << m.str(1);
           strconv >> current_match_type.threshold;
         } else if (this->consume(input, m, this->re_reaction)) {
-          //current_match_type.reaction = StripQuotes(m.str(1));
-          //cout << "reaction: " << current_match_type.reaction << endl;
+          current_match_type.reaction = StripQuotes(m.str(1));
+          cout << "reaction: " << current_match_type.reaction << endl;
         } else if (this->consume(input, m, this->re_boolean)) {
           if (m.str(1) == "true" || m.str(1) == "True")
             current_match_type.follow = true;

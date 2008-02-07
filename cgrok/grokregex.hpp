@@ -52,6 +52,10 @@ class GrokRegex {
       return *(this->generated_regex);
     }
 
+    const string& GetOriginalPattern() const {
+      return this->pattern;
+    }
+
     const void SetTrackMatches(bool value) {
       this->track_matches = value;
     }

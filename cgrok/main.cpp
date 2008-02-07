@@ -16,6 +16,8 @@ using namespace boost::xpressive;
 
 typedef map < string, WatchFileEntry > watch_map_type;
 
+FILE *shell_fp;
+
 void grok_line(const FileObserver::data_pair_type &input_pair, 
                watch_map_type &watchmap) {
   const DataInput &di = input_pair.first;
@@ -30,8 +32,8 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
   for (wmt_iter = wfe.match_types.begin();
        wmt_iter != wfe.match_types.end(); 
        wmt_iter++) {
-    WatchMatchType::grok_regex_vector_type &gre_vector = \
-      (*wmt_iter).match_strings;
+    WatchMatchType &wmt = (*wmt_iter);
+    WatchMatchType::grok_regex_vector_type &gre_vector = wmt.match_strings;
     WatchMatchType::grok_regex_vector_type::iterator gre_iter;
 
     if (gre_vector.size() == 0) {
@@ -45,10 +47,23 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
       /* XXX: gre.Search() modifies self, so we can't be const... blah */
       GrokRegex<sregex> &gre = (*gre_iter);
       GrokMatch<sregex> gm;
-      if (gre.Search(line, gm)) {
+      bool success = gre.Search(line, gm);
+      //cout << "Line: " << line << endl;
+      //cout << "Regex: " << gre.GetOriginalPattern() << " : " 
+           //<< gre.GetExpandedPattern() << endl;
+
+      //cout << "Match return: " << success << endl;
+      if (success) {
         GrokMatch<sregex>::match_map_type::const_iterator m_iter;
-        m_iter = gm.GetMatches().find("=MATCH");
-        cout << "Match: " << (*m_iter).second << endl;
+        string expanded_reaction;
+        if (wmt.reaction.size() > 0) {
+          gm.ExpandString(wmt.reaction, expanded_reaction);
+          cout << "Reaction: " << expanded_reaction << endl;
+        } else {
+          cout << "No reaction specified for type section '" << wmt.type_name 
+               << "'" <<  endl;
+        }
+
       }
     }
   }
@@ -69,7 +84,7 @@ int main(int argc, char **argv) {
     config_data += buffer;
   }
 
-  //cout << config_data << endl;
+  shell_fp = popen("/bin/sh", "w");
 
   config.parse(config_data);
 
