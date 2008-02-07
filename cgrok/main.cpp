@@ -25,7 +25,7 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
   WatchFileEntry &wfe = (*map_entry).second;
   const string &line = input_pair.second;
 
-  cout << "(" << di.data << ") " << line << endl;
+  //cout << "(" << di.data << ") " << line << endl;
 
   vector<WatchMatchType>::iterator wmt_iter;
 
@@ -59,6 +59,10 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
         if (wmt.reaction.size() > 0) {
           gm.ExpandString(wmt.reaction, expanded_reaction);
           cout << "Reaction: " << expanded_reaction << endl;
+          expanded_reaction += "\n";
+
+          fwrite(expanded_reaction.c_str(), expanded_reaction.size(), 1, shell_fp);
+          fflush(shell_fp);
         } else {
           cout << "No reaction specified for type section '" << wmt.type_name 
                << "'" <<  endl;

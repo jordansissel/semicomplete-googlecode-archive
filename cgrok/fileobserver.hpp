@@ -183,7 +183,7 @@ class FileObserver {
         DataInput di = *iter;
         
         if (di.CanRead()) {
-          cout << "File: " << di.fd << "(" << di.data  << ")" << endl;
+          //cout << "File: " << di.fd << "(" << di.data  << ")" << endl;
           FD_SET(fileno(di.fd), &in_fdset);
           FD_SET(fileno(di.fd), &err_fdset);
         } else {
@@ -203,7 +203,7 @@ class FileObserver {
       } else if (ret == 0) {
         return; /* Nothing to read */
       }
-      cout << "Select returned " << ret << endl;
+      //cout << "Select returned " << ret << endl;
 
       /* else, ret > 0, read data from the inputs */
       //cout << "Input size: " << this->inputs.size() << endl;
@@ -246,12 +246,16 @@ class FileObserver {
       //cout << "fd: " << di.fd << endl;
       //cout << "fn: " << fileno(di.fd) << endl;
 
+      //setlinebuf(di.fd);
+
       while (!done) {
         FD_ZERO(&fdset);
         FD_SET(fileno(di.fd), &fdset);
         tv.tv_sec = 0;
         tv.tv_usec = 0;
+        //cout << "Waiting for data" << endl;
         ret = select(FD_SETSIZE, &fdset, NULL, &fdset, &tv);
+        //cout << "Finished waiting for data" << endl;
 
         /* XXX: Handle '< 0' and '== 0' cases separately */
         if (ret <= 0) {
@@ -260,9 +264,14 @@ class FileObserver {
         }
 
         int bytes;
+        char *fgets_ret;
 
-        bytes = fread(readbuf, 1, 4096, di.fd);
-        if (bytes == 0)
+        //cout << "Starting read" << endl;
+        //bytes = fread(readbuf, 1, 4096, di.fd);
+        fgets_ret = fgets(readbuf, 4096, di.fd);
+        bytes = strlen(readbuf);
+        //cout << "Finished read" << endl;
+        if (fgets_ret == NULL)
           done = true;
         else
           buffer.append(readbuf, bytes);

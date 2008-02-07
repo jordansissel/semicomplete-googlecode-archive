@@ -48,6 +48,7 @@ class GrokConfig {
        * causes captures not to be obeyed. Strange. */
       this->re_skip = bos >> +(this->re_comment | this->re_whitespace);
       this->re_file = bos >> "file" >> +_s >> (s1=re_string) >> re_block_begin;
+      this->re_exec = bos >> "exec" >> +_s >> (s1=re_string) >> re_block_begin;
       this->re_filelist = bos >> "filelist" >> +_s >> (s1=re_string) >> re_block_begin;
 
       this->re_matchtype = bos >> "type" >> +_s >> (s1=re_string) >> re_block_begin;
@@ -133,7 +134,14 @@ class GrokConfig {
           f.fo.AddFile(f.name);
           current_file_entry = f;
           block_file(input);
-          //current_file_entry.fo.OpenAll();
+          inputs.push_back(current_file_entry);
+        } else if (this->consume(input, m, this->re_exec)) {
+          WatchFileEntry f;
+          cout << "Exec: " << m.str(1) << endl;
+          f.name = StripQuotes(m.str(1));
+          f.fo.AddCommand(f.name);
+          current_file_entry = f;
+          block_file(input);
           inputs.push_back(current_file_entry);
         } else if (input.size() == 0) {
           /* We've reached eof */
@@ -224,6 +232,7 @@ class GrokConfig {
 
     sregex re_config;
     sregex re_file;
+    sregex re_exec;
     sregex re_filelist;
 
     sregex re_matchtype;

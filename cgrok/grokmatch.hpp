@@ -11,8 +11,9 @@ class GrokMatch {
     typedef map<string, typename regex_type::string_type> match_map_type;
     sregex pattern_expand_re;
     mark_tag mark_pattern_name;
+    mark_tag mark_filters;
 
-    GrokMatch() : mark_pattern_name(1) { 
+    GrokMatch() : mark_pattern_name(1), mark_filters(2) { 
       /* nothing to do */
     }
 
@@ -27,15 +28,17 @@ class GrokMatch {
 
       /* Set some default values */
       string match_key = "=MATCH";
+      string line_key = "=LINE";
       this->matches[match_key] = match.str(0);
+      this->matches[line_key] = this->match_string;
 
-      this->mark_pattern_name = 1;
       this->pattern_expand_re = 
         as_xpr('%')
           >> (GrokMatch::mark_pattern_name =
-              +(alnum | digit | as_xpr('_'))
+              !(as_xpr('=')) >> +(alnum | as_xpr('_'))
               >> !(as_xpr(':') >> +(alnum | digit))
              )
+          //>> (GrokMatch::mark_filters =
         >> as_xpr('%');
     }
 
@@ -78,10 +81,11 @@ class GrokMatch {
         last_pos = match.position() + match.length();
 
         map_iter = this->matches.find(pattern_name);
-        if (map_iter != this->matches.end())
+        if (map_iter != this->matches.end()) {
           dst += (*map_iter).second;
-        else
+        } else {
           dst += "%" + pattern_name + "%";
+        }
       }
 
       if (last_pos < src.size())
