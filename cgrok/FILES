@@ -7,6 +7,8 @@
 + /t
 + /t/*.test
 + /t/Makefile
++ t/generate_pattern_test.sh
++ t/patterns.test_template
 + t/cxxtest
 + t/cxxtest/COPYING
 + t/cxxtest/README
