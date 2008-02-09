@@ -36,9 +36,11 @@ class GrokMatch {
         as_xpr('%')
           >> (GrokMatch::mark_pattern_name =
               !(as_xpr('=')) >> +(alnum | as_xpr('_'))
-              >> !(as_xpr(':') >> +(alnum | digit))
+              >> !(as_xpr(':') >> +(alnum))
              )
-          //>> (GrokMatch::mark_filters =
+          >> (GrokMatch::mark_filters =
+              *('|' >> +alnum)
+             )
         >> as_xpr('%');
     }
 
@@ -74,6 +76,7 @@ class GrokMatch {
       for (; cur != end; cur++) {
         match_results<typename regex_type::iterator_type> match = *cur;
         string pattern_name = match[this->mark_pattern_name].str();
+        string filter_str = match[this->mark_filters].str();
 
         if (match.position() > last_pos)
           dst += src.substr(last_pos, match.position() - last_pos);
@@ -82,7 +85,9 @@ class GrokMatch {
 
         map_iter = this->matches.find(pattern_name);
         if (map_iter != this->matches.end()) {
-          dst += (*map_iter).second;
+          string value = (*map_iter).second;
+          this->Filter(value, filter_str);
+          dst += value;
         } else {
           dst += "%" + pattern_name + "%";
         }
@@ -90,6 +95,38 @@ class GrokMatch {
 
       if (last_pos < src.size())
         dst += src.substr(last_pos, src.size() - last_pos);
+    }
+
+    void Filter(string &value, const string &filter_str) {
+      string::size_type pos = 0;
+      string::size_type last_pos = 0;
+      string filter_func;
+      vector<string> filters;
+      cout << "Filter str: " << filter_str << endl;
+      while ((pos = filter_str.find("|", last_pos)) != string::npos) {
+        filter_func = filter_str.substr(last_pos, (pos - last_pos));
+        last_pos = pos + 1;
+        if (filter_func.size() > 0)
+          filters.push_back(filter_func);
+      }
+      /* Capture the last one, too */
+      filter_func = filter_str.substr(last_pos, (filter_str.size() - last_pos));
+      if (filter_func.size() > 0)
+        filters.push_back(filter_func);
+
+      vector<string>::iterator filter_iter;
+      for (filter_iter = filters.begin(); filter_iter != filters.end(); filter_iter++) {
+        cout << "Filter: " << *filter_iter << endl;
+        if (*filter_iter == "shellescape")
+          this->Filter_ShellEscape(value);
+      }
+    }
+
+    void Filter_ShellEscape(string &value) {
+      sregex re_chars = sregex::compile("[(){}\\[\\]\"'!$^~;<>?\\\\]");
+      string format = "\\$&";
+      value = regex_replace(value, re_chars, format);
+      cout << "New value: " << value << endl;;
     }
 
   private:
