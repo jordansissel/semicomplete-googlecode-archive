@@ -44,7 +44,6 @@ class WatchFileEntry {
       this->name = "";
       this->match_types.clear();
     }
-
 };
 
 #endif /* ifndef __WATCHFILEENTRY_HPP */

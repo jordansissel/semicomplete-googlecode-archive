@@ -4,6 +4,8 @@
 #include <string>
 #include <boost/xpressive/xpressive.hpp>
 
+#include <popt.h>
+
 #include "grokpatternset.hpp"
 #include "grokregex.hpp"
 #include "grokmatch.hpp"
@@ -15,14 +17,23 @@ using namespace boost::xpressive;
 #define CONFIG_BUFSIZE 4096
 
 typedef map < string, WatchFileEntry > watch_map_type;
-
 FILE *shell_fp;
 
-void StringEscape(string &value, const string &chars) {
-  sregex re_chars = sregex::compile("[" + chars + "]");
-  string format = "\\$&";
-  value = regex_replace(value, re_chars, format);
+char *flag_match;
+char *flag_result;
+int flag_json;
+
+struct poptOption options_table[] = {
+  /* longName, shortName, argInfo, arg, val, descrip, argDescrip */
+  { NULL, 'm', POPT_ARG_STRING, &flag_match, 0, 
+   "Match string", "Match string" },
+  { NULL, 'r', POPT_ARG_STRING, &flag_result, 0, 
+   "Result string", "Result string" },
+  { "json", '\0', POPT_ARG_NONE, &flag_json, 0, 
+   "Enable json output (overrides -r)", NULL },
 }
+
+
 
 void grok_line(const FileObserver::data_pair_type &input_pair, 
                watch_map_type &watchmap) {
