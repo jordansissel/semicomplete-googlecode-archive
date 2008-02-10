@@ -18,6 +18,12 @@ typedef map < string, WatchFileEntry > watch_map_type;
 
 FILE *shell_fp;
 
+void StringEscape(string &value, const string &chars) {
+  sregex re_chars = sregex::compile("[" + chars + "]");
+  string format = "\\$&";
+  value = regex_replace(value, re_chars, format);
+}
+
 void grok_line(const FileObserver::data_pair_type &input_pair, 
                watch_map_type &watchmap) {
   const DataInput &di = input_pair.first;
@@ -57,11 +63,30 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
         GrokMatch<sregex>::match_map_type::const_iterator m_iter;
         string expanded_reaction;
         if (wmt.reaction.size() > 0) {
-          gm.ExpandString(wmt.reaction, expanded_reaction);
-          cout << "Reaction: " << expanded_reaction << endl;
-          expanded_reaction += "\n";
-
-          fwrite(expanded_reaction.c_str(), expanded_reaction.size(), 1, shell_fp);
+          if (wmt.reaction == "json_output") {
+            GrokMatch<sregex>::match_map_type matchmap;
+            GrokMatch<sregex>::match_map_type::const_iterator map_iter;
+            matchmap = gm.GetMatches();
+            cout << "{";
+            for (map_iter = matchmap.begin();
+                 map_iter != matchmap.end();
+                 map_iter++) {
+              string key, val;
+              key = (*map_iter).first;
+              val = (*map_iter).second;
+              StringEscape(key, "\"");
+              StringEscape(val, "\"");
+              cout << "\"" << key << "\": ";
+              cout << "\"" << val << "\",";
+            }
+            cout << "}" << endl;;
+          } else {
+            gm.ExpandString(wmt.reaction, expanded_reaction);
+            cout << "Reaction: " << expanded_reaction << endl;
+            expanded_reaction += "\n";
+            fwrite(expanded_reaction.c_str(), expanded_reaction.size(), 
+                   1, shell_fp);
+          }
           fflush(shell_fp);
         } else {
           cout << "No reaction specified for type section '" << wmt.type_name 

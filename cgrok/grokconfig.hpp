@@ -54,7 +54,7 @@ class GrokConfig {
       this->re_matchtype = bos >> "type" >> +_s >> (s1=re_string) >> re_block_begin;
 
       this->re_match = bos >> "match" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
-      this->re_reaction = bos >> "reaction" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
+      this->re_reaction = bos >> "reaction" >> R_EQ >> (s1=re_string | "json_output") >> R_TERMINATOR;
       this->re_threshold = bos >> "threshold" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
       this->re_follow = bos >> "follow" >> R_EQ >> (s1=re_boolean) >> R_TERMINATOR;
       this->re_interval = bos >> "interval" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
@@ -188,8 +188,12 @@ class GrokConfig {
           strconv << m.str(1);
           strconv >> current_match_type.threshold;
         } else if (this->consume(input, m, this->re_reaction)) {
-          current_match_type.reaction = StripQuotes(m.str(1));
-          cout << "reaction: " << current_match_type.reaction << endl;
+          if (m.str(1) == "json_output") {
+            current_match_type.reaction = m.str(1);
+          } else {
+            current_match_type.reaction = StripQuotes(m.str(1));
+            cout << "reaction: " << current_match_type.reaction << endl;
+          }
         } else if (this->consume(input, m, this->re_boolean)) {
           if (m.str(1) == "true" || m.str(1) == "True")
             current_match_type.follow = true;

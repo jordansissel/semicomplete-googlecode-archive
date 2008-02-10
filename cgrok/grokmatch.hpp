@@ -4,6 +4,13 @@
 #include <boost/xpressive/xpressive.hpp>
 using namespace boost::xpressive;
 
+static void StringSlashEscape(string &value, const string &chars) {
+  sregex re_chars = sregex::compile("[" + chars + "]");
+  string format = "\\$&";
+  value = regex_replace(value, re_chars, format);
+}
+
+
 template <typename regex_type>
 class GrokMatch {
 
@@ -29,8 +36,8 @@ class GrokMatch {
       /* Set some default values */
       string match_key = "=MATCH";
       string line_key = "=LINE";
-      this->matches[match_key] = match.str(0);
-      this->matches[line_key] = this->match_string;
+      this->matches[match_key] = this->match_string;
+      this->matches[line_key] = data;
 
       this->pattern_expand_re = 
         as_xpr('%')
@@ -97,6 +104,28 @@ class GrokMatch {
         dst += src.substr(last_pos, src.size() - last_pos);
     }
 
+    void ToJSON(string &dst) {
+      typename match_map_type::const_iterator map_iter;
+      dst = "{";
+
+      for (map_iter = this->matches.begin();
+           map_iter != this->matches.end();
+           map_iter++) {
+        string key = (*map_iter).first:
+        string val = (*map_iter).second;
+        StringSlashEscape(key, "\"");
+        StringSlashEscape(val, "\"");
+        dst += "\"" + key + "\": ";
+        dst += "\"" + val;
+
+        if (map_iter + 1 != this->matches.end())
+          dst += ", ";
+      }
+      # trim 
+      dst += "}";
+
+    }
+      
     void Filter(string &value, const string &filter_str) {
       string::size_type pos = 0;
       string::size_type last_pos = 0;
@@ -123,10 +152,7 @@ class GrokMatch {
     }
 
     void Filter_ShellEscape(string &value) {
-      sregex re_chars = sregex::compile("[(){}\\[\\]\"'!$^~;<>?\\\\]");
-      string format = "\\$&";
-      value = regex_replace(value, re_chars, format);
-      cout << "New value: " << value << endl;;
+      StringSlashEscape(value, "(){}\\[\\]\"'!$^~;<>?\\\\");
     }
 
   private:
