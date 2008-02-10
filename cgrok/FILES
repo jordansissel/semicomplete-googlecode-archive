@@ -25,3 +25,4 @@
 + t/cxxtest/sample
 + t/cxxtest/sample/*
 - *
+- *.o

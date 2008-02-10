@@ -115,7 +115,7 @@ class GrokMatch {
         StringSlashEscape(key, "\"");
         StringSlashEscape(val, "\"");
         dst += "\"" + key + "\": ";
-        dst += "\"" + val;
+        dst += "\"" + val + "\"";
 
         map_iter++;
         if (map_iter != this->matches.end())

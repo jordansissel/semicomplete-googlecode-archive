@@ -19,11 +19,13 @@ fi
 TMP="/tmp"
 PACKAGE="$PACKAGE-$1"
 DIR="${TMP}/${PACKAGE}"
+rm -rf "$DIR"
 mkdir "$DIR"
 rsync -a --filter '. FILES' . "$DIR"
 
 # gnu tar sucks, tar -C /tmp doesn't actually change directories for tar
 # creation?
+find $DIR -name '*.o' -delete
 tar -C /tmp/ -zcf "${PACKAGE}.tar.gz" "$PACKAGE"
 rm -r "$DIR"
 

@@ -31,8 +31,11 @@ string StripQuotes(const string &str) {
 class GrokConfig {
   public:
     typedef vector<WatchFileEntry> watch_file_vector_type;
+    typedef map < regex_id_type, string > regex_id_map_type;
 
     GrokConfig() {
+      this->offset = 0;
+
       this->patterns.LoadFromFile("patterns");
       this->re_comment = ('#' >> *~_n);
       this->re_whitespace = +_s;
@@ -66,27 +69,26 @@ class GrokConfig {
       this->re_syslog_host = bos >> "syslog_host" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
       this->re_shell = bos >> "shell" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
 
-      //cout << "this->re_comment: " << this->re_comment.regex_id() << endl;
-      //cout << "this->re_whitespace: " << this->re_whitespace.regex_id() << endl;
-      //cout << "this->re_block_begin: " << this->re_block_begin.regex_id() << endl;
-      //cout << "this->re_block_end: " << this->re_block_end.regex_id() << endl;
-      //cout << "this->re_string: " << this->re_string.regex_id() << endl;
-      //cout << "this->re_number: " << this->re_number.regex_id() << endl;
-      //cout << "this->re_boolean: " << this->re_boolean.regex_id() << endl;
-      //cout << "this->re_skip: " << this->re_skip.regex_id() << endl;
-      //cout << "this->re_file: " << this->re_file.regex_id() << endl;
-      //cout << "this->re_filelist: " << this->re_filelist.regex_id() << endl;
-      //cout << "this->re_matchtype: " << this->re_matchtype.regex_id() << endl;
-      //cout << "this->re_match: " << this->re_match.regex_id() << endl;
-      //cout << "this->re_reaction: " << this->re_reaction.regex_id() << endl;
-      //cout << "this->re_threshold: " << this->re_threshold.regex_id() << endl;
-      //cout << "this->re_follow: " << this->re_follow.regex_id() << endl;
-      //cout << "this->re_interval: " << this->re_interval.regex_id() << endl;
-      //cout << "this->re_key: " << this->re_key.regex_id() << endl;
-      //cout << "this->re_match_syslog: " << this->re_match_syslog.regex_id() << endl;
-      //cout << "this->re_syslog_prog: " << this->re_syslog_prog.regex_id() << endl;
-      //cout << "this->re_syslog_host: " << this->re_syslog_host.regex_id() << endl;
-      //cout << "this->re_shell: " << this->re_shell.regex_id() << endl;
+      this->regex_id_map[this->re_comment.regex_id()].assign("re_comment");
+      this->regex_id_map[this->re_whitespace.regex_id()].assign("re_whitespace");
+      this->regex_id_map[this->re_block_begin.regex_id()].assign("re_block_begin");
+      this->regex_id_map[this->re_block_end.regex_id()].assign("re_block_end");
+      this->regex_id_map[this->re_string.regex_id()].assign("re_string");
+      this->regex_id_map[this->re_number.regex_id()].assign("re_number");
+      this->regex_id_map[this->re_boolean.regex_id()].assign("re_boolean");
+      this->regex_id_map[this->re_skip.regex_id()].assign("re_skip");
+      this->regex_id_map[this->re_file.regex_id()].assign("re_file");
+      this->regex_id_map[this->re_filelist.regex_id()].assign("re_filelist");
+      this->regex_id_map[this->re_matchtype.regex_id()].assign("re_matchtype");
+      this->regex_id_map[this->re_match.regex_id()].assign("re_match");
+      this->regex_id_map[this->re_reaction.regex_id()].assign("re_reaction");
+      this->regex_id_map[this->re_threshold.regex_id()].assign("re_threshold");
+      this->regex_id_map[this->re_interval.regex_id()].assign("re_interval");
+      this->regex_id_map[this->re_key.regex_id()].assign("re_key");
+      this->regex_id_map[this->re_match_syslog.regex_id()].assign("re_match_syslog");
+      this->regex_id_map[this->re_syslog_prog.regex_id()].assign("re_syslog_prog");
+      this->regex_id_map[this->re_syslog_host.regex_id()].assign("re_syslog_host");
+      this->regex_id_map[this->re_shell.regex_id()].assign("re_shell");
     }
 
     void parse(const string config) {
@@ -99,30 +101,35 @@ class GrokConfig {
       int ret;
 
       /* Skip whitespace and comments */
-      if (re.regex_id() != this->re_skip.regex_id()) {
+      if (re.regex_id() != this->re_skip.regex_id())
         this->consume(input, m, this->re_skip);
+
+      string::iterator iter_offset = input.begin() + this->offset;
+      ret = regex_search(iter_offset, input.end(), m, re);
+      if (!ret)
+        return false;
+
+      string::size_type len = this->offset + m.position(0) + m.length(0);
+      string::size_type pos = 0;
+
+      string consumed = m.str(0);
+      while ((pos = consumed.find("\n", pos + 1)) != string::npos)
+        this->line_number++;
+
+      if (0) {
+        string regex_name = this->regex_id_map[re.regex_id()];
+        cout << "Consuming: [" << regex_name << " (" << re.regex_id() << ")] " 
+           "'" << consumed << "'" << endl;
       }
-
-      ret = regex_search(input, m, re);
-      if (ret) {
-        string::size_type len = m.position(0) + m.length(0);
-        string::size_type pos = string::npos;
-
-        string consumed = input.substr(0, len);
-        while ((pos = consumed.find("\n", pos + 1)) != string::npos)
-          this->line_number++;
-
-        //cout << "Consuming: [" << re.regex_id() << "] '" << input.substr(0, len) << "'" << endl;
-        input = input.substr(len, input.size() - len);
-        return true;
-      }
-      return false;
+      //cout << "New offset: " << len << endl;
+      this->offset = len;
+      return true;
     }
 
     void parse_error(const string &where, string &input) const {
       cerr << "(" << where << ") Unrecognized input on line " 
            << this->line_number << ": '"
-           << input.substr(0, input.find("\n")) << "'" << endl;
+           << input.substr(this->offset, input.find("\n")) << "'" << endl;
     }
 
     void block_config(string &input) {
@@ -155,8 +162,7 @@ class GrokConfig {
           current_file_entry = f;
           block_file(input);
           inputs.push_back(current_file_entry);
-        } else if (input.size() == 0) {
-          /* We've reached eof */
+        } else if (this->AtEndOfConfig(input)) {
           done = true;
         } else {
           this->parse_error("main config", input);
@@ -172,7 +178,9 @@ class GrokConfig {
           /* Track the type we're adding */
           WatchMatchType wmt;
           wmt.clear();
+          cout << "Type name1: " << m.str(0) << endl;
           wmt.type_name = StripQuotes(m.str(1));
+          cout << "Type name: " << wmt.type_name << endl;
           current_match_type = wmt;
           block_matchtype(input);
           current_file_entry.match_types.push_back(current_match_type);
@@ -236,6 +244,19 @@ class GrokConfig {
       }
     }
 
+    bool AtEndOfConfig(const string &input) {
+      if (this->offset == input.size())
+        return true;
+      if (this->offset > input.size()) {
+        cerr << "The config read offset is past the end of config string...?" 
+             << " offset=" << this->offset << "; configsize=" 
+             << input.size() << endl;
+        return true;
+      }
+
+      return false;
+    }
+
     watch_file_vector_type &GetFileEntries() {
       return inputs;
     }
@@ -274,6 +295,8 @@ class GrokConfig {
     watch_file_vector_type inputs;
     WatchFileEntry current_file_entry;
     WatchMatchType current_match_type;
+    regex_id_map_type regex_id_map;
+    string::size_type offset;
 };
 
 #endif /* ifndef __GROKCONFIG_HPP */

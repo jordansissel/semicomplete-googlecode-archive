@@ -63,7 +63,8 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
         continue;
 
       GrokMatch<sregex>::match_map_type::const_iterator m_iter;
-      if (wmt.reaction.size() == 0) {
+      if (wmt.reaction.size() == 0 
+          && wmt.reaction_type != WatchMatchType::JSON) {
         cout << "No reaction specified for type section '" << wmt.type_name 
              << "'" <<  endl;
         continue;
