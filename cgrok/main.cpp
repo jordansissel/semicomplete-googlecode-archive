@@ -64,22 +64,9 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
         string expanded_reaction;
         if (wmt.reaction.size() > 0) {
           if (wmt.reaction == "json_output") {
-            GrokMatch<sregex>::match_map_type matchmap;
-            GrokMatch<sregex>::match_map_type::const_iterator map_iter;
-            matchmap = gm.GetMatches();
-            cout << "{";
-            for (map_iter = matchmap.begin();
-                 map_iter != matchmap.end();
-                 map_iter++) {
-              string key, val;
-              key = (*map_iter).first;
-              val = (*map_iter).second;
-              StringEscape(key, "\"");
-              StringEscape(val, "\"");
-              cout << "\"" << key << "\": ";
-              cout << "\"" << val << "\",";
-            }
-            cout << "}" << endl;;
+            string json;
+            gm.ToJSON(json);
+            cout << json << endl;
           } else {
             gm.ExpandString(wmt.reaction, expanded_reaction);
             cout << "Reaction: " << expanded_reaction << endl;

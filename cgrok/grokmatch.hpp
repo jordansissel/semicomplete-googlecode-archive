@@ -10,7 +10,6 @@ static void StringSlashEscape(string &value, const string &chars) {
   value = regex_replace(value, re_chars, format);
 }
 
-
 template <typename regex_type>
 class GrokMatch {
 
@@ -110,18 +109,18 @@ class GrokMatch {
 
       for (map_iter = this->matches.begin();
            map_iter != this->matches.end();
-           map_iter++) {
-        string key = (*map_iter).first:
+           /* no increment here, see bottom of loop */) {
+        string key = (*map_iter).first;
         string val = (*map_iter).second;
         StringSlashEscape(key, "\"");
         StringSlashEscape(val, "\"");
         dst += "\"" + key + "\": ";
         dst += "\"" + val;
 
-        if (map_iter + 1 != this->matches.end())
+        map_iter++;
+        if (map_iter != this->matches.end())
           dst += ", ";
       }
-      # trim 
       dst += "}";
 
     }
