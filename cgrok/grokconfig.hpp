@@ -48,6 +48,7 @@ class GrokConfig {
        * causes captures not to be obeyed. Strange. */
       this->re_skip = bos >> +(this->re_comment | this->re_whitespace);
       this->re_file = bos >> "file" >> +_s >> (s1=re_string) >> re_block_begin;
+      this->re_file_follow = bos >> "file_follow"  >> +_s >> (s1=re_string) >> re_block_begin;
       this->re_exec = bos >> "exec" >> +_s >> (s1=re_string) >> re_block_begin;
       this->re_filelist = bos >> "filelist" >> +_s >> (s1=re_string) >> re_block_begin;
 
@@ -55,8 +56,9 @@ class GrokConfig {
 
       this->re_match = bos >> "match" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
       this->re_reaction = bos >> "reaction" >> R_EQ >> (s1=re_string | "json_output") >> R_TERMINATOR;
+      this->re_reaction_print = bos >> "reaction_print" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
       this->re_threshold = bos >> "threshold" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
-      this->re_follow = bos >> "follow" >> R_EQ >> (s1=re_boolean) >> R_TERMINATOR;
+      //this->re_follow = bos >> "follow" >> R_EQ >> (s1=re_boolean) >> R_TERMINATOR;
       this->re_interval = bos >> "interval" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
       this->re_key = bos >> "key" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
       this->re_match_syslog = bos >> "match_syslog" >> R_EQ >> (s1=re_string) >> R_TERMINATOR;
@@ -127,11 +129,21 @@ class GrokConfig {
       smatch m;
       bool done = false;
       while (!done) {
+        /* XXX: Most of the code in the 3 condition blocks below are the same
+         * Fix that. */
         if (this->consume(input, m, this->re_file)) {
           WatchFileEntry f;
           cout << "Filename: " << m.str(1) << endl;
           f.name = StripQuotes(m.str(1));
-          f.fo.AddFile(f.name);
+          f.fo.AddFile(f.name, false);
+          current_file_entry = f;
+          block_file(input);
+          inputs.push_back(current_file_entry);
+        } else if (this->consume(input, m, this->re_file_follow)) {
+          WatchFileEntry f;
+          cout << "FollowFilename: " << m.str(1) << endl;
+          f.name = StripQuotes(m.str(1));
+          f.fo.AddFile(f.name, true);
           current_file_entry = f;
           block_file(input);
           inputs.push_back(current_file_entry);
@@ -189,11 +201,15 @@ class GrokConfig {
           strconv >> current_match_type.threshold;
         } else if (this->consume(input, m, this->re_reaction)) {
           if (m.str(1) == "json_output") {
-            current_match_type.reaction = m.str(1);
+            current_match_type.reaction_type = WatchMatchType::JSON;
           } else {
             current_match_type.reaction = StripQuotes(m.str(1));
             cout << "reaction: " << current_match_type.reaction << endl;
+            current_match_type.reaction_type = WatchMatchType::SHELL;
           }
+        } else if (this->consume(input, m, this->re_reaction_print)) {
+          current_match_type.reaction_type = WatchMatchType::PRINT;
+          current_match_type.reaction = StripQuotes(m.str(1));
         } else if (this->consume(input, m, this->re_boolean)) {
           if (m.str(1) == "true" || m.str(1) == "True")
             current_match_type.follow = true;
@@ -236,6 +252,7 @@ class GrokConfig {
 
     sregex re_config;
     sregex re_file;
+    sregex re_file_follow;
     sregex re_exec;
     sregex re_filelist;
 
@@ -244,12 +261,13 @@ class GrokConfig {
       sregex re_threshold;
       sregex re_interval;
       sregex re_reaction;
+      sregex re_reaction_print;
       sregex re_key;
       sregex re_match_syslog;
       sregex re_syslog_prog;
       sregex re_syslog_host;
       sregex re_shell;
-      sregex re_follow;
+      //sregex re_follow;
       sregex re_boolean;
 
     GrokPatternSet<sregex> patterns;

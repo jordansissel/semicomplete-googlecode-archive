@@ -130,7 +130,6 @@ class GrokMatch {
       string::size_type last_pos = 0;
       string filter_func;
       vector<string> filters;
-      cout << "Filter str: " << filter_str << endl;
       while ((pos = filter_str.find("|", last_pos)) != string::npos) {
         filter_func = filter_str.substr(last_pos, (pos - last_pos));
         last_pos = pos + 1;

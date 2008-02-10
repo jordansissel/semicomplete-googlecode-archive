@@ -59,31 +59,38 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
            //<< gre.GetExpandedPattern() << endl;
 
       //cout << "Match return: " << success << endl;
-      if (success) {
-        GrokMatch<sregex>::match_map_type::const_iterator m_iter;
-        string expanded_reaction;
-        if (wmt.reaction.size() > 0) {
-          if (wmt.reaction == "json_output") {
-            string json;
-            gm.ToJSON(json);
-            cout << json << endl;
-          } else {
-            gm.ExpandString(wmt.reaction, expanded_reaction);
-            cout << "Reaction: " << expanded_reaction << endl;
-            expanded_reaction += "\n";
-            fwrite(expanded_reaction.c_str(), expanded_reaction.size(), 
-                   1, shell_fp);
-          }
-          fflush(shell_fp);
-        } else {
-          cout << "No reaction specified for type section '" << wmt.type_name 
-               << "'" <<  endl;
-        }
+      if (!success)
+        continue;
 
+      GrokMatch<sregex>::match_map_type::const_iterator m_iter;
+      if (wmt.reaction.size() == 0) {
+        cout << "No reaction specified for type section '" << wmt.type_name 
+             << "'" <<  endl;
+        continue;
       }
-    }
-  }
 
+      string data;
+      switch (wmt.reaction_type) {
+        case WatchMatchType::SHELL:
+          gm.ExpandString(wmt.reaction, data);
+          //cout << "Reaction: " << data << endl;
+          data += "\n";
+          fwrite(data.c_str(), data.size(), 1, shell_fp);
+          fflush(shell_fp);
+          break;
+        case WatchMatchType::JSON:
+          gm.ToJSON(data);
+          cout << data << endl;
+          break;
+        case WatchMatchType::PRINT:
+          gm.ExpandString(wmt.reaction, data);
+          cout << data << endl;
+          break;
+        default:
+          cerr << "UNKNOWN REACTION TYPE FOUND: " << wmt.reaction_type << endl;
+      } /* switch wmt.reaction_type */
+    } /* for ... gre_vector.begin() to .end() */
+  } /* for ... wfe.match_types.begin() to .end()  */
 }
 
 int main(int argc, char **argv) {

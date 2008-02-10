@@ -6,12 +6,14 @@
 
 struct WatchMatchType {
   typedef vector < GrokRegex<sregex> > grok_regex_vector_type;
+  enum reaction_type { SHELL, PRINT, JSON };
   string type_name; /* "foo" from 'type "foo" {' in grok.conf  */
   grok_regex_vector_type match_strings;
   float threshold;
   float interval;
   string key;
   string reaction;
+  enum reaction_type reaction_type;
   bool match_syslog;
   bool follow;
   string syslog_prog;

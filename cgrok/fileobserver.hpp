@@ -90,13 +90,13 @@ class FileObserver {
       this->inputs.push_back(di);
     }
 
-    void AddFile(string filename) {
+    void AddFile(string filename, bool follow=true) {
       DataInput di;
       di.clear();
       di.data = filename;
       di.fd = NULL;
       di.is_command = false;
-      di.follow = true;
+      di.follow = follow;
       cout << "Adding file: " << filename << endl;
 
       this->inputs.push_back(di);
@@ -187,7 +187,7 @@ class FileObserver {
           FD_SET(fileno(di.fd), &in_fdset);
           FD_SET(fileno(di.fd), &err_fdset);
         } else {
-          if (!di.IsValid()) {
+          if (!di.IsValid() || !di.follow) {
             cout << "Removing no-longer-valid file entry: " << di.data << endl;
             this->inputs.erase(iter);
           } else {
