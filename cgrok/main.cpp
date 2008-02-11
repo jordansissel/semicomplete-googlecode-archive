@@ -19,10 +19,12 @@ using namespace boost::xpressive;
 typedef map < string, WatchFileEntry > watch_map_type;
 FILE *shell_fp;
 
-char *flag_match;
-char *flag_result;
-int flag_json;
+char *flag_match = NULL;
+char *flag_result = "%=MATCH%";
+char *flag_config_file = NULL;
+int flag_json = 0;
 
+/* Flags aren't yet enabled, don't use them */
 struct poptOption options_table[] = {
   /* longName, shortName, argInfo, arg, val, descrip, argDescrip */
   { NULL, 'm', POPT_ARG_STRING, &flag_match, 0, 
@@ -31,9 +33,10 @@ struct poptOption options_table[] = {
    "Result string", "Result string" },
   { "json", '\0', POPT_ARG_NONE, &flag_json, 0, 
    "Enable json output (overrides -r)", NULL },
-}
-
-
+  { "config_file", 'f', POPT_ARG_STRING, &flag_config_file, 0, 
+   "Config file", NULL },
+  POPT_TABLEEND
+};
 
 void grok_line(const FileObserver::data_pair_type &input_pair, 
                watch_map_type &watchmap) {
@@ -105,18 +108,46 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
   } /* for ... wfe.match_types.begin() to .end()  */
 }
 
-int main(int argc, char **argv) {
+int main(int argc, const char **argv) {
   GrokConfig config;
-  ifstream in(argv[1]);
   string config_data = "";
   char buffer[CONFIG_BUFSIZE];
   int bytes = 0;
+  int popt_ret;
+  poptContext popts_context;
 
-  while (!(in.eof() || in.fail())) {
-    in.read(buffer, CONFIG_BUFSIZE);
-    bytes = in.gcount();
-    buffer[bytes] = '\0';
-    config_data += buffer;
+  popts_context = poptGetContext(NULL, argc, argv, options_table, 0);
+  popt_ret = poptGetNextOpt(popts_context);
+  if (popt_ret < -1) { /* -1 means we're done parsing, less than that means error */
+    cout << "Error parsing arguments." << endl;
+    cout << "-> " << poptStrerror(popt_ret) << endl;
+    return 1;
+  }
+
+  if (flag_config_file != NULL) {
+    ifstream in(flag_config_file);
+    while (!(in.eof() || in.fail())) {
+      in.read(buffer, CONFIG_BUFSIZE);
+      bytes = in.gcount();
+      buffer[bytes] = '\0';
+      config_data += buffer;
+    }
+  } else if (flag_match != NULL) {
+    config_data += "file \"/dev/stdin\" {";
+    config_data += "  type \"all\" {";
+    config_data += "    match = \"";
+    config_data += flag_match;
+    config_data += "\";";
+    if (flag_json) {
+      config_data += "    reaction = json_output;";
+    } else {
+      config_data += "    reaction_print = \"";
+      config_data += flag_result;
+      config_data += "\";";
+    }
+    config_data += "  };";
+    config_data += "};";
+    cout << config_data << endl;
   }
 
   shell_fp = popen("/bin/sh", "w");
