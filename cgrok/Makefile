@@ -1,7 +1,7 @@
 PACKAGE=cgrok
 
 CPP=g++
-CFLAGS=-I/usr/local/include
+CFLAGS=-pipe -I/usr/local/include
 
 CFLAGS+=-g
 #CFLAGS+=-O2
