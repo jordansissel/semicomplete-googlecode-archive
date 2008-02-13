@@ -75,10 +75,10 @@ class GrokPredicate {
         }
       }
 
-      //cout << "Predicate type: " << (this->type == T_INT ? "int" : "string") << endl;
-      //cout << "Flags: " << this->flags << endl;
-      //cout << "String: " << this->value_string << endl;
-      //cout << "Int: " << this->value_int << endl;
+      //cerr << "Predicate type: " << (this->type == T_INT ? "int" : "string") << endl;
+      //cerr << "Flags: " << this->flags << endl;
+      //cerr << "String: " << this->value_string << endl;
+      //cerr << "Int: " << this->value_int << endl;
     }
 
     bool operator()(const sub_match_t &match) const {
@@ -105,7 +105,7 @@ class GrokPredicate {
       ss >> val;
 
       ret = this->result(val - this->value_int);
-      //cout << val << " vs " << this->value_int << " == " << ret << endl;
+      //cerr << val << " vs " << this->value_int << " == " << ret << endl;
       /* Throw an exception if ss.fail() ? */
       return ret;
     }
@@ -135,9 +135,9 @@ class GrokPredicate {
           return compare != 0; break;
         default:
           /* Should not get here */
-          cout << "SHOULD NOT GET HERE. flags = " << this->flags << endl;
+          cerr << "SHOULD NOT GET HERE. flags = " << this->flags << endl;
       }
-      cout << "SHOULD(2) NOT GET HERE. flags = " << this->flags << endl;
+      cerr << "SHOULD(2) NOT GET HERE. flags = " << this->flags << endl;
     }
 
   private:

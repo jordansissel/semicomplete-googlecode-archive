@@ -143,7 +143,7 @@ class GrokMatch {
 
       vector<string>::iterator filter_iter;
       for (filter_iter = filters.begin(); filter_iter != filters.end(); filter_iter++) {
-        cout << "Filter: " << *filter_iter << endl;
+        cerr << "Filter: " << *filter_iter << endl;
         if (*filter_iter == "shellescape")
           this->Filter_ShellEscape(value);
       }

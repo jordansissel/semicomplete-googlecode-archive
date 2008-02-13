@@ -34,7 +34,7 @@ struct DataInput {
     this->ignore_until_time.tv_usec = \
       now.tv_usec + ((long)(duration - (long)duration) * 1000000L);
 
-    //cout << " Ignoring: " << this->ignore_until_time.tv_sec << "." << this->ignore_until_time.tv_usec << endl;
+    //cerr << " Ignoring: " << this->ignore_until_time.tv_sec << "." << this->ignore_until_time.tv_usec << endl;
   }
 
   bool IsValid() {
@@ -46,9 +46,9 @@ struct DataInput {
      * Maybe we should pass the timeval into this method? */
     struct timeval now;
     gettimeofday(&now, NULL);
-    //cout << "CanRead: " << (timerisset(&(this->ignore_until_time))) 
+    //cerr << "CanRead: " << (timerisset(&(this->ignore_until_time))) 
       //<< " / " << timercmp(&now, &(this->ignore_until_time), <) << endl;
-    //cout << " --> " << this->ignore_until_time.tv_sec << "." << this->ignore_until_time.tv_usec << endl;
+    //cerr << " --> " << this->ignore_until_time.tv_sec << "." << this->ignore_until_time.tv_usec << endl;
     if (timerisset(&(this->ignore_until_time)) &&
         timercmp(&now, &(this->ignore_until_time), <)) {
       return false;
@@ -86,7 +86,7 @@ class FileObserver {
       di.is_command = true;
       di.shell = "/bin/sh";
 
-      cout << "Adding cmd: " << command << endl;
+      cerr << "Adding cmd: " << command << endl;
       this->inputs.push_back(di);
     }
 
@@ -97,7 +97,7 @@ class FileObserver {
       di.fd = NULL;
       di.is_command = false;
       di.follow = follow;
-      cout << "Adding file: " << filename << endl;
+      cerr << "Adding file: " << filename << endl;
 
       this->inputs.push_back(di);
     }
@@ -138,7 +138,7 @@ class FileObserver {
         } else {
           this->OpenFile(di);
         }
-        cout << "openall fd: " << di.fd << endl;
+        cerr << "openall fd: " << di.fd << endl;
         /* Hack to store the modified DataInput object back */
         this->inputs.push_back(di);
       }
@@ -183,15 +183,15 @@ class FileObserver {
         DataInput di = *iter;
         
         if (di.CanRead()) {
-          //cout << "File: " << di.fd << "(" << di.data  << ")" << endl;
+          //cerr << "File: " << di.fd << "(" << di.data  << ")" << endl;
           FD_SET(fileno(di.fd), &in_fdset);
           FD_SET(fileno(di.fd), &err_fdset);
         } else {
           if (!di.IsValid() || !di.follow) {
-            cout << "Removing no-longer-valid file entry: " << di.data << endl;
+            cerr << "Removing no-longer-valid file entry: " << di.data << endl;
             this->inputs.erase(iter);
           } else {
-            cout << "Ignoring file (can't read right now): " << di.data << endl;
+            cerr << "Ignoring file (can't read right now): " << di.data << endl;
           }
         }
       }
@@ -203,20 +203,20 @@ class FileObserver {
       } else if (ret == 0) {
         return; /* Nothing to read */
       }
-      //cout << "Select returned " << ret << endl;
+      //cerr << "Select returned " << ret << endl;
 
       /* else, ret > 0, read data from the inputs */
-      //cout << "Input size: " << this->inputs.size() << endl;
+      //cerr << "Input size: " << this->inputs.size() << endl;
       for (iter = this->inputs.begin(); 
            (!this->inputs.empty()) && (iter != this->inputs.end());
            iter++) {
         DataInput *di = &(*iter);
 
-        cout << "Checking for input: " << di->data << "(" << di->fd << ")" << endl;
+        cerr << "Checking for input: " << di->data << "(" << di->fd << ")" << endl;
         if (FD_ISSET(fileno(di->fd), &in_fdset)) {
           ReadLinesFromInput(data, *di);
         } else if (FD_ISSET(fileno(di->fd), &err_fdset)) {
-          cout << "Error condition on " << di->data << " (removing this input now)" << endl;
+          cerr << "Error condition on " << di->data << " (removing this input now)" << endl;
           fclose(di->fd);
           this->inputs.erase(iter);
         }
@@ -224,7 +224,7 @@ class FileObserver {
         if (feof(di->fd)) {
           if (di->follow) {
             /* Ignore this file for at least one iteration */
-            cout << "No data left in file; ignoring for " << timeout 
+            cerr << "No data left in file; ignoring for " << timeout 
                  << " secs: " << di->data << endl;
             di->SetIgnoreDuration(timeout);
           } else {
@@ -242,9 +242,9 @@ class FileObserver {
       string buffer = this->old_buffers[fileno(di.fd)];
       char readbuf[4096];
 
-      cout << "Reading from: " << di.data << endl;
-      //cout << "fd: " << di.fd << endl;
-      //cout << "fn: " << fileno(di.fd) << endl;
+      cerr << "Reading from: " << di.data << endl;
+      //cerr << "fd: " << di.fd << endl;
+      //cerr << "fn: " << fileno(di.fd) << endl;
 
       //setlinebuf(di.fd);
 
@@ -253,9 +253,9 @@ class FileObserver {
         FD_SET(fileno(di.fd), &fdset);
         tv.tv_sec = 0;
         tv.tv_usec = 0;
-        //cout << "Waiting for data" << endl;
+        //cerr << "Waiting for data" << endl;
         ret = select(FD_SETSIZE, &fdset, NULL, &fdset, &tv);
-        //cout << "Finished waiting for data" << endl;
+        //cerr << "Finished waiting for data" << endl;
 
         /* XXX: Handle '< 0' and '== 0' cases separately */
         if (ret <= 0) {
@@ -266,11 +266,11 @@ class FileObserver {
         int bytes;
         char *fgets_ret;
 
-        //cout << "Starting read" << endl;
+        //cerr << "Starting read" << endl;
         //bytes = fread(readbuf, 1, 4096, di.fd);
         fgets_ret = fgets(readbuf, 4096, di.fd);
         bytes = strlen(readbuf);
-        //cout << "Finished read" << endl;
+        //cerr << "Finished read" << endl;
         if (fgets_ret == NULL)
           done = true;
         else
@@ -288,8 +288,8 @@ class FileObserver {
         data_pair_type p;
         p.first = di;
         p.second = buffer.substr(last_pos, (pos - last_pos));
-        //cout << "Found line: " << p.second.size() << endl;
-        //cout << "data: " << last_pos << " / " << buffer.length() << endl;
+        //cerr << "Found line: " << p.second.size() << endl;
+        //cerr << "data: " << last_pos << " / " << buffer.length() << endl;
         data.push_back(p);
         last_pos = pos + 1;
       }
@@ -300,7 +300,7 @@ class FileObserver {
       old_buffers[fileno(di.fd)] = remainder;
 
       if (data.size() > 0)
-        cout << "Read " << data.size() << " lines" << endl;
+        cerr << "Read " << data.size() << " lines" << endl;
     }
 
     bool DoneReading() {

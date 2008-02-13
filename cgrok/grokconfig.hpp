@@ -118,10 +118,10 @@ class GrokConfig {
 
       if (0) {
         string regex_name = this->regex_id_map[re.regex_id()];
-        cout << "Consuming: [" << regex_name << " (" << re.regex_id() << ")] " 
+        cerr << "Consuming: [" << regex_name << " (" << re.regex_id() << ")] " 
            "'" << consumed << "'" << endl;
       }
-      //cout << "New offset: " << len << endl;
+      //cerr << "New offset: " << len << endl;
       this->offset = len;
       return true;
     }
@@ -140,7 +140,7 @@ class GrokConfig {
          * Fix that. */
         if (this->consume(input, m, this->re_file)) {
           WatchFileEntry f;
-          cout << "Filename: " << m.str(1) << endl;
+          cerr << "Filename: " << m.str(1) << endl;
           f.name = StripQuotes(m.str(1));
           f.fo.AddFile(f.name, false);
           current_file_entry = f;
@@ -148,7 +148,7 @@ class GrokConfig {
           inputs.push_back(current_file_entry);
         } else if (this->consume(input, m, this->re_file_follow)) {
           WatchFileEntry f;
-          cout << "FollowFilename: " << m.str(1) << endl;
+          cerr << "FollowFilename: " << m.str(1) << endl;
           f.name = StripQuotes(m.str(1));
           f.fo.AddFile(f.name, true);
           current_file_entry = f;
@@ -156,7 +156,7 @@ class GrokConfig {
           inputs.push_back(current_file_entry);
         } else if (this->consume(input, m, this->re_exec)) {
           WatchFileEntry f;
-          cout << "Exec: " << m.str(1) << endl;
+          cerr << "Exec: " << m.str(1) << endl;
           f.name = StripQuotes(m.str(1));
           f.fo.AddCommand(f.name);
           current_file_entry = f;
@@ -178,14 +178,14 @@ class GrokConfig {
           /* Track the type we're adding */
           WatchMatchType wmt;
           wmt.clear();
-          cout << "Type name1: " << m.str(0) << endl;
+          cerr << "Type name1: " << m.str(0) << endl;
           wmt.type_name = StripQuotes(m.str(1));
-          cout << "Type name: " << wmt.type_name << endl;
+          cerr << "Type name: " << wmt.type_name << endl;
           current_match_type = wmt;
           block_matchtype(input);
           current_file_entry.match_types.push_back(current_match_type);
         } else if (this->consume(input, m, this->re_block_end)) {
-          //cout << "(file block) block close found" << endl;
+          //cerr << "(file block) block close found" << endl;
           done = true;
         } else {
           this->parse_error("file block", input);
@@ -197,10 +197,10 @@ class GrokConfig {
       smatch m;
       bool done = false;
       stringstream strconv(stringstream::in | stringstream::out);
-      cout << "Matchtype" << endl;
+      cerr << "Matchtype" << endl;
       while (!done) {
         if (this->consume(input, m, this->re_match)) {
-          cout << "Match: " << m.str(1) << endl;
+          cerr << "Match: " << m.str(1) << endl;
           GrokRegex<sregex> gre(StripQuotes(m.str(1)));
           gre.AddPatternSet(this->patterns);
           current_match_type.match_strings.push_back(gre);
@@ -212,7 +212,7 @@ class GrokConfig {
             current_match_type.reaction_type = WatchMatchType::JSON;
           } else {
             current_match_type.reaction = StripQuotes(m.str(1));
-            cout << "reaction: " << current_match_type.reaction << endl;
+            cerr << "reaction: " << current_match_type.reaction << endl;
             current_match_type.reaction_type = WatchMatchType::SHELL;
           }
         } else if (this->consume(input, m, this->re_reaction_print)) {
@@ -236,7 +236,7 @@ class GrokConfig {
           current_match_type.syslog_host = StripQuotes(m.str(1));
         } else if (this->consume(input, m, this->re_shell)) {
         } else if (this->consume(input, m, this->re_block_end)) {
-          cout << "(matchtype block) block close found" << endl;
+          cerr << "(matchtype block) block close found" << endl;
           done = true;
         } else {
           this->parse_error("matchtype block", input);

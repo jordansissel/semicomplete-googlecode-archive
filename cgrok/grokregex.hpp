@@ -84,8 +84,8 @@ class GrokRegex {
 
     string Replace(string source, string replacement, bool replace_all=false) {
       string result = source;
-      //cout << "Pattern: " << pattern << endl;
-      //cout << "Pattern:: " << *this->generated_string << endl;
+      //cerr << "Pattern: " << pattern << endl;
+      //cerr << "Pattern:: " << *this->generated_string << endl;
       regex_iterator<typename regex_type::iterator_type> 
         iter(source.begin(), source.end(), (*this->generated_regex));
       regex_iterator<typename regex_type::iterator_type> end;
@@ -104,7 +104,7 @@ class GrokRegex {
         if (replace_all == false)
           break;
       }
-      cout << "Result: " << result << endl;
+      cerr << "Result: " << result << endl;
       return result;
     }
 
@@ -138,7 +138,7 @@ class GrokRegex {
       this->RecursiveGenerateRegex(this->pattern, backref, 
                                    &this->generated_regex, 
                                    *this->generated_string);
-      //cout << "Regex str: " << *(this->generated_string) << endl;
+      //cerr << "Regex str: " << *(this->generated_string) << endl;
     }
 
     /* XXX: Split this into smaller functions */
@@ -166,7 +166,7 @@ class GrokRegex {
                              >> '%'
                             );
 
-      //cout << "pattern: " << pattern << endl;
+      //cerr << "pattern: " << pattern << endl;
 
       /* probaly should use regex_iterator<regex_type> here */
       sregex_iterator cur(pattern.begin(), pattern.end(), pattern_expr_re);
@@ -177,11 +177,11 @@ class GrokRegex {
         string pattern_name = match[mark_name].str();
         string pattern_alias = match[mark_alias].str();
         string pattern_predicate = match[mark_predicate].str();
-        //cout << "P: " << pattern_name << " / " << pattern_alias << endl;
+        //cerr << "P: " << pattern_name << " / " << pattern_alias << endl;
 
         if (match.position() > last_pos) {
           string substr = pattern.substr(last_pos, match.position() - last_pos);
-          //cout << "Appending regex '" << substr << "'" << endl;
+          //cerr << "Appending regex '" << substr << "'" << endl;
           re_string += substr;
           expanded_regex += substr;
         }
@@ -194,9 +194,9 @@ class GrokRegex {
 
           backref++;
 
-          //cout << "Appending pattern [" << backref << "] '" << pattern_name << "'" << endl;
-          //cout << "--> " << sub_pattern << endl;
-          //cout << "Setting backref of '" << pattern_name << "' to " << backref << endl;
+          //cerr << "Appending pattern [" << backref << "] '" << pattern_name << "'" << endl;
+          //cerr << "--> " << sub_pattern << endl;
+          //cerr << "Setting backref of '" << pattern_name << "' to " << backref << endl;
 
           /* Recurse deep until we run out of patterns to expand */
           re_string += "(";
@@ -234,7 +234,7 @@ class GrokRegex {
           expanded_regex += ")";
           delete ptmp_re;
         } else {
-          //cout << "Appending nonpattern '" << pattern_name << "'" << endl;
+          //cerr << "Appending nonpattern '" << pattern_name << "'" << endl;
           string str = "%" + pattern_name + "%";
           re_string += str;
           expanded_regex += str;
@@ -244,12 +244,12 @@ class GrokRegex {
       if (last_pos < pattern.size()) {
         /* XXX: Make this a function */
         string substr = pattern.substr(last_pos, pattern.size() - last_pos);
-        //cout << "Appending regex '" << substr << "'" << endl;
+        //cerr << "Appending regex '" << substr << "'" << endl;
         re_string += substr;
         expanded_regex += substr;
       }
 
-      //cout << "String: " << re_string << endl;
+      //cerr << "String: " << re_string << endl;
       *pregex = new regex_type(this->re_compiler->compile(re_string));
     }
 };

@@ -45,7 +45,7 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
   WatchFileEntry &wfe = (*map_entry).second;
   const string &line = input_pair.second;
 
-  //cout << "(" << di.data << ") " << line << endl;
+  //cerr << "(" << di.data << ") " << line << endl;
 
   vector<WatchMatchType>::iterator wmt_iter;
 
@@ -57,7 +57,7 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
     WatchMatchType::grok_regex_vector_type::iterator gre_iter;
 
     if (gre_vector.size() == 0) {
-      cout << "Match by default." << endl;
+      cerr << "Match by default." << endl;
       continue;
     }
 
@@ -68,18 +68,18 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
       GrokRegex<sregex> &gre = (*gre_iter);
       GrokMatch<sregex> gm;
       bool success = gre.Search(line, gm);
-      //cout << "Line: " << line << endl;
-      //cout << "Regex: " << gre.GetOriginalPattern() << " : " 
+      //cerr << "Line: " << line << endl;
+      //cerr << "Regex: " << gre.GetOriginalPattern() << " : " 
            //<< gre.GetExpandedPattern() << endl;
 
-      //cout << "Match return: " << success << endl;
+      //cerr << "Match return: " << success << endl;
       if (!success)
         continue;
 
       GrokMatch<sregex>::match_map_type::const_iterator m_iter;
       if (wmt.reaction.size() == 0 
           && wmt.reaction_type != WatchMatchType::JSON) {
-        cout << "No reaction specified for type section '" << wmt.type_name 
+        cerr << "No reaction specified for type section '" << wmt.type_name 
              << "'" <<  endl;
         continue;
       }
@@ -88,7 +88,7 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
       switch (wmt.reaction_type) {
         case WatchMatchType::SHELL:
           gm.ExpandString(wmt.reaction, data);
-          //cout << "Reaction: " << data << endl;
+          //cerr << "Reaction: " << data << endl;
           data += "\n";
           fwrite(data.c_str(), data.size(), 1, shell_fp);
           fflush(shell_fp);
@@ -119,8 +119,8 @@ int main(int argc, const char **argv) {
   popts_context = poptGetContext(NULL, argc, argv, options_table, 0);
   popt_ret = poptGetNextOpt(popts_context);
   if (popt_ret < -1) { /* -1 means we're done parsing, less than that means error */
-    cout << "Error parsing arguments." << endl;
-    cout << "-> " << poptStrerror(popt_ret) << endl;
+    cerr << "Error parsing arguments." << endl;
+    cerr << "-> " << poptStrerror(popt_ret) << endl;
     return 1;
   }
 
@@ -147,7 +147,7 @@ int main(int argc, const char **argv) {
     }
     config_data += "  };";
     config_data += "};";
-    cout << config_data << endl;
+    cerr << config_data << endl;
   }
 
   shell_fp = popen("/bin/sh", "w");
@@ -163,9 +163,9 @@ int main(int argc, const char **argv) {
   for (watch_iter = watches.begin(); watch_iter != watches.end(); watch_iter++) {
     const vector<DataInput> &di_vector = (*watch_iter).fo.GetDataInputs();
     vector<DataInput>::const_iterator di_iter;
-    cout << "FileObserver name: " << (*watch_iter).name << endl;
+    cerr << "FileObserver name: " << (*watch_iter).name << endl;
     for (di_iter = di_vector.begin(); di_iter != di_vector.end(); di_iter++) {
-      cout << "File name: " << (*di_iter).data << endl;
+      cerr << "File name: " << (*di_iter).data << endl;
       watchmap[(*di_iter).data] = *watch_iter;
     }
     fo.Merge((*watch_iter).fo);
@@ -183,8 +183,8 @@ int main(int argc, const char **argv) {
          input_iter++) {
       input_pair = *input_iter;
       grok_line(input_pair, watchmap);
-      //cout << "(" << input_pair.first.data << ") " << input_pair.second << endl;
-      //cout << "watchmap: " << watchmap[input_pair.first.data].name << endl;
+      //cerr << "(" << input_pair.first.data << ") " << input_pair.second << endl;
+      //cerr << "watchmap: " << watchmap[input_pair.first.data].name << endl;
     }
     input_vector.clear();
   }
