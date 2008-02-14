@@ -6,12 +6,13 @@ CFLAGS=-pipe -I/usr/local/include
 CFLAGS+=-g
 #CFLAGS+=-O2
 
-LDFLAGS=-L/usr/local/lib -lpopt
+LDFLAGS=
+#LDFLAGS=-L/usr/local/lib -lpopt
 
 all: grok
 
 grok: main.o
-	$(CPP) $(LDFLAGS) $< -o $@
+	$(CPP) $(LDFLAGS) main.o -o $@
 
 pattest: pattern_test.o
 	$(CPP) pattern_test.o -o $@

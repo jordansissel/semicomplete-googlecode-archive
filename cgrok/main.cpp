@@ -4,7 +4,9 @@
 #include <string>
 #include <boost/xpressive/xpressive.hpp>
 
+#ifdef WITH_POPT
 #include <popt.h>
+#endif
 
 #include "grokpatternset.hpp"
 #include "grokregex.hpp"
@@ -24,7 +26,7 @@ char *flag_result = "%=MATCH%";
 char *flag_config_file = NULL;
 int flag_json = 0;
 
-/* Flags aren't yet enabled, don't use them */
+#ifdef WITH_POPT
 struct poptOption options_table[] = {
   /* longName, shortName, argInfo, arg, val, descrip, argDescrip */
   { NULL, 'm', POPT_ARG_STRING, &flag_match, 0, 
@@ -37,6 +39,7 @@ struct poptOption options_table[] = {
    "Config file", NULL },
   POPT_TABLEEND
 };
+#endif /* WITH_POPT */
 
 void grok_line(const FileObserver::data_pair_type &input_pair, 
                watch_map_type &watchmap) {
@@ -76,7 +79,6 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
       if (!success)
         continue;
 
-      GrokMatch<sregex>::match_map_type::const_iterator m_iter;
       if (wmt.reaction.size() == 0 
           && wmt.reaction_type != WatchMatchType::JSON) {
         cerr << "No reaction specified for type section '" << wmt.type_name 
@@ -84,6 +86,10 @@ void grok_line(const FileObserver::data_pair_type &input_pair,
         continue;
       }
 
+      gm.SetMatchMetaValue("TYPE", wmt.type_name);
+      gm.SetMatchMetaValue("DATASOURCE", wfe.name);
+      /* XXX: keys not implemented yet */
+      //gm.SetMatchMetaValue("KEY", wmt.key);
       string data;
       switch (wmt.reaction_type) {
         case WatchMatchType::SHELL:
@@ -113,6 +119,8 @@ int main(int argc, const char **argv) {
   string config_data = "";
   char buffer[CONFIG_BUFSIZE];
   int bytes = 0;
+
+#ifdef WITH_POPT
   int popt_ret;
   poptContext popts_context;
 
@@ -123,6 +131,13 @@ int main(int argc, const char **argv) {
     cerr << "-> " << poptStrerror(popt_ret) << endl;
     return 1;
   }
+#else
+  if (argc != 2) {
+    cout << "Usage: $0 <config_file>" << endl;
+    return 1;
+  }
+  flag_config_file = strdup(argv[1]);
+#endif /* WITH_POPT */
 
   if (flag_config_file != NULL) {
     ifstream in(flag_config_file);
@@ -148,6 +163,9 @@ int main(int argc, const char **argv) {
     config_data += "  };";
     config_data += "};";
     cerr << config_data << endl;
+  } else {
+    cout << "No work to do. (No config file or -m flag specified)" << endl;
+    return 1;
   }
 
   shell_fp = popen("/bin/sh", "w");

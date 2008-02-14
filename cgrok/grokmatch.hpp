@@ -1,6 +1,9 @@
 #ifndef __GROKMATCH_HPP
 #define __GROKMATCH_HPP
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
 #include <boost/xpressive/xpressive.hpp>
 using namespace boost::xpressive;
 
@@ -8,6 +11,39 @@ static void StringSlashEscape(string &value, const string &chars) {
   sregex re_chars = sregex::compile("[" + chars + "]");
   string format = "\\$&";
   value = regex_replace(value, re_chars, format);
+}
+
+#include <string>
+#include <vector>
+#include <iostream>
+using namespace std;
+
+static void ParseFuncArgs(const string &func, vector<string> &args) {
+  args.clear();
+  string::size_type pos;
+  string::size_type last_pos;
+
+  last_pos = func.find("(");
+
+  /* If no arguments were given, leave the args vector empty */
+  if (last_pos == string::npos)
+    return;
+
+  last_pos++; /* skip '(' */
+  while ((pos = func.find(",", last_pos)) != string::npos) {
+    args.push_back(func.substr(last_pos, (pos - last_pos)));
+    last_pos = pos + 1; /* skip past comma */
+  }
+
+  pos = func.find(")", last_pos);
+  if (pos == string::npos) {
+    cerr << "Missing expected closing ')' in filter '" << func << "'" << endl;
+    args.clear();
+    /* XXX: Really we should throw an exception */
+    exit(2); 
+  } else { /* Closing paren found */
+    args.push_back(func.substr(last_pos, (pos - last_pos)));
+  }
 }
 
 template <typename regex_type>
@@ -33,10 +69,12 @@ class GrokMatch {
       this->position = match.position();
 
       /* Set some default values */
-      string match_key = "=MATCH";
-      string line_key = "=LINE";
-      this->matches[match_key] = this->match_string;
-      this->matches[line_key] = data;
+      //string match_key = "=MATCH";
+      //string line_key = "=LINE";
+      //this->matches[match_key] = this->match_string;
+      //this->matches[line_key] = data;
+      this->SetMatchMetaValue("MATCH", this->match_string);
+      this->SetMatchMetaValue("LINE", data);
 
       this->pattern_expand_re = 
         as_xpr('%')
@@ -45,7 +83,7 @@ class GrokMatch {
               >> !(as_xpr(':') >> +(alnum))
              )
           >> (GrokMatch::mark_filters =
-              *('|' >> +alnum)
+              *('|' >> +(+alnum | '(' | ')' | ','))
              )
         >> as_xpr('%');
     }
@@ -145,12 +183,75 @@ class GrokMatch {
       for (filter_iter = filters.begin(); filter_iter != filters.end(); filter_iter++) {
         cerr << "Filter: " << *filter_iter << endl;
         if (*filter_iter == "shellescape")
-          this->Filter_ShellEscape(value);
+          this->Filter_ShellEscape(*filter_iter, value);
+        else if ((*filter_iter).substr(0, 3) == "dns")
+          this->Filter_DNS(*filter_iter, value);
       }
     }
 
-    void Filter_ShellEscape(string &value) {
+    void Filter_ShellEscape(const string &func, string &value) {
       StringSlashEscape(value, "(){}\\[\\]\"'!$^~;<>?\\\\");
+    }
+
+    void Filter_DNS(const string &func, string &value) {
+      vector<string> args;
+      vector<string>::const_iterator arg_iter;
+      enum { Q_A, Q_AAAA, Q_PTR, Q_MX, Q_TXT } qtype;
+      ParseFuncArgs(func, args);
+
+      if (args.empty()) {
+        string default_query = "A";
+        args.push_back(default_query);
+      }
+
+      for (arg_iter = args.begin(); arg_iter != args.end(); arg_iter++) {
+        if (*arg_iter == "A")
+          qtype = Q_A;
+        else if (*arg_iter == "AAAA") 
+          qtype = Q_AAAA;
+        else if (*arg_iter == "PTR")
+          qtype = Q_PTR;
+        else {
+          cerr << "Unknown query type: " << *arg_iter << endl;
+          qtype = Q_A;
+        }
+
+        const char *addr = value.c_str();
+        struct addrinfo *res;
+        struct addrinfo hints;
+        int dns_error;
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = (qtype == Q_AAAA ? PF_INET6 : PF_INET);
+        if (qtype == Q_PTR)
+          hints.ai_flags = AI_NUMERICHOST;
+        cout << "DNS: " << addr << endl;
+        dns_error = getaddrinfo(addr, NULL, &hints, &res);
+        if (dns_error) {
+          value = "error_in_dns";
+          cout << "dns error: " << dns_error << endl;
+          cout << "query was " << addr << "(type: " << qtype  << endl;
+          return;
+        }
+        char hostaddr[255];
+        int getname_flags = 0;
+        memset(hostaddr, 0, 255);
+        if (qtype != Q_PTR)
+          getname_flags = NI_NUMERICHOST;
+        getnameinfo(res->ai_addr, res->ai_addrlen, hostaddr, 255,
+	NULL, 0, getname_flags);
+        cout << hostaddr << endl;
+        value = hostaddr;
+        freeaddrinfo(res);
+      }
+    }
+
+    void SetMatchMetaValue(string name, string value) {
+      this->matches["=" + name] = value;
+    }
+
+    void SetMatchMetaValue(const char * name, string value) {
+      string name_str(name);
+      this->SetMatchMetaValue(name_str, value);
     }
 
   private:
