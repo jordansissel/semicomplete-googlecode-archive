@@ -224,12 +224,12 @@ class GrokMatch {
         hints.ai_family = (qtype == Q_AAAA ? PF_INET6 : PF_INET);
         if (qtype == Q_PTR)
           hints.ai_flags = AI_NUMERICHOST;
-        cout << "DNS: " << addr << endl;
+        cerr << "DNS: " << addr << endl;
         dns_error = getaddrinfo(addr, NULL, &hints, &res);
         if (dns_error) {
           value = "error_in_dns";
-          cout << "dns error: " << dns_error << endl;
-          cout << "query was " << addr << "(type: " << qtype  << endl;
+          cerr << "dns error: " << dns_error << endl;
+          cerr << "query was " << addr << "(type: " << qtype  << endl;
           return;
         }
         char hostaddr[255];
@@ -239,7 +239,6 @@ class GrokMatch {
           getname_flags = NI_NUMERICHOST;
         getnameinfo(res->ai_addr, res->ai_addrlen, hostaddr, 255,
 	NULL, 0, getname_flags);
-        cout << hostaddr << endl;
         value = hostaddr;
         freeaddrinfo(res);
       }

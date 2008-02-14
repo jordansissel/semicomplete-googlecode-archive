@@ -6,8 +6,7 @@ CFLAGS=-pipe -I/usr/local/include
 CFLAGS+=-g
 #CFLAGS+=-O2
 
-LDFLAGS=
-#LDFLAGS=-L/usr/local/lib -lpopt
+LDFLAGS=-L/usr/local/lib -lpopt
 
 all: grok
 
