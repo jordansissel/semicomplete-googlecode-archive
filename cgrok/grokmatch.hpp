@@ -80,7 +80,7 @@ class GrokMatch {
         as_xpr('%')
           >> (GrokMatch::mark_pattern_name =
               !(as_xpr('=')) >> +(alnum | as_xpr('_'))
-              >> !(as_xpr(':') >> +(alnum))
+              >> !(as_xpr(':') >> +(alnum | as_xpr('_')))
              )
           >> (GrokMatch::mark_filters =
               *('|' >> +(+alnum | '(' | ')' | ','))
@@ -186,11 +186,21 @@ class GrokMatch {
           this->Filter_ShellEscape(*filter_iter, value);
         else if ((*filter_iter).substr(0, 3) == "dns")
           this->Filter_DNS(*filter_iter, value);
+        else if (*filter_iter == "stripquotes")
+          this->Filter_StripQuotes(*filter_iter, value);
       }
     }
 
     void Filter_ShellEscape(const string &func, string &value) {
       StringSlashEscape(value, "(){}\\[\\]\"'!$^~;<>?\\\\");
+    }
+
+    void Filter_StripQuotes(const string &func, string &value) {
+      if (value[0] = '"' && value[value.size() - 1] == '"') {
+        value = value.substr(1, value.size() - 2);
+      } else if (value[0] = '\'' && value[value.size() - 1] == '\'') {
+        value = value.substr(1, value.size() - 2);
+      }
     }
 
     void Filter_DNS(const string &func, string &value) {

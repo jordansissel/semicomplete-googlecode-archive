@@ -3,8 +3,8 @@ PACKAGE=cgrok
 CPP=g++
 CFLAGS=-pipe -I/usr/local/include
 
-CFLAGS+=-g
-#CFLAGS+=-O2
+#CFLAGS+=-g
+CFLAGS+=-O2
 
 LDFLAGS=-L/usr/local/lib -lpopt
 

@@ -154,8 +154,8 @@ class GrokRegex {
                              as_xpr('%')
                              /* Pattern name and alias (FOO and FOO:BAR) */
                              >> (mark_alias = 
-                                 (mark_name = +(alnum | digit | as_xpr('_')))
-                                 >> !(as_xpr(':') >> +(alnum | digit))
+                                 (mark_name = +(alnum | as_xpr('_')))
+                                 >> !(as_xpr(':') >> +(alnum | as_xpr('_')))
                                 )
                              /* Predicate conditional, optional. */
                              >> !(mark_predicate = /* predicates are optional */
