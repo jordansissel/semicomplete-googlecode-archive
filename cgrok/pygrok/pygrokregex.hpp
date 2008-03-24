@@ -1,8 +1,8 @@
 #include <boost/xpressive/xpressive.hpp>
-
 #include "../grokregex.hpp"
 
 #include <Python.h>
+#include <structmember.h>
 
 typedef struct {
   PyObject_HEAD
@@ -21,12 +21,40 @@ pyGrokRegex_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
   return (PyObject *)self;
 }
 
+static PyObject* pyGrokRegex_search(pyGrokRegex *self, PyObject *args) {
+  PyObject* search_pystr = NULL;
+  char *search_pchar = NULL;
+
+  if (!PyArg_UnpackTuple(args, "search", 1, 1, &search_pystr))
+    return NULL;
+
+  search_pchar = PyString_AsString(search_pystr);
+  self->gre->SetRegex((const char *)search_pchar);
+
+  Py_RETURN_NONE;
+}
+
+static PyObject* pyGrokRegex_set_regex(pyGrokRegex *self, PyObject *args) {
+  PyObject* regex_pystr = NULL;
+  char *regex_pchar = NULL;
+
+  if (!PyArg_UnpackTuple(args, "set_regex", 1, 1, &regex_pystr))
+    return NULL;
+
+  regex_pchar = PyString_AsString(regex_pystr);
+  self->gre->SetRegex((const char *)regex_pchar);
+
+  Py_RETURN_NONE;
+}
+
 static PyMethodDef pyGrokRegex_methods[] = {
+  {"search", (PyCFunction)pyGrokRegex_search, METH_VARARGS},
+  {"set_regex", (PyCFunction)pyGrokRegex_set_regex, METH_VARARGS},
   {NULL, NULL, 0, NULL},
 };
 
 static PyMemberDef pyGrokRegex_members[] = {
-  {NULL, NULL, 0, NULL},
+  {NULL},
 };
 
 static PyTypeObject pyGrokRegexType = {
