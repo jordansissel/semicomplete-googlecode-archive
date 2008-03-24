@@ -282,8 +282,8 @@ class FileObserver {
       }
 
       /* Look for full lines of text, push them into the data vector */
-      int pos = 0;
-      int last_pos = 0;
+      string::size_type pos = 0;
+      string::size_type last_pos = 0;
       while ((pos = buffer.find("\n", last_pos)) != string::npos) {
         data_pair_type p;
         p.first = di;

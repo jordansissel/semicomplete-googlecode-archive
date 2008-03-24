@@ -146,7 +146,7 @@ class GrokRegex {
       sregex not_percent = !+~(as_xpr('%'));
       unsigned int last_pos = 0;
       string re_string;
-      regex_type *re;
+      //regex_type *re;
 
       mark_tag mark_name(1), mark_alias(2), mark_predicate(3);
       /* Match %foo(:bar)?% */

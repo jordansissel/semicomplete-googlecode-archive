@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
   }
 
   GrokMatch<sregex> gm;
-  GrokRegex<sregex> gre(argv[1]);
+o GrokRegex<sregex> gre(argv[1]);
 
   argv += 2;
   argc -= 2;

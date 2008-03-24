@@ -7,7 +7,7 @@
 #include <boost/xpressive/xpressive.hpp>
 using namespace boost::xpressive;
 
-static void StringSlashEscape(string &value, const string &chars) {
+void StringSlashEscape(string &value, const string &chars) {
   sregex re_chars = sregex::compile("[" + chars + "]");
   string format = "\\$&";
   value = regex_replace(value, re_chars, format);
@@ -18,7 +18,7 @@ static void StringSlashEscape(string &value, const string &chars) {
 #include <iostream>
 using namespace std;
 
-static void ParseFuncArgs(const string &func, vector<string> &args) {
+void ParseFuncArgs(const string &func, vector<string> &args) {
   args.clear();
   string::size_type pos;
   string::size_type last_pos;
