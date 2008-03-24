@@ -10,6 +10,10 @@
 #include "pygrokregex.hpp"
 #include "pygrokmatch.hpp"
 
+static PyMethodDef pygrok_methods[] = {
+  {NULL},
+};
+
 #ifndef PyMODINIT_FUNC	/* declarations for DLL import/export */
 #define PyMODINIT_FUNC void
 #endif
