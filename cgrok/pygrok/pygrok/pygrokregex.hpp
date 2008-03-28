@@ -1,6 +1,6 @@
 #include <boost/xpressive/xpressive.hpp>
-#include "../grokregex.hpp"
-#include "../grokpatternset.hpp"
+#include "../../grokregex.hpp"
+#include "../../grokpatternset.hpp"
 
 #include <Python.h>
 #include <structmember.h>
@@ -34,18 +34,15 @@ typedef struct {
 static PyObject *
 pyGrokRegex_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
   pyGrokRegex *self = NULL;
-  PyObject *pattern_string = NULL;
 
   self = (pyGrokRegex *)type->tp_alloc(type, 0);
 
-  if (!PyArg_UnpackTuple(args, "GrokRegex.__init__", 1, 1, &pattern_string))
+  if (!PyArg_UnpackTuple(args, "GrokRegex.__init__", 0, 0))
     return NULL;
 
   if (self != NULL) {
     self->gre = new GrokRegex<sregex>;
     self->pattern_set = new GrokPatternSet<sregex>;
-    if (pattern_string != NULL)
-      self->gre->SetRegex(PyString_AsString(pattern_string));
   }
 
   return (PyObject *)self;

@@ -1,10 +1,5 @@
 #include <boost/xpressive/xpressive.hpp>
 
-#include "../grokpatternset.hpp"
-#include "../grokregex.hpp"
-#include "../grokmatch.hpp"
-#include "../grokconfig.hpp"
-
 #include <Python.h>
 
 #include "pygrokregex.hpp"
@@ -24,7 +19,7 @@ initpygrok(void)
     if (PyType_Ready(&pyGrokRegexType) < 0)
         return;
 
-    m = Py_InitModule3("pygrok", pygrok_methods,
+    m = Py_InitModule3("grok", pygrok_methods,
                        "Python C++Grok interface");
 
     Py_INCREF(&pyGrokRegexType);
