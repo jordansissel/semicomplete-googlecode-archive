@@ -1,44 +1,77 @@
 #include <boost/xpressive/xpressive.hpp>
 #include "../grokregex.hpp"
+#include "../grokpatternset.hpp"
 
 #include <Python.h>
 #include <structmember.h>
 
+static PyObject *
+MatchToDict(GrokMatch<sregex> &gm) {
+  GrokMatch<sregex>::match_map_type::const_iterator iter;
+  GrokMatch<sregex>::match_map_type m;
+  PyObject *match_dict = PyDict_New();
+
+  for (iter = m.begin(); iter != m.end(); iter++) {
+    PyObject *key, *val;
+    key = PyString_FromString((*iter).first.c_str());
+    val = PyString_FromString((*iter).second.c_str());
+    PyDict_SetItem(match_dict, key, val);
+  }
+
+  return match_dict;
+}
+
 typedef struct {
   PyObject_HEAD
   GrokRegex<sregex> *gre;
+  GrokPatternSet<sregex> *pattern_set;
 } pyGrokRegex;
 
 static PyObject *
 pyGrokRegex_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
-  pyGrokRegex *self;
+  pyGrokRegex *self = NULL;
+  PyObject *pattern_string = NULL;
 
   self = (pyGrokRegex *)type->tp_alloc(type, 0);
 
+  if (!PyArg_UnpackTuple(args, "GrokRegex.__init__", 1, 1, &pattern_string))
+    return NULL;
+
   if (self != NULL) {
     self->gre = new GrokRegex<sregex>;
+    self->pattern_set = new GrokPatternSet<sregex>;
+    if (pattern_string != NULL)
+      self->gre->SetRegex(PyString_AsString(pattern_string));
   }
+
   return (PyObject *)self;
 }
 
-static PyObject* pyGrokRegex_search(pyGrokRegex *self, PyObject *args) {
+static PyObject *
+pyGrokRegex_search(pyGrokRegex *self, PyObject *args) {
   PyObject* search_pystr = NULL;
   char *search_pchar = NULL;
+  bool result;
+  GrokMatch<sregex> gm;
 
-  if (!PyArg_UnpackTuple(args, "search", 1, 1, &search_pystr))
+  if (!PyArg_UnpackTuple(args, "GrokRegex.search", 1, 1, &search_pystr))
     return NULL;
 
   search_pchar = PyString_AsString(search_pystr);
-  self->gre->SetRegex((const char *)search_pchar);
+  string search_string(search_pchar);
+  result = self->gre->Search(search_string, gm);
 
-  Py_RETURN_NONE;
+  if (!result)
+    Py_RETURN_NONE;
+
+  return MatchToDict(gm);
 }
 
 static PyObject* pyGrokRegex_set_regex(pyGrokRegex *self, PyObject *args) {
   PyObject* regex_pystr = NULL;
   char *regex_pchar = NULL;
 
-  if (!PyArg_UnpackTuple(args, "set_regex", 1, 1, &regex_pystr))
+  if (!PyArg_UnpackTuple(args, "GroKRegex.set_regex", 1, 1, &regex_pystr))
     return NULL;
 
   regex_pchar = PyString_AsString(regex_pystr);
@@ -47,9 +80,35 @@ static PyObject* pyGrokRegex_set_regex(pyGrokRegex *self, PyObject *args) {
   Py_RETURN_NONE;
 }
 
+static PyObject*
+pyGrokRegex_add_patterns(pyGrokRegex *self, PyObject *args) {
+  PyObject *pattern_dict = NULL;
+  PyObject *item_list = NULL;
+
+  if (!PyArg_UnpackTuple(args, "GrokRegex.add_patterns", 1, 1, &pattern_dict))
+    return NULL;
+
+  Py_ssize_t dict_len;
+  // XXX: Inc ref?
+  item_list = PyDict_Items(pattern_dict);
+
+  dict_len = PyList_Size(item_list);
+  for (int i = 0; i < dict_len; i++) {
+    PyObject *item = PyList_GetItem(item_list, i);
+    PyObject *name = PyTuple_GetItem(item, 0);
+    PyObject *pattern = PyTuple_GetItem(item, 1);
+    string name_str(PyString_AsString(name));
+    string pattern_str(PyString_AsString(pattern));
+    self->pattern_set->AddPattern(name_str, pattern_str);
+  }
+
+  Py_RETURN_NONE;
+}
+
 static PyMethodDef pyGrokRegex_methods[] = {
   {"search", (PyCFunction)pyGrokRegex_search, METH_VARARGS},
   {"set_regex", (PyCFunction)pyGrokRegex_set_regex, METH_VARARGS},
+  {"add_patterns", (PyCFunction)pyGrokRegex_add_patterns, METH_VARARGS},
   {NULL, NULL, 0, NULL},
 };
 

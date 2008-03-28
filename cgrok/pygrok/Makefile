@@ -4,7 +4,7 @@ all:
 
 test:
 	cd build/lib.*; \
-	python -c 'import pygrok; gre = pygrok.GrokRegex(); gre.search("Hello")'
+	python -c 'import pygrok; gre = pygrok.GrokRegex("H.*"); print gre.search("Hello")'
 
 clean:
 		rm build/*/*.so || true
