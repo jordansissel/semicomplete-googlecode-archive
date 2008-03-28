@@ -31,5 +31,6 @@
 + pygrok/pygrok.cpp
 + pygrok/setup.py
 + pygrok/example.py
++ pygrok/DOCUMENTATION
 - *
 - *.o
