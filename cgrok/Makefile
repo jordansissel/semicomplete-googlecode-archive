@@ -45,4 +45,5 @@ build-package:
 test-package: build-package
 	PKGVER=$(PACKAGE)-`date "+%Y%m%d"`; \
 	tar -C /tmp -xf $${PKGVER}.tar.gz; \
-	make -C /tmp/$${PKGVER}/t test
+	echo "Running C++ tests..." && make -C /tmp/$${PKGVER}/t test; \
+	echo "Running Python tests..." && make -C /tmp/$${PKGVER}/pygrok test;

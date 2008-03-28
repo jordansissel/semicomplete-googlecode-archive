@@ -18,6 +18,8 @@ MatchToDict(GrokMatch<sregex> &gm) {
     key = PyString_FromString((*iter).first.c_str());
     val = PyString_FromString((*iter).second.c_str());
     PyDict_SetItem(match_dict, key, val);
+    Py_DECREF(key);
+    Py_DECREF(val);
   }
 
   return match_dict;

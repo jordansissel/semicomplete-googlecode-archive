@@ -29,6 +29,7 @@ class GrokRegex {
     GrokRegex() { 
       this->generated_regex = NULL;
       this->generated_string = NULL;
+      this->pattern = "";
       this->re_compiler = NULL;
       this->track_matches = true;
     }

@@ -2,9 +2,11 @@
 all:
 	python setup.py build
 
-test:
-	cd build/lib.*; \
-	python -c 'import pygrok; gre = pygrok.GrokRegex("H.*"); print gre.search("Hello")'
+test: all
+	echo "1234 5000 15243" \
+	| python example.py "%NUMBER>5000%" \
+	| grep -q 5000 \
+	&& echo "Python test passed."
 
 clean:
 		rm build/*/*.so || true

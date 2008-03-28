@@ -10,14 +10,14 @@
 using namespace std;
 using namespace boost::xpressive;
 
-#define P_EQUAL  (1<<1)
-#define P_NOT  (1<<2)
-#define P_LESS (1<<3)
-#define P_GREATER (1<<4)
-#define P_REGEX (1<<5)
+#define GROK_P_EQUAL  (1<<1)
+#define GROK_P_NOT  (1<<2)
+#define GROK_P_LESS (1<<3)
+#define GROK_P_GREATER (1<<4)
+#define GROK_P_REGEX (1<<5)
 
-#define T_INT (1<<0)
-#define T_STR (1<<1)
+#define GROK_T_INT (1<<0)
+#define GROK_T_STR (1<<1)
 
 template <typename regex_type>
 class GrokPredicate {
@@ -31,19 +31,19 @@ class GrokPredicate {
       /* XXX: Should this just be a dispatch table? */
       regex_type op_re = 
         ( /* Test for < > <= >= */
-          (as_xpr('>')  [ flags |= P_GREATER ]
-           | as_xpr('<') [ flags |= P_LESS ]
+          (as_xpr('>')  [ flags |= GROK_P_GREATER ]
+           | as_xpr('<') [ flags |= GROK_P_LESS ]
           )
-          >> !(as_xpr('=') [ flags |= P_EQUAL ]
+          >> !(as_xpr('=') [ flags |= GROK_P_EQUAL ]
           )
         ) | ( /* Test for '==' */
-          as_xpr("==") [ flags |= P_EQUAL ]
+          as_xpr("==") [ flags |= GROK_P_EQUAL ]
         ) | ( /* Test for != */
-          as_xpr("!=") [ flags |= P_NOT | P_EQUAL ]
+          as_xpr("!=") [ flags |= GROK_P_NOT | GROK_P_EQUAL ]
         ) | ( /* Test for =~ and !~ */
-          ((as_xpr('=') [ flags |= P_EQUAL ]
-            | as_xpr('!') [ flags |= P_NOT ] 
-           ) >> as_xpr('~')) [ flags |= P_REGEX ]
+          ((as_xpr('=') [ flags |= GROK_P_EQUAL ]
+            | as_xpr('!') [ flags |= GROK_P_NOT ] 
+           ) >> as_xpr('~')) [ flags |= GROK_P_REGEX ]
         ); /* end 'op' regex */
 
       regex_search(predicate, match, op_re);
@@ -58,11 +58,11 @@ class GrokPredicate {
                                                  predicate.size() - match.length());
       stringstream remainder(remainder_string, stringstream::in);
 
-      this->type = T_STR;
+      this->type = GROK_T_STR;
       this->value_string = remainder_string;
 
       /* If not a regex, consider using integer comparisons */
-      if (this->flags & P_REGEX) {
+      if (this->flags & GROK_P_REGEX) {
         this->value_regex = regex_type::compile(this->value_string);
       } else {
         /* Try to see if this is an integer predicate 
@@ -70,21 +70,21 @@ class GrokPredicate {
         int tmp = 0;
         remainder >> tmp;
         if (!remainder.fail()) {
-          this->type = T_INT;
+          this->type = GROK_T_INT;
           this->value_int = tmp;
         }
       }
 
-      //cerr << "Predicate type: " << (this->type == T_INT ? "int" : "string") << endl;
+      //cerr << "Predicate type: " << (this->type == GROK_T_INT ? "int" : "string") << endl;
       //cerr << "Flags: " << this->flags << endl;
       //cerr << "String: " << this->value_string << endl;
       //cerr << "Int: " << this->value_int << endl;
     }
 
     bool operator()(const sub_match_t &match) const {
-      if (this->flags & P_REGEX) 
+      if (this->flags & GROK_P_REGEX) 
         return this->call_regex(match);
-      else if (this->type == T_STR)
+      else if (this->type == GROK_T_STR)
         return this->call_string(match);
       return this->call_int(match);
     }
@@ -121,23 +121,24 @@ class GrokPredicate {
     bool result(int compare) const {
       int flags = this->flags;
       switch (flags) {
-        case P_LESS:
+        case GROK_P_LESS:
           return compare < 0; break;
-        case P_LESS | P_EQUAL:
+        case GROK_P_LESS | GROK_P_EQUAL:
           return compare <= 0; break;
-        case P_GREATER:
+        case GROK_P_GREATER:
           return compare > 0; break;
-        case P_GREATER | P_EQUAL:
+        case GROK_P_GREATER | GROK_P_EQUAL:
           return compare >= 0; break;
-        case P_EQUAL:
+        case GROK_P_EQUAL:
           return compare == 0; break;
-        case P_EQUAL | P_NOT:
+        case GROK_P_EQUAL | GROK_P_NOT:
           return compare != 0; break;
         default:
           /* Should not get here */
           cerr << "SHOULD NOT GET HERE. flags = " << this->flags << endl;
       }
       cerr << "SHOULD(2) NOT GET HERE. flags = " << this->flags << endl;
+      return false;
     }
 
   private:

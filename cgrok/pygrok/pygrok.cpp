@@ -8,7 +8,6 @@
 #include <Python.h>
 
 #include "pygrokregex.hpp"
-#include "pygrokmatch.hpp"
 
 static PyMethodDef pygrok_methods[] = {
   {NULL},
@@ -24,15 +23,10 @@ initpygrok(void)
 
     if (PyType_Ready(&pyGrokRegexType) < 0)
         return;
-    if (PyType_Ready(&pyGrokMatchType) < 0)
-        return;
 
     m = Py_InitModule3("pygrok", pygrok_methods,
                        "Python C++Grok interface");
 
     Py_INCREF(&pyGrokRegexType);
     PyModule_AddObject(m, "GrokRegex", (PyObject *)&pyGrokRegexType);
-
-    Py_INCREF(&pyGrokMatchType);
-    PyModule_AddObject(m, "GrokMatch", (PyObject *)&pyGrokMatchType);
 }

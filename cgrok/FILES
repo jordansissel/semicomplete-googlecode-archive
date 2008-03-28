@@ -25,5 +25,11 @@
 + t/cxxtest/docs/*
 + t/cxxtest/sample
 + t/cxxtest/sample/*
++ pygrok
++ pygrok/Makefile
++ pygrok/pygrokregex.hpp
++ pygrok/pygrok.cpp
++ pygrok/setup.py
++ pygrok/example.py
 - *
 - *.o

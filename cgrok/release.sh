@@ -27,5 +27,5 @@ rsync -a --filter '. FILES' . "$DIR"
 # creation?
 find $DIR -name '*.o' -delete
 tar -C /tmp/ -zcf "${PACKAGE}.tar.gz" "$PACKAGE"
-rm -r "$DIR"
+rm -rf "$DIR"
 
