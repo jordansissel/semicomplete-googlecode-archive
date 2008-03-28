@@ -11,6 +11,8 @@ MatchToDict(GrokMatch<sregex> &gm) {
   GrokMatch<sregex>::match_map_type m;
   PyObject *match_dict = PyDict_New();
 
+  m = gm.GetMatches();
+
   for (iter = m.begin(); iter != m.end(); iter++) {
     PyObject *key, *val;
     key = PyString_FromString((*iter).first.c_str());
@@ -93,14 +95,18 @@ pyGrokRegex_add_patterns(pyGrokRegex *self, PyObject *args) {
   item_list = PyDict_Items(pattern_dict);
 
   dict_len = PyList_Size(item_list);
+  GrokPatternSet<sregex> gps;
   for (int i = 0; i < dict_len; i++) {
     PyObject *item = PyList_GetItem(item_list, i);
     PyObject *name = PyTuple_GetItem(item, 0);
     PyObject *pattern = PyTuple_GetItem(item, 1);
     string name_str(PyString_AsString(name));
     string pattern_str(PyString_AsString(pattern));
-    self->pattern_set->AddPattern(name_str, pattern_str);
+    //cout << "Adding: " << name_str << " => " << pattern_str << endl;
+    gps.AddPattern(name_str, pattern_str);
   }
+
+  self->gre->AddPatternSet(gps);
 
   Py_RETURN_NONE;
 }
