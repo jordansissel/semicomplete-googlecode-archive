@@ -1,6 +1,8 @@
 #ifndef __GROKMATCH_HPP
 #define __GROKMATCH_HPP
 
+#include <sstream>
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -62,6 +64,8 @@ class GrokMatch {
     void init(const typename regex_type::string_type &data, 
               const match_results<typename regex_type::iterator_type> &match,
               const match_map_type &backref_map) {
+      stringstream strconv(stringstream::in | stringstream::out);
+      string tmp;
 
       this->match_string = match.str(0);
       this->matches = backref_map;
@@ -75,6 +79,14 @@ class GrokMatch {
       //this->matches[line_key] = data;
       this->SetMatchMetaValue("MATCH", this->match_string);
       this->SetMatchMetaValue("LINE", data);
+
+      strconv << this->length;
+      this->SetMatchMetaValue("LENGTH", strconv.str());
+      strconv.str(string());
+
+      strconv << this->position;
+      this->SetMatchMetaValue("POSITION", strconv.str());
+      strconv.str(string());
 
       this->pattern_expand_re = 
         as_xpr('%')
