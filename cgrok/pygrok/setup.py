@@ -1,3 +1,15 @@
 from distutils.core import setup, Extension
-setup(name="pygrok", version="1.0",
-    ext_modules=[Extension("pygrok", ["pygrok.cpp"])])
+setup(name="pygrok",
+      version="1.0",
+      description = "Python bindings to C++ Grok",
+      url = "http://www.semicomplete.com/projects/grok",
+      author = "Jordan Sissel",
+
+      packages = [
+        "pygrok",
+      ],
+
+      # For the C++ code...
+      #ext_package="pygrok",
+      ext_modules=[Extension("pygrok.pygrok", ["pygrok/pygrok.cpp"])],
+    )

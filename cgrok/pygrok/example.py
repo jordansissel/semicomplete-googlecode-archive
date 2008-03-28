@@ -18,7 +18,7 @@ for i in open("../patterns"):
   (name, pattern) = i.split(" ", 1)
   patterns[name] = pattern
 
-g = pygrok.GrokRegex("foo")
+g = pygrok.GrokRegex()
 g.add_patterns(patterns)
 
 matchpattern = sys.argv[1]

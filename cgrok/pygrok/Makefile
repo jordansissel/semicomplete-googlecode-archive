@@ -11,3 +11,6 @@ test: all
 clean:
 		rm build/*/*.so || true
 		rm build/*/*.o || true
+
+pygrok/patterns.py: ../patterns
+	python convpatterns.py < ../patterns > $@

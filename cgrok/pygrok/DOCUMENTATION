@@ -7,7 +7,7 @@ patterns = {
   ...
 }
 
-g = pygrok.GrokRegex90
+g = pygrok.GrokRegex()
 g.add_patterns(patterns)
 g.set_regex("Hello %WORD%")
 m = g.search("Hello world")
