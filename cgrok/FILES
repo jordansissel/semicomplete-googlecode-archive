@@ -32,5 +32,8 @@
 + pygrok/setup.py
 + pygrok/example.py
 + pygrok/DOCUMENTATION
++ pygrok/t
++ pygrok/t/Makefile
++ pygrok/t/test.py
 - *
 - *.o
