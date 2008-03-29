@@ -48,6 +48,13 @@ pyGrokRegex_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
   return (PyObject *)self;
 }
 
+static void
+pyGrokRegex_dealloc(pyGrokRegex *self) {
+  delete self->gre;
+  delete self->pattern_set;
+  self->ob_type->tp_free((PyObject*) self);
+}
+
 static PyObject *
 pyGrokRegex_search(pyGrokRegex *self, PyObject *args) {
   PyObject* search_pystr = NULL;
@@ -127,7 +134,7 @@ static PyTypeObject pyGrokRegexType = {
     "pygrok.GrokRegex",             /*tp_name*/
     sizeof(pyGrokRegex), /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0,                         /*tp_dealloc*/
+    (destructor)pyGrokRegex_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/

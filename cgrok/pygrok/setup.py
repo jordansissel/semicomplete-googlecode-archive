@@ -9,7 +9,5 @@ setup(name="pygrok",
         "pygrok",
       ],
 
-      # For the C++ code...
-      #ext_package="pygrok",
       ext_modules=[Extension("pygrok.pygrok", ["pygrok/pygrok.cpp"])],
     )

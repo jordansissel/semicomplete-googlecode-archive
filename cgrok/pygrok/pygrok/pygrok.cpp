@@ -18,8 +18,7 @@ initpygrok(void)
 
     if (PyType_Ready(&pyGrokRegexType) < 0)
         return;
-
-    m = Py_InitModule3("grok", pygrok_methods,
+    m = Py_InitModule3("pygrok", pygrok_methods,
                        "Python C++Grok interface");
 
     Py_INCREF(&pyGrokRegexType);

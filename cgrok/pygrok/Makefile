@@ -1,16 +1,15 @@
 
 all:
-	python setup.py build
+	# Force CXX=g++ here in case we are using ccache. distutils sucks and turns
+	# 'CXX=ccache g++" into just "ccache". Sigh...
+	CXX=g++ python setup.py build
 
 test: all
-	echo "1234 5000 15243" \
-	| python example.py "%NUMBER>5000%" \
-	| grep -q 5000 \
-	&& echo "Python test passed."
+	make -C t test
 
 clean:
-		rm build/*/*.so || true
-		rm build/*/*.o || true
+	rm build/*/pygrok/*.so || true
+	rm build/*/pygrok/*.o || true
 
 pygrok/patterns.py: ../patterns
 	python convpatterns.py < ../patterns > $@
