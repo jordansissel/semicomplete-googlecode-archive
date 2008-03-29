@@ -27,8 +27,10 @@
 + t/cxxtest/sample/*
 + pygrok
 + pygrok/Makefile
-+ pygrok/pygrokregex.hpp
-+ pygrok/pygrok.cpp
++ pygrok/pygrok/pygrokregex.hpp
++ pygrok/pygrok/pygrok.cpp
++ pygrok/pygrok/__init__.py
++ pygrok/pygrok/patterns.py
 + pygrok/setup.py
 + pygrok/example.py
 + pygrok/DOCUMENTATION
