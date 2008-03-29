@@ -4,6 +4,9 @@ all:
 	# 'CXX=ccache g++" into just "ccache". Sigh...
 	CXX=g++ python setup.py build
 
+install:
+	python setup.py install
+
 test: all
 	make -C t test
 

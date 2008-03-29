@@ -117,10 +117,23 @@ pyGrokRegex_add_patterns(pyGrokRegex *self, PyObject *args) {
   Py_RETURN_NONE;
 }
 
+static PyObject*
+pyGrokRegex_get_expanded_regex(pyGrokRegex *self, PyObject *args) {
+  if (!PyArg_UnpackTuple(args, "GrokRegex.get_expanded_regex", 0, 0))
+    return NULL;
+
+  PyObject *result;
+  string tmp(self->gre->GetExpandedPattern());
+  result = PyString_FromString(tmp.c_str());
+
+  return result;
+}
+
 static PyMethodDef pyGrokRegex_methods[] = {
   {"search", (PyCFunction)pyGrokRegex_search, METH_VARARGS},
   {"set_regex", (PyCFunction)pyGrokRegex_set_regex, METH_VARARGS},
   {"add_patterns", (PyCFunction)pyGrokRegex_add_patterns, METH_VARARGS},
+  {"get_expanded_regex", (PyCFunction)pyGrokRegex_get_expanded_regex, METH_VARARGS},
   {NULL, NULL, 0, NULL},
 };
 
