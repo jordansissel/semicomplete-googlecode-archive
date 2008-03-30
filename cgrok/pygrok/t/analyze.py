@@ -6,9 +6,11 @@ from pygrok import pygrok
 from pygrok import patterns
 
 PUNCT_RE = re.compile(r"""['":_.=+-?]""")
+SKIP_PATTERNS = ("DATA GREEDYDATA USER USERNAME WORD NOTSPACE PID PROG "
+    "QS QUOTEDSTRING YEAR URIHOST URIPARAM URIPATH URIPATHPARAM").split()
 
 def re_weight(gre_str):
-  score = 0
+  score = len(gre_str)
   score += 1.5 * (gre_str.count(" ") + gre_str.count(r"\s"))
   score += 1 + gre_str.count(".")
   score += .6 * len(PUNCT_RE.findall(gre_str))
@@ -17,8 +19,14 @@ def re_weight(gre_str):
 def GetSortedPatterns():
   expansion = {}
   gre = pygrok.GrokRegex()
-  gre.add_patterns(patterns.base_patterns)
-  for name in patterns.base_patterns:
+  gpatterns = patterns.base_patterns
+  #gpatterns = ({
+    #"VARNAME": r"""[A-z_]+""",
+    #"EXPRESSION": r"""%VARNAME%|%VARNAME%()""",
+    #"EXPRFOR": r"""for %VARNAME%( *, *%VARNAME%)* in %EXPRESSION%:""",
+  #})
+  gre.add_patterns(gpatterns)
+  for name in gpatterns:
     gre.set_regex("%%%s%%" % name)
     expansion[name] = gre.get_expanded_regex()
 
@@ -28,38 +36,41 @@ def GetSortedPatterns():
 
   for (name, unused_expanded_re) in pat_list:
     gre = pygrok.GrokRegex()
-    gre.add_patterns(patterns.base_patterns)
+    gre.add_patterns(gpatterns)
     gre.set_regex(r"%%%s=~\W%%" % (name))
     gre_list.append( (name, gre) )
 
   return gre_list
 
-def RemoveUnimportantPatterns(gre_list):
+def PrunePatterns(gre_list):
   new_list = gre_list[:]
-  skip_patterns = ("DATA GREEDYDATA USER USERNAME WORD NOTSPACE PID PROG "
-                   "QS QUOTEDSTRING YEAR URIHOST URIPARAM URIPATH").split()
   for i in gre_list:
-    if i[0] in skip_patterns:
+    if i[0] in SKIP_PATTERNS:
       new_list.remove(i)
   return new_list
 
 def Analyze(line, gre_list):
-  count = -1
-  while count != 0:
-    count = 0
-    for (name, gre) in gre_list:
+  for name, gre in gre_list:
+    done = False
+
+    # We exit this loop when we no longer match the given pattern
+    while not done:
       m = gre.search(line)
-      if m:
-        count += 1
-        pos = int(m["=POSITION"])
-        len = int(m["=LENGTH"])
-        repl = "%%%s%%" % name
-        line = line[0:pos] + repl + line[pos+len:]
+      if not m:
+        done = True
+        continue
+      pos = int(m["=POSITION"])
+      len = int(m["=LENGTH"])
+      repl = "%%%s%%" % name
+      line = line[0:pos] + repl + line[pos+len:]
   print line
 
 def main():
   gre_list = GetSortedPatterns()
-  gre_list = RemoveUnimportantPatterns(gre_list)
+  gre_list = PrunePatterns(gre_list)
+
+  #for i in gre_list:
+    #print i[0]
 
   for line in sys.stdin:
     Analyze(line[:-1], gre_list)
