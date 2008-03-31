@@ -24,7 +24,7 @@ base_patterns = {
   'BSDTTY': r'''(?:/dev/tty[pq][a-z0-9])''',
   'TTY': r'''(?:%BSDTTY%|%LINUXTTY)''',
   'WINPATH': r'''(?:\\[^\\?*]*)+''',
-  'URIPROTO': r'''[A-z+]+''',
+  'URIPROTO': r'''[A-z]+''',
   'URIHOST': r'''%IPORHOST%(?:%PORT%)?''',
   'URIPATH': r'''(?:/[A-z0-9$.+!*'(),~#%-]*)+''',
   'URIPARAM': r'''\?(?:[A-z0-9]+(?:=(?:[^&]*))?(?:&(?:[A-z0-9]+(?:=(?:[^&]*))?)?)*)?''',

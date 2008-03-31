@@ -63,7 +63,7 @@ def Analyze(line, gre_list):
       len = int(m["=LENGTH"])
       repl = "%%%s%%" % name
       line = line[0:pos] + repl + line[pos+len:]
-  print line
+  return line
 
 def main():
   gre_list = GetSortedPatterns()
@@ -73,7 +73,7 @@ def main():
     #print i[0]
 
   for line in sys.stdin:
-    Analyze(line[:-1], gre_list)
+    print Analyze(line[:-1], gre_list)
 
 if __name__ == "__main__":
   main()

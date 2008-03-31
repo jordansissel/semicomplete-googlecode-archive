@@ -83,7 +83,12 @@ static PyObject* pyGrokRegex_set_regex(pyGrokRegex *self, PyObject *args) {
     return NULL;
 
   regex_pchar = PyString_AsString(regex_pystr);
-  self->gre->SetRegex((const char *)regex_pchar);
+  try {
+    self->gre->SetRegex((const char *)regex_pchar);
+  } catch (boost::xpressive::regex_error e) {
+    PyErr_Format(PyExc_ValueError, "Invalid regexp: '%s'", regex_pchar);
+    return NULL;
+  }
 
   Py_RETURN_NONE;
 }
