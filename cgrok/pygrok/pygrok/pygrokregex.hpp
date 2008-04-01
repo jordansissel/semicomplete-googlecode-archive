@@ -101,8 +101,11 @@ pyGrokRegex_add_patterns(pyGrokRegex *self, PyObject *args) {
   if (!PyArg_UnpackTuple(args, "GrokRegex.add_patterns", 1, 1, &pattern_dict))
     return NULL;
 
-  Py_ssize_t dict_len;
-  // XXX: Inc ref?
+  // python 2.5 uses Py_ssize_t
+  //Py_ssize_t dict_len;
+
+  // python 2.4 uses int
+  int dict_len;
   item_list = PyDict_Items(pattern_dict);
 
   dict_len = PyList_Size(item_list);
