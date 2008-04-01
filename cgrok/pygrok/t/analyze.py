@@ -20,11 +20,6 @@ def GetSortedPatterns():
   expansion = {}
   gre = pygrok.GrokRegex()
   gpatterns = patterns.base_patterns
-  #gpatterns = ({
-    #"VARNAME": r"""[A-z_]+""",
-    #"EXPRESSION": r"""%VARNAME%|%VARNAME%()""",
-    #"EXPRFOR": r"""for %VARNAME%( *, *%VARNAME%)* in %EXPRESSION%:""",
-  #})
   gre.add_patterns(gpatterns)
   for name in gpatterns:
     gre.set_regex("%%%s%%" % name)
