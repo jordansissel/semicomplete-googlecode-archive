@@ -19,6 +19,28 @@ using namespace boost::xpressive;
 #define GROK_T_INT (1<<0)
 #define GROK_T_STR (1<<1)
 
+void UnescapeString(string &value) {
+  string new_value(value);
+  string::size_type last_pos = -1;
+  string::size_type offset = 0;
+
+  while ((last_pos = value.find("\\", last_pos + 1)) != string::npos) {
+    string repl;
+    cout << last_pos << endl;
+    string::size_type len = 1;
+    if (value[last_pos + 1] == '%') {
+      repl = "%";
+      len += 1;
+    }
+
+    offset = offset - len + repl.size();
+
+    new_value.replace(last_pos + offset, len, repl);
+  }
+
+  value = new_value;
+}
+
 template <typename regex_type>
 class GrokPredicate {
   public:
@@ -63,6 +85,7 @@ class GrokPredicate {
 
       /* If not a regex, consider using integer comparisons */
       if (this->flags & GROK_P_REGEX) {
+        UnescapeString(this->value_string);
         this->value_regex = regex_type::compile(this->value_string);
       } else {
         /* Try to see if this is an integer predicate 

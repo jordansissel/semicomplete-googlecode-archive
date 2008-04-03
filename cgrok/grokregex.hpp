@@ -144,7 +144,7 @@ class GrokRegex {
 
     /* XXX: Split this into smaller functions */
     void RecursiveGenerateRegex(string pattern, int &backref, regex_type **pregex, string &expanded_regex) {
-      sregex not_percent = !+~(as_xpr('%'));
+      sregex not_percent = (!+~(as_xpr('%')) | "\\%");
       unsigned int last_pos = 0;
       string re_string;
       //regex_type *re;

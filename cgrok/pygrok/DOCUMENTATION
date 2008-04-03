@@ -1,6 +1,6 @@
-pygrok usage:
+#pygrok usage:
 
-import pygrok
+from pygrok import pygrok, patterns
 
 patterns = {
   "WORD": r"\w+",
@@ -8,10 +8,11 @@ patterns = {
 }
 
 g = pygrok.GrokRegex()
-g.add_patterns(patterns)
-g.set_regex("Hello %WORD%")
+g.add_patterns(patterns.base_patterns)
+g.add_patterns("FOO", "world|there")
+g.set_regex("Hello %FOO%")
 m = g.search("Hello world")
 
-# m["WORD"] == "world"
+# m["FOO"] == "world"
 # m["=LINE"] == "Hello world"
 # ...
