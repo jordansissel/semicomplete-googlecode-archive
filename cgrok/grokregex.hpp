@@ -144,28 +144,31 @@ class GrokRegex {
 
     /* XXX: Split this into smaller functions */
     void RecursiveGenerateRegex(string pattern, int &backref, regex_type **pregex, string &expanded_regex) {
-      sregex not_percent = (!+~(as_xpr('%')) | "\\%");
-      unsigned int last_pos = 0;
+      //sregex not_percent = (!+(+~(as_xpr('%') | '\\') | "\\."))
+      /* not_percent == /([^\\%]+|\\.)+?/ */
+      sregex not_percent = -+(~(boost::xpressive::set='%','\\')
+                              | (as_xpr('\\') >> _));
+      int last_pos = 0;
       string re_string;
       //regex_type *re;
 
       mark_tag mark_name(1), mark_alias(2), mark_predicate(3);
       /* Match %foo(:bar)?% */
       sregex pattern_expr_re(
-                             as_xpr('%')
-                             /* Pattern name and alias (FOO and FOO:BAR) */
-                             >> (mark_alias = 
-                                 (mark_name = +(alnum | as_xpr('_')))
-                                 >> !(as_xpr(':') >> +(alnum | as_xpr('_')))
-                                )
-                             /* Predicate conditional, optional. */
-                             >> !(mark_predicate = /* predicates are optional */
-                                  ((boost::xpressive::set= '<', '>', '=') >> !as_xpr('=')
-                                   | (!as_xpr('!') >> as_xpr('~')))
-                                  >> not_percent
-                                 )
-                             >> '%'
-                            );
+         as_xpr('%')
+         /* Pattern name and alias (FOO and FOO:BAR) */
+         >> (mark_alias = 
+             (mark_name = +(alnum | as_xpr('_')))
+             >> !(as_xpr(':') >> +(alnum | as_xpr('_')))
+            )
+         /* Predicate conditional, optional. */
+         >> !(mark_predicate = /* predicates are optional */
+              ((boost::xpressive::set= '<', '>', '=') >> !as_xpr('=')
+               | (!as_xpr('!') >> as_xpr('~')))
+              >> not_percent
+             )
+         >> '%'
+       );
 
       //cerr << "pattern: " << pattern << endl;
 

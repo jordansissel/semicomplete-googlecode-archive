@@ -25,7 +25,8 @@ HOSTPORT (?:%IPORHOST=~\.%:%POSITIVENUM%)
 
 # paths
 PATH (?:%UNIXPATH%|%WINPATH%)
-UNIXPATH (?<![\w\/])(?:\/[^\/\s?*]*)+
+UNIXPATH (?<![\w\\/])(?:/(?:[\w_@:.,-]+|\\.)*)+
+#UNIXPATH (?<![\w\/])(?:/[^\/\s?*]*)+
 LINUXTTY (?:/dev/pts/%POSITIVENUM%)
 BSDTTY (?:/dev/tty[pq][a-z0-9])
 TTY (?:%BSDTTY%|%LINUXTTY)

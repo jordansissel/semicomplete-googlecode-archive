@@ -7,6 +7,8 @@
 #include <boost/xpressive/xpressive.hpp>
 #include <boost/xpressive/regex_actions.hpp>
 
+#include "stringutils.hpp"
+
 using namespace std;
 using namespace boost::xpressive;
 
@@ -18,28 +20,6 @@ using namespace boost::xpressive;
 
 #define GROK_T_INT (1<<0)
 #define GROK_T_STR (1<<1)
-
-void UnescapeString(string &value) {
-  string new_value(value);
-  string::size_type last_pos = -1;
-  string::size_type offset = 0;
-
-  while ((last_pos = value.find("\\", last_pos + 1)) != string::npos) {
-    string repl;
-    cout << last_pos << endl;
-    string::size_type len = 1;
-    if (value[last_pos + 1] == '%') {
-      repl = "%";
-      len += 1;
-    }
-
-    offset = offset - len + repl.size();
-
-    new_value.replace(last_pos + offset, len, repl);
-  }
-
-  value = new_value;
-}
 
 template <typename regex_type>
 class GrokPredicate {
@@ -82,10 +62,10 @@ class GrokPredicate {
 
       this->type = GROK_T_STR;
       this->value_string = remainder_string;
+      StringUtils::Unescape(this->value_string);
 
       /* If not a regex, consider using integer comparisons */
       if (this->flags & GROK_P_REGEX) {
-        UnescapeString(this->value_string);
         this->value_regex = regex_type::compile(this->value_string);
       } else {
         /* Try to see if this is an integer predicate 
@@ -105,11 +85,18 @@ class GrokPredicate {
     }
 
     bool operator()(const sub_match_t &match) const {
+      bool result;
       if (this->flags & GROK_P_REGEX) 
-        return this->call_regex(match);
+        result =  this->call_regex(match);
       else if (this->type == GROK_T_STR)
-        return this->call_string(match);
-      return this->call_int(match);
+        result = this->call_string(match);
+      else
+        result = this->call_int(match);
+
+      if (this->flags & GROK_P_NOT)
+        result = !result;
+
+      return result;
     }
 
     bool call_regex(const sub_match_t &match) const {

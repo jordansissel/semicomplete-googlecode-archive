@@ -51,24 +51,41 @@ class GrokPatternsTest : public CxxTest::TestSuite {
       while (getline(in, line)) {
         lineno += 1;
         bool result = gre.Search(line, gm);
-        if (result != match_success) {
-          cerr << "Match test failure. Expected " << match_success << " but got " << !match_success << endl;
-          cerr << " --> Pattern: " << pattern_name << endl;
-          cerr << " --> Input: " << line << endl;
-          TS_FAIL("failure to match at all");
-        } 
+        bool as_expected = false;
+        string full_match;
+
+        as_expected = (result == match_success);
 
         if (result) {
           /* Test the match string if match was a success */
           matchmap = gm.GetMatches();
-          if (matchmap["=MATCH"] != line) {
-            cerr << "Match test string failure. Did not match entire line as required." << endl;
+          bool line_match = (matchmap["=MATCH"] == line);
+          
+          as_expected = (match_success == line_match);
+             
+          if (!as_expected) {
+            cerr << "Match test string failure: "
+                 << (match_success 
+                     ? "Did not match entire string as required"
+                     : "Matched entire string when it should not")
+                 << endl;
             cerr << "Match: '" << matchmap["=MATCH"] << "'" << endl;
             cerr << "Expected: '" << line << "'" << endl;
             cerr << "Line number: " << lineno << endl;
+            cerr << "File: " << this->filename << endl;
             TS_FAIL("failure on match value");
           }
         }
+
+        if (!as_expected) {
+          cerr << "Match test failure. Expected " << match_success << " but got " << !match_success << endl;
+          cerr << " --> Pattern: " << pattern_name << endl;
+          cerr << " --> Input: " << line << endl;
+          cerr << "Line number: " << lineno << endl;
+          cerr << "File: " << this->filename << endl;
+          TS_FAIL("failure to match properly (or fail matching properly)");
+        } 
+
         
       }
 

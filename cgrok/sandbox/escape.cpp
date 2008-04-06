@@ -5,12 +5,12 @@ using namespace std;
 
 void UnescapeString(string &value) {
   string new_value(value);
-  string::size_type last_pos = -1;
-  string::size_type offset = 0;
+  int last_pos = -1;
+  int offset = 0;
   
   while ((last_pos = value.find("\\", last_pos + 1)) != string::npos) {
     string repl;
-    string::size_type len = 1; 
+    int len = 1; 
     if (value[last_pos + 1] == '%') {
       repl = "%";
       len += 1;
@@ -27,8 +27,15 @@ void UnescapeString(string &value) {
 
 int main() {
   string foo("Hello there\\%");
+  string bar("Hello");
   cout << foo << endl;
   UnescapeString(foo);
   cout << foo << endl;
+
+  cout << bar << endl;
+  UnescapeString(bar);
+  cout << bar << endl;
+
+  
   return 0;
 }

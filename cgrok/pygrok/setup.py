@@ -10,4 +10,5 @@ setup(name="pygrok",
       ],
 
       ext_modules=[Extension("pygrok.pygrok", ["pygrok/pygrok.cpp"])],
+      include_dirs=["/usr/local/include"],
     )

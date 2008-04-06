@@ -3,6 +3,7 @@ PACKAGE=cgrok
 CFLAGS=-pipe -I/usr/local/include
 
 CFLAGS+=-g
+#CFLAGS+=--param ggc-min-expand=100 --param ggc-min-heapsize=90
 #CFLAGS+=-O2
 
 LDFLAGS=-L/usr/local/lib -lpopt
@@ -12,6 +13,7 @@ all: grok
 grok: main.o
 	$(CXX) $(LDFLAGS) main.o -o $@
 
+pattern_test.o: fileobserver.hpp grokconfig.hpp grokfile.hpp grokmatch.hpp grokpattern.hpp grokpatternset.hpp grokpredicate.hpp grokregex.hpp watchfileentry.hpp
 pattest: pattern_test.o
 	$(CXX) pattern_test.o -o $@
 
@@ -36,6 +38,9 @@ grokpatternset.hpp: grokpattern.hpp
 	$(CXX) $(CFLAGS) -c -o $@ $<
 
 package: build-package test-package
+
+test:
+	make -C t test
 
 build-package:
 	#@svn status -q | wc -l | awk '$$1 > 0 { print "svn changes are not checked in!"; exit(1) }'
