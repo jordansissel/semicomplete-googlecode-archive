@@ -2,7 +2,8 @@ PACKAGE=cgrok
 
 CFLAGS=-pipe -I/usr/local/include
 
-CFLAGS+=-g
+CFLAGS=-Os -static
+#CFLAGS+=-g
 #CFLAGS+=--param ggc-min-expand=100 --param ggc-min-heapsize=90
 #CFLAGS+=-O2
 

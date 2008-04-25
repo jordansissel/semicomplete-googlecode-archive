@@ -1,15 +1,19 @@
 
 CXXGEN=cxxtest/cxxtestgen.pl
 
-CFLAGS=-g -pipe -I/usr/local/include -I./cxxtest -I../
+CFLAGS=-pipe -I/usr/local/include -I./cxxtest -I../
+#CFLAGS=-g
+CFLAGS+=-Os
 
 .SUFFIXES: .test .cpp .o
 
 basic: basic.o
-	$(CXX) $(LDFLAGS) $> -o $@
+	$(CXX) $(LDFLAGS) $< -o $@
+	strip $@
 
 patterns: patterns.o
-	$(CXX) $(LDFLAGS) $> -o $@
+	$(CXX) $(LDFLAGS) $< -o $@
+	strip $@
 
 patterns.test: patterns.test_template pattern_test_set.generated_test
 	rm -f $@
