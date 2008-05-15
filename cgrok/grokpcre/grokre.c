@@ -7,6 +7,7 @@ typedef struct grok_pattern {
   char *name;
   //pcre *pcre;
   char *regexp;
+  char *expanded_regexp;
 } grok_pattern_t;
 
 typedef struct grok_pattern_set {
@@ -15,10 +16,19 @@ typedef struct grok_pattern_set {
   size_t max_patterns;
 } grok_pattern_set_t;
 
+typedef struct grok_context {
+  pcre *named_pattern_re;
+  grok_pattern_set_t *pattern_set;
+} grok_context_t;
+
+/* XXX: Remove this in favor of grok_context_t */
+static pcre *global_named_re;
+
 int grok_pattern_name_cmp(const void *a, const void *b);
-void parse_patterns(char *buffer, grok_pattern_set_t *pattern_set);
 void read_patterns(const char *filename, grok_pattern_set_t *pattern_set);
+void parse_patterns(char *buffer, grok_pattern_set_t *pattern_set);
 void parse_pattern_line(const char *line, grok_pattern_t *pattern);
+void expand_patterns(grok_pattern_set_t *pattern_set);
 
 int grok_pattern_name_cmp(const void *a, const void *b) {
   grok_pattern_t *ga = (grok_pattern_t *)a;
@@ -102,6 +112,9 @@ void parse_patterns(char *buffer, grok_pattern_set_t *pattern_set) {
 
   qsort(pattern_set->patterns, pattern_set->num_patterns, sizeof(grok_pattern_t), 
         grok_pattern_name_cmp);
+
+  expand_patterns(pattern_set);
+  
   free(dupbuf);
 }
 
@@ -123,15 +136,29 @@ void parse_pattern_line(const char *line, grok_pattern_t *pattern) {
   free(linedup);
 }
 
-int main(int argc, char **argv) {
+void expand_patterns(grok_pattern_set_t *pattern_set) {
+}
+
+int main(int argc, const char **argv) {
   grok_pattern_set_t pset;
   pset.patterns = NULL;
+  grok_pattern_t *gpt = NULL;
+  grok_pattern_t key;
 
+  //global_named_re = pcre_compile("%(?:[^\\%]+|\\.)+%");
   read_patterns("../patterns", &pset);
 
-  size_t i = 0;
-  for (i = 0; i < pset.num_patterns; i++) {
-    printf("%s: %s\n", pset.patterns[i].name, pset.patterns[i].regexp); 
+  key.name = strdup(argv[1]);
+  key.regexp = NULL;
+
+  gpt = bsearch(&key, pset.patterns, pset.num_patterns, sizeof(grok_pattern_t),
+                grok_pattern_name_cmp);
+
+  if (gpt != NULL) {
+    printf("Found: %s\n", gpt->name);
+    printf("%s\n", gpt->regexp);
+  } else {
+    printf("Not found: %s\n", key.name);
   }
 
   return 0;
@@ -184,6 +211,4 @@ int old_main(int argc, char **argv) {
     printf("%d: %s\n", i, sptr);
     pcre_free_substring(sptr);
   }
-
-
 }
