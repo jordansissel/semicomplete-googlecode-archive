@@ -1,6 +1,5 @@
 #include <pcre.h>
-#include <string.h>
-#include <stdlib.h>
+#include <string.h> #include <stdlib.h>
 #include <stdio.h>
 
 typedef struct grok_pattern {
@@ -125,39 +124,7 @@ void grok_pattern_add(grok_t *grok, grok_pattern_t *pattern) {
   }
 }
 
-void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret) {
-  char *linedup = strdup(line);
-  char *name = linedup;
-  char *regexp = NULL;
-  size_t offset;
-
-  /* Find the first whitespace */
-  offset = strcspn(line, " \t");
-  linedup[offset] = '\0';
-  offset += strspn(linedup + offset, " \t");
-  regexp = linedup + offset + 1;
-
-  pattern_ret->name = strdup(name);
-  pattern_ret->regexp = strdup(regexp);
-
-  free(linedup);
-}
-
-int main(int argc, const char **argv) {
-  grok_t grok;
-  grok_pattern_t *gpt = NULL;
-  grok_pattern_t key;
-
-  grok_init(&grok);
-  grok_patterns_import_from_file(&grok, "../patterns");
-
-  if (argc == 1) {
-    printf("Usage: $0 <pattern>\n");
-    return 1;
-  }
-
-
-  // Foo //
+pcre *grok_compile(grok_t *grok, const char *pattern) {
   pcre *re = NULL;
   int *ovector = NULL;
   int num_captures = -1;
@@ -205,6 +172,42 @@ int main(int argc, const char **argv) {
 
   return 0;
 }
+
+void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret) {
+  char *linedup = strdup(line);
+  char *name = linedup;
+  char *regexp = NULL;
+  size_t offset;
+
+  /* Find the first whitespace */
+  offset = strcspn(line, " \t");
+  linedup[offset] = '\0';
+  offset += strspn(linedup + offset, " \t");
+  regexp = linedup + offset + 1;
+
+  pattern_ret->name = strdup(name);
+  pattern_ret->regexp = strdup(regexp);
+
+  free(linedup);
+}
+
+int main(int argc, const char **argv) {
+  grok_t grok;
+  grok_pattern_t *gpt = NULL;
+  grok_pattern_t key;
+
+  grok_init(&grok);
+  grok_patterns_import_from_file(&grok, "../patterns");
+
+  if (argc == 1) {
+    printf("Usage: $0 <pattern>\n");
+    return 1;
+  }
+
+  return 0;
+}
+
+
 
 #if 0
   key.name = strdup(argv[1]);
