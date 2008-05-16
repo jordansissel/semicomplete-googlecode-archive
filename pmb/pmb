@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/zsh
 
 # Defaults
 HOSTNAME=`hostname`
@@ -15,9 +15,6 @@ for i in /usr/local/etc . $HOME; do
   [ -f "$i/pmb.rc" ] && . $i/pmb.rc && echo Reading $i/pmb.rc
   [ -f "$i/.pmbrc" ] && . $i/.pmbrc && echo Reading $i/.pmbrc
 done
-
-echo $BACKUPLOCATION
-exit
 
 OPTS=`getopt RBCSqvrh: $*`
 if [ "$?" -ne "0" ]; then
@@ -146,9 +143,8 @@ do_backup() {
   echo "ROTATION DONE"
 
   echo "Targets: $TARGETS"
-
   # Do the backup
-  ssh ${USER}@$SERVER "mkdir -p ${BACKUPLOCATION}/backup.0"
+  echo rsync -v $RSYNC_OPTS --files-from=$BTMP / ${BACKUPLOCATION}/backup.0
   rsync -v $RSYNC_OPTS --files-from=$BTMP / ${BACKUPLOCATION}/backup.0
 
   [ -f "$BTMP" ] && rm $BTMP
@@ -167,23 +163,13 @@ do_checkfile() {
   rsync -rn $RSYNC_OPTS --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err \
     | grep -v '^receiving file' | sed -ne '/^$/q;p' > $BTMP.1
 
-<<<<<<< .mine
-  FILESCHANGED=`wc -l $BTMP.1 | awk '{print $1}`
+  FILESCHANGED=`wc -l $BTMP.1 | awk '{print $1}'`
   if [ "$FILESCHANGED" -gt 0 ]; then
     echo "Files changed:"
     sed -e 's/^/   /' $BTMP.1
   else
     echo "No files changed"
   fi
-=======
-	FILESCHANGED=`wc -l $BTMP.1 | awk '{print $1}'`
-	if [ "$FILESCHANGED" -gt 0 ]; then
-		echo "Files changed:"
-		sed -e 's/^/   /' $BTMP.1
-	else
-		echo "No files changed"
-	fi
->>>>>>> .r1597
 
   cat $BTMP.err
 
@@ -207,13 +193,10 @@ do_recover() {
     *) echo "Cancelled"; return ;;
   esac
 
-  
   echo "Performing recovery..."
   rsync -rva $RSYNC_OPTS --files-from="$BTMP" ${BACKUPLOCATION}/backup.0 / 2> $BTMP.err
-  
-  #  | grep -v '^receiving file' | sed -ne '/^$/q;p' | sed -e 's/^/Restoring: /'
 
-  
+  #  | grep -v '^receiving file' | sed -ne '/^$/q;p' | sed -e 's/^/Restoring: /'
 
   if wc -l $BTMP.err | awk '($1 == 0) { exit(1) }'; then
     echo "Errors:"
