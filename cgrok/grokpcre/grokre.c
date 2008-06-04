@@ -1,12 +1,11 @@
 #include <pcre.h>
-#include <string.h> #include <stdlib.h>
+#include <string.h> 
+#include <stdlib.h>
 #include <stdio.h>
 
 typedef struct grok_pattern {
   char *name;
-  //pcre *pcre;
   char *regexp;
-  char *expanded_regexp;
 } grok_pattern_t;
 
 typedef struct grok_pattern_set {
@@ -16,14 +15,31 @@ typedef struct grok_pattern_set {
 } grok_pattern_set_t;
 
 typedef struct grok {
-  pcre *named_pattern_re;
   grok_pattern_set_t pattern_set;
+  
+  /* These are initialized when grok_compile is called */
+  pcre *re;
+  const char *pattern;
+  char *full_pattern;
+  int *capture_vector;
+  int num_captures;
 
   /* PCRE pattern compilation errors */
   const char *pcre_errptr;
   int pcre_erroffset;
-
 } grok_t;
+
+/* global, static variables */
+
+/* pattern to match %{FOO:BAR} */
+#define PATTERN_REGEX "%{" \
+                        "(?<name>" \
+                          "(?<pattern>[A-z0-9._-]+)" \
+                          "(?::(?<subname>[A-z0-9._-]+))?" \
+                        ")" \
+                      "}"
+
+static pcre *g_pattern_re = NULL;
 
 /* public functions */
 void grok_init(grok_t *grok);
@@ -31,6 +47,9 @@ void grok_init(grok_t *grok);
 void grok_patterns_import_from_file(grok_t *grok, const char *filename);
 void grok_patterns_import_from_string(grok_t *grok, char *buffer);
 void grok_pattern_add(grok_t *grok, grok_pattern_t *pattern);
+int grok_compile(grok_t *grok, const char *pattern);
+int grok_exec(grok_t *grok, const char *text);
+char *grok_pattern_expand(grok_t *grok);
 
 static int grok_pattern_set_cmp_name(const void *a, const void *b);
 static void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret);
@@ -38,15 +57,28 @@ static void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret)
 static int grok_pattern_set_cmp_name(const void *a, const void *b) {
   grok_pattern_t *ga = (grok_pattern_t *)a;
   grok_pattern_t *gb = (grok_pattern_t *)b;
-
   return strcmp(ga->name, gb->name);
 }
 
 void grok_init(grok_t *grok) {
   grok_pattern_set_t *pset = &grok->pattern_set;
+
+  memset(grok, 0, sizeof(grok_t));
   pset->count = 0;
   pset->size = 20;
   pset->patterns = malloc(pset->size * sizeof(grok_pattern_t));
+
+  if (g_pattern_re == NULL) {
+    g_pattern_re = pcre_compile(PATTERN_REGEX, 0, 
+                                &grok->pcre_errptr,
+                                &grok->pcre_erroffset,
+                                NULL);
+    if (g_pattern_re == NULL) {
+      fprintf(stderr, "Internal compiler error: %s\n", grok->pcre_errptr);
+      fprintf(stderr, "Regexp: %s\n", PATTERN_REGEX);
+      fprintf(stderr, "Position: %d\n", grok->pcre_erroffset);
+    }
+  }
 }
 
 void grok_patterns_import_from_file(grok_t *grok, const char *filename) {
@@ -124,53 +156,57 @@ void grok_pattern_add(grok_t *grok, grok_pattern_t *pattern) {
   }
 }
 
-pcre *grok_compile(grok_t *grok, const char *pattern) {
-  pcre *re = NULL;
-  int *ovector = NULL;
-  int num_captures = -1;
+int grok_compile(grok_t *grok, const char *pattern) {
   int i = 0;
   int rc = 0;
   int offset, len;
 
-  re = pcre_compile("%((?:[^\\%]+|\\.)+)%", 0, 
-                    &grok.pcre_errptr, &grok.pcre_erroffset,
-                    NULL);
+  grok->pattern = pattern;
+  grok->full_pattern = grok_pattern_expand(grok);
 
-  if (re == NULL) {
-    printf("Regex error: %s\n", grok.pcre_errptr);
+  grok->re = pcre_compile(grok->full_pattern, 0, 
+                          &grok->pcre_errptr, &grok->pcre_erroffset,
+                          NULL);
+
+  if (grok->re == NULL) {
+    printf("Regex error: %s\n", grok->pcre_errptr);
     return 1;
   }
 
-  pcre_fullinfo(re, NULL, PCRE_INFO_CAPTURECOUNT, &num_captures);
-  num_captures++; /* include the 0th group */
-
-  ovector = malloc( (3 * num_captures) * sizeof(int) );
-
-  offset = 0;
-  len = strlen(argv[1]);
-  while (rc >= 0) {
-    rc = pcre_exec(re, NULL, argv[1] + offset, len - offset, 0, 0,
-                   ovector, num_captures * 3);
-
-    if (rc < 0)
-      break;
-
-    if (rc == 0)
-      rc = num_captures;
-
-    //for (i = 0; i < rc; i++ ) {
-    for (i = 1; i < 2; i++ ) {
-      const char *sptr;
-      pcre_get_substring(argv[1] + offset, ovector, rc, i, &sptr);
-      printf("start:%d, end:%d\n", ovector[0], ovector[1]);
-      printf("%d: %s\n", i, sptr);
-      pcre_free_substring(sptr);
-
-    }
-    offset += ovector[1];
-  }
+  pcre_fullinfo(grok->re, NULL, PCRE_INFO_CAPTURECOUNT, &grok->num_captures);
+  grok->num_captures++; /* include the 0th group */
+  grok->capture_vector = malloc((3 * grok->num_captures) * sizeof(int) );
 
   return 0;
+}
+
+int grok_exec(grok_t *grok, const char *text) {
+  int ret;
+  ret = pcre_exec(grok->re, NULL, text, strlen(text), 0, 0,
+                  grok->capture_vector, grok->num_captures);
+  switch (ret) {
+    case PCRE_ERROR_NOMATCH:
+      printf("'%s' vs '%s'\n", grok->full_pattern, text);
+      printf("No match\n");
+      break;
+    case PCRE_ERROR_NULL:
+      printf("Null error, one of the arguments was null?\n");
+      break;
+    case PCRE_ERROR_BADOPTION:
+      printf("badoption\n");
+      break;
+    case PCRE_ERROR_BADMAGIC:
+      printf("badmagic\n");
+      break;
+    default:
+      printf("MATCH: %d\n", ret);
+  }
+
+  return ret;
+}
+
+char *grok_pattern_expand(grok_t *grok) {
+  return strdup(grok->pattern);
 }
 
 void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret) {
@@ -191,7 +227,7 @@ void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret) {
   free(linedup);
 }
 
-int main(int argc, const char **argv) {
+int main(int argc, const char * const *argv) {
   grok_t grok;
   grok_pattern_t *gpt = NULL;
   grok_pattern_t key;
@@ -199,29 +235,13 @@ int main(int argc, const char **argv) {
   grok_init(&grok);
   grok_patterns_import_from_file(&grok, "../patterns");
 
-  if (argc == 1) {
-    printf("Usage: $0 <pattern>\n");
+  if (argc != 3) {
+    printf("Usage: $0 <pattern> <text>\n");
     return 1;
   }
 
+  grok_compile(&grok, argv[1]);
+  grok_exec(&grok, argv[2]);
+
   return 0;
 }
-
-
-
-#if 0
-  key.name = strdup(argv[1]);
-  key.regexp = NULL;
-
-  gpt = bsearch(&key, grok.pattern_set.patterns, grok.pattern_set.count, 
-                sizeof(grok_pattern_t), grok_pattern_set_cmp_name);
-
-  if (gpt != NULL) {
-    printf("Found: %s\n", gpt->name);
-    printf("%s\n", gpt->regexp);
-  } else {
-    printf("Not found: %s\n", key.name);
-  }
-
-  return 0;
-#endif 
