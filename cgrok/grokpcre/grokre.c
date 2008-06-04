@@ -336,8 +336,6 @@ void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret) {
 
 int main(int argc, const char * const *argv) {
   grok_t grok;
-  grok_pattern_t *gpt = NULL;
-  grok_pattern_t key;
 
   grok_init(&grok);
   grok_patterns_import_from_file(&grok, "pcregrok_patterns");
@@ -349,7 +347,7 @@ int main(int argc, const char * const *argv) {
 
   grok_compile(&grok, argv[1]);
 
-  {
+  { /* read from stdin, apply the given pattern to it */
     int ret;
     char buffer[4096];
     FILE *fp;
