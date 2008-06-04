@@ -1,0 +1,34 @@
+
+
+INT [0-9]+
+NUMBER \b(?:[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?)|(?:\.[0-9]+)))\b
+
+
+"foo %INT% bar" becomes
+vanilla:  foo [0-9]+ bar
+capturing: foo ([0-9]+) bar
+grok, no predicate: foo (?<SOMETHING>[0-9]+)
+grok, with predicate: foo (?<SOMETHING>[0-9]+)(?C0)
+
+Inside C0 callout:
+  pcb->capture_last == pcre_get_stringnum(re, "SOMETHING")
+    call SOMETHING predicate
+
+
+usage:
+
+  grok_t *gre = grok_new();
+  grok_add_pattern(gre, ...)
+
+  grok_compile("%IPORHOST%");
+
+  grok_match_t *match;
+  retcode = grok_exec(grok_re, "hello 1.2.3.4 bar", match);
+
+  match.get_by_name("FOO") ?
+  match.get_by_number(10) ?
+  match.length
+  match.offset
+
+  grok_match_free(match);
+

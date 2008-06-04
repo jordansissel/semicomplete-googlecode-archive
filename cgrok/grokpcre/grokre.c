@@ -30,6 +30,12 @@ typedef struct grok {
   int pcre_erroffset;
 } grok_t;
 
+typedef struct grok_match {
+  pcre *re;
+  int *capture_vector;
+  int num_captures;
+} grok_match_t;
+
 /* global, static variables */
 
 /* pattern to match %{FOO:BAR} */
@@ -51,7 +57,7 @@ void grok_patterns_import_from_file(grok_t *grok, const char *filename);
 void grok_patterns_import_from_string(grok_t *grok, char *buffer);
 void grok_pattern_add(grok_t *grok, grok_pattern_t *pattern);
 int grok_compile(grok_t *grok, const char *pattern);
-int grok_exec(grok_t *grok, const char *text);
+int grok_exec(grok_t *grok, const char *text, grok_match_t *gm);
 char *grok_pattern_expand(grok_t *grok);
 grok_pattern_t *grok_pattern_find(grok_t *grok, const char *pattern_name);
 
@@ -202,26 +208,29 @@ int grok_compile(grok_t *grok, const char *pattern) {
   return 0;
 }
 
-int grok_exec(grok_t *grok, const char *text) {
+int grok_exec(grok_t *grok, const char *text, grok_match_t *gm) {
   int ret;
   ret = pcre_exec(grok->re, NULL, text, strlen(text), 0, 0,
                   grok->capture_vector, grok->num_captures);
-  switch (ret) {
-    case PCRE_ERROR_NOMATCH:
-      printf("'%s' vs '%s'\n", grok->full_pattern, text);
-      printf("No match\n");
-      break;
-    case PCRE_ERROR_NULL:
-      printf("Null error, one of the arguments was null?\n");
-      break;
-    case PCRE_ERROR_BADOPTION:
-      printf("badoption\n");
-      break;
-    case PCRE_ERROR_BADMAGIC:
-      printf("badmagic\n");
-      break;
-    default:
-      printf("MATCH: %d\n", ret);
+  if (ret < 0) {
+    switch (ret) {
+      case PCRE_ERROR_NOMATCH:
+        break;
+      case PCRE_ERROR_NULL:
+        printf("Null error, one of the arguments was null?\n");
+        break;
+      case PCRE_ERROR_BADOPTION:
+        printf("badoption\n");
+        break;
+      case PCRE_ERROR_BADMAGIC:
+        printf("badmagic\n");
+        break;
+    }
+    return ret;
+  }
+
+  if (gm != NULL) {
+    /* XXX: Copy the result of this match into the grok_match_t */
   }
 
   return ret;
@@ -254,7 +263,7 @@ char *grok_pattern_expand(grok_t *grok) {
 
     pcre_get_substring(full_pattern, capture_vector, g_pattern_num_captures,
                        cap_pattern, &patname);
-    printf("Pattern: %s\n", patname);
+    //printf("Pattern: %s\n", patname);
     gpt = grok_pattern_find(grok, patname);
     if (gpt == NULL) {
       offset = end;
@@ -283,7 +292,7 @@ char *grok_pattern_expand(grok_t *grok) {
       assert(strlen(full_pattern) == full_len);
       
       offset = start;
-      printf("-> %s\n", full_pattern);
+      //printf("-> %s\n", full_pattern);
     }
 
     if (patname != NULL) {
@@ -333,13 +342,21 @@ int main(int argc, const char * const *argv) {
   grok_init(&grok);
   grok_patterns_import_from_file(&grok, "pcregrok_patterns");
 
-  if (argc != 3) {
-    printf("Usage: $0 <pattern> <text>\n");
+  if (argc != 2) {
+    printf("Usage: $0 <pattern>\n");
     return 1;
   }
 
   grok_compile(&grok, argv[1]);
-  grok_exec(&grok, argv[2]);
 
+  {
+    char buffer[4096];
+    FILE *fp;
+    fp = stdin;
+    while (!feof(fp)) {
+      fgets(buffer, 4096, fp);
+      grok_exec(&grok, buffer, NULL);
+    }
+  }
   return 0;
 }
