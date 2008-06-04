@@ -1,4 +1,8 @@
 
+all: clean grokre
+
+clean:
+	rm -f grokre
 
 grokre: grokre.c
-	gcc -lpcre grokre.c -o grokre
+	$(CC) -g -lpcre grokre.c -o grokre
