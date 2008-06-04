@@ -350,12 +350,16 @@ int main(int argc, const char * const *argv) {
   grok_compile(&grok, argv[1]);
 
   {
+    int ret;
     char buffer[4096];
     FILE *fp;
     fp = stdin;
     while (!feof(fp)) {
       fgets(buffer, 4096, fp);
-      grok_exec(&grok, buffer, NULL);
+      ret = grok_exec(&grok, buffer, NULL);
+      if (ret >= 0) {
+        printf("%s", buffer);
+      }
     }
   }
   return 0;
