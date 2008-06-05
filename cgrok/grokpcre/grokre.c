@@ -259,15 +259,13 @@ char *grok_pattern_expand(grok_t *grok) {
 
     pcre_get_substring(full_pattern, capture_vector, g_pattern_num_captures,
                        cap_pattern, &patname);
-    //printf("Pattern: %s\n", patname);
     gpt = grok_pattern_find(grok, patname);
     if (gpt == NULL) {
       offset = end;
     } else {
       int regexp_len = strlen(gpt->regexp) + 5 + strlen(patname);
       int remainder_offset = start + regexp_len;
-      /* + 6 is for the length of (?<>)\0) */
-
+      /* Adding 5 is for the length of "(?<>)" */
 
       /* The pattern was found, inject it into the full_pattern */
       /* This next section exists to mutate this:
@@ -281,6 +279,7 @@ char *grok_pattern_expand(grok_t *grok) {
         full_pattern = realloc(full_pattern, full_size);
       }
 
+      /* Invariant, full_pattern actual len must always be full_len */
       assert(strlen(full_pattern) == full_len);
 
       /* Move the remainder of the string to the end of the 
@@ -292,10 +291,14 @@ char *grok_pattern_expand(grok_t *grok) {
       snprintf(full_pattern + start, regexp_len + 1,
                "(?<%s>%s)", patname, gpt->regexp);
       full_len += regexp_len - matchlen;
+
+      /* Invariant, full_pattern actual len must always be full_len */
       assert(strlen(full_pattern) == full_len);
       
+      /* Move offset to the start of the regexp pattern we just injected.
+       * This is so when we iterate again, we can process this new pattern
+       * to see if the regexp included itself any %{FOO} things */
       offset = start;
-      //printf("-> %s\n", full_pattern);
     }
 
     if (patname != NULL) {
