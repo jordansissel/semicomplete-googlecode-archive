@@ -15,7 +15,6 @@ esac
 
 ps $psargs \
 | while read proc_user pid pcpu pmem vsz rss tt state start time command; do
-  [ "$USER" != "$proc_user" ] && continue
 
   echo "$command" \
   | egrep "$PATTERN" \
