@@ -27,7 +27,7 @@ findscreen() {
   for other in `screenlist`; do
     # Only check screens that are not the current screen
     if [ "$STY" != "$other" ] ; then
-      if windowcat $other | grep -q "$1" ; then
+      if windowcat $other | egrep -q "$1" ; then
         echo $other
       fi
     fi

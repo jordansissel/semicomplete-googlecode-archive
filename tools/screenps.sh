@@ -18,7 +18,7 @@ ps $psargs \
   [ "$USER" != "$proc_user" ] && continue
 
   echo "$command" \
-  | grep -F "$PATTERN" \
+  | egrep "$PATTERN" \
   | sed -ne 's/^.* STY=\([^ ]*\).*/\1/p' \
   | sort | uniq \
   | grep -vF "${STY:-NO_STY_SET}"
