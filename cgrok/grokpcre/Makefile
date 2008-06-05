@@ -1,4 +1,4 @@
-CFLAGS+=-O2 -pipe
+CFLAGS+=-pipe -g
 
 all: clean grokre
 

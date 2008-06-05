@@ -3,20 +3,16 @@
 #include <string.h> 
 #include <stdlib.h>
 #include <stdio.h>
+#include <search.h>
 
 typedef struct grok_pattern {
   const char *name;
   char *regexp;
 } grok_pattern_t;
 
-typedef struct grok_pattern_set {
-  grok_pattern_t *patterns;
-  size_t count;
-  size_t size;
-} grok_pattern_set_t;
-
 typedef struct grok {
-  grok_pattern_set_t pattern_set;
+  /* tree of grok_pattern objects */
+  void *patterns;
   
   /* These are initialized when grok_compile is called */
   pcre *re;
@@ -31,9 +27,8 @@ typedef struct grok {
 } grok_t;
 
 typedef struct grok_match {
-  pcre *re;
-  int *capture_vector;
-  int num_captures;
+  const grok_t *gre;
+  const char *subject;
 } grok_match_t;
 
 /* global, static variables */
@@ -49,6 +44,8 @@ typedef struct grok_match {
 static pcre *g_pattern_re = NULL;
 static int g_pattern_num_captures = 0;
 
+void pwalk(const void *node, VISIT visit, int nodelevel);
+
 /* public functions */
 void grok_init(grok_t *grok);
 void grok_free(grok_t *grok);
@@ -61,22 +58,17 @@ int grok_exec(grok_t *grok, const char *text, grok_match_t *gm);
 char *grok_pattern_expand(grok_t *grok);
 grok_pattern_t *grok_pattern_find(grok_t *grok, const char *pattern_name);
 
-static int grok_pattern_set_cmp_name(const void *a, const void *b);
+static int grok_pattern_cmp_name(const void *a, const void *b);
 static void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret);
 
-static int grok_pattern_set_cmp_name(const void *a, const void *b) {
+static int grok_pattern_cmp_name(const void *a, const void *b) {
   grok_pattern_t *ga = (grok_pattern_t *)a;
   grok_pattern_t *gb = (grok_pattern_t *)b;
   return strcmp(ga->name, gb->name);
 }
 
 void grok_init(grok_t *grok) {
-  grok_pattern_set_t *pset = &grok->pattern_set;
-
   memset(grok, 0, sizeof(grok_t));
-  pset->count = 0;
-  pset->size = 20;
-  pset->patterns = malloc(pset->size * sizeof(grok_pattern_t));
 
   if (g_pattern_re == NULL) {
     g_pattern_re = pcre_compile(PATTERN_REGEX, 0, 
@@ -96,8 +88,7 @@ void grok_init(grok_t *grok) {
 }
 
 void grok_free(grok_t *grok) {
-  if (grok->pattern_set.patterns != NULL)
-    free(grok->pattern_set.patterns);
+  /* twalk grok->patterns and free them? */
 
   if (grok->re != NULL)
     pcre_free(grok->re);
@@ -145,13 +136,13 @@ void grok_patterns_import_from_string(grok_t *grok, char *buffer) {
   char *tok = NULL;
   char *strptr = NULL;
   char *dupbuf = NULL;
-  grok_pattern_set_t *pset = &grok->pattern_set;
 
   dupbuf = strdup(buffer);
   strptr = dupbuf;
 
   while ((tok = strtok_r(strptr, "\n", &tokctx)) != NULL) {
     grok_pattern_t tmp;
+    grok_pattern_t **result;
     strptr = NULL;
 
     /* skip leading whitespace */
@@ -162,26 +153,29 @@ void grok_patterns_import_from_string(grok_t *grok, char *buffer) {
 
     _pattern_parse_string(tok, &tmp);
     grok_pattern_add(grok, &tmp);
-
+    result = tfind(&tmp, &(grok->patterns), grok_pattern_cmp_name);
+    assert(result != NULL);
+    //printf("%s vs %s\n", (*result)->name, tmp.name);
+    assert(!strcmp((*result)->name, tmp.name));
   }
 
-  qsort(pset->patterns, pset->count, sizeof(grok_pattern_t), 
-        grok_pattern_set_cmp_name);
 
   free(dupbuf);
 }
 
 void grok_pattern_add(grok_t *grok, grok_pattern_t *pattern) {
-  grok_pattern_set_t *pset = &grok->pattern_set;
+  /* tsearch(3) claims it adds a node if it does not exist */
+  grok_pattern_t *newpattern;
+  void *val;
+  const void *ret;
 
-  pset->patterns[pset->count].name = pattern->name;
-  pset->patterns[pset->count].regexp = pattern->regexp;
-  pset->count++;
-  if (pset->count == pset->size) {
-    pset->size *= 2;
-    pset->patterns = realloc(pset->patterns, pset->size * sizeof(grok_pattern_t));
-    /* Check for null here */
-  }
+  newpattern = calloc(1, sizeof(grok_pattern_t));
+  newpattern->name = strdup(pattern->name);
+  newpattern->regexp = strdup(pattern->regexp);
+
+  ret = tsearch(newpattern, &(grok->patterns), grok_pattern_cmp_name);
+  if (val == NULL)
+    fprintf(stderr, "Failed adding pattern '%s'\n", newpattern->name);
 }
 
 int grok_compile(grok_t *grok, const char *pattern) {
@@ -211,7 +205,7 @@ int grok_compile(grok_t *grok, const char *pattern) {
 int grok_exec(grok_t *grok, const char *text, grok_match_t *gm) {
   int ret;
   ret = pcre_exec(grok->re, NULL, text, strlen(text), 0, 0,
-                  grok->capture_vector, grok->num_captures);
+                  grok->capture_vector, grok->num_captures * 3);
   if (ret < 0) {
     switch (ret) {
       case PCRE_ERROR_NOMATCH:
@@ -231,6 +225,8 @@ int grok_exec(grok_t *grok, const char *text, grok_match_t *gm) {
 
   if (gm != NULL) {
     /* XXX: Copy the result of this match into the grok_match_t */
+    gm->gre = grok;
+    gm->subject = strdup(text);
   }
 
   return ret;
@@ -268,8 +264,10 @@ char *grok_pattern_expand(grok_t *grok) {
     if (gpt == NULL) {
       offset = end;
     } else {
-      int regexp_len = strlen(gpt->regexp);
+      int regexp_len = strlen(gpt->regexp) + 5 + strlen(patname);
       int remainder_offset = start + regexp_len;
+      /* + 6 is for the length of (?<>)\0) */
+
 
       /* The pattern was found, inject it into the full_pattern */
       /* This next section exists to mutate this:
@@ -278,17 +276,22 @@ char *grok_pattern_expand(grok_t *grok) {
        *   "foo SOMETHING bar"
        */
 
-      if (full_len + regexp_len >= full_size) {
+      if (full_len + regexp_len + 1>= full_size) {
         full_size += regexp_len;
         full_pattern = realloc(full_pattern, full_size);
       }
 
       assert(strlen(full_pattern) == full_len);
+
+      /* Move the remainder of the string to the end of the 
+       * regexp we are injecting */
       memmove(full_pattern + remainder_offset, full_pattern + end, 
               full_len - end);
-      strncpy(full_pattern + start, gpt->regexp, regexp_len);
+
+      /* inject the regexp */
+      snprintf(full_pattern + start, regexp_len + 1,
+               "(?<%s>%s)", patname, gpt->regexp);
       full_len += regexp_len - matchlen;
-      full_pattern[full_len] = '\0';
       assert(strlen(full_pattern) == full_len);
       
       offset = start;
@@ -306,14 +309,15 @@ char *grok_pattern_expand(grok_t *grok) {
 
 grok_pattern_t *grok_pattern_find(grok_t *grok, const char *pattern_name) {
   grok_pattern_t key;
-  grok_pattern_t *result;
+  grok_pattern_t **result;
 
   key.name = pattern_name;
   key.regexp = NULL;
 
-  result = bsearch(&key, grok->pattern_set.patterns, grok->pattern_set.count,
-                   sizeof(grok_pattern_t), grok_pattern_set_cmp_name);
-  return result;
+  result = (grok_pattern_t **) tfind(&key, &(grok->patterns), grok_pattern_cmp_name);
+  if (result == NULL)
+    return NULL;
+  return *result;
 }
 
 void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret) {
@@ -347,18 +351,42 @@ int main(int argc, const char * const *argv) {
 
   grok_compile(&grok, argv[1]);
 
-  { /* read from stdin, apply the given pattern to it */
+  if (1) { /* read from stdin, apply the given pattern to it */
     int ret;
+    grok_match_t gm;
     char buffer[4096];
     FILE *fp;
     fp = stdin;
     while (!feof(fp)) {
       fgets(buffer, 4096, fp);
-      ret = grok_exec(&grok, buffer, NULL);
+      ret = grok_exec(&grok, buffer, &gm);
       if (ret >= 0) {
+        int num;
         printf("%s", buffer);
+        const char *ip = NULL;
+        num = pcre_get_stringnumber(grok.re, "IP");
+        pcre_get_substring(buffer, grok.capture_vector,
+                           grok.num_captures, num, &ip);
+        printf("ip: %s\n", ip);
+        pcre_free_substring(ip);
       }
     }
   }
   return 0;
+}
+
+void pwalk(const void *node, VISIT visit, int nodelevel) {
+  grok_pattern_t *pat = *(grok_pattern_t **)node;
+  switch (visit) {
+    case preorder:
+      break;
+    case postorder:
+      printf("postorder: %d: %s\n", nodelevel, pat->name);
+      break;
+    case endorder:
+      break;
+    case leaf:
+      printf("leaf: %d: %s\n", nodelevel, pat->name);
+      break;
+  }
 }
