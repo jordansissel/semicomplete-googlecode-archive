@@ -40,6 +40,7 @@ activate() {
 
   case $status in
     Attached)
+      echo "$s"
       for blink in 1 2 3 4 5; do
         STY="$s" screen -X select -
         sleep .05
