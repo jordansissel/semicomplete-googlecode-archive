@@ -1,14 +1,12 @@
 #!/bin/sh
 
-# Can't rely on $USER existing...
-USER=`whoami`
 UNAME=`uname`
 
 PATTERN="$1"
 
 case $UNAME in
-  FreeBSD) psargs="-U $USER -u $USER -euww" ;;
-  Linux) psargs="-U $USER -u $USER euww" ;;
+  FreeBSD) psargs="-euww" ;;
+  Linux) psargs="euww" ;;
   *) 
     echo "$uname is not supported"
     exit 1
@@ -21,7 +19,7 @@ ps $psargs \
 
   echo "$command" \
   | grep -F "$PATTERN" \
-  | sed -e 's/^.* STY=\([^ ]*\).*/\1/' \
+  | sed -ne 's/^.* STY=\([^ ]*\).*/\1/p' \
   | sort | uniq \
   | grep -vF "${STY:-NO_STY_SET}"
 done
