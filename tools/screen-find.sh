@@ -57,6 +57,11 @@ activate() {
   esac
 }
 
+ACTIVATE=1
+if [ "$1" = "-n" ] ; then
+  ACTIVATE=0;
+  shift
+fi
 screens=`findscreen "$@"`
 
 found=`echo -n "$screens" | wc -w`
@@ -64,7 +69,8 @@ found=`echo -n "$screens" | wc -w`
 case $found in
     0) echo "None found." ;;
     1) 
-      activate $screens
+      [ "$ACTIVATE" -eq 1 ] && activate $screens
+      echo "$screens"
       ;;
     *)
       echo "Multiple found:"
