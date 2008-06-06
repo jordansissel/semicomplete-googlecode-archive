@@ -1,4 +1,10 @@
 #!/bin/sh
+#
+# Author: Jordan Sissel, 2008.
+# Requirements: xdotool
+# 
+# This script will activate the terminal window holding the given screen
+# session, if any is found.
 
 if [ $# -ne 1 ] ; then
   echo "usage: $0 <screen_session>"
