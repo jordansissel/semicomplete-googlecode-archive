@@ -5,6 +5,13 @@
 # 
 # This script will activate the terminal window holding the given screen
 # session, if any is found.
+#
+# For your terminal to set its title when screen changes its title, you
+# may need to add the following lines to your .screenrc:
+#
+# hardstatus string "[%n] %h - %t"
+# termcapinfo xterm 'hs:ts=\E]2;:fs=\007:ds=\E]2;screen (not title yet)\007'
+#
 
 if [ $# -ne 1 ] ; then
   echo "usage: $0 <screen_session>"
