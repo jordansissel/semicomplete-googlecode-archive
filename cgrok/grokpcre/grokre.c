@@ -224,14 +224,14 @@ int grok_exec(grok_t *grok, const char *text, grok_match_t *gm) {
   }
 
   if (gm != NULL) {
-    /* XXX: Copy the result of this match into the grok_match_t */
     gm->gre = grok;
-    gm->subject = strdup(text);
+    gm->subject = text;
   }
 
   return ret;
 }
 
+/* XXX: This method is pretty long; split it up? */
 char *grok_pattern_expand(grok_t *grok) {
   int offset = 0;
   int length = strlen(grok->pattern);
@@ -240,11 +240,13 @@ char *grok_pattern_expand(grok_t *grok) {
   int cap_pattern = pcre_get_stringnumber(g_pattern_re, "pattern");
   int cap_subname = pcre_get_stringnumber(g_pattern_re, "subname");
 
-  int full_size = strlen(grok->pattern);
-  char *full_pattern = malloc(full_size);
-  int full_len = full_size;
-  strncpy(full_pattern, grok->pattern, full_size);
+  int full_len = strlen(grok->pattern);
+  int full_size = full_len + 1;
+  char *full_pattern = calloc(1, full_size);
+  strncpy(full_pattern, grok->pattern, full_len);
   full_pattern[full_len] = '\0';
+
+  printf("F: %08x\n", *(int *)full_pattern);
 
   const char *patname = NULL;
 
@@ -263,8 +265,10 @@ char *grok_pattern_expand(grok_t *grok) {
     if (gpt == NULL) {
       offset = end;
     } else {
-      int regexp_len = strlen(gpt->regexp) + 5 + strlen(patname);
-      int remainder_offset = start + regexp_len;
+      int patname_len = strlen(patname);
+      int regexp_len = strlen(gpt->regexp);
+      int repl_len = regexp_len + patname_len + 5;
+      int remainder_offset = start + repl_len;
       /* Adding 5 is for the length of "(?<>)" */
 
       /* The pattern was found, inject it into the full_pattern */
@@ -274,9 +278,11 @@ char *grok_pattern_expand(grok_t *grok) {
        *   "foo SOMETHING bar"
        */
 
-      if (full_len + regexp_len + 1>= full_size) {
-        full_size += regexp_len;
+      if (full_len + repl_len + 1>= full_size) {
+        full_size = (full_len + repl_len) * 2;
         full_pattern = realloc(full_pattern, full_size);
+        printf("Fu: %08x\n", *(int *)full_pattern);
+        full_pattern[full_size - 1] = '\0';
       }
 
       /* Invariant, full_pattern actual len must always be full_len */
@@ -284,13 +290,32 @@ char *grok_pattern_expand(grok_t *grok) {
 
       /* Move the remainder of the string to the end of the 
        * regexp we are injecting */
-      memmove(full_pattern + remainder_offset, full_pattern + end, 
-              full_len - end);
-
       /* inject the regexp */
-      snprintf(full_pattern + start, regexp_len + 1,
+      printf("\n");
+      printf("Start: %d, slen: %d, rlen: %d\n", start, full_len, repl_len);
+      printf("String:    '%.*s'\n", full_len, full_pattern);
+      printf("Replacing: '% *.*s'\n", end, matchlen, full_pattern + start);
+      printf("Moving st: '% *s'\n", end, "^");
+      printf("Moving to: '% *s'\n", remainder_offset, "^");
+      printf("With:      '% *s(?<%s>%s)\n", start, "", patname, gpt->regexp);
+
+      printf("oldstring: %s\n", full_pattern);
+      memmove(full_pattern + remainder_offset, full_pattern + end, 
+              full_len - matchlen);
+      memset(full_pattern + start, '?', remainder_offset - start);
+      printf("postmove:  %s\n", full_pattern);
+      printf("replacing: % *s\n", start, "^");
+
+      char tmp = full_pattern[start + repl_len];
+      printf("Char at   :% *c\n", start + repl_len, tmp);
+      snprintf(full_pattern + start, repl_len + 1,
                "(?<%s>%s)", patname, gpt->regexp);
-      full_len += regexp_len - matchlen;
+      full_pattern[start + repl_len] = tmp;
+      full_pattern[full_len] = '\0';
+      printf("snprintf:  %.*s\n", full_len, full_pattern);
+      full_len += repl_len - matchlen;
+      //printf("newlen2: %d _ %d = %d vs %d\n", repl_len, matchlen, full_len, 
+             //strlen(full_pattern));
 
       /* Invariant, full_pattern actual len must always be full_len */
       assert(strlen(full_pattern) == full_len);
