@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <search.h>
 
+#include "stringhelper.h"
+
 typedef struct grok_pattern {
   const char *name;
   char *regexp;
@@ -38,6 +40,7 @@ typedef struct grok_match {
                         "(?<name>" \
                           "(?<pattern>[A-z0-9._-]+)" \
                           "(?::(?<subname>[A-z0-9._-]+))?" \
+                          "(?<filter>\\s*=[<>=~]\\s*[^}]+)?" \
                         ")" \
                       "}"
 
@@ -239,14 +242,13 @@ char *grok_pattern_expand(grok_t *grok) {
   int cap_name = pcre_get_stringnumber(g_pattern_re, "name");
   int cap_pattern = pcre_get_stringnumber(g_pattern_re, "pattern");
   int cap_subname = pcre_get_stringnumber(g_pattern_re, "subname");
+  int cap_filter = pcre_get_stringnumber(g_pattern_re, "filter");
 
   int full_len = strlen(grok->pattern);
   int full_size = full_len + 1;
   char *full_pattern = calloc(1, full_size);
-  strncpy(full_pattern, grok->pattern, full_len);
-  full_pattern[full_len] = '\0';
 
-  printf("F: %08x\n", *(int *)full_pattern);
+  strncpy(full_pattern, grok->pattern, full_len);
 
   const char *patname = NULL;
 
@@ -267,55 +269,27 @@ char *grok_pattern_expand(grok_t *grok) {
     } else {
       int patname_len = strlen(patname);
       int regexp_len = strlen(gpt->regexp);
-      int repl_len = regexp_len + patname_len + 5;
-      int remainder_offset = start + repl_len;
-      /* Adding 5 is for the length of "(?<>)" */
+      const char *filter = NULL;
 
-      /* The pattern was found, inject it into the full_pattern */
-      /* This next section exists to mutate this:
-       *   "foo %{TEST} bar"
-       * into this:
-       *   "foo SOMETHING bar"
-       */
-
-      if (full_len + repl_len + 1>= full_size) {
-        full_size = (full_len + repl_len) * 2;
-        full_pattern = realloc(full_pattern, full_size);
-        printf("Fu: %08x\n", *(int *)full_pattern);
-        full_pattern[full_size - 1] = '\0';
-      }
+      pcre_get_substring(full_pattern, capture_vector, g_pattern_num_captures,
+                         cap_filter, &filter);
 
       /* Invariant, full_pattern actual len must always be full_len */
       assert(strlen(full_pattern) == full_len);
 
-      /* Move the remainder of the string to the end of the 
-       * regexp we are injecting */
-      /* inject the regexp */
-      printf("\n");
-      printf("Start: %d, slen: %d, rlen: %d\n", start, full_len, repl_len);
-      printf("String:    '%.*s'\n", full_len, full_pattern);
-      printf("Replacing: '% *.*s'\n", end, matchlen, full_pattern + start);
-      printf("Moving st: '% *s'\n", end, "^");
-      printf("Moving to: '% *s'\n", remainder_offset, "^");
-      printf("With:      '% *s(?<%s>%s)\n", start, "", patname, gpt->regexp);
+      /* Replace %{FOO} with (?<>) */
+      substr_replace(&full_pattern, &full_len, &full_size,
+                     start, end, "(?<>)", 5);
 
-      printf("oldstring: %s\n", full_pattern);
-      memmove(full_pattern + remainder_offset, full_pattern + end, 
-              full_len - matchlen);
-      memset(full_pattern + start, '?', remainder_offset - start);
-      printf("postmove:  %s\n", full_pattern);
-      printf("replacing: % *s\n", start, "^");
+      /* Insert the FOO into (?<FOO>) */
+      substr_replace(&full_pattern, &full_len, &full_size,
+                     start + 3, -1,
+                     patname, patname_len);
 
-      char tmp = full_pattern[start + repl_len];
-      printf("Char at   :% *c\n", start + repl_len, tmp);
-      snprintf(full_pattern + start, repl_len + 1,
-               "(?<%s>%s)", patname, gpt->regexp);
-      full_pattern[start + repl_len] = tmp;
-      full_pattern[full_len] = '\0';
-      printf("snprintf:  %.*s\n", full_len, full_pattern);
-      full_len += repl_len - matchlen;
-      //printf("newlen2: %d _ %d = %d vs %d\n", repl_len, matchlen, full_len, 
-             //strlen(full_pattern));
+      /* Insert the pattern into (?<FOO>pattern) */
+      substr_replace(&full_pattern, &full_len, &full_size, 
+                     start + 3 + patname_len + 1, -1,
+                     gpt->regexp, regexp_len);
 
       /* Invariant, full_pattern actual len must always be full_len */
       assert(strlen(full_pattern) == full_len);
@@ -392,7 +366,7 @@ int main(int argc, const char * const *argv) {
         int num;
         printf("%s", buffer);
         const char *ip = NULL;
-        num = pcre_get_stringnumber(grok.re, "IP");
+        num = pcre_get_stringnumber(grok.re, "MAC");
         pcre_get_substring(buffer, grok.capture_vector,
                            grok.num_captures, num, &ip);
         printf("ip: %s\n", ip);
