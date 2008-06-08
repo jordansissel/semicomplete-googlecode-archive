@@ -12,7 +12,7 @@ void substr_replace(char **strp,
                     int *strp_len, int *strp_alloc_size,
                     int start, int end, 
                     const char *replace, int replace_len) {
-  int total_len;
+  int total_len = 0;
 
   if (replace_len < 0)
     replace_len = strlen(replace);
@@ -24,7 +24,7 @@ void substr_replace(char **strp,
   total_len = *strp_len + replace_len - (end - start);
 
   if (total_len >= *strp_alloc_size) {
-    *strp_alloc_size = total_len + 1;
+    *strp_alloc_size = total_len + 4096; /* grow by 4K + len */
     *strp = realloc(*strp, *strp_alloc_size);
   }
 
@@ -33,4 +33,5 @@ void substr_replace(char **strp,
           *strp_len - end);
   memcpy(*strp + start, replace, replace_len);
   *strp_len = start + (*strp_len - end)+  replace_len;
+  (*strp)[*strp_len] = '\0';
 }
