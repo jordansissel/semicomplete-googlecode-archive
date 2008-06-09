@@ -5,46 +5,9 @@
 #include <stdio.h>
 #include <search.h>
 
+#include "grok.h"
+#include "predicates.h"
 #include "stringhelper.h"
-
-typedef struct grok_pattern {
-  const char *name;
-  char *regexp;
-} grok_pattern_t;
-
-typedef struct grok_capture {
-  const char *name;
-  int id;
-  const char *pattern;
-  const char *predicate;
-  int pcre_capture_number;
-} grok_capture_t;
-
-typedef struct grok {
-  /* tree of grok_pattern objects */
-  void *patterns;
-  
-  /* These are initialized when grok_compile is called */
-  pcre *re;
-  const char *pattern;
-  char *full_pattern;
-  int *pcre_capture_vector;
-  int pcre_num_captures;
-
-  /* Data storage for named-capture (grok capture) information */
-  void *captures_by_id;
-  void *captures_by_name;
-  int max_capture_num;
-
-  /* PCRE pattern compilation errors */
-  const char *pcre_errptr;
-  int pcre_erroffset;
-} grok_t;
-
-typedef struct grok_match {
-  grok_t *grok;
-  const char *subject;
-} grok_match_t;
 
 /* global, static variables */
 
@@ -88,12 +51,14 @@ static void grok_capture_add(grok_t *grok, int capture_id, const char *pattern_n
 static void grok_capture_add_predicate(grok_t *grok, int capture_id,
                                        const char *predicate);
 
-static void grok_match_get_named_capture(grok_match_t *gm, const char *name,
-                                         grok_capture_t **gct);
+//static void grok_match_get_named_capture(grok_match_t *gm, const char *name,
+                                         //grok_capture_t **gct);
 
 static int grok_pattern_cmp_name(const void *a, const void *b);
+
 static int grok_capture_cmp_id(const void *a, const void *b);
 static int grok_capture_cmp_name(const void *a, const void *b);
+static int grok_capture_cmp_capture_number(const void *a, const void *b);
 
 static void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret);
 
@@ -106,8 +71,9 @@ void grok_init(grok_t *grok) {
   grok->full_pattern = NULL;
   grok->pcre_capture_vector = NULL;
   grok->pcre_num_captures = 0;
-  grok->captures_by_id = 0;
-  grok->captures_by_name = 0;
+  grok->captures_by_id = NULL;
+  grok->captures_by_name = NULL;
+  grok->captures_by_capture_number = NULL;
   grok->max_capture_num = 0;
   grok->pcre_errptr = NULL;
   grok->pcre_erroffset = 0;
@@ -231,7 +197,7 @@ int grok_compile(grok_t *grok, const char *pattern) {
                           NULL);
 
   if (grok->re == NULL) {
-    printf("Regex error: %s\n", grok->pcre_errptr);
+    fprintf(stderr, "Regex error: %s\n", grok->pcre_errptr);
     return 1;
   }
 
@@ -259,13 +225,13 @@ int grok_exec(grok_t *grok, const char *text, grok_match_t *gm) {
       case PCRE_ERROR_NOMATCH:
         break;
       case PCRE_ERROR_NULL:
-        printf("Null error, one of the arguments was null?\n");
+        fprintf(stderr, "Null error, one of the arguments was null?\n");
         break;
       case PCRE_ERROR_BADOPTION:
-        printf("badoption\n");
+        fprintf(stderr, "badoption\n");
         break;
       case PCRE_ERROR_BADMAGIC:
-        printf("badmagic\n");
+        fprintf(stderr, "badmagic\n");
         break;
     }
     return ret;
@@ -314,6 +280,8 @@ char *grok_pattern_expand(grok_t *grok) {
       offset = end;
     } else {
       int regexp_len = strlen(gpt->regexp);
+      int has_predicate = (capture_vector[g_cap_predicate * 2] >= 0);
+
       snprintf(capture_id_str, CAPTURE_ID_LEN + 1, CAPTURE_FORMAT, capture_id);
 
       /* Add this capture to the list of captures */
@@ -322,21 +290,21 @@ char *grok_pattern_expand(grok_t *grok) {
       /* Invariant, full_pattern actual len must always be full_len */
       assert(strlen(full_pattern) == full_len);
 
-      /* Replace %{FOO} with (?<>). '5' is strlen("(?<>)") */
-      substr_replace(&full_pattern, &full_len, &full_size,
-                     start, end, "(?<>)", 5);
-
       /* if a predicate was given, add (?C1) to callout when the match is made,
        * so we can test it further */
-      if (capture_vector[g_cap_predicate * 2] >= 0) {
-        /* 5 == strlen("(?<>)") */
+      if (has_predicate) {
         const char *predicate = NULL;
-        substr_replace(&full_pattern, &full_len, &full_size,
-                       start + 5, -1, "(?C1)", 5);
         pcre_get_substring(full_pattern, capture_vector, g_pattern_num_captures,
                            g_cap_predicate, &predicate);
         grok_capture_add_predicate(grok, capture_id, predicate);
+        substr_replace(&full_pattern, &full_len, &full_size,
+                       end, -1, "(?C1)", 5);
+        pcre_free_substring(predicate);
       }
+
+      /* Replace %{FOO} with (?<>). '5' is strlen("(?<>)") */
+      substr_replace(&full_pattern, &full_len, &full_size,
+                     start, end, "(?<>)", 5);
 
       /* Insert the capture id into (?<FOO>) */
       substr_replace(&full_pattern, &full_len, &full_size,
@@ -365,7 +333,7 @@ char *grok_pattern_expand(grok_t *grok) {
       patname = NULL;
     }
   }
-  printf("%s\n", full_pattern);
+  fprintf(stderr, "Expanded: %s\n", full_pattern);
 
   return full_pattern;
 }
@@ -407,8 +375,8 @@ int main(int argc, const char * const *argv) {
   grok_init(&grok);
   grok_patterns_import_from_file(&grok, "pcregrok_patterns");
 
-  if (argc != 2) {
-    printf("Usage: $0 <pattern>\n");
+  if (argc != 3) {
+    printf("Usage: $0 <pattern> <name_to_output>\n");
     return 1;
   }
 
@@ -427,7 +395,20 @@ int main(int argc, const char * const *argv) {
         grok_capture_t *gct = NULL;
         grok_capture_t key;
         void *result;
-        int i = 0;
+        //int i = 0;
+
+        key.name = argv[2];
+        result = tfind(&key, &(grok.captures_by_name), grok_capture_cmp_name);
+        assert(result != NULL);
+        gct = *(grok_capture_t **)result;
+
+        const char *p;
+        pcre_get_substring(gm.subject, gm.grok->pcre_capture_vector,
+                           gm.grok->pcre_num_captures, gct->pcre_capture_number, 
+                           &p);
+        printf("Entry: %s => %s\n", gct->name, p);
+
+#if 0
         for (i = 0; i <= grok.max_capture_num; i++) {
           key.id = i;
           result = tfind(&key, &(grok.captures_by_id), grok_capture_cmp_id);
@@ -441,6 +422,7 @@ int main(int argc, const char * const *argv) {
           printf("Entry: %s => %s\n", gct->name, p);
           pcre_free_substring(p);
         }
+#endif /* ifdef 0 */
       }
     }
   }
@@ -464,8 +446,25 @@ void pwalk(const void *node, VISIT visit, int nodelevel) {
 }
 
 static int grok_pcre_callout(pcre_callout_block *pcb) {
-  printf("callout\n");
-  return 0;
+  grok_t *grok = pcb->callout_data;
+  grok_capture_t *gct;
+  grok_capture_t key;
+  void *result;
+
+  //printf("callout: %d\n", pcb->capture_last);
+
+  key.pcre_capture_number = pcb->capture_last;
+  result = tsearch(&key, &(grok->captures_by_capture_number),
+                   grok_capture_cmp_capture_number);
+  assert(result != NULL);
+  gct = *(grok_capture_t **)result;
+
+  if (gct->predicate_func != NULL) {
+    int start, end;
+    start = pcb->offset_vector[ pcb->capture_last * 2 ];
+    end = pcb->offset_vector[ pcb->capture_last * 2 + 1];
+    gct->predicate_func(grok, gct, pcb->subject, start, end);
+  }
 }
 
 static void grok_capture_add(grok_t *grok, int capture_id,
@@ -475,10 +474,11 @@ static void grok_capture_add(grok_t *grok, int capture_id,
   key.id = capture_id;
   if (tfind(&key, &(grok->captures_by_id), grok_capture_cmp_id) == NULL) {
     grok_capture_t *gcap = calloc(1, sizeof(grok_capture_t));
-    printf("Adding capture name '%s'\n", pattern_name);
+    fprintf(stderr, "Adding capture name '%s'\n", pattern_name);
     gcap->id = capture_id;
     gcap->name = strdup(pattern_name);
     gcap->predicate = NULL;
+    gcap->predicate_func = NULL;
     gcap->pattern = NULL;
     tsearch(gcap, &(grok->captures_by_id), grok_capture_cmp_id);
     tsearch(gcap, &(grok->captures_by_name), grok_capture_cmp_name);
@@ -498,8 +498,21 @@ static void grok_capture_add_predicate(grok_t *grok, int capture_id,
   result = tsearch(&key, &(grok->captures_by_id), grok_capture_cmp_id);
   assert(result != NULL);
 
+  /* Compile the predicate into something useful */
+  /* So far, predicates are just an operation and an argument */
+  /* predicate_func(capture_str, args) ??? */
+
   gcap = *(grok_capture_t **)result;
-  gcap->predicate = strdup(predicate);
+
+  /* skip leading whitespace */
+  while (*predicate == ' ' || *predicate == '\t') predicate++;
+
+  if (!strncmp(predicate, "=~", 2)) {
+    grok_predicate_regexp_init(grok, gcap, predicate);
+    gcap->predicate_func = grok_predicate_regexp;
+  } else {
+    fprintf(stderr, "unknown pred: %s\n", predicate);
+  }
 }
 
 static int grok_pattern_cmp_name(const void *a, const void *b) {
@@ -512,23 +525,30 @@ static int grok_capture_cmp_id(const void *a, const void *b) {
   return ((grok_capture_t *)a)->id - ((grok_capture_t *)b)->id;
 }
 
+static int grok_capture_cmp_capture_number(const void *a, const void *b) {
+  return ((grok_capture_t *)a)->pcre_capture_number
+          - ((grok_capture_t *)b)->pcre_capture_number;
+}
+
 static int grok_capture_cmp_name(const void *a, const void *b) {
   return strcmp(((grok_capture_t *)a)->name,
                 ((grok_capture_t *)b)->name);
 }
 
-static void grok_match_get_named_capture(grok_match_t *gm, const char *name,
-                                         grok_capture_t **gct) {
-  grok_capture_t key;
-  void *result;
+#if 0
+      static void grok_match_get_named_capture(grok_match_t *gm, const char *name,
+                                               grok_capture_t **gct) {
+        grok_capture_t key;
+        void *result;
 
-  key.name = name;
-  result = tsearch(&key, &(gm->grok->captures_by_name), grok_capture_cmp_name);
-  if (result == NULL)
-    *gct = NULL;
+        key.name = name;
+        result = tsearch(&key, &(gm->grok->captures_by_name), grok_capture_cmp_name);
+        if (result == NULL)
+          *gct = NULL;
 
-  *gct = *(grok_capture_t **)result;
-}
+        *gct = *(grok_capture_t **)result;
+      }
+#endif
 
 static void grok_study_capture_map(grok_t *grok) {
   char *nametable;
@@ -555,5 +575,9 @@ static void grok_study_capture_map(grok_t *grok) {
     assert(result != NULL);
     gct = *(grok_capture_t **)result;
     gct->pcre_capture_number = stringnum;
+
+    /* Insert this into the captures_by_capture_number tree now */
+    tsearch(gct, &(grok->captures_by_capture_number),
+            grok_capture_cmp_capture_number);
   }
 }
