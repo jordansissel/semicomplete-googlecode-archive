@@ -1,6 +1,7 @@
 #CFLAGS+=-pipe -O2
-CFLAGS+=-pipe -g
+CFLAGS+=-pipe -O2
 CFLAGS+=-Wunused
+#LDFLAGS+=-static
 
 GROKRE_DEPS=grokre.o stringhelper.o predicates.o
 
@@ -10,7 +11,7 @@ clean:
 	rm -f grokre *.o *.so
 
 grokre:  $(GROKRE_DEPS)
-	$(CC) -lpcre $(GROKRE_DEPS) -o grokre
+	$(CC) $(LDFLAGS) $(GROKRE_DEPS) -lpcre -o grokre
 
 .c.o:
 	$(CC) -c $(CFLAGS) $< -o $@
