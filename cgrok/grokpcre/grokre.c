@@ -17,6 +17,7 @@ typedef struct grok_capture {
   int id;
   const char *pattern;
   const char *predicate;
+  int pcre_capture_number;
 } grok_capture_t;
 
 typedef struct grok {
@@ -27,10 +28,13 @@ typedef struct grok {
   pcre *re;
   const char *pattern;
   char *full_pattern;
-  int *capture_vector; /* XXX: should rename pcre_capture_vector */
-  int num_captures; /* XXX: should rename pcre_num_captures */
+  int *pcre_capture_vector;
+  int pcre_num_captures;
+
+  /* Data storage for named-capture (grok capture) information */
   void *captures_by_id;
   void *captures_by_name;
+  int max_capture_num;
 
   /* PCRE pattern compilation errors */
   const char *pcre_errptr;
@@ -53,6 +57,7 @@ typedef struct grok_match {
                         ")" \
                       "}"
 #define CAPTURE_ID_LEN 4
+#define CAPTURE_FORMAT "%04x"
 
 static pcre *g_pattern_re = NULL;
 static int g_pattern_num_captures = 0;
@@ -77,6 +82,7 @@ static void grok_pattern_add(grok_t *grok, grok_pattern_t *pattern);
 static char *grok_pattern_expand(grok_t *grok);
 static grok_pattern_t *grok_pattern_find(grok_t *grok, const char *pattern_name);
 static int grok_pcre_callout(pcre_callout_block *);
+static void grok_study_capture_map(grok_t *grok);
 
 static void grok_capture_add(grok_t *grok, int capture_id, const char *pattern_name);
 static void grok_capture_add_predicate(grok_t *grok, int capture_id,
@@ -98,10 +104,11 @@ void grok_init(grok_t *grok) {
   grok->re = NULL;
   grok->pattern = NULL;
   grok->full_pattern = NULL;
-  grok->capture_vector = NULL;
-  grok->num_captures = 0;
+  grok->pcre_capture_vector = NULL;
+  grok->pcre_num_captures = 0;
   grok->captures_by_id = 0;
   grok->captures_by_name = 0;
+  grok->max_capture_num = 0;
   grok->pcre_errptr = NULL;
   grok->pcre_erroffset = 0;
 
@@ -135,8 +142,8 @@ void grok_free(grok_t *grok) {
   if (grok->full_pattern != NULL)
     free(grok->full_pattern);
 
-  if (grok->capture_vector != NULL)
-    free(grok->capture_vector);
+  if (grok->pcre_capture_vector != NULL)
+    free(grok->pcre_capture_vector);
 }
 
 void grok_patterns_import_from_file(grok_t *grok, const char *filename) {
@@ -228,9 +235,13 @@ int grok_compile(grok_t *grok, const char *pattern) {
     return 1;
   }
 
-  pcre_fullinfo(grok->re, NULL, PCRE_INFO_CAPTURECOUNT, &grok->num_captures);
-  grok->num_captures++; /* include the 0th group */
-  grok->capture_vector = calloc(3 * grok->num_captures, sizeof(int));
+  pcre_fullinfo(grok->re, NULL, PCRE_INFO_CAPTURECOUNT, &grok->pcre_num_captures);
+  grok->pcre_num_captures++; /* include the 0th group */
+  grok->pcre_capture_vector = calloc(3 * grok->pcre_num_captures, sizeof(int));
+
+  /* Walk grok->captures_by_id.
+   * For each, ask grok->re what stringnum it is */
+  grok_study_capture_map(grok);
 
   return 0;
 }
@@ -242,7 +253,7 @@ int grok_exec(grok_t *grok, const char *text, grok_match_t *gm) {
   pce.callout_data = grok;
 
   ret = pcre_exec(grok->re, &pce, text, strlen(text), 0, 0,
-                  grok->capture_vector, grok->num_captures * 3);
+                  grok->pcre_capture_vector, grok->pcre_num_captures * 3);
   if (ret < 0) {
     switch (ret) {
       case PCRE_ERROR_NOMATCH:
@@ -303,8 +314,7 @@ char *grok_pattern_expand(grok_t *grok) {
       offset = end;
     } else {
       int regexp_len = strlen(gpt->regexp);
-      snprintf(capture_id_str, CAPTURE_ID_LEN + 1,
-               "%0*x", CAPTURE_ID_LEN, capture_id);
+      snprintf(capture_id_str, CAPTURE_ID_LEN + 1, CAPTURE_FORMAT, capture_id);
 
       /* Add this capture to the list of captures */
       grok_capture_add(grok, capture_id, patname);
@@ -415,18 +425,20 @@ int main(int argc, const char * const *argv) {
       ret = grok_exec(&grok, buffer, &gm);
       if (ret >= 0) {
         grok_capture_t *gct = NULL;
-        grok_match_get_named_capture(&gm, "MAC", &gct);
-        printf("Found: %d\n", gct != NULL);
-        if (gct != NULL) {
+        grok_capture_t key;
+        void *result;
+        int i = 0;
+        for (i = 0; i <= grok.max_capture_num; i++) {
+          key.id = i;
+          result = tfind(&key, &(grok.captures_by_id), grok_capture_cmp_id);
+          assert(result != NULL);
+          gct = *(grok_capture_t **)result;
+
           const char *p;
-          int num;
-          char cap_id[CAPTURE_ID_LEN + 1];
-          snprintf(cap_id, CAPTURE_ID_LEN + 1, "%0*x", CAPTURE_ID_LEN, gct->id);
-          printf("Name: %s\n", gct->name);
-          num = pcre_get_stringnumber(gm.grok->re, cap_id);
-          pcre_get_substring(gm.subject, gm.grok->capture_vector,
-                             gm.grok->num_captures, num, &p);
-          printf("Value: %s\n", p);
+          pcre_get_substring(gm.subject, gm.grok->pcre_capture_vector,
+                             gm.grok->pcre_num_captures, gct->pcre_capture_number, 
+                             &p);
+          printf("Entry: %s => %s\n", gct->name, p);
           pcre_free_substring(p);
         }
       }
@@ -463,12 +475,16 @@ static void grok_capture_add(grok_t *grok, int capture_id,
   key.id = capture_id;
   if (tfind(&key, &(grok->captures_by_id), grok_capture_cmp_id) == NULL) {
     grok_capture_t *gcap = calloc(1, sizeof(grok_capture_t));
+    printf("Adding capture name '%s'\n", pattern_name);
     gcap->id = capture_id;
     gcap->name = strdup(pattern_name);
     gcap->predicate = NULL;
     gcap->pattern = NULL;
     tsearch(gcap, &(grok->captures_by_id), grok_capture_cmp_id);
     tsearch(gcap, &(grok->captures_by_name), grok_capture_cmp_name);
+
+    if (capture_id > grok->max_capture_num)
+      grok->max_capture_num = capture_id;
   }
 }
 
@@ -512,4 +528,32 @@ static void grok_match_get_named_capture(grok_match_t *gm, const char *name,
     *gct = NULL;
 
   *gct = *(grok_capture_t **)result;
+}
+
+static void grok_study_capture_map(grok_t *grok) {
+  char *nametable;
+  grok_capture_t *gct;
+  grok_capture_t key;
+  void *result;
+  int nametable_size;
+  int nametable_entrysize;
+  int i = 0;
+  int offset = 0;
+  int stringnum;
+  int capture_id;
+
+  pcre_fullinfo(grok->re, NULL, PCRE_INFO_NAMECOUNT, &nametable_size);
+  pcre_fullinfo(grok->re, NULL, PCRE_INFO_NAMEENTRYSIZE, &nametable_entrysize);
+  pcre_fullinfo(grok->re, NULL, PCRE_INFO_NAMETABLE, &nametable);
+
+  for (i = 0; i < nametable_size; i++) {
+    offset = i * nametable_entrysize;
+    stringnum = (nametable[offset] << 8) + nametable[offset + 1];
+    sscanf(nametable + offset + 2, CAPTURE_FORMAT, &capture_id);
+    key.id = capture_id;
+    result = tfind(&key, &(grok->captures_by_id), grok_capture_cmp_id);
+    assert(result != NULL);
+    gct = *(grok_capture_t **)result;
+    gct->pcre_capture_number = stringnum;
+  }
 }
