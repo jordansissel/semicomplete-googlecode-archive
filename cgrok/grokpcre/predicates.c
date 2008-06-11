@@ -5,7 +5,7 @@
 #include "predicates.h"
 
 static pcre *regexp_predicate_op = NULL;
-#define REGEXP_PREDICATE_RE "(?:\\s*=~\\s*/([^\\/]+|(?:\\/)+)*/)"
+#define REGEXP_PREDICATE_RE "(?:\\s*([!=])~\\s*/([^\\/]+|(?:\\/)+)*/)"
 
 static void grok_predicate_regexp_global_init(void);
 
@@ -18,7 +18,9 @@ int grok_predicate_regexp(grok_t *grok, grok_capture_t *gct,
   ret = pcre_exec(gprt->re, NULL, subject + start, end - start, 0, 0, NULL, 0);
   //printf("%d: '%.*s'\n", ret, (end - start), subject + start);
 
-  return ret;
+
+  /* match found if ret > 0 */
+  return (ret < 0) ^ (gprt->negative_match);
 }
 
 int grok_predicate_regexp_init(grok_t *grok, grok_capture_t *gct,
@@ -40,13 +42,14 @@ int grok_predicate_regexp_init(grok_t *grok, grok_capture_t *gct,
   const char *errptr;
   int erroffset;
   grok_predicate_regexp_t *gprt;
-  start = capture_vector[2];
-  end = capture_vector[3];
+  start = capture_vector[4]; /* capture #2 */
+  end = capture_vector[5];
 
   gprt = calloc(1, sizeof(grok_predicate_regexp_t));
   gprt->pattern = calloc(1, end - start + 1);
   strncpy(gprt->pattern, args + start, end - start);
   gprt->re = pcre_compile(gprt->pattern, 0, &errptr, &erroffset, NULL);
+  gprt->negative_match = (args[capture_vector[2]] == '!');
 
   if (gprt->re == NULL) {
     fprintf(stderr, 

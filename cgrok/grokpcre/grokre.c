@@ -16,7 +16,7 @@
                         "(?<name>" \
                           "(?<pattern>[A-z0-9._-]+)" \
                           "(?::(?<subname>[A-z0-9._-]+))?" \
-                          "(?<predicate>\\s*(?:=[<>=~]|[<>])\\s*[^}]+)?" \
+                          "(?<predicate>\\s*(?:=[<>=~]|![=~]|[<>])\\s*[^}]+)?" \
                         ")" \
                       "}"
 #define CAPTURE_ID_LEN 4
@@ -463,8 +463,10 @@ static int grok_pcre_callout(pcre_callout_block *pcb) {
     int start, end;
     start = pcb->offset_vector[ pcb->capture_last * 2 ];
     end = pcb->offset_vector[ pcb->capture_last * 2 + 1];
-    gct->predicate_func(grok, gct, pcb->subject, start, end);
+    return gct->predicate_func(grok, gct, pcb->subject, start, end);
   }
+
+  return 0;
 }
 
 static void grok_capture_add(grok_t *grok, int capture_id,
@@ -507,7 +509,7 @@ static void grok_capture_add_predicate(grok_t *grok, int capture_id,
   /* skip leading whitespace */
   while (*predicate == ' ' || *predicate == '\t') predicate++;
 
-  if (!strncmp(predicate, "=~", 2)) {
+  if (!strncmp(predicate, "=~", 2) || !strncmp(predicate, "!~", 2)) {
     grok_predicate_regexp_init(grok, gcap, predicate);
     gcap->predicate_func = grok_predicate_regexp;
   } else {

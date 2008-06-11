@@ -11,6 +11,7 @@
 typedef struct grok_predicate_regexp {
   pcre *re;
   char *pattern;
+  int negative_match;
 } grok_predicate_regexp_t;
 
 int grok_predicate_regexp(grok_t *grok, grok_capture_t *gct,
