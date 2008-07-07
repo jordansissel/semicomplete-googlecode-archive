@@ -1,10 +1,13 @@
 #!/bin/sh
 
 SCREENTMP="SCREENTMP_$(basename $0).$$"
-SLEEP=.05
+SLEEP=.2
+export SLEEP
 
+SHOULD_OUTPUT_DIR=0
 if [ -z "$OUTDIR" ] ; then
   OUTDIR="$(mktemp -d)"
+  SHOULD_OUTPUT_DIR=1
   export OUTDIR
 fi
 
@@ -105,7 +108,7 @@ windowlist() {
 
   quitscreen $CAPSTY
 
-  sed -ie '1d; /^ *$/d' $OUT
+  sed -i -e '1d; /^ *$/d' $OUT
   cat $OUT
 }
 
@@ -142,3 +145,7 @@ if [ -z "$OUTDIR" -o ! -d "$OUTDIR" ] ; then
 fi
 
 dumpwindows $1
+
+if [ "$SHOULD_OUTPUT_DIR" -eq 1 ] ; then
+  echo $OUTDIR
+fi
