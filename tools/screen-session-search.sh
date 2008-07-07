@@ -9,7 +9,7 @@ screenlist() {
 capture_all() {
   screenlist \
   | egrep -v SCREENTMP \
-  | xargs -n1 -P${JOBS} sh -c 'screen-session-hardcopy.sh $1 > /tmp/log.$$ 2>&1' - 
+  | xargs -n1 -P${JOBS} sh -c 'screen-session-hardcopy.sh $1 2> /dev/null' - 
 }
 
 OUTDIR=${OUTDIR:-$(mktemp -d)}

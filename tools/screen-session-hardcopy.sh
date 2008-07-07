@@ -14,7 +14,7 @@ if [ ! -d "$OUTDIR" ] ; then
 fi
 
 log() {
-  echo "$$: $@" >&2
+  [ ! -z "$DEBUGHARDCOPY" ] && echo "$$: $@" >&2
 }
 
 tmpscreen() {
