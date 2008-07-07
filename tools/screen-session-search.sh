@@ -21,7 +21,7 @@ export OUTDIR
 
 capture_all
 
-FILES="$(ls $OUTDIR)"
+FILES="$(find $OUTDIR -type f)"
 
 set -- `getopt twl "$@"`
 while [ $# -gt 0 ]; do
@@ -66,7 +66,7 @@ for M in $MATCHES ; do
     fi
   fi
 
-  echo "$fsty / $fwin"
+  echo "sty $fsty window $fwin"
 done
 
 rm -rf "$OUTDIR"
