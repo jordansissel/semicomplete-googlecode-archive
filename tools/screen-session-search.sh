@@ -8,7 +8,7 @@ screenlist() {
 
 capture_all() {
   screenlist \
-  | grep -v SCREENTMP \
+  | egrep -v SCREENTMP \
   | xargs -n1 -P${JOBS} sh -c 'screen-session-hardcopy.sh $1 > /tmp/log.$$ 2>&1' - 
 }
 
@@ -21,17 +21,32 @@ export OUTDIR
 
 capture_all
 
-case $1 in
-  -t)
-    FILEPATTERN="$OUTDIR/*:p"
-    shift;
-    ;;
-  *)
-    FILEPATTERN="$OUTDIR/*"
-    ;;
-esac
+FILES="$(ls $OUTDIR)"
 
-MATCHES="$(grep -l "$@" $FILEPATTERN)"
+set -- `getopt twl "$@"`
+while [ $# -gt 0 ]; do
+  case $1 in
+    -t)
+      FILES="$(ls $OUTDIR/*:p)"
+      ;;
+    -w)
+      FILES="$(ls $OUTDIR/* | grep -v ':p$')"
+      ;;
+    -l)
+      LOCATIONONLY=1
+      FILES="$(ls $OUTDIR/*:p)"
+      ;;
+    --) 
+      break
+      ;;
+  esac
+  shift;
+done
+
+MATCHES="$(grep -l "$@" $FILES)"
+
+# Filter out our current screen session if we're running this from
+# within a screen already.
 if [ ! -z "$STY" ] ; then
   MATCHES="$(echo "$MATCHES" | grep -Fv "$STY")"
 fi
@@ -40,7 +55,15 @@ for M in $MATCHES ; do
   fsty=$(echo $(basename $M) | awk -F: '{print $1}')
   fwin=$(echo $(basename $M) | awk -F: '{print $2}')
   if [ "$fwin" = "p" ] ; then
-    fwin=$(grep "$@" $M | awk '{ print $1 }')
+    if [ "$LOCATIONONLY" -eq 1 ] ; then
+      linecmp=$(awk 'NF > 1 {print $(NF - 1)}' $M \
+                | egrep -n "$@" \
+                | awk -F: '{printf("NR == %d ||", $1)}' \
+                | sed -e 's/ ||$//')
+      fwin="$(awk "$linecmp {print \$1}" $M)"
+    else
+      fwin="$(egrep "$@" $M | awk '{ print $1 }')"
+    fi
   fi
 
   echo "$fsty / $fwin"

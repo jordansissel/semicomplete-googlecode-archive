@@ -1,6 +1,7 @@
 #!/bin/sh
 
 SCREENTMP="SCREENTMP_$(basename $0).$$"
+SLEEP=.05
 
 if [ -z "$OUTDIR" ] ; then
   OUTDIR="$(mktemp -d)"
@@ -26,7 +27,7 @@ tmpscreen() {
     else
       break;
     fi
-    sleep .5
+    sleep $SLEEP
   done
   echo $CAPSTY
 }
@@ -52,10 +53,10 @@ _hardcopy() {
   for tries in 1 2 3; do
     env STY=$_VIEWSTY screen -p $_WINDOW -X hardcopy $_OUT 
     for tries in 1 2 3 4 5; do
-      sleep .1
       log "Calling filesize: '$_OUT'"
       size="$(_filesize "$_OUT")"
       [ "$size" -gt 0 ] && break 2
+      sleep $SLEEP
     done
   done
 }
@@ -98,13 +99,14 @@ windowlist() {
       if grep -vq '^ *$' "$OUT" ; then
         break 2
       fi
-      sleep .1
+      sleep $SLEEP
     done
   done
 
   quitscreen $CAPSTY
 
-  cat $OUT | sed -e '1d' | grep -v '^ *$'
+  sed -ie '1d; /^ *$/d' $OUT
+  cat $OUT
 }
 
 dumpwindows() {
