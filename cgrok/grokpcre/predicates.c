@@ -67,8 +67,8 @@ static void grok_predicate_regexp_global_init(void) {
   if (regexp_predicate_op == NULL) {
     int erroffset = -1;
     const char *errp;
-    regexp_predicate_op = pcre_compile(REGEXP_PREDICATE_RE, 0, &errp, &erroffset,
-                                       NULL);
+    regexp_predicate_op = pcre_compile(REGEXP_PREDICATE_RE, 0, 
+                                       &errp, &erroffset, NULL);
     if (regexp_predicate_op == NULL) {
       fprintf(stderr, "Internal error (compiling predicate regexp op): %s\n",
               errp);
