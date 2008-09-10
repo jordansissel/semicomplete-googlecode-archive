@@ -19,3 +19,4 @@ void test_substr_replace(void) {
   free(source);
   free(dest);
 }
+
