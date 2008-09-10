@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #TESTS=`nm $1 | awk '$2 == "T" { printf("CU_add_test(suite, \"%s\", %s);\n", $3, $3) }'`
-TESTS=`grep 'void test_' $1 | tr '(' ' ' | awk '{printf("CU_add_test(suite, \"%s\", %s);\n", $2, $2) }'`
+TESTS=`grep 'void test_' $1 | tr '(' ' ' | awk '{printf("CU_add_test(suite, \"%s:%s\", %s);\n", "'$1'", $2, $2) }'`
 
 cat << EOF
 #include <stdio.h>
