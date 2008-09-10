@@ -6,8 +6,9 @@ TESTS=`grep 'void test_' $1 | tr '(' ' ' | awk '{printf("CU_add_test(suite, \"%s
 cat << EOF
 #include <stdio.h>
 #include <string.h>
-#include "$1"
 #include "CUnit/Basic.h"
+
+#include "$1"
 
 int main(int argc, char **argv) {
   CU_pSuite suite = NULL;
