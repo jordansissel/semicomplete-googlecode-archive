@@ -1,9 +1,8 @@
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
-#include "../stringhelper.h"
+#include "stringhelper.h"
 
 void test_unmoving_insertion(void) {
   char *source = calloc(1, 1024);
