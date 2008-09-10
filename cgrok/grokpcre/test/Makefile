@@ -1,12 +1,17 @@
 LDFLAGS+=-lcunit
 
+BINARIES=test_stringhelper
+
 test:
 	@echo "Nothing to do yet."
 
 clean:
-	rm -f *.o
+	rm -f *.o $(BINARIES)
+
+%.c: gentest.sh
 
 test_stringhelper.o: test_stringhelper.c ../stringhelper.c
+	rm -f _$<
 	./gentest.sh $< >> _$<
 	$(CC) -c _$< -o $@;
 	rm _$<
