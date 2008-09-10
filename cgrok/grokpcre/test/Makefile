@@ -1,5 +1,5 @@
 LDFLAGS+=-lcunit -lpcre
-CFLAGS+=-g
+CFLAGS+=-g -I../
 
 BINARIES=test_stringhelper test_grok_simple
 
