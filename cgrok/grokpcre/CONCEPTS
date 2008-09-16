@@ -1,0 +1,32 @@
+Concepts:
+  - inputs
+  - input filter (external program, like gzip -dc)
+  - match tests
+  - match counts (by key)
+  - reactions
+
+Inputs:
+  - file, file glob, file list
+  - execution
+
+  Files:
+    - watch for log rotations (default)
+
+  Execution:
+    - shell command
+    - re-execution interval (integer, optional)
+    - restart-on-death (boolean, optional)
+    - restart-on-death-delay 
+      (1 second? don't want to loop restarting a broken procses)
+
+Input filters:
+  - permit external programs (gzip -dc and such)
+
+Match tests:
+  - patterns to match
+  - match key
+
+Reaction:
+  - hit threshold (n hits per m timeperiod)
+  - execute command reaction
+
