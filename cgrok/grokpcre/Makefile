@@ -7,6 +7,9 @@ GROKRE_DEPS=grokre.o stringhelper.o predicates.o
 
 all: clean grokre
 
+test:
+	make -C test
+
 clean:
 	rm -f grokre *.o *.so
 
