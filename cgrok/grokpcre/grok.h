@@ -1,6 +1,8 @@
 #ifndef _GROK_H_
 #define _GROK_H_
 
+#include <pcre.h>
+
 typedef struct grok grok_t;
 typedef struct grok_capture grok_capture_t;
 
@@ -47,6 +49,6 @@ typedef struct grok_match {
   const char *subject;
 } grok_match_t;
 
-
+#include <grokre.h>
 
 #endif /* ifndef _GROK_H_ */

@@ -42,9 +42,9 @@ URI %{URIPROTO}://(?:%{USER}(?::[^@]*)?@)?(?:%{URIHOST})?(?:%{URIPATH})?(?:%{URI
 # Months: January, Feb, 3, 03, 12, December
 MONTH \b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b
 MONTHNUM \b(?:0?[0-9]|1[0-2])\b
-MONTHDAY (?:(?:3[01]|[0-2]?[0-9]))
+MONTHDAY \b(?:(?:3[01]|[0-2]?[0-9]))\b
 
-# Days: Monday, Tue, Thu, 0 (Sunday?), 6 (Saturday?)
+# Days: Monday, Tue, Thu, etc...
 DAY (?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)
 
 # Years?
@@ -69,4 +69,4 @@ QS %{QUOTEDSTRING}
 
 # Log formats
 SYSLOGBASE %{SYSLOGDATE} %{HOSTNAME} %{SYSLOGPROG}:
-COMBINEDAPACHELOG %{IPORHOST} %{USER:IDENT} %{USER:AUTH} \[%{HTTPDATE}\] "%{WORD} %{URIPATHPARAM} HTTP/%{NUMBER}" %{NUMBER:RESPONSE} (?:%{NUMBER:BYTES}|-) "(?:%{URI:REFERRER}|-)" %{QS:AGENT}
+COMBINEDAPACHELOG %{IPORHOST} %{USER:IDENT} %{USER:AUTH} \[%{HTTPDATE}\] "%{WORD} %{URIPATHPARAM} HTTP/%{NUMBER:HTTPVERSION}" %{NUMBER:RESPONSE} (?:%{NUMBER:BYTES}|-) "(?:%{URI:REFERRER}|-)" %{QS:AGENT}

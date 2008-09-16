@@ -29,16 +29,13 @@ static int g_cap_pattern = 0;
 static int g_cap_subname = 0;
 static int g_cap_predicate = 0;
 
-void pwalk(const void *node, VISIT visit, int nodelevel);
-
 /* public functions */
-void grok_init(grok_t *grok);
-void grok_free(grok_t *grok);
-void grok_patterns_import_from_file(grok_t *grok, const char *filename);
-void grok_patterns_import_from_string(grok_t *grok, char *buffer);
-
-int grok_compile(grok_t *grok, const char *pattern);
-int grok_exec(grok_t *grok, const char *text, grok_match_t *gm);
+//void grok_init(grok_t *grok);
+//void grok_free(grok_t *grok);
+//void grok_patterns_import_from_file(grok_t *grok, const char *filename);
+//void grok_patterns_import_from_string(grok_t *grok, char *buffer);
+//int grok_compile(grok_t *grok, const char *pattern);
+//int grok_exec(grok_t *grok, const char *text, grok_match_t *gm);
 
 /* internal functions */
 static void grok_pattern_add(grok_t *grok, grok_pattern_t *pattern);
@@ -337,7 +334,7 @@ char *grok_pattern_expand(grok_t *grok) {
       patname = NULL;
     }
   }
-  fprintf(stderr, "Expanded: %s\n", full_pattern);
+  //fprintf(stderr, "Expanded: %s\n", full_pattern);
 
   return full_pattern;
 }
@@ -373,7 +370,7 @@ void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret) {
   free(linedup);
 }
 
-int main(int argc, const char * const *argv) {
+int _main(int argc, const char * const *argv) {
   grok_t grok;
 
   grok_init(&grok);
@@ -384,7 +381,10 @@ int main(int argc, const char * const *argv) {
     return 1;
   }
 
-  grok_compile(&grok, argv[1]);
+  if (grok_compile(&grok, argv[1]) != 0) {
+    fprintf(stderr, "grok_compile failure: '%s' is probably a bad regexp.\n", argv[1]);
+    exit(1);
+  }
 
   if (1) { /* read from stdin, apply the given pattern to it */
     int ret;
@@ -411,22 +411,6 @@ int main(int argc, const char * const *argv) {
     }
   }
   return 0;
-}
-
-void pwalk(const void *node, VISIT visit, int nodelevel) {
-  grok_pattern_t *pat = *(grok_pattern_t **)node;
-  switch (visit) {
-    case preorder:
-      break;
-    case postorder:
-      printf("postorder: %d: %s\n", nodelevel, pat->name);
-      break;
-    case endorder:
-      break;
-    case leaf:
-      printf("leaf: %d: %s\n", nodelevel, pat->name);
-      break;
-  }
 }
 
 static int grok_pcre_callout(pcre_callout_block *pcb) {
@@ -460,7 +444,7 @@ static void grok_capture_add(grok_t *grok, int capture_id,
   key.id = capture_id;
   if (tfind(&key, &(grok->captures_by_id), grok_capture_cmp_id) == NULL) {
     grok_capture_t *gcap = calloc(1, sizeof(grok_capture_t));
-    fprintf(stderr, "Adding capture name '%s'\n", pattern_name);
+    //DEBUG fprintf(stderr, "Adding capture name '%s'\n", pattern_name);
     gcap->id = capture_id;
     gcap->name = strdup(pattern_name);
     gcap->predicate = NULL;
@@ -565,19 +549,3 @@ static void grok_study_capture_map(grok_t *grok) {
             grok_capture_cmp_capture_number);
   }
 }
-
-#if 0
-        for (i = 0; i <= grok.max_capture_num; i++) {
-          key.id = i;
-          result = tfind(&key, &(grok.captures_by_id), grok_capture_cmp_id);
-          assert(result != NULL);
-          gct = *(grok_capture_t **)result;
-
-          const char *p;
-          pcre_get_substring(gm.subject, gm.grok->pcre_capture_vector,
-                             gm.grok->pcre_num_captures, gct->pcre_capture_number, 
-                             &p);
-          printf("Entry: %s => %s\n", gct->name, p);
-          pcre_free_substring(p);
-        }
-#endif /* ifdef 0 */
