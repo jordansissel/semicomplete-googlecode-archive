@@ -1,31 +1,27 @@
 LDFLAGS+=-lcunit -lpcre
 CFLAGS+=-g -I../
 
-BINARIES=test_stringhelper test_grok_simple
+TESTS=$(wildcard *.test.c)
 
-test: $(BINARIES)
-	@for t in $(BINARIES); do \
+test: $(TESTS:.c=)
+	@for t in $(TESTS); do \
 		echo; \
 		echo $$t; \
 		./$$t | sed -e "1,6d"; \
 	done
 
+.PHONY: clean
 clean:
-	rm -f *.o $(BINARIES)
+	rm -f *.o
+	rm -f *.gentest.c
 
 %.c: gentest.sh
 
-test_grok_simple.o: test_grok_simple.c ../grokre.c
-	rm -f _$<
-	./gentest.sh $< >> _$<
+
+%.test.o: %.test.c 
+	./gentest.sh $< > _$<
 	$(CC) $(CFLAGS) -c _$< -o $@;
 	rm _$<
 
-test_stringhelper.o: test_stringhelper.c ../stringhelper.c
-	rm -f _$<
-	./gentest.sh $< >> _$<
-	$(CC) $(CFLAGS) -c _$< -o $@;
-	rm _$<
-
-test_stringhelper: test_stringhelper.o ../stringhelper.o
-test_grok_simple: test_grok_simple.o ../grokre.o ../stringhelper.o ../predicates.o
+%.test: %.test.o ../grokre.c ../stringhelper.c ../predicates.c
+	$(CC) $(LDFLAGS) $(CFLAGS) $^ -o $@
