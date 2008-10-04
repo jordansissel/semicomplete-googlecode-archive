@@ -13,12 +13,9 @@
                  | LOG_REGEXPAND | LOG_PATTERNS)
 
 #ifdef NOLOGGING
-
 /* this 'args...' requires GNU C */
 #  define grok_log(grok, level, format, args...) { }
-
 #else
-
 void grok_log(grok_t *grok, int level, const char *format, ...);
 #endif
 
