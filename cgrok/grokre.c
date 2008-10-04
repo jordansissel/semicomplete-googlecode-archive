@@ -483,7 +483,7 @@ static void grok_capture_add_predicate(grok_t *grok, int capture_id,
 
   if (!strncmp(predicate, "=~", 2) || !strncmp(predicate, "!~", 2)) {
     grok_predicate_regexp_init(grok, gcap, predicate);
-  } else if (strchr("<>=", predicate[0]) != NULL) {
+  } else if (strchr("!<>=", predicate[0]) != NULL) {
     grok_predicate_numcompare_init(grok, gcap, predicate);
   } else {
     fprintf(stderr, "unknown pred: %s\n", predicate);
