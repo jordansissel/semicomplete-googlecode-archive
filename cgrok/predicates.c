@@ -9,6 +9,24 @@ static pcre *regexp_predicate_op = NULL;
 
 static void grok_predicate_regexp_global_init(void);
 
+/* Operation things */
+
+typedef enum { OP_LT, OP_GT, OP_GE, OP_LE, OP_EQ, OP_NE } operation;
+int strop(const char * const args);
+
+/* Return length of operation in string. ie; "<=" (OP_LE) == 2 */
+#define OP_LEN(op) ((op == OP_GT || op == OP_LT) ? 1 : 2)
+
+#define OP_RUN(op, cmpval, retvar) \
+    switch (op) { \
+      case OP_LT: retvar = (cmpval < 0); break; \
+      case OP_GT: retvar = (cmpval > 0); break; \
+      case OP_GE: retvar = (cmpval >= 0); break; \
+      case OP_LE: retvar = (cmpval <= 0); break; \
+      case OP_EQ: retvar = (cmpval == 0); break; \
+      case OP_NE: retvar = (cmpval != 0); break; \
+    } 
+
 typedef struct grok_predicate_regexp {
   pcre *re;
   char *pattern;
@@ -16,17 +34,24 @@ typedef struct grok_predicate_regexp {
 } grok_predicate_regexp_t;
 
 typedef struct grok_predicate_numcompare {
-  enum { OP_LT, OP_GT, OP_GE, OP_LE, OP_EQ, OP_NE } op;
   enum { DOUBLE, LONG } type;
+  operation op;
   union {
     long lvalue;
     double dvalue;
   } u;
 } grok_predicate_numcompare_t;
 
+typedef struct grok_predicate_strcompare {
+  operation op;
+  char *value;
+} grok_predicate_strcompare_t;
+
 int grok_predicate_regexp(grok_t *grok, grok_capture_t *gct,
                           const char *subject, int start, int end);
 int grok_predicate_numcompare(grok_t *grok, grok_capture_t *gct,
+                              const char *subject, int start, int end);
+int grok_predicate_strcompare(grok_t *grok, grok_capture_t *gct,
                               const char *subject, int start, int end);
 
 int grok_predicate_regexp(grok_t *grok, grok_capture_t *gct,
@@ -36,7 +61,6 @@ int grok_predicate_regexp(grok_t *grok, grok_capture_t *gct,
 
   ret = pcre_exec(gprt->re, NULL, subject + start, end - start, 0, 0, NULL, 0);
   //printf("%d: '%.*s'\n", ret, (end - start), subject + start);
-
 
   /* match found if ret > 0 */
   return (ret < 0) ^ (gprt->negative_match);
@@ -99,37 +123,12 @@ static void grok_predicate_regexp_global_init(void) {
 int grok_predicate_numcompare_init(grok_t *grok, grok_capture_t *gct,
                                    const char *args) {
   grok_predicate_numcompare_t *gpnt;
+  int pos;
+
   gpnt = calloc(1, sizeof(grok_predicate_numcompare_t));
-  //fprintf(stderr, "numcompare init: '%s'\n", args);
 
-  int pos = 1;
-
-  switch (args[0]) {
-    case '<':
-      if (args[1] == '=') { gpnt->op = OP_LE; pos = 2; }
-      else gpnt->op = OP_LT;
-      break;
-    case '>':
-      if (args[1] == '=') { gpnt->op = OP_GE; pos = 2; }
-      else gpnt->op = OP_GT;
-      break;
-    case '=':
-      if (args[1] == '=') { gpnt->op = OP_EQ; pos = 2; }
-      else {
-        fprintf(stderr, "Invalid predicate: '%s'\n", args);
-        return -1;
-      }
-      break;
-    case '!':
-      if (args[1] == '=') { gpnt->op = OP_NE; pos = 2; }
-      else {
-        fprintf(stderr, "Invalid predicate: '%s'\n", args);
-        return -1;
-      }
-      break;
-    default:
-      fprintf(stderr, "Invalid predicate: '%s'\n", args);
-  }
+  gpnt->op = strop(args);
+  pos = OP_LEN(gpnt->op);
 
   /* Optimize and use long type if the number is not a float (no period) */
   if (strchr(args, '.') == NULL) {
@@ -155,32 +154,78 @@ int grok_predicate_numcompare(grok_t *grok, grok_capture_t *gct,
   if (gpnt->type == DOUBLE) {
     double a = strtod(subject + start, NULL);
     double b = gpnt->u.dvalue;
-    //printf("%f vs %f\n", a, b);
-    switch (gpnt->op) {
-      case OP_LT: ret = (a < b); break;
-      case OP_GT: ret = (a > b); break;
-      case OP_GE: ret = (a >= b); break;
-      case OP_LE: ret = (a <= b); break;
-      case OP_EQ: ret = (a == b); break;
-      case OP_NE: ret = (a != b); break;
-    }
+    OP_RUN(gpnt->op, a - b, ret);
   } else {
     long a = strtol(subject + start, NULL, 0);
     long b = gpnt->u.lvalue;
     //printf("%ld vs %ld\n", a, b);
-    switch (gpnt->op) {
-      case OP_LT: ret = (a < b); break;
-      case OP_GT: ret = (a > b); break;
-      case OP_GE: ret = (a >= b); break;
-      case OP_LE: ret = (a <= b); break;
-      case OP_EQ: ret = (a == b); break;
-      case OP_NE: ret = (a != b); break;
-    }
+    OP_RUN(gpnt->op, a - b, ret);
   }
 
-  //fprintf(stderr, "numcompare: %d / %s", ret, subject);
   /* grok predicates should return 0 for success and comparisons return 1 for
    * success */
   return ret == 0;
 }
 
+int grok_predicate_strcompare_init(grok_t *grok, grok_capture_t *gct,
+                                   const char *args) {
+  grok_predicate_strcompare_t *gpst;
+  int pos;
+
+  /* XXX: ALLOC */
+  gpst = calloc(1, sizeof(grok_predicate_strcompare_t));
+
+  gpst->op = strop(args);
+  pos = OP_LEN(gpst->op);
+
+  /* XXX: ALLOC */
+  gpst->value = strdup(args);
+
+  gct->predicate_func = grok_predicate_strcompare;
+  gct->extra = gpst;
+}
+
+int grok_predicate_strcompare(grok_t *grok, grok_capture_t *gct,
+                              const char *subject, int start, int end) {
+  grok_predicate_strcompare_t *gpst = (grok_predicate_strcompare_t *)gct->extra;
+  int ret;
+
+  OP_RUN(gpst->op,
+         strncmp(subject + start, gpst->value, (end - start)),
+         ret);
+
+  /* grok predicates should return 0 for success and comparisons return 1 for
+   * success */
+  return ret == 0;
+}
+
+int strop(const char * const args) {
+  switch (args[0]) {
+    case '<':
+      if (args[1] == '=') return OP_LE;
+      else return OP_LT;
+      break;
+    case '>':
+      if (args[1] == '=') return OP_GE;
+      else return OP_GT;
+      break;
+    case '=':
+      if (args[1] == '=') return OP_EQ;
+      else {
+        fprintf(stderr, "Invalid predicate: '%s'\n", args);
+        return -1;
+      }
+      break;
+    case '!':
+      if (args[1] == '=') return OP_NE;
+      else {
+        fprintf(stderr, "Invalid predicate: '%s'\n", args);
+        return -1;
+      }
+      break;
+    default:
+      fprintf(stderr, "Invalid predicate: '%s'\n", args);
+  }
+
+  return -1;
+}
