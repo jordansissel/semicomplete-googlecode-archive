@@ -9,6 +9,9 @@
 #include "predicates.h"
 #include "stringhelper.h"
 
+#define _GNU_SOURCE
+#include <search.h>
+
 /* global, static variables */
 
 /* pattern to match %{FOO:BAR} */
@@ -52,6 +55,9 @@ static int grok_capture_cmp_name(const void *a, const void *b);
 static int grok_capture_cmp_capture_number(const void *a, const void *b);
 
 static void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret);
+
+/* Cleanup functions */
+void grok_pattern_node_free(void *nodep);
 
 void grok_init(grok_t *grok) {
   pcre_callout = grok_pcre_callout;
@@ -103,6 +109,29 @@ void grok_free(grok_t *grok) {
 
   if (grok->pcre_capture_vector != NULL)
     free(grok->pcre_capture_vector);
+
+  if (grok->captures_by_id != NULL)
+    free(grok->captures_by_id);
+  if (grok->captures_by_name != NULL)
+    free(grok->captures_by_name);
+
+  tdestroy(grok->patterns, grok_pattern_node_free);
+}
+
+void grok_pattern_node_free(void *nodep) {
+  grok_pattern_t *gpt = *(grok_pattern_t **)nodep;
+
+  if (gpt != NULL) {
+    if (gpt->name != NULL) {
+      free(gpt->name);
+      gpt->name = NULL;
+    }
+    if (gpt->regexp != NULL) {
+      free(gpt->regexp);
+      gpt->regexp = NULL;
+    }
+    free(gpt);
+  }
 }
 
 void grok_patterns_import_from_file(grok_t *grok, const char *filename) {
@@ -122,7 +151,12 @@ void grok_patterns_import_from_file(grok_t *grok, const char *filename) {
   fseek(patfile, 0, SEEK_END);
   filesize = ftell(patfile);
   fseek(patfile, 0, SEEK_SET);
-  buffer = calloc(1, filesize);
+  buffer = calloc(1, filesize + 1);
+  if (buffer == NULL) {
+    fprintf(stderr, "Fatal: calloc(1, %d) failed while trying to read '%s'",
+            filesize, patfile);
+    abort();
+  }
   memset(buffer, 0, filesize);
   bytes = fread(buffer, 1, filesize, patfile);
   if (bytes != filesize) {
@@ -136,7 +170,7 @@ void grok_patterns_import_from_file(grok_t *grok, const char *filename) {
   fclose(patfile);
 }
 
-void grok_patterns_import_from_string(grok_t *grok, char *buffer) {
+void grok_patterns_import_from_string(grok_t *grok, const char *buffer) {
   char *tokctx = NULL;
   char *tok = NULL;
   char *strptr = NULL;
@@ -162,10 +196,11 @@ void grok_patterns_import_from_string(grok_t *grok, char *buffer) {
     grok_pattern_add(grok, &tmp);
     result = tfind(&tmp, &(grok->patterns), grok_pattern_cmp_name);
     assert(result != NULL);
-    //printf("%s vs %s\n", (*result)->name, tmp.name);
     assert(!strcmp((*result)->name, tmp.name));
-  }
 
+    free(tmp.name);
+    free(tmp.regexp);
+  }
 
   free(dupbuf);
 }
@@ -186,6 +221,10 @@ void grok_pattern_add(grok_t *grok, grok_pattern_t *pattern) {
   ret = tsearch(newpattern, &(grok->patterns), grok_pattern_cmp_name);
   if (ret == NULL)
     fprintf(stderr, "Failed adding pattern '%s'\n", newpattern->name);
+
+  //free(newpattern->name);
+  //free(newpattern->regexp);
+  //free(newpattern);
 }
 
 int grok_compile(grok_t *grok, const char *pattern) {
@@ -345,6 +384,7 @@ char *grok_pattern_expand(grok_t *grok) {
     }
   }
   //fprintf(stderr, "Expanded: %s\n", full_pattern);
+  free(capture_vector);
 
   return full_pattern;
 }
