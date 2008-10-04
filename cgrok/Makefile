@@ -1,4 +1,5 @@
-CFLAGS+=-pipe -O2
+#CFLAGS+=-pipe -O2
+#CFLAGS+=-g
 CFLAGS+=-Wunused
 LDFLAGS+=-lpcre
 
@@ -10,7 +11,7 @@ test:
 	make -C test
 
 main: main.o $(GROKRE_DEPS:.c=.o)
-	gcc $(CFLAGS) $(LDFLAGS) -o $@ -lpcre $^
+	$(CC) $(LDFLAGS) -o $@ $^
 
 .PHONY: clean
 clean:
