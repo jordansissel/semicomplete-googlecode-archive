@@ -12,6 +12,7 @@
 /* global, static variables */
 
 /* pattern to match %{FOO:BAR} */
+/* or %{FOO<=3} */
 #define PATTERN_REGEX "%{" \
                         "(?<name>" \
                           "(?<pattern>[A-z0-9._-]+)" \
@@ -22,6 +23,8 @@
 #define CAPTURE_ID_LEN 4
 #define CAPTURE_FORMAT "%04x"
 
+/* These guys are initialized once ever. */
+static int g_grok_global_initialized = 0;
 static pcre *g_pattern_re = NULL;
 static int g_pattern_num_captures = 0;
 static int g_cap_name = 0;
@@ -73,8 +76,9 @@ void grok_init(grok_t *grok) {
   grok->max_capture_num = 0;
   grok->pcre_errptr = NULL;
   grok->pcre_erroffset = 0;
-
-  if (g_pattern_re == NULL) {
+  if (g_grok_global_initialized == 0) {
+    /* do first initalization */
+    g_grok_global_initialized = 1;
     g_pattern_re = pcre_compile(PATTERN_REGEX, 0, 
                                 &grok->pcre_errptr,
                                 &grok->pcre_erroffset,
@@ -178,7 +182,7 @@ void grok_pattern_add(grok_t *grok, grok_pattern_t *pattern) {
   newpattern->name = strdup(pattern->name);
   newpattern->regexp = strdup(pattern->regexp);
 
-  /* tsearch(3) claims it adds a node if it does not exist */
+  /* tsearch(3) says it adds a node if it does not exist */
   ret = tsearch(newpattern, &(grok->patterns), grok_pattern_cmp_name);
   if (ret == NULL)
     fprintf(stderr, "Failed adding pattern '%s'\n", newpattern->name);
@@ -479,7 +483,8 @@ static void grok_capture_add_predicate(grok_t *grok, int capture_id,
 
   if (!strncmp(predicate, "=~", 2) || !strncmp(predicate, "!~", 2)) {
     grok_predicate_regexp_init(grok, gcap, predicate);
-    gcap->predicate_func = grok_predicate_regexp;
+  } else if (strchr("<>=", predicate[0]) != NULL) {
+    grok_predicate_numcompare_init(grok, gcap, predicate);
   } else {
     fprintf(stderr, "unknown pred: %s\n", predicate);
   }
