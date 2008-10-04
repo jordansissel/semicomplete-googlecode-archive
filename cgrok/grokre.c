@@ -18,7 +18,7 @@
                           "(?<pattern>[A-z0-9._-]+)" \
                           "(?::(?<subname>[A-z0-9._-]+))?" \
                         ")" \
-                        "(?<predicate>\\s*(?:=[<>=~]|![=~]|[<>])\\s*[^}]+)?" \
+                        "(?<predicate>\\s*(?:[$]?=[<>=~]|![=~]|[$]?[<>])\\s*[^}]+)?" \
                       "}"
 #define CAPTURE_ID_LEN 4
 #define CAPTURE_FORMAT "%04x"
@@ -480,11 +480,15 @@ static void grok_capture_add_predicate(grok_t *grok, int capture_id,
 
   /* skip leading whitespace */
   predicate += strspn(predicate, " \t");
+  //fprintf(stderr, "Predicate: '%s'\n", predicate);
 
   if (!strncmp(predicate, "=~", 2) || !strncmp(predicate, "!~", 2)) {
     grok_predicate_regexp_init(grok, gcap, predicate);
   } else if (strchr("!<>=", predicate[0]) != NULL) {
     grok_predicate_numcompare_init(grok, gcap, predicate);
+  } else if ((predicate[0] == '$') 
+             && (strchr("!<>=", predicate[1]) != NULL)) {
+    grok_predicate_strcompare_init(grok, gcap, predicate);
   } else {
     fprintf(stderr, "unknown pred: %s\n", predicate);
   }
