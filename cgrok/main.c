@@ -1,9 +1,11 @@
 #include <stdio.h>
+#include <string.h>
 #include "grok.h"
 
 int main(int argc, char **argv) {
   grok_t grok;
   grok_match_t gm;
+  char buf[1024];
   grok_init(&grok);
 
   grok_patterns_import_from_file(&grok, "./pcregrok_patterns");
@@ -15,9 +17,7 @@ int main(int argc, char **argv) {
 
   printf("Compile: %d\n", grok_compile(&grok, argv[1]));
 
-  while (!feof(stdin)) {
-    char buf[1024];
-    fgets(buf, 1024, stdin);
+  while (fgets(buf, 1024, stdin)) {
     int start, end, ret;
     ret = grok_exec(&grok, buf, &gm);
     start = grok.pcre_capture_vector[0];
