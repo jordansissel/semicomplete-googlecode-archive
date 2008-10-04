@@ -7,7 +7,7 @@ test: $(TESTS:.c=)
 	@for t in $^; do \
 		echo; \
 		echo $$t; \
-		./$$t | sed -e "1,6d; s/^/$$t: /"; \
+		./$$t | sed -e "1,6d"; \
 	done
 
 .PHONY: clean
