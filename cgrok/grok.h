@@ -42,6 +42,8 @@ struct grok {
   /* PCRE pattern compilation errors */
   const char *pcre_errptr;
   int pcre_erroffset;
+
+  unsigned int logmask;
 };
 
 typedef struct grok_match {
@@ -50,5 +52,6 @@ typedef struct grok_match {
 } grok_match_t;
 
 #include "grokre.h"
+#include "logging.h"
 
 #endif /* ifndef _GROK_H_ */

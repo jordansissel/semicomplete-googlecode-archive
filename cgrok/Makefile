@@ -3,15 +3,15 @@ CFLAGS+=-pipe -O2
 CFLAGS+=-Wunused
 #LDFLAGS+=-static
 
-GROKRE_DEPS=grokre.o stringhelper.o predicates.o
+GROKRE_DEPS=grokre.c stringhelper.c predicates.c logging.c
 
 all: clean grokre
 
 test:
 	make -C test
 
-main: grokre.c main.c predicates.c stringhelper.c
-	gcc -o $@ -lpcre $^
+main: main.o $(GROKRE_DEPS:.c=.o)
+	gcc -o $@ -lpcre $< $(GROKRE_DEPS)
 
 clean:
 	rm -f grokre *.o *.so

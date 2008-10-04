@@ -7,6 +7,7 @@ int main(int argc, char **argv) {
   grok_match_t gm;
   char buf[1024];
   grok_init(&grok);
+  grok.logmask = LOG_ALL;
 
   grok_patterns_import_from_file(&grok, "./pcregrok_patterns");
 
@@ -17,6 +18,7 @@ int main(int argc, char **argv) {
 
   printf("Compile: %d\n", grok_compile(&grok, argv[1]));
 
+ 
   while (fgets(buf, 1024, stdin)) {
     int start, end, ret;
     ret = grok_exec(&grok, buf, &gm);

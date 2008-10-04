@@ -32,14 +32,6 @@ static int g_cap_pattern = 0;
 static int g_cap_subname = 0;
 static int g_cap_predicate = 0;
 
-/* public functions */
-//void grok_init(grok_t *grok);
-//void grok_free(grok_t *grok);
-//void grok_patterns_import_from_file(grok_t *grok, const char *filename);
-//void grok_patterns_import_from_string(grok_t *grok, char *buffer);
-//int grok_compile(grok_t *grok, const char *pattern);
-//int grok_exec(grok_t *grok, const char *text, grok_match_t *gm);
-
 /* internal functions */
 static void grok_pattern_add(grok_t *grok, grok_pattern_t *pattern);
 static char *grok_pattern_expand(grok_t *grok);
@@ -76,6 +68,7 @@ void grok_init(grok_t *grok) {
   grok->max_capture_num = 0;
   grok->pcre_errptr = NULL;
   grok->pcre_erroffset = 0;
+  
   if (g_grok_global_initialized == 0) {
     /* do first initalization */
     g_grok_global_initialized = 1;
@@ -118,13 +111,14 @@ void grok_patterns_import_from_file(grok_t *grok, const char *filename) {
   size_t bytes = 0;
   char *buffer = NULL;
 
+  grok_log(grok, LOG_PATTERNS, "Importing pattern file: '%s'", filename);
   patfile = fopen(filename, "r");
   if (patfile == NULL) {
     fprintf(stderr, "Unable to open '%s' for reading\n", filename);
     perror("Error: ");
     return;
   }
-
+  
   fseek(patfile, 0, SEEK_END);
   filesize = ftell(patfile);
   fseek(patfile, 0, SEEK_SET);
@@ -147,6 +141,8 @@ void grok_patterns_import_from_string(grok_t *grok, char *buffer) {
   char *tok = NULL;
   char *strptr = NULL;
   char *dupbuf = NULL;
+
+  grok_log(grok, LOG_PATTERNS, "Importing patterns from string");
 
   dupbuf = strdup(buffer);
   strptr = dupbuf;
@@ -178,6 +174,10 @@ void grok_pattern_add(grok_t *grok, grok_pattern_t *pattern) {
   grok_pattern_t *newpattern = NULL;
   const void *ret = NULL;
 
+  grok_log(grok, LOG_PATTERNS, "Adding new pattern '%s' => '%s'",
+           pattern->name,
+           pattern->regexp);
+
   newpattern = calloc(1, sizeof(grok_pattern_t));
   newpattern->name = strdup(pattern->name);
   newpattern->regexp = strdup(pattern->regexp);
@@ -189,6 +189,7 @@ void grok_pattern_add(grok_t *grok, grok_pattern_t *pattern) {
 }
 
 int grok_compile(grok_t *grok, const char *pattern) {
+  grok_log(grok, LOG_COMPILE, "Compiling '%s'", pattern);
   grok->pattern = pattern;
   grok->full_pattern = grok_pattern_expand(grok);
 
@@ -259,6 +260,8 @@ char *grok_pattern_expand(grok_t *grok) {
   const char *patname = NULL;
   const char *longname = NULL;
 
+  grok_log(grok, LOG_REGEXPAND, "Expanding pattern '%s'", grok->pattern);
+
   capture_vector = calloc(3 * g_pattern_num_captures, sizeof(int));
   full_len = strlen(grok->pattern);
   full_size = full_len + 1;
@@ -276,6 +279,7 @@ char *grok_pattern_expand(grok_t *grok) {
 
     pcre_get_substring(full_pattern, capture_vector, g_pattern_num_captures,
                        g_cap_pattern, &patname);
+
     gpt = grok_pattern_find(grok, patname);
     if (gpt == NULL) {
       offset = end;
@@ -299,6 +303,8 @@ char *grok_pattern_expand(grok_t *grok) {
        * so we can test it further */
       if (has_predicate) {
         const char *predicate = NULL;
+        grok_log(grok, LOG_REGEXPAND, "Predicate found in '%.*s'",
+                 matchlen, full_pattern + start);
         pcre_get_substring(full_pattern, capture_vector, g_pattern_num_captures,
                            g_cap_predicate, &predicate);
         grok_capture_add_predicate(grok, capture_id, predicate);
@@ -346,13 +352,17 @@ char *grok_pattern_expand(grok_t *grok) {
 grok_pattern_t *grok_pattern_find(grok_t *grok, const char *pattern_name) {
   grok_pattern_t key;
   grok_pattern_t **result;
+  grok_log(grok, LOG_REGEXPAND, "Looking up pattern '%s'", pattern_name);
 
   key.name = pattern_name;
   key.regexp = NULL;
 
   result = (grok_pattern_t **) tfind(&key, &(grok->patterns), grok_pattern_cmp_name);
-  if (result == NULL)
+  if (result == NULL) {
+    grok_log(grok, LOG_REGEXPAND, "Pattern '%s' does not exist", pattern_name);
     return NULL;
+  }
+  grok_log(grok, LOG_REGEXPAND, "Pattern '%s' found", pattern_name);
   return *result;
 }
 
@@ -445,6 +455,9 @@ static void grok_capture_add(grok_t *grok, int capture_id,
                              const char *pattern_name) {
   grok_capture_t key;
 
+  grok_log(grok, LOG_REGEXPAND, "Adding pattern '%s' as capture %d",
+           pattern_name, capture_id);
+
   key.id = capture_id;
   if (tfind(&key, &(grok->captures_by_id), grok_capture_cmp_id) == NULL) {
     grok_capture_t *gcap = calloc(1, sizeof(grok_capture_t));
@@ -468,6 +481,9 @@ static void grok_capture_add_predicate(grok_t *grok, int capture_id,
   void *result;
   grok_capture_t *gcap;
 
+  grok_log(grok, LOG_PREDICATE, "Adding predicate '%s' to capture %d",
+           predicate, capture_id);
+
   key.id = capture_id;
   result = tsearch(&key, &(grok->captures_by_id), grok_capture_cmp_id);
   assert(result != NULL);
@@ -480,7 +496,6 @@ static void grok_capture_add_predicate(grok_t *grok, int capture_id,
 
   /* skip leading whitespace */
   predicate += strspn(predicate, " \t");
-  //fprintf(stderr, "Predicate: '%s'\n", predicate);
 
   if (!strncmp(predicate, "=~", 2) || !strncmp(predicate, "!~", 2)) {
     grok_predicate_regexp_init(grok, gcap, predicate);
