@@ -4,10 +4,10 @@ CFLAGS+=-g -I../
 TESTS=$(wildcard *.test.c)
 
 test: $(TESTS:.c=)
-	@for t in $(TESTS); do \
+	@for t in $^; do \
 		echo; \
 		echo $$t; \
-		./$$t | sed -e "1,6d"; \
+		./$$t | sed -e "1,6d; s/^/$$t: /"; \
 	done
 
 .PHONY: clean
