@@ -1,5 +1,6 @@
 LDFLAGS+=-lcunit -lpcre
 CFLAGS+=-g -I../
+CFLAGS+=-DNOLOGGING
 
 TESTS=$(wildcard *.test.c)
 
@@ -14,14 +15,14 @@ test: $(TESTS:.c=)
 clean:
 	rm -f *.o
 	rm -f *.gentest.c
+	rm -f *.test
 
 %.c: gentest.sh
-
 
 %.test.o: %.test.c 
 	./gentest.sh $< > _$<
 	$(CC) $(CFLAGS) -c _$< -o $@;
 	rm _$<
 
-%.test: %.test.o ../grokre.c ../stringhelper.c ../predicates.c
+%.test: %.test.o ../grokre.c ../stringhelper.c ../predicates.c ../logging.c
 	$(CC) $(LDFLAGS) $(CFLAGS) $^ -o $@
