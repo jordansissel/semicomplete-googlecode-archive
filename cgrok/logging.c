@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include "grok.h"
 
+#ifndef NOLOGGING
 inline void grok_log(grok_t *grok, int level, const char *format, ...) {
   va_list args;
   FILE *out;
@@ -25,3 +26,4 @@ inline void grok_log(grok_t *grok, int level, const char *format, ...) {
   fprintf(out, "\n");
   va_end(args);
 }
+#endif

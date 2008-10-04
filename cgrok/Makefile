@@ -1,7 +1,6 @@
-#CFLAGS+=-pipe -O2
 CFLAGS+=-pipe -O2
 CFLAGS+=-Wunused
-#LDFLAGS+=-static
+LDFLAGS+=-lpcre
 
 GROKRE_DEPS=grokre.c stringhelper.c predicates.c logging.c
 
@@ -11,13 +10,14 @@ test:
 	make -C test
 
 main: main.o $(GROKRE_DEPS:.c=.o)
-	gcc -o $@ -lpcre $< $(GROKRE_DEPS)
+	gcc $(CFLAGS) $(LDFLAGS) -o $@ -lpcre $^
 
+.PHONY: clean
 clean:
-	rm -f grokre *.o *.so
+	rm -f main grokre *.o *.so
 
-grokre:  $(GROKRE_DEPS)
-	$(CC) $(LDFLAGS) $(GROKRE_DEPS) -lpcre -o grokre
+grokre: $(GROKRE_DEPS:.c=.o)
+	$(CC) $(LDFLAGS) $^ -o $@
 
 .c.o:
 	$(CC) -c $(CFLAGS) $< -o $@
