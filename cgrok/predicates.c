@@ -45,6 +45,7 @@ typedef struct grok_predicate_numcompare {
 typedef struct grok_predicate_strcompare {
   operation op;
   char *value;
+  int len;
 } grok_predicate_strcompare_t;
 
 int grok_predicate_regexp(grok_t *grok, grok_capture_t *gct,
@@ -175,11 +176,15 @@ int grok_predicate_strcompare_init(grok_t *grok, grok_capture_t *gct,
   /* XXX: ALLOC */
   gpst = calloc(1, sizeof(grok_predicate_strcompare_t));
 
+  /* skip first character, which is '$' */
+  args++;
+
   gpst->op = strop(args);
   pos = OP_LEN(gpst->op);
 
   /* XXX: ALLOC */
-  gpst->value = strdup(args);
+  gpst->value = strdup(args + pos);
+  gpst->len = strlen(args + pos);
 
   gct->predicate_func = grok_predicate_strcompare;
   gct->extra = gpst;
@@ -188,14 +193,23 @@ int grok_predicate_strcompare_init(grok_t *grok, grok_capture_t *gct,
 int grok_predicate_strcompare(grok_t *grok, grok_capture_t *gct,
                               const char *subject, int start, int end) {
   grok_predicate_strcompare_t *gpst = (grok_predicate_strcompare_t *)gct->extra;
-  int ret;
-
+  int ret = 0;
+   
   OP_RUN(gpst->op,
+         //strncmp(subject + start, gpst->value, gpst->len),
          strncmp(subject + start, gpst->value, (end - start)),
+         //strcmp(subject + start, gpst->value),
          ret);
 
-  /* grok predicates should return 0 for success and comparisons return 1 for
-   * success */
+  //fprintf(stderr, "Compare: '%.*s' vs '%s'\n",
+          //(end - start), subject + start, 
+          //gpst->value);
+          //strcmp(subject + start, gpst->value),
+          //ret);
+
+
+  /* grok predicates should return 0 for success, 
+   * but comparisons return 1 for success, so negate the comparison */
   return ret == 0;
 }
 
