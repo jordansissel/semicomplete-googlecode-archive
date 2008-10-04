@@ -10,6 +10,9 @@ all: clean grokre
 test:
 	make -C test
 
+main: grokre.c main.c predicates.c stringhelper.c
+	gcc -o $@ -lpcre $^
+
 clean:
 	rm -f grokre *.o *.so
 
