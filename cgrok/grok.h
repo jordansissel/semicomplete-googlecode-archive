@@ -49,6 +49,6 @@ typedef struct grok_match {
   const char *subject;
 } grok_match_t;
 
-#include <grokre.h>
+#include "grokre.h"
 
 #endif /* ifndef _GROK_H_ */
