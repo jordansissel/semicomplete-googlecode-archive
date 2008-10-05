@@ -427,49 +427,6 @@ void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret) {
   free(linedup);
 }
 
-int _main(int argc, const char * const *argv) {
-  grok_t grok;
-
-  grok_init(&grok);
-  grok_patterns_import_from_file(&grok, "pcregrok_patterns");
-
-  if (argc != 3) {
-    printf("Usage: $0 <pattern> <name_to_output>\n");
-    return 1;
-  }
-
-  if (grok_compile(&grok, argv[1]) != 0) {
-    fprintf(stderr, "grok_compile failure: '%s' is probably a bad regexp.\n", argv[1]);
-    exit(1);
-  }
-
-  if (1) { /* read from stdin, apply the given pattern to it */
-    int ret;
-    grok_match_t gm;
-    char buffer[4096];
-    FILE *fp;
-    fp = stdin;
-    while (!feof(fp)) {
-      fgets(buffer, 4096, fp);
-      ret = grok_exec(&grok, buffer, &gm);
-      if (ret >= 0) {
-        grok_capture_t *gct = NULL;
-        const char *p;
-
-        gct = grok_match_get_named_capture(&gm, argv[2]);
-        assert(gct != NULL);
-
-        pcre_get_substring(gm.subject, gm.grok->pcre_capture_vector,
-                           gm.grok->pcre_num_captures, gct->pcre_capture_number, 
-                           &p);
-        printf("Entry: %s => %s\n", gct->name, p);
-
-      }
-    }
-  }
-  return 0;
-}
-
 static int grok_pcre_callout(pcre_callout_block *pcb) {
   grok_t *grok = pcb->callout_data;
   grok_capture_t *gct;
@@ -505,6 +462,7 @@ static void grok_capture_add(grok_t *grok, int capture_id,
   if (tfind(&key, &(grok->captures_by_id), grok_capture_cmp_id) == NULL) {
     grok_capture_t *gcap = calloc(1, sizeof(grok_capture_t));
     //DEBUG fprintf(stderr, "Adding capture name '%s'\n", pattern_name);
+    gcap->grok = grok;
     gcap->id = capture_id;
     gcap->name = strdup(pattern_name);
     gcap->predicate_func = NULL;

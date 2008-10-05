@@ -4,7 +4,6 @@
 
 #include <sys/select.h>
 
-
 int main(int argc, char **argv) {
   grok_t grok;
   grok_match_t gm;
