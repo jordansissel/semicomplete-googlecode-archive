@@ -14,23 +14,24 @@ int main(int argc, char **argv) {
 
   grok_patterns_import_from_file(&grok, "./pcregrok_patterns");
 
-  if (argc != 2) {
-    printf("Usage: %s <regex>\n", argv[0]);
+  if (argc != 3) {
+    printf("Usage: %s <regex> <name>\n", argv[0]);
     return 1;
   }
 
   grok_compile(&grok, argv[1]);
  
   while (fgets(buf, 4095, stdin)) {
-    //int start, end, ret;
     int ret;
-    buf[4096] = '\0';
-    //ret = grok_exec(&grok, buf, &gm);
-    ret = grok_exec(&grok, buf, NULL);
-    //start = grok.pcre_capture_vector[0];
-    //end = grok.pcre_capture_vector[1];
+    // Remove trailing newline
+    buf[strlen(buf) - 1] = '\0';
+    ret = grok_exec(&grok, buf, &gm);
+
     if (ret >= 0) {
-      printf("%s", buf);
+      const char *data;
+      int len;
+      grok_match_get_named_substring(&gm, argv[2], &data, &len);
+      printf("Foo: %.*s\n", len, data);
     }
   }
 

@@ -47,7 +47,7 @@ static void grok_capture_add_predicate(grok_t *grok, int capture_id,
                                        const char *predicate);
 
 static int grok_pattern_cmp_name(const void *a, const void *b);
-static grok_capture_t* grok_match_get_named_capture(grok_match_t *gm, 
+static grok_capture_t* grok_match_get_named_capture(const grok_match_t *gm, 
                                                     const char *name);
 
 static int grok_capture_cmp_id(const void *a, const void *b);
@@ -74,6 +74,7 @@ void grok_init(grok_t *grok) {
   grok->max_capture_num = 0;
   grok->pcre_errptr = NULL;
   grok->pcre_erroffset = 0;
+  grok->logmask = 0;
   
   if (g_grok_global_initialized == 0) {
     /* do first initalization */
@@ -115,6 +116,7 @@ void grok_free(grok_t *grok) {
   if (grok->captures_by_name != NULL)
     free(grok->captures_by_name);
 
+  /* For some reason this causes some kind of stack badness */
   tdestroy(grok->patterns, grok_pattern_node_free);
 }
 
@@ -122,13 +124,14 @@ void grok_pattern_node_free(void *nodep) {
   grok_pattern_t *gpt = *(grok_pattern_t **)nodep;
 
   if (gpt != NULL) {
+    /* Something in here causes stack smashing :( */
     if (gpt->name != NULL) {
-      free(gpt->name);
-      gpt->name = NULL;
+      //free(gpt->name);
+      //gpt->name = NULL;
     }
     if (gpt->regexp != NULL) {
-      free(gpt->regexp);
-      gpt->regexp = NULL;
+      //free(gpt->regexp);
+      //gpt->regexp = NULL;
     }
     free(gpt);
   }
@@ -504,7 +507,6 @@ static void grok_capture_add(grok_t *grok, int capture_id,
     //DEBUG fprintf(stderr, "Adding capture name '%s'\n", pattern_name);
     gcap->id = capture_id;
     gcap->name = strdup(pattern_name);
-    gcap->predicate = NULL;
     gcap->predicate_func = NULL;
     gcap->pattern = NULL;
     tsearch(gcap, &(grok->captures_by_id), grok_capture_cmp_id);
@@ -569,7 +571,7 @@ static int grok_capture_cmp_name(const void *a, const void *b) {
                 ((grok_capture_t *)b)->name);
 }
 
-static grok_capture_t* grok_match_get_named_capture(grok_match_t *gm, 
+static grok_capture_t* grok_match_get_named_capture(const grok_match_t *gm, 
                                                     const char *name) {
   grok_capture_t key;
   void *result = NULL;
@@ -580,6 +582,30 @@ static grok_capture_t* grok_match_get_named_capture(grok_match_t *gm,
     return NULL;
 
   return *(grok_capture_t **)result;
+}
+
+int grok_match_get_named_substring(const grok_match_t *gm, const char *name,
+                                   const char **substr, int *len) {
+  grok_capture_t *gct;
+  int start, end;
+
+  grok_log(gm->grok, LOG_EXEC, "Fetching named capture: %s", name);
+  gct = grok_match_get_named_capture(gm, name);
+  if (gct == NULL) {
+    grok_log(gm->grok, LOG_EXEC, "Named capture '%s' not found", name);
+    *substr = NULL;
+    *len = 0;
+    return -1;
+  }
+
+  start = (gm->grok->pcre_capture_vector[gct->pcre_capture_number * 2]);
+  end = (gm->grok->pcre_capture_vector[gct->pcre_capture_number * 2 + 1]);
+  grok_log(gm->grok, LOG_EXEC, "Capture '%s' is %d -> %d of '%s'",
+           name, start, end, gm->subject);
+  *substr = gm->subject + start;
+  *len = (end - start);
+
+  return 0;
 }
 
 static void grok_study_capture_map(grok_t *grok) {

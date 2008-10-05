@@ -19,7 +19,6 @@ struct grok_capture {
 
   int (*predicate_func)(grok_t *, grok_capture_t *, const char *, int, int);
   void *extra;
-  const char *predicate; /* XXX: Delete this */
 };
 
 struct grok {
