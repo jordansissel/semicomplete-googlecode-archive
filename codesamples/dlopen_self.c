@@ -1,3 +1,7 @@
+/* compile with:
+ * gcc -rdynamic -ldl -o dlopen_self dlopen_self.c
+ */
+
 #include <stdio.h>
 #include <dlfcn.h>
 
