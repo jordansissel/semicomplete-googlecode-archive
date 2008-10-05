@@ -1,4 +1,4 @@
-LDFLAGS+=-lcunit -lpcre
+LDFLAGS+=-lcunit -lpcre -ldb
 CFLAGS+=-g -I../
 CFLAGS+=-DNOLOGGING
 
@@ -24,5 +24,5 @@ clean:
 	$(CC) $(CFLAGS) -c _$< -o $@;
 	rm _$<
 
-%.test: %.test.o ../grokre.c ../stringhelper.c ../predicates.c ../logging.c
+%.test: %.test.o ../grokre.c ../stringhelper.c ../predicates.c ../logging.c ../grok_pattern.c
 	$(CC) $(LDFLAGS) $(CFLAGS) $^ -o $@

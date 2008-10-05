@@ -2,6 +2,7 @@
 #define _GROK_H_
 
 #include <pcre.h>
+#include <db.h>
 
 typedef struct grok grok_t;
 typedef struct grok_capture grok_capture_t;
@@ -22,8 +23,7 @@ struct grok_capture {
 };
 
 struct grok {
-  /* tree of grok_pattern objects */
-  void *patterns;
+  DB *patterns;
   
   /* These are initialized when grok_compile is called */
   pcre *re;
@@ -33,9 +33,9 @@ struct grok {
   int pcre_num_captures;
   
   /* Data storage for named-capture (grok capture) information */
-  void *captures_by_id;
-  void *captures_by_name;
-  void *captures_by_capture_number;
+  DB *captures_by_id;
+  DB *captures_by_name;
+  DB *captures_by_capture_number;
   int max_capture_num;
   
   /* PCRE pattern compilation errors */
@@ -52,5 +52,6 @@ typedef struct grok_match {
 
 #include "grokre.h"
 #include "logging.h"
+#include "grok_pattern.h"
 
 #endif /* ifndef _GROK_H_ */

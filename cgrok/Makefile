@@ -3,7 +3,8 @@
 CFLAGS+=-Wunused
 LDFLAGS+=-lpcre
 
-GROKRE_DEPS=grokre.c stringhelper.c predicates.c logging.c
+GROKRE_DEPS=grokre.c stringhelper.c predicates.c logging.c \
+            grok_pattern.c
 
 all: clean grokre
 

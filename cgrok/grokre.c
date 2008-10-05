@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <search.h>
+#include <db.h>
 
 #include "grok.h"
 #include "predicates.h"
@@ -36,9 +37,7 @@ static int g_cap_subname = 0;
 static int g_cap_predicate = 0;
 
 /* internal functions */
-static void grok_pattern_add(grok_t *grok, grok_pattern_t *pattern);
 static char *grok_pattern_expand(grok_t *grok);
-static grok_pattern_t *grok_pattern_find(grok_t *grok, const char *pattern_name);
 static int grok_pcre_callout(pcre_callout_block *);
 static void grok_study_capture_map(grok_t *grok);
 
@@ -54,27 +53,49 @@ static int grok_capture_cmp_id(const void *a, const void *b);
 static int grok_capture_cmp_name(const void *a, const void *b);
 static int grok_capture_cmp_capture_number(const void *a, const void *b);
 
-static void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret);
-
 /* Cleanup functions */
 void grok_pattern_node_free(void *nodep);
+
+static int db_captures_by_name_key(DB *secondary, const DBT *key, const DBT *data,
+                                   DBT *result);
+static int db_captures_by_capture_number(DB *secondary, const DBT *key,
+                                         const DBT *data, DBT *result);
 
 void grok_init(grok_t *grok) {
   pcre_callout = grok_pcre_callout;
 
-  grok->patterns = NULL;
   grok->re = NULL;
-  grok->pattern = NULL;
   grok->full_pattern = NULL;
   grok->pcre_capture_vector = NULL;
   grok->pcre_num_captures = 0;
-  grok->captures_by_id = NULL;
-  grok->captures_by_name = NULL;
-  grok->captures_by_capture_number = NULL;
   grok->max_capture_num = 0;
   grok->pcre_errptr = NULL;
   grok->pcre_erroffset = 0;
   grok->logmask = 0;
+
+  db_create(&grok->patterns, NULL, 0);
+  db_create(&grok->captures_by_id, NULL, 0);
+  db_create(&grok->captures_by_name, NULL, 0);
+  db_create(&grok->captures_by_capture_number, NULL, 0);
+
+  grok->patterns->open(grok->patterns, NULL, NULL, "patterns",
+                       DB_BTREE, DB_CREATE, 0);
+
+  grok->captures_by_id->open(grok->captures_by_id, NULL, NULL, 
+                             "captures_by_id", DB_BTREE, DB_CREATE, 0);
+  grok->captures_by_name->open(grok->captures_by_name, NULL, NULL, 
+                               "captures_by_name", DB_BTREE, DB_CREATE, 0);
+  grok->captures_by_capture_number->open(grok->captures_by_capture_number,
+                                         NULL, NULL, "captures_by_capture_number",
+                                         DB_BTREE, DB_CREATE, 0);
+
+  grok->captures_by_id->associate(grok->captures_by_id, NULL, grok->captures_by_name,
+                                  db_captures_by_name_key, 0);
+  grok->captures_by_id->associate(grok->captures_by_id, NULL, 
+                                  grok->captures_by_capture_number,
+                                  db_captures_by_capture_number, 0);
+
+  
   
   if (g_grok_global_initialized == 0) {
     /* do first initalization */
@@ -100,8 +121,6 @@ void grok_init(grok_t *grok) {
 }
 
 void grok_free(grok_t *grok) {
-  /* twalk grok->patterns and free them? */
-
   if (grok->re != NULL)
     pcre_free(grok->re);
 
@@ -116,8 +135,6 @@ void grok_free(grok_t *grok) {
   if (grok->captures_by_name != NULL)
     free(grok->captures_by_name);
 
-  /* For some reason this causes some kind of stack badness */
-  tdestroy(grok->patterns, grok_pattern_node_free);
 }
 
 void grok_pattern_node_free(void *nodep) {
@@ -137,98 +154,6 @@ void grok_pattern_node_free(void *nodep) {
   }
 }
 
-void grok_patterns_import_from_file(grok_t *grok, const char *filename) {
-  FILE *patfile = NULL;
-  size_t filesize = 0;
-  size_t bytes = 0;
-  char *buffer = NULL;
-
-  grok_log(grok, LOG_PATTERNS, "Importing pattern file: '%s'", filename);
-  patfile = fopen(filename, "r");
-  if (patfile == NULL) {
-    fprintf(stderr, "Unable to open '%s' for reading\n", filename);
-    perror("Error: ");
-    return;
-  }
-  
-  fseek(patfile, 0, SEEK_END);
-  filesize = ftell(patfile);
-  fseek(patfile, 0, SEEK_SET);
-  buffer = calloc(1, filesize + 1);
-  if (buffer == NULL) {
-    fprintf(stderr, "Fatal: calloc(1, %d) failed while trying to read '%s'",
-            filesize, patfile);
-    abort();
-  }
-  memset(buffer, 0, filesize);
-  bytes = fread(buffer, 1, filesize, patfile);
-  if (bytes != filesize) {
-    fprintf(stderr, "Expected %zd bytes, but read %zd.", filesize, bytes);
-    return;
-  }
-
-  grok_patterns_import_from_string(grok, buffer);
-
-  free(buffer);
-  fclose(patfile);
-}
-
-void grok_patterns_import_from_string(grok_t *grok, const char *buffer) {
-  char *tokctx = NULL;
-  char *tok = NULL;
-  char *strptr = NULL;
-  char *dupbuf = NULL;
-
-  grok_log(grok, LOG_PATTERNS, "Importing patterns from string");
-
-  dupbuf = strdup(buffer);
-  strptr = dupbuf;
-
-  while ((tok = strtok_r(strptr, "\n", &tokctx)) != NULL) {
-    grok_pattern_t tmp;
-    grok_pattern_t **result;
-    strptr = NULL;
-
-    /* skip leading whitespace */
-    tok += strspn(tok, " \t");
-
-    /* If first non-whitespace is a '#', then this is a comment. */
-    if (*tok == '#') continue;
-
-    _pattern_parse_string(tok, &tmp);
-    grok_pattern_add(grok, &tmp);
-    result = tfind(&tmp, &(grok->patterns), grok_pattern_cmp_name);
-    assert(result != NULL);
-    assert(!strcmp((*result)->name, tmp.name));
-
-    free(tmp.name);
-    free(tmp.regexp);
-  }
-
-  free(dupbuf);
-}
-
-void grok_pattern_add(grok_t *grok, grok_pattern_t *pattern) {
-  grok_pattern_t *newpattern = NULL;
-  const void *ret = NULL;
-
-  grok_log(grok, LOG_PATTERNS, "Adding new pattern '%s' => '%s'",
-           pattern->name,
-           pattern->regexp);
-
-  newpattern = calloc(1, sizeof(grok_pattern_t));
-  newpattern->name = strdup(pattern->name);
-  newpattern->regexp = strdup(pattern->regexp);
-
-  /* tsearch(3) says it adds a node if it does not exist */
-  ret = tsearch(newpattern, &(grok->patterns), grok_pattern_cmp_name);
-  if (ret == NULL)
-    fprintf(stderr, "Failed adding pattern '%s'\n", newpattern->name);
-
-  //free(newpattern->name);
-  //free(newpattern->regexp);
-  //free(newpattern);
-}
 
 int grok_compile(grok_t *grok, const char *pattern) {
   grok_log(grok, LOG_COMPILE, "Compiling '%s'", pattern);
@@ -313,7 +238,8 @@ char *grok_pattern_expand(grok_t *grok) {
   while (pcre_exec(g_pattern_re, NULL, full_pattern, full_len, offset, 
                    0, capture_vector, g_pattern_num_captures * 3) >= 0) {
     int start, end, matchlen;
-    grok_pattern_t *gpt;
+    const char *pattern_regex;
+    int patname_len;
 
     start = capture_vector[0];
     end = capture_vector[1];
@@ -321,12 +247,14 @@ char *grok_pattern_expand(grok_t *grok) {
 
     pcre_get_substring(full_pattern, capture_vector, g_pattern_num_captures,
                        g_cap_pattern, &patname);
+    patname_len = capture_vector[g_cap_pattern * 2 + 1] \
+                  - capture_vector[g_cap_pattern * 2];
 
-    gpt = grok_pattern_find(grok, patname);
-    if (gpt == NULL) {
+    pattern_regex = grok_pattern_find(grok, patname, patname_len);
+    if (pattern_regex == NULL) {
       offset = end;
     } else {
-      int regexp_len = strlen(gpt->regexp);
+      int regexp_len = strlen(pattern_regex);
       int has_predicate = (capture_vector[g_cap_predicate * 2] >= 0);
 
       pcre_get_substring(full_pattern, capture_vector, g_pattern_num_captures,
@@ -368,7 +296,7 @@ char *grok_pattern_expand(grok_t *grok) {
       /* 3 = '(?<', 4 = strlen(capture_id_str), 1 = ")" */
       substr_replace(&full_pattern, &full_len, &full_size, 
                      start + 3 + CAPTURE_ID_LEN + 1, -1, 
-                     gpt->regexp, regexp_len);
+                     pattern_regex, regexp_len);
 
 
       /* Invariant, full_pattern actual len must always be full_len */
@@ -392,40 +320,6 @@ char *grok_pattern_expand(grok_t *grok) {
   return full_pattern;
 }
 
-grok_pattern_t *grok_pattern_find(grok_t *grok, const char *pattern_name) {
-  grok_pattern_t key;
-  grok_pattern_t **result;
-  grok_log(grok, LOG_REGEXPAND, "Looking up pattern '%s'", pattern_name);
-
-  key.name = pattern_name;
-  key.regexp = NULL;
-
-  result = (grok_pattern_t **) tfind(&key, &(grok->patterns), grok_pattern_cmp_name);
-  if (result == NULL) {
-    grok_log(grok, LOG_REGEXPAND, "Pattern '%s' does not exist", pattern_name);
-    return NULL;
-  }
-  grok_log(grok, LOG_REGEXPAND, "Pattern '%s' found", pattern_name);
-  return *result;
-}
-
-void _pattern_parse_string(const char *line, grok_pattern_t *pattern_ret) {
-  char *linedup = strdup(line);
-  char *name = linedup;
-  char *regexp = NULL;
-  size_t offset;
-
-  /* Find the first whitespace */
-  offset = strcspn(line, " \t");
-  linedup[offset] = '\0';
-  offset += strspn(linedup + offset, " \t");
-  regexp = linedup + offset + 1;
-
-  pattern_ret->name = strdup(name);
-  pattern_ret->regexp = strdup(regexp);
-
-  free(linedup);
-}
 
 static int grok_pcre_callout(pcre_callout_block *pcb) {
   grok_t *grok = pcb->callout_data;
@@ -462,7 +356,6 @@ static void grok_capture_add(grok_t *grok, int capture_id,
   if (tfind(&key, &(grok->captures_by_id), grok_capture_cmp_id) == NULL) {
     grok_capture_t *gcap = calloc(1, sizeof(grok_capture_t));
     //DEBUG fprintf(stderr, "Adding capture name '%s'\n", pattern_name);
-    gcap->grok = grok;
     gcap->id = capture_id;
     gcap->name = strdup(pattern_name);
     gcap->predicate_func = NULL;
@@ -596,4 +489,17 @@ static void grok_study_capture_map(grok_t *grok) {
     tsearch(gct, &(grok->captures_by_capture_number),
             grok_capture_cmp_capture_number);
   }
+}
+
+static int db_captures_by_name_key(DB *secondary, const DBT *key, const DBT *data,
+                                   DBT *result) {
+  result->data = ((grok_capture_t *)data->data)->name;
+  result->size = strlen((char *)result->data);
+  return 0;
+}
+static int db_captures_by_capture_number(DB *secondary, const DBT *key,
+                                         const DBT *data, DBT *result) {
+  result->data = ((grok_capture_t *)data->data)->pcre_capture_number;
+  result->size = sizeof( ((grok_capture_t*)data->data)->pcre_capture_number );
+  return 0;
 }
