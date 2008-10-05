@@ -29,7 +29,7 @@ int main() {
   int i, *ptr;
   void *root = NULL;
   const void *ret;
-  foo_t *val;
+  foo_t *val, *val2;
 
   val = calloc(1, sizeof(foo_t));
   val->name = strdup("one");
@@ -37,6 +37,13 @@ int main() {
   printf("name: %s\n", val->name);
   ret = tsearch(val, &root, cmp);
   printf("retname: %s\n", (*(foo_t **)ret)->name);
+
+  val2 = calloc(1, sizeof(foo_t));
+  val2->name = strdup(val->name);
+  val2->value = 3;
+  printf("name: %s\n", val->name);
+  ret = tsearch(val, &root, cmp);
+  printf("val2 result: %d\n", (*(foo_t **)ret)->value);
 
   twalk(root, w);
   return 0;
