@@ -14,11 +14,16 @@
 #endif
 
 void grok_capture_init(grok_t *grok, grok_capture *gct);
-void grok_capture_add(grok_t *grok, grok_capture *gct);
-void grok_capture_get_by_id(grok_t *grok, int id, grok_capture *gct);
+int grok_capture_add(grok_t *grok, grok_capture *gct);
+int grok_capture_get_by_id(grok_t *grok, int id, grok_capture *gct);
+int grok_capture_get_by_name(grok_t *grok, char *name, grok_capture *gct);
+int grok_capture_get_by_capture_number(grok_t *grok, int capture_number,
+                                        grok_capture *gct);
 
 void _grok_capture_encode(grok_capture *gct, char **data_ret, int *size_ret);
 void _grok_capture_decode(grok_capture *gct, char *data, int size);
+int _grok_capture_get_db(grok_t *grok, DB *db, DBT *key, grok_capture *gct);
+
 
 int _db_captures_by_name_key(DB *secondary, const DBT *key,
                             const DBT *data, DBT *result);

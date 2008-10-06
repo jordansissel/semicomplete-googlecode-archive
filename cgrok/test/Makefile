@@ -25,10 +25,11 @@ test: $(TESTS:.c=)
 	rm _$<
 
 grok_pattern.test: CFLAGS+=-DGROK_TEST_NO_CAPTURE
-grok_pattern.test: grok_pattern.o grok.o 
+grok_pattern.test: grok.o grok_pattern.o
 
-grok_capture.test: grok_capture.o grok_capture_xdr.o grok.o
-grok_simple.test:
+grok_capture.test: grok.o grok_capture.o grok_capture_xdr.o
+ct.test: grok.o grok_capture.o grok_capture_xdr.o
+grok_simple.test: grok.o grok_capture.o grok_pattern.o
 predicates.test:
 stringhelper.test:
 

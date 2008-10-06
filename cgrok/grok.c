@@ -1,5 +1,4 @@
 #include "grok.h"
-#include "grok_capture.h"
 
 /* These guys are initialized once ever. */
 int g_grok_global_initialized = 0;
@@ -25,6 +24,7 @@ int g_cap_predicate = 0;
 static int grok_pcre_callout(pcre_callout_block *pcb);
 
 void grok_init(grok_t *grok) {
+  //int ret;
   pcre_callout = grok_pcre_callout;
 
   grok->re = NULL;
@@ -54,7 +54,6 @@ void grok_init(grok_t *grok) {
   grok->captures_by_capture_number->open(grok->captures_by_capture_number,
                                          NULL, NULL, "captures_by_capture_number",
                                          DB_BTREE, DB_CREATE, 0);
-
   grok->captures_by_id->associate(grok->captures_by_id, NULL, 
                                   grok->captures_by_name,
                                   _db_captures_by_name_key, 0);
@@ -87,24 +86,19 @@ void grok_init(grok_t *grok) {
 }
 
 static int grok_pcre_callout(pcre_callout_block *pcb) {
-  //grok_t *grok = pcb->callout_data;
-  //grok_capture *gct;
-  //void *result;
+  grok_t *grok = pcb->callout_data;
+  grok_capture gct;
 
   //printf("callout: %d\n", pcb->capture_last);
 
-  //key.pcre_capture_number = pcb->capture_last;
-  //result = tfind(&key, &(grok->captures_by_capture_number),
-                 //grok_capture_cmp_capture_number);
-  //assert(result != NULL);
-  //gct = *(grok_capture_t **)result;
-//
-  //if (gct->predicate_func != NULL) {
-    //int start, end;
-    //start = pcb->offset_vector[ pcb->capture_last * 2 ];
-    //end = pcb->offset_vector[ pcb->capture_last * 2 + 1];
+  grok_capture_get_by_capture_number(grok, pcb->capture_last, &gct);
+
+  if (gct.predicate_func_name != NULL) {
+    int start, end;
+    start = pcb->offset_vector[ pcb->capture_last * 2 ];
+    end = pcb->offset_vector[ pcb->capture_last * 2 + 1];
+    /* XXX: call the predicate func */
     //return gct->predicate_func(grok, gct, pcb->subject, start, end);
-  //}
-//
+  }
   return 0;
 }

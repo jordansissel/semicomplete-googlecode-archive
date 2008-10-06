@@ -245,29 +245,6 @@ char *grok_pattern_expand(grok_t *grok) {
   return full_pattern;
 }
 
-static void grok_capture_add(grok_t *grok, int capture_id,
-                             const char *pattern_name) {
-  grok_capture_t key;
-
-  grok_log(grok, LOG_REGEXPAND, "Adding pattern '%s' as capture %d",
-           pattern_name, capture_id);
-
-  key.id = capture_id;
-  if (tfind(&key, &(grok->captures_by_id), grok_capture_cmp_id) == NULL) {
-    grok_capture_t *gcap = calloc(1, sizeof(grok_capture_t));
-    //DEBUG fprintf(stderr, "Adding capture name '%s'\n", pattern_name);
-    gcap->id = capture_id;
-    gcap->name = strdup(pattern_name);
-    gcap->predicate_func = NULL;
-    gcap->pattern = NULL;
-    tsearch(gcap, &(grok->captures_by_id), grok_capture_cmp_id);
-    tsearch(gcap, &(grok->captures_by_name), grok_capture_cmp_name);
-
-    if (capture_id > grok->max_capture_num)
-      grok->max_capture_num = capture_id;
-  }
-}
-
 static void grok_capture_add_predicate(grok_t *grok, int capture_id,
                                        const char *predicate) {
   grok_capture_t key;
