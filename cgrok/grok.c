@@ -22,12 +22,7 @@ int g_cap_predicate = 0;
 #define CAPTURE_ID_LEN 4
 #define CAPTURE_FORMAT "%04x"
 
-
 static int grok_pcre_callout(pcre_callout_block *pcb);
-static int db_captures_by_name_key(DB *secondary, const DBT *key,
-                                   const DBT *data, DBT *result);
-static int db_captures_by_capture_number(DB *secondary, const DBT *key,
-                                         const DBT *data, DBT *result);
 
 void grok_init(grok_t *grok) {
   pcre_callout = grok_pcre_callout;
@@ -41,13 +36,16 @@ void grok_init(grok_t *grok) {
   grok->pcre_erroffset = 0;
   grok->logmask = 0;
 
+#ifndef GROK_TEST_NO_PATTERNS
   db_create(&grok->patterns, NULL, 0);
+  grok->patterns->open(grok->patterns, NULL, NULL, "patterns",
+                       DB_BTREE, DB_CREATE, 0);
+#endif /* GROK_TEST_NO_PATTERNS */
+
+#ifndef GROK_TEST_NO_CAPTURE
   db_create(&grok->captures_by_id, NULL, 0);
   db_create(&grok->captures_by_name, NULL, 0);
   db_create(&grok->captures_by_capture_number, NULL, 0);
-
-  grok->patterns->open(grok->patterns, NULL, NULL, "patterns",
-                       DB_BTREE, DB_CREATE, 0);
 
   grok->captures_by_id->open(grok->captures_by_id, NULL, NULL,
                              "captures_by_id", DB_BTREE, DB_CREATE, 0);
@@ -57,13 +55,13 @@ void grok_init(grok_t *grok) {
                                          NULL, NULL, "captures_by_capture_number",
                                          DB_BTREE, DB_CREATE, 0);
 
-  grok->captures_by_id->associate(grok->captures_by_id, NULL, grok->captures_by_name,
-                                  db_captures_by_name_key, 0);
+  grok->captures_by_id->associate(grok->captures_by_id, NULL, 
+                                  grok->captures_by_name,
+                                  _db_captures_by_name_key, 0);
   grok->captures_by_id->associate(grok->captures_by_id, NULL,
                                   grok->captures_by_capture_number,
-                                  db_captures_by_capture_number, 0);
-
-
+                                  _db_captures_by_capture_number, 0);
+#endif /* GROK_TEST_NO_CAPTURE */
 
   if (g_grok_global_initialized == 0) {
     /* do first initalization */
@@ -110,18 +108,3 @@ static int grok_pcre_callout(pcre_callout_block *pcb) {
 //
   return 0;
 }
-
-static int db_captures_by_name_key(DB *secondary, const DBT *key,
-                                   const DBT *data, DBT *result) {
-  result->data = ((grok_capture *)data->data)->name;
-  result->size = strlen((char *)result->data);
-  return 0;
-}
-
-static int db_captures_by_capture_number(DB *secondary, const DBT *key,
-                                         const DBT *data, DBT *result) {
-  result->data = & ((grok_capture *)data->data)->pcre_capture_number;
-  result->size = sizeof( ((grok_capture*)data->data)->pcre_capture_number );
-  return 0;
-}
-

@@ -5,5 +5,6 @@ struct grok_capture {
   int id;
   int pcre_capture_number;
 
+  string predicate_lib<>;
   string predicate_func_name<>;
 };

@@ -1,12 +1,17 @@
 #include "grok.h"
 #include "grok_capture.h"
+#include "grok_capture_xdr.h"
 
 #define CAPTURE_NUMBER_NOT_SET (-1)
 
 void grok_capture_init(grok_t *grok, grok_capture *gct) {
-  memset(gct, 0, sizeof(grok_capture));
-  gct->name = gct->pattern = gct->predicate_func_name = "";
+  gct->id = CAPTURE_NUMBER_NOT_SET;
   gct->pcre_capture_number = CAPTURE_NUMBER_NOT_SET;
+
+  gct->name = NULL;
+  gct->pattern = NULL;
+  gct->predicate_lib = NULL;
+  gct->predicate_func_name = NULL;
 }
 
 void grok_capture_add(grok_t *grok, grok_capture *gct) {
@@ -71,4 +76,18 @@ void _grok_capture_decode(grok_capture *gct, char *data, int size) {
 
   xdrmem_create(&xdr, data, size, XDR_DECODE);
   xdr_grok_capture(&xdr, gct);
+}
+
+int _db_captures_by_name_key(DB *secondary, const DBT *key,
+                                   const DBT *data, DBT *result) {
+  result->data = ((grok_capture *)data->data)->name;
+  result->size = strlen((char *)result->data);
+  return 0;
+}
+
+int _db_captures_by_capture_number(DB *secondary, const DBT *key,
+                                         const DBT *data, DBT *result) {
+  result->data = & ((grok_capture *)data->data)->pcre_capture_number;
+  result->size = sizeof( ((grok_capture*)data->data)->pcre_capture_number );
+  return 0;
 }

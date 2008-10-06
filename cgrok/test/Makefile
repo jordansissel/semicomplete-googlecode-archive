@@ -1,11 +1,12 @@
 include ../Makefile
 
 # Search these paths for dependency targets
-VPATH=../
+VPATH=..:.
 
 LDFLAGS+=-lcunit
-CFLAGS+=-I../ -DNOLOGGING -g
-CLEANARGS=*.o *.gentest.c *.test ../*.o
+CFLAGS+=-I. -I.. -DNOLOGGING -g
+CLEANOBJ=*.o *.gentest.c *_xdr.[hco]
+CLEANBIN=*.test
 
 TESTS=$(wildcard *.test.c)
 
@@ -23,11 +24,13 @@ test: $(TESTS:.c=)
 	$(CC) $(CFLAGS) -c _$< -o $@;
 	rm _$<
 
-grok_pattern.test: grok_pattern.o grok.o
+grok_pattern.test: CFLAGS+=-DGROK_TEST_NO_CAPTURE
+grok_pattern.test: grok_pattern.o grok.o 
+
 grok_capture.test: grok_capture.o grok_capture_xdr.o grok.o
 grok_simple.test:
 predicates.test:
 stringhelper.test:
 
-%.test: %.test.o 
-	$(CC) $(LDFLAGS) $(CFLAGS) $^ -o $@
+%.test: cleanobj %.test.o 
+	$(CC) $(LDFLAGS) $(CFLAGS) $(^:cleanobj=) -o $@

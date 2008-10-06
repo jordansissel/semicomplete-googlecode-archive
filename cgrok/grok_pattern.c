@@ -1,7 +1,7 @@
 #include <string.h>
 
 #include "grok.h"
-
+#include "grok_pattern.h"
 
 void grok_pattern_add(grok_t *grok, const char *name, size_t name_len,
                       const char *regexp, size_t regexp_len) {
