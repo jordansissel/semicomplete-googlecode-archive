@@ -89,9 +89,9 @@ void grok_init(grok_t *grok) {
 }
 
 static int grok_pcre_callout(pcre_callout_block *pcb) {
-  grok_t *grok = pcb->callout_data;
-  grok_capture *gct;
-  void *result;
+  //grok_t *grok = pcb->callout_data;
+  //grok_capture *gct;
+  //void *result;
 
   //printf("callout: %d\n", pcb->capture_last);
 
@@ -120,7 +120,7 @@ static int db_captures_by_name_key(DB *secondary, const DBT *key,
 
 static int db_captures_by_capture_number(DB *secondary, const DBT *key,
                                          const DBT *data, DBT *result) {
-  result->data = ((grok_capture *)data->data)->pcre_capture_number;
+  result->data = & ((grok_capture *)data->data)->pcre_capture_number;
   result->size = sizeof( ((grok_capture*)data->data)->pcre_capture_number );
   return 0;
 }

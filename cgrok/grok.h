@@ -42,5 +42,6 @@ typedef struct grok_match {
 #include "grokre.h"
 #include "logging.h"
 #include "grok_pattern.h"
+#include "grok_capture.h"
 
 #endif /* ifndef _GROK_H_ */

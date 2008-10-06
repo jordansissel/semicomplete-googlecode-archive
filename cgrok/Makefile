@@ -1,7 +1,7 @@
 #CFLAGS+=-pipe -O2
 #CFLAGS+=-g
 CFLAGS+=-Wunused
-LDFLAGS+=-lpcre
+LDFLAGS+=-lpcre -ldb
 CLEANARGS=*.o grokre *_xdr.c
 
 GROKRE_DEPS=grokre.c stringhelper.c predicates.c logging.c \
@@ -19,8 +19,11 @@ clean:
 grokre: $(GROKRE_DEPS:.c=.o)
 	$(CC) $(LDFLAGS) $^ -o $@
 
+grok_capture_xdr.o: grok_capture_xdr.c grok_capture_xdr.h
 grok_capture_xdr.c: grok_capture.x
-	rpcgen $<
+	rpcgen -c $< -o $@
+grok_capture_xdr.h: grok_capture.x
+	rpcgen -h $< -o $@
 
 .c.o:
 	$(CC) -c $(CFLAGS) $< -o $@
