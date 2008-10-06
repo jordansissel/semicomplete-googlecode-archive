@@ -39,6 +39,27 @@ typedef struct grok_match {
   const char *subject;
 } grok_match_t;
 
+extern int g_grok_global_initialized;
+extern pcre *g_pattern_re;
+extern int g_pattern_num_captures;
+extern int g_cap_name;
+extern int g_cap_pattern;
+extern int g_cap_subname;
+extern int g_cap_predicate;
+
+/* pattern to match %{FOO:BAR} */
+/* or %{FOO<=3} */
+#define PATTERN_REGEX "%{" \
+                        "(?<name>" \
+                          "(?<pattern>[A-z0-9._-]+)" \
+                          "(?::(?<subname>[A-z0-9._-]+))?" \
+                        ")" \
+                        "(?<predicate>\\s*(?:[$]?=[<>=~]|![=~]|[$]?[<>])\\s*[^}]+)?" \
+                      "}"
+#define CAPTURE_ID_LEN 4
+#define CAPTURE_FORMAT "%04x"
+
+
 #include "grokre.h"
 #include "logging.h"
 
@@ -49,4 +70,5 @@ typedef struct grok_match {
 #ifndef GROK_TEST_NO_CAPTURE
 #include "grok_capture.h"
 #endif
+
 #endif /* ifndef _GROK_H_ */

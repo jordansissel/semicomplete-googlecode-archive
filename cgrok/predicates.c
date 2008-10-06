@@ -52,16 +52,17 @@ typedef struct grok_predicate_strcompare {
   int len;
 } grok_predicate_strcompare_t;
 
-int grok_predicate_regexp(grok_t *grok, grok_capture_t *gct,
+int grok_predicate_regexp(grok_t *grok, grok_capture *gct,
                           const char *subject, int start, int end);
-int grok_predicate_numcompare(grok_t *grok, grok_capture_t *gct,
+int grok_predicate_numcompare(grok_t *grok, grok_capture *gct,
                               const char *subject, int start, int end);
-int grok_predicate_strcompare(grok_t *grok, grok_capture_t *gct,
+int grok_predicate_strcompare(grok_t *grok, grok_capture *gct,
                               const char *subject, int start, int end);
 
-int grok_predicate_regexp(grok_t *grok, grok_capture_t *gct,
+int grok_predicate_regexp(grok_t *grok, grok_capture *gct,
                           const char *subject, int start, int end) {
-  grok_predicate_regexp_t *gprt = (grok_predicate_regexp_t *)gct->extra;
+  grok_predicate_regexp_t *gprt; /* XXX: grok_capture extra */
+  //= (grok_predicate_regexp_t *)gct->extra;
   int ret;
 
   ret = pcre_exec(gprt->re, NULL, subject, end - start, start, 0, NULL, 0);
@@ -76,7 +77,7 @@ int grok_predicate_regexp(grok_t *grok, grok_capture_t *gct,
   return ret;
 }
 
-int grok_predicate_regexp_init(grok_t *grok, grok_capture_t *gct,
+int grok_predicate_regexp_init(grok_t *grok, grok_capture *gct,
                                const char *args) {
   #define REGEXP_OVEC_SIZE 6
   int capture_vector[REGEXP_OVEC_SIZE * 3];
@@ -118,8 +119,8 @@ int grok_predicate_regexp_init(grok_t *grok, grok_capture_t *gct,
            "Compiled %sregex for '%s': '%s'", 
            (gprt->negative_match) ? "negative match " : "",
            gct->name, gprt->pattern);
-  gct->predicate_func = grok_predicate_regexp;
-  gct->extra = gprt;
+  gct->predicate_func_name = "grok_predicate_regexp";
+  //gct->extra = gprt;
 }
 
 static void grok_predicate_regexp_global_init(void) {
@@ -135,7 +136,7 @@ static void grok_predicate_regexp_global_init(void) {
   }
 }
 
-int grok_predicate_numcompare_init(grok_t *grok, grok_capture_t *gct,
+int grok_predicate_numcompare_init(grok_t *grok, grok_capture *gct,
                                    const char *args) {
   grok_predicate_numcompare_t *gpnt;
   int pos;
@@ -160,13 +161,13 @@ int grok_predicate_numcompare_init(grok_t *grok, grok_capture_t *gct,
              args + pos);
   }
 
-  gct->predicate_func = grok_predicate_numcompare;
-  gct->extra = gpnt;
+  gct->predicate_func_name = "grok_predicate_numcompare";
+  //gct->extra = gpnt;
 }
 
-int grok_predicate_numcompare(grok_t *grok, grok_capture_t *gct,
+int grok_predicate_numcompare(grok_t *grok, grok_capture *gct,
                               const char *subject, int start, int end) {
-  grok_predicate_numcompare_t *gpnt = (grok_predicate_numcompare_t *)gct->extra;
+  grok_predicate_numcompare_t *gpnt; // = (grok_predicate_numcompare_t *)gct->extra;
   int ret;
 
   if (gpnt->type == DOUBLE) {
@@ -187,7 +188,7 @@ int grok_predicate_numcompare(grok_t *grok, grok_capture_t *gct,
   return ret;
 }
 
-int grok_predicate_strcompare_init(grok_t *grok, grok_capture_t *gct,
+int grok_predicate_strcompare_init(grok_t *grok, grok_capture *gct,
                                    const char *args) {
   grok_predicate_strcompare_t *gpst;
   int pos;
@@ -207,13 +208,13 @@ int grok_predicate_strcompare_init(grok_t *grok, grok_capture_t *gct,
   gpst->value = strdup(args + pos);
   gpst->len = strlen(args + pos);
 
-  gct->predicate_func = grok_predicate_strcompare;
-  gct->extra = gpst;
+  gct->predicate_func_name = "grok_predicate_strcompare";
+  //gct->extra = gpst;
 }
 
-int grok_predicate_strcompare(grok_t *grok, grok_capture_t *gct,
+int grok_predicate_strcompare(grok_t *grok, grok_capture *gct,
                               const char *subject, int start, int end) {
-  grok_predicate_strcompare_t *gpst = (grok_predicate_strcompare_t *)gct->extra;
+  grok_predicate_strcompare_t *gpst; // = (grok_predicate_strcompare_t *)gct->extra;
   int ret = 0;
    
   OP_RUN(gpst->op,

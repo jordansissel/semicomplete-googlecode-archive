@@ -3,6 +3,8 @@ include ../Makefile
 # Search these paths for dependency targets
 VPATH=..:.
 
+GROKOBJ=grok.o grokre.o grok_capture.o grok_pattern.o stringhelper.o \
+        predicates.o grok_capture_xdr.o
 LDFLAGS+=-lcunit
 CFLAGS+=-I. -I.. -DNOLOGGING -g
 CLEANOBJ=*.o *.gentest.c *_xdr.[hco]
@@ -27,11 +29,10 @@ test: $(TESTS:.c=)
 grok_pattern.test: CFLAGS+=-DGROK_TEST_NO_CAPTURE
 grok_pattern.test: grok.o grok_pattern.o
 
+stringhelper.test: stringhelper.o
 grok_capture.test: grok.o grok_capture.o grok_capture_xdr.o
-ct.test: grok.o grok_capture.o grok_capture_xdr.o
-grok_simple.test: grok.o grok_capture.o grok_pattern.o
-predicates.test:
-stringhelper.test:
+grok_simple.test: $(GROKOBJ)
+predicates.test: $(GROKOBJ)
 
 %.test: cleanobj %.test.o 
 	$(CC) $(LDFLAGS) $(CFLAGS) $(^:cleanobj=) -o $@

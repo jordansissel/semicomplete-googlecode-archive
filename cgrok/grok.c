@@ -1,6 +1,7 @@
 #include "grok.h"
 
-/* These guys are initialized once ever. */
+static int grok_pcre_callout(pcre_callout_block *pcb);
+
 int g_grok_global_initialized = 0;
 pcre *g_pattern_re = NULL;
 int g_pattern_num_captures = 0;
@@ -9,19 +10,6 @@ int g_cap_pattern = 0;
 int g_cap_subname = 0;
 int g_cap_predicate = 0;
 
-/* pattern to match %{FOO:BAR} */
-/* or %{FOO<=3} */
-#define PATTERN_REGEX "%{" \
-                        "(?<name>" \
-                          "(?<pattern>[A-z0-9._-]+)" \
-                          "(?::(?<subname>[A-z0-9._-]+))?" \
-                        ")" \
-                        "(?<predicate>\\s*(?:[$]?=[<>=~]|![=~]|[$]?[<>])\\s*[^}]+)?" \
-                      "}"
-#define CAPTURE_ID_LEN 4
-#define CAPTURE_FORMAT "%04x"
-
-static int grok_pcre_callout(pcre_callout_block *pcb);
 
 void grok_init(grok_t *grok) {
   //int ret;

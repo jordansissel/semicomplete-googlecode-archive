@@ -8,11 +8,11 @@
  * Activate with operator '=~'
  */
 
-int grok_predicate_regexp_init(grok_t *grok, grok_capture_t *gct,
+int grok_predicate_regexp_init(grok_t *grok, grok_capture *gct,
                                const char *args);
-int grok_predicate_numcompare_init(grok_t *grok, grok_capture_t *gct,
+int grok_predicate_numcompare_init(grok_t *grok, grok_capture *gct,
                                    const char *args);
-int grok_predicate_strcompare_init(grok_t *grok, grok_capture_t *gct,
+int grok_predicate_strcompare_init(grok_t *grok, grok_capture *gct,
                                    const char *args);
 
 
