@@ -2,7 +2,7 @@
 #CFLAGS+=-g
 CFLAGS+=-Wunused
 LDFLAGS+=-lpcre -ldb
-CLEANARGS=*.o grokre *_xdr.c
+CLEANARGS=*.o grokre main *_xdr.[ch]
 
 GROKRE_DEPS=grokre.c stringhelper.c predicates.c logging.c \
             grok_pattern.c
