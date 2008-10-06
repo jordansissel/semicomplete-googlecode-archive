@@ -1,6 +1,8 @@
-LDFLAGS+=-lcunit -lpcre -ldb
-CFLAGS+=-g -I../
-CFLAGS+=-DNOLOGGING
+include ../Makefile
+
+LDFLAGS+=-lcunit
+CFLAGS+=-I../ -DNOLOGGING
+CLEANARGS=*.o *.gentest.c *.test
 
 TESTS=$(wildcard *.test.c)
 
@@ -11,11 +13,6 @@ test: $(TESTS:.c=)
 		./$$t | sed -e "1,6d"; \
 	done
 
-.PHONY: clean
-clean:
-	rm -f *.o
-	rm -f *.gentest.c
-	rm -f *.test
 
 %.c: gentest.sh
 
@@ -24,5 +21,11 @@ clean:
 	$(CC) $(CFLAGS) -c _$< -o $@;
 	rm _$<
 
-%.test: %.test.o ../grokre.c ../stringhelper.c ../predicates.c ../logging.c ../grok_pattern.c
+grok_pattern.test: ../grok_pattern.o ../grok.o
+grok_capture.test: ../grok_capture.o ../grok_capture_xdr.o
+grok_simple.test:
+predicates.test:
+stringhelper.test:
+
+%.test: %.test.o 
 	$(CC) $(LDFLAGS) $(CFLAGS) $^ -o $@
