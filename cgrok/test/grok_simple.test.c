@@ -1,51 +1,50 @@
 #include "grok.h"
+#include "test.h"
 
 void test_grok_pcre_compile_succeeds(void) {
-  grok_t grok;
-  grok_init(&grok);
+  INIT;
 
-  CU_ASSERT(grok_compile(&grok, "\\w+") == 0);
-  CU_ASSERT(grok_compile(&grok, "[") != 0);
+  ASSERT_COMPILEOK("\\w+");
+  ASSERT_COMPILEOK("");
+  ASSERT_COMPILEOK("testing");
+  ASSERT_COMPILEFAIL("[");
+  ASSERT_COMPILEFAIL("[a");
 
   grok_free(&grok);
 }
 
 void test_grok_pcre_match(void) {
-  grok_t grok;
-  grok_init(&grok);
+  INIT;
 
-  CU_ASSERT(grok_compile(&grok, "[a-z]+") == 0);
-
-  CU_ASSERT(grok_exec(&grok, "foo", NULL) >= 0);
-  CU_ASSERT(grok_exec(&grok, "  one two  ", NULL) >= 0);
-  CU_ASSERT(grok_exec(&grok, "...", NULL) < 0);
-  CU_ASSERT(grok_exec(&grok, "1234", NULL) < 0);
+  ASSERT_COMPILEOK("[a-z]+");
+  ASSERT_MATCHOK("foo");
+  ASSERT_MATCHOK("  one two  ");
+  ASSERT_MATCHFAIL("...");
+  ASSERT_MATCHFAIL("1234");
 
   grok_free(&grok);
 }
 
 void test_grok_match_with_patterns(void) {
-  grok_t grok;
-  grok_init(&grok);
+  INIT;
 
   grok_patterns_import_from_string(&grok, "WORD \\b\\w+\\b");
 
-  CU_ASSERT(grok_compile(&grok, "%{WORD}") == 0);
+  ASSERT_COMPILEOK("%{WORD}");
 
-  CU_ASSERT(grok_exec(&grok, "testing", NULL) >= 0);
-  CU_ASSERT(grok_exec(&grok, "  one two  ", NULL) >= 0);
-  CU_ASSERT(grok_exec(&grok, "---", NULL) < 0);
-  CU_ASSERT(grok_exec(&grok, "-.", NULL) < 0);
+  ASSERT_MATCHOK("testing");
+  ASSERT_MATCHOK("  one two  ");
+  ASSERT_MATCHFAIL("---");
+  ASSERT_MATCHFAIL("-.");
 
   grok_free(&grok);
 }
 
 void test_grok_match_substr(void) {
-  grok_t grok;
+  INIT;
   grok_match_t gm;
-  grok_init(&grok);
   
-  CU_ASSERT(grok_compile(&grok, "\\w+ world") == 0);
+  ASSERT_COMPILEOK("\\w+ world");
 
   CU_ASSERT(grok_exec(&grok, "something hello world", &gm) >= 0);
   CU_ASSERT(grok.pcre_capture_vector[0] == 10); // start of match

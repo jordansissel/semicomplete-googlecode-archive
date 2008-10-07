@@ -33,7 +33,10 @@ grok_capture_xdr.c: grok_capture.x
 grok_capture_xdr.h: grok_capture.x
 	rpcgen -h $< -o $@
 
-grok_capture.o: grok_capture_xdr.h 
+grok.h: grok_capture.h
+grok_capture.h: grok_capture_xdr.h
+grok_capture.o: grok_capture.h
+grok.o: grok.h grok_capture.h
 
 .c.o:
 	$(CC) -c $(CFLAGS) $< -o $@

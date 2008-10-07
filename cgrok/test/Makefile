@@ -29,6 +29,7 @@ test: $(TESTS:.c=)
 grok_pattern.test: CFLAGS+=-DGROK_TEST_NO_CAPTURE
 grok_pattern.test: grok.o grok_pattern.o
 
+grok_simple.test.c: grok.h
 stringhelper.test: stringhelper.o
 grok_capture.test: grok.o grok_capture.o grok_capture_xdr.o
 grok_simple.test: $(GROKOBJ)
