@@ -13,12 +13,26 @@
 # termcapinfo xterm 'hs:ts=\E]2;:fs=\007:ds=\E]2;screen (not title yet)\007'
 #
 
-if [ $# -ne 1 ] ; then
-  echo "usage: $0 <screen_session>"
-  exit 1
+usage() {
+  echo "Usage: $0 <screen_session> [window]"
+}
+
+case $# in
+  0) read STY WINDOW ;;
+  1|2) STY=$1; WINDOW=$2 ;;
+  *) 
+    exit 1
+    ;;
+esac
+
+echo $STY $WINDOW
+
+if [ -z "$STY" ] ; then
+  usage
+  exit 1;
 fi
 
-export STY=$1
+export STY
 SEARCHKEY="FINDME $0 $$"
 
 # Create a new screen window in the given session. 
@@ -48,4 +62,13 @@ if [ -z "$window" ] ; then
 else
   # Activate the window found
   xdotool windowactivate $window
+  if [ "$?" -ne 0 ] ; then
+    if [ ! -z "$WMII_ADDRESS" ] ; then
+      echo "select client $window" | wmiir write /tag/sel/ctl
+    fi
+  fi
+
+  if [ ! -z "$WINDOW" ] ; then
+    screen -X select $WINDOW
+  fi
 fi

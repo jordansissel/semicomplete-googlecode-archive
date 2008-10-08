@@ -80,7 +80,9 @@ _filesize() {
     exit 1
   fi
 
-  stat $1 2> /dev/null \
+  stat -x > /dev/null 2>&1 && statarg="-x"
+
+  stat $statarg $1 2> /dev/null \
   | awk '/^[0-9]/ { print $1 }; /^  Size/ { print $2}' 2> /dev/null
 }
 
@@ -93,7 +95,7 @@ windowlist() {
     return 1
   fi
 
-  OUT="$OUTDIR/$VIEWSTY:p"
+  OUT="$OUTDIR/$VIEWSTY:windowlist"
   STY=$CAPSTY screen -X screen screen -p = -x $VIEWSTY
   for tries in 1 2 3 ; do
     log windowlist: _hardcopy $CAPSTY 1 $OUT
