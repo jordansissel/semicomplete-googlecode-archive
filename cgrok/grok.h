@@ -32,12 +32,8 @@ struct grok {
   int pcre_erroffset;
 
   unsigned int logmask;
+  char *errstr;
 };
-
-typedef struct grok_match {
-  grok_t *grok;
-  const char *subject;
-} grok_match_t;
 
 extern int g_grok_global_initialized;
 extern pcre *g_pattern_re;
@@ -60,8 +56,8 @@ extern int g_cap_predicate;
 #define CAPTURE_FORMAT "%04x"
 
 
-#include "grokre.h"
 #include "logging.h"
+#include "grok_match.h"
 
 #ifndef GROK_TEST_NO_PATTERNS
 #include "grok_pattern.h"
@@ -70,5 +66,7 @@ extern int g_cap_predicate;
 #ifndef GROK_TEST_NO_CAPTURE
 #include "grok_capture.h"
 #endif
+
+#include "grokre.h"
 
 #endif /* ifndef _GROK_H_ */

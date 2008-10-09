@@ -16,7 +16,7 @@
 void grok_capture_init(grok_t *grok, grok_capture *gct);
 int grok_capture_add(grok_t *grok, grok_capture *gct);
 int grok_capture_get_by_id(grok_t *grok, int id, grok_capture *gct);
-int grok_capture_get_by_name(grok_t *grok, char *name, grok_capture *gct);
+int grok_capture_get_by_name(grok_t *grok, const char *name, grok_capture *gct);
 int grok_capture_get_by_capture_number(grok_t *grok, int capture_number,
                                         grok_capture *gct);
 

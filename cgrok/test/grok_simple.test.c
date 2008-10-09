@@ -58,3 +58,22 @@ void test_grok_match_substr(void) {
                      grok.pcre_capture_vector[1] - grok.pcre_capture_vector[0]));
   grok_free(&grok);
 }
+
+void test_grok_match_get_named_substring(void) {
+  INIT;
+  IMPORT_PATTERNS_FILE;  
+  grok_match_t gm;
+  const char *str;
+  int len;
+
+  ASSERT_COMPILEOK("hello %{WORD}");
+  ASSERT_MATCHOK("hello world");
+
+  grok_exec(&grok, "hello world", &gm);
+  grok_match_get_named_substring(&gm, "WORD", &str, &len);
+
+  CU_ASSERT(len == 5);
+  CU_ASSERT(!strncmp(str, "world", len));
+
+  CLEANUP;
+}

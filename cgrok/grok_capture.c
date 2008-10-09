@@ -60,7 +60,7 @@ int grok_capture_get_by_id(grok_t *grok, int id, grok_capture *gct) {
   return ret;
 }
 
-int grok_capture_get_by_name(grok_t *grok, char *name,
+int grok_capture_get_by_name(grok_t *grok, const char *name,
                               grok_capture *gct) {
   DBT key;
   int ret;

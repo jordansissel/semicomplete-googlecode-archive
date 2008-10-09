@@ -4,19 +4,19 @@ include ../Makefile
 VPATH=..:.
 
 GROKOBJ=grok.o grokre.o grok_capture.o grok_pattern.o stringhelper.o \
-        predicates.o grok_capture_xdr.o
+        predicates.o grok_capture_xdr.o grok_match.o
 LDFLAGS+=-lcunit
 CFLAGS+=-I. -I.. -DNOLOGGING -g
 CLEANOBJ=*.o *.gentest.c *_xdr.[hco]
 CLEANBIN=*.test
 
-TESTS=$(wildcard *.test.c)
+#TESTS=$(wildcard *.test.c)
+TESTS=grok_pattern.test.c grok_capture.test.c grok_simple.test.c 
 
-test: $(TESTS:.c=)
-	@for t in $^; do \
-		echo; \
-		echo $$t; \
-		./$$t | sed -e "1,6d"; \
+.PHONY: test
+test: 
+	@for t in $(TESTS:.c=); do \
+		./runtest.sh $$t; \
 	done
 
 %.c: gentest.sh
@@ -26,14 +26,12 @@ test: $(TESTS:.c=)
 	$(CC) $(CFLAGS) -c _$< -o $@;
 	rm _$<
 
-grok_pattern.test: CFLAGS+=-DGROK_TEST_NO_CAPTURE
-grok_pattern.test: grok.o grok_pattern.o
 
-grok_simple.test.c: grok.h
 stringhelper.test: stringhelper.o
-grok_capture.test: grok.o grok_capture.o grok_capture_xdr.o
+grok_pattern.test: $(GROKOBJ)
+grok_capture.test: $(GROKOBJ)
 grok_simple.test: $(GROKOBJ)
 predicates.test: $(GROKOBJ)
 
-%.test: cleanobj %.test.o 
+%.test: %.test.o 
 	$(CC) $(LDFLAGS) $(CFLAGS) $(^:cleanobj=) -o $@

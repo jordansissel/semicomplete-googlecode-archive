@@ -52,7 +52,7 @@ int grok_compile(grok_t *grok, const char *pattern) {
                           NULL);
 
   if (grok->re == NULL) {
-    fprintf(stderr, "Regex error: %s\n", grok->pcre_errptr);
+    grok->errstr = grok->pcre_errptr;
     return 1;
   }
 
@@ -65,6 +65,10 @@ int grok_compile(grok_t *grok, const char *pattern) {
   grok_study_capture_map(grok);
 
   return 0;
+}
+
+const char * const grok_error(grok_t *grok) {
+  return grok->errstr;
 }
 
 int grok_exec(grok_t *grok, const char *text, grok_match_t *gm) {
@@ -239,21 +243,6 @@ static void grok_capture_add_predicate(grok_t *grok, int capture_id,
     fprintf(stderr, "unknown pred: %s\n", predicate);
   }
 }
-
-/*
-* static grok_capture_t* grok_match_get_named_capture(const grok_match_t *gm, 
-                                                    * const char *name) {
-  * grok_capture_t key;
-  * void *result = NULL;
-* 
-  * key.name = name;
-  * result = tfind(&key, &(gm->grok->captures_by_name), grok_capture_cmp_name);
-  * if (result == NULL)
-    * return NULL;
-* 
-  * return *(grok_capture_t **)result;
-* }
-*/
 
 #if 0
 int grok_match_get_named_substring(const grok_match_t *gm, const char *name,
