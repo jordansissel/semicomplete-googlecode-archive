@@ -34,3 +34,24 @@ void test_alloc_and_insert_from_null_dest(void) {
 
   free(dest);
 }
+
+void test_remove(void) {
+  char *source = strdup("hello world");
+  int len = strlen(source);
+  int size = len + 1;
+
+  //printf("\n--\n%s\n", source);
+  substr_replace(&source, &len, &size, 5, len, "", 0);
+  //printf("\n--\n%s\n", source);
+  CU_ASSERT(!strcmp(source, "hello"));
+}
+
+void test_lenchange(void) {
+  char *source = strdup("hello world test");
+  int len = strlen(source);
+  int size = len + 1;
+
+  CU_ASSERT(len == 16);
+  substr_replace(&source, &len, &size, 5, len, "", 0);
+  CU_ASSERT(len == 5);
+}
