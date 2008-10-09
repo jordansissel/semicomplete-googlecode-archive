@@ -32,6 +32,11 @@ void test_grok_capture_encode_and_decode(void) {
   CU_ASSERT(!strcmp(src.name, dst.name));
   CU_ASSERT(!strcmp(src.pattern, dst.pattern));
   CU_ASSERT(!strcmp(src.predicate_func_name, dst.predicate_func_name));
+
+  free(data);
+  grok_capture_free(&dst);
+  
+  CLEANUP;
 }
 
 void test_grok_capture_encode_and_decode_large(void) {
@@ -62,6 +67,10 @@ void test_grok_capture_encode_and_decode_large(void) {
   CU_ASSERT(!strcmp(src.name, dst.name));
   CU_ASSERT(!strcmp(src.pattern, dst.pattern));
   CU_ASSERT(!strcmp(src.predicate_func_name, dst.predicate_func_name));
+
+  grok_capture_free(&dst);
+  free(data);
+  CLEANUP;
 }
 
 void test_grok_capture_get_db(void) {
@@ -87,6 +96,7 @@ void test_grok_capture_get_db(void) {
   CU_ASSERT(src.id == dst.id);
   CU_ASSERT(src.pcre_capture_number == dst.pcre_capture_number);
   CU_ASSERT(!strcmp(src.name, dst.name));
+  CLEANUP;
 }
 
 void test_grok_capture_get_by_id(void) {
@@ -105,6 +115,7 @@ void test_grok_capture_get_by_id(void) {
   CU_ASSERT(src.id == dst.id);
   CU_ASSERT(src.pcre_capture_number == dst.pcre_capture_number);
   CU_ASSERT(!strcmp(src.name, dst.name));
+  CLEANUP;
 } 
 
 void test_grok_capture_get_by_name(void) {
@@ -128,6 +139,7 @@ void test_grok_capture_get_by_name(void) {
   CU_ASSERT(src.id == dst.id);
   CU_ASSERT(src.pcre_capture_number == dst.pcre_capture_number);
   CU_ASSERT(!strcmp(src.name, dst.name));
+  CLEANUP;
 } 
 
 void _test_grok_capture_get_by_capture_number(void) {

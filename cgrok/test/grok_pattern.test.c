@@ -3,16 +3,20 @@
 
 void test_grok_pattern_add_and_find_work(void) {
   INIT;
-  const char *regexp;
+  char *regexp;
 
   grok_pattern_add(&grok, "WORD", 5, "\\w+", 4);
   grok_pattern_add(&grok, "TEST", 5, "TEST", 5);
 
   regexp = grok_pattern_find(&grok, "WORD", 5);
   CU_ASSERT(!strcmp(regexp, "\\w+"));
+  free(regexp);
 
   regexp = grok_pattern_find(&grok, "TEST", 5);
   CU_ASSERT(!strcmp(regexp, "TEST"));
+  free(regexp);
+
+  CLEANUP;
 }
 
 void test_pattern_parse(void) {
@@ -22,16 +26,22 @@ void test_pattern_parse(void) {
   _pattern_parse_string("WORD \\w+", &name, &name_len, &regexp, &regexp_len);
   CU_ASSERT(!strncmp(name, "WORD", name_len));
   CU_ASSERT(!strncmp(regexp, "\\w+", regexp_len));
+  CU_ASSERT(name_len == 4);
+  CU_ASSERT(regexp_len == 3);
 
   _pattern_parse_string("   NUM    numtest", &name, &name_len, &regexp, &regexp_len);
   CU_ASSERT(!strncmp(name, "NUM", name_len));
   CU_ASSERT(!strncmp(regexp, "numtest", regexp_len));
-  //printf("\n-\n'%.*s'\n", regexp_len, regexp);
-  //printf("\n-\n'%.*s'\n", name_len, name);
+  CU_ASSERT(name_len == 3);
+  CU_ASSERT(regexp_len == 7);
 
-  _pattern_parse_string(" 	 NUM 		 numtest", &name, &name_len, &regexp, &regexp_len);
-  CU_ASSERT(!strncmp(name, "NUM", name_len));
+  _pattern_parse_string(" 	 NUMNUM 		 numtest",
+                        &name, &name_len, &regexp, &regexp_len);
+  CU_ASSERT(!strncmp(name, "NUMNUM", name_len));
   CU_ASSERT(!strncmp(regexp, "numtest", regexp_len));
+  CU_ASSERT(name_len == 6);
+  CU_ASSERT(regexp_len == 7);
+
 }
 
 void test_pattern_import_from_string(void) {
@@ -48,7 +58,6 @@ void test_pattern_import_from_string(void) {
   //CU_ASSERT(!strcmp(grok_pattern_find(&grok, "TEST", 5), "test"));
   //CU_ASSERT(!strcmp(grok_pattern_find(&grok, "FOO", 4), "bar"));
 
-  
-
-  
+  free(buf);
+  CLEANUP;
 }

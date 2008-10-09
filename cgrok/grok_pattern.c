@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <string.h>
 
 #include "grok.h"
@@ -121,5 +122,5 @@ void _pattern_parse_string(const char *line,
 
   offset += strspn(line + offset, " \t");
   *regexp = line + offset;
-  *regexp_len = strlen(line) - (line - *regexp);
+  *regexp_len = strlen(line) - (*regexp - line);
 }

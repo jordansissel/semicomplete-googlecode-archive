@@ -35,11 +35,17 @@ void grok_free(grok_t *grok) {
   if (grok->pcre_capture_vector != NULL)
     free(grok->pcre_capture_vector);
 
-  if (grok->captures_by_id != NULL)
-    free(grok->captures_by_id);
-  if (grok->captures_by_name != NULL)
-    free(grok->captures_by_name);
+  if (grok->patterns != NULL)
+    grok->patterns->close(grok->patterns, 0);
 
+  if (grok->captures_by_id != NULL)
+    grok->captures_by_id->close(grok->captures_by_id, 0);
+
+  if (grok->captures_by_name != NULL)
+    grok->captures_by_name->close(grok->captures_by_name, 0);
+
+  if (grok->captures_by_capture_number != NULL)
+    grok->captures_by_capture_number->close(grok->captures_by_capture_number, 0);
 }
 
 int grok_compile(grok_t *grok, const char *pattern) {

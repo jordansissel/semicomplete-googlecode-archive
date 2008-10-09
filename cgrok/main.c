@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
       const char *data;
       int len;
       grok_match_get_named_substring(&gm, argv[2], &data, &len);
-      printf("Foo: %.*s\n", len, data);
+      printf("%.*s\n", len, data);
     }
   }
 

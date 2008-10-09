@@ -139,7 +139,6 @@ void _grok_capture_decode(grok_capture *gct, char *data, int size) {
 
   xdrmem_create(&xdr, data, size, XDR_DECODE);
   xdr_grok_capture(&xdr, gct);
-  //xdr_grok_capture(&xdr, &foo);
 }
 
 int _db_captures_by_name_key(DB *secondary, const DBT *key,
@@ -161,6 +160,8 @@ int _db_captures_by_name_key(DB *secondary, const DBT *key,
 
   //printf("Added 2key name: '%.*s'\n", len, gct.name);
   result->flags |= DB_DBT_APPMALLOC;
+
+  grok_capture_free(&gct);
   return 0;
 }
 
@@ -178,5 +179,18 @@ int _db_captures_by_capture_number(DB *secondary, const DBT *key,
   result->size = sizeof(int);
 
   result->flags |= DB_DBT_APPMALLOC;
+
+  grok_capture_free(&gct);
   return 0;
+}
+
+void grok_capture_free(grok_capture *gct) {
+  if (gct->name != NULL)
+    free(gct->name);
+  if (gct->pattern != NULL)
+    free(gct->pattern);
+  if (gct->predicate_lib != NULL)
+    free(gct->predicate_lib);
+  if (gct->predicate_func_name != NULL)
+    free(gct->predicate_func_name);
 }
