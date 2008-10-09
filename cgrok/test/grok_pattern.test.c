@@ -4,16 +4,19 @@
 void test_grok_pattern_add_and_find_work(void) {
   INIT;
   char *regexp;
+  size_t len;
 
-  grok_pattern_add(&grok, "WORD", 5, "\\w+", 4);
-  grok_pattern_add(&grok, "TEST", 5, "TEST", 5);
+  grok_pattern_add(&grok, "WORD", 5, "\\w+", 3);
+  grok_pattern_add(&grok, "TEST", 5, "TEST", 4);
 
-  regexp = grok_pattern_find(&grok, "WORD", 5);
-  CU_ASSERT(!strcmp(regexp, "\\w+"));
+  grok_pattern_find(&grok, "WORD", 5, &regexp, &len);
+  CU_ASSERT(len == 3);
+  CU_ASSERT(!strncmp(regexp, "\\w+", len));
   free(regexp);
 
-  regexp = grok_pattern_find(&grok, "TEST", 5);
-  CU_ASSERT(!strcmp(regexp, "TEST"));
+  grok_pattern_find(&grok, "TEST", 5, &regexp, &len);
+  CU_ASSERT(len == 4);
+  CU_ASSERT(!strncmp(regexp, "TEST", len));
   free(regexp);
 
   CLEANUP;
@@ -46,7 +49,7 @@ void test_pattern_parse(void) {
 
 void test_pattern_import_from_string(void) {
   INIT;
-  const char *buf = "WORD \\w+\n"
+  char *buf = "WORD \\w+\n"
      "TEST test\n"
      "# This is a comment\n"
      "FOO bar\n";

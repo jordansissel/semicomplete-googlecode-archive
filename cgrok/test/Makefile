@@ -8,8 +8,8 @@ CFLAGS+=-I. -I.. -DNOLOGGING -g
 CLEANOBJ=*.o *.gentest.c *_xdr.[hco]
 CLEANBIN=*.test
 
-#TESTS=$(wildcard *.test.c)
-TESTS=grok_pattern.test.c grok_capture.test.c grok_simple.test.c 
+TESTS=$(wildcard *.test.c)
+#TESTS=grok_pattern.test.c grok_capture.test.c grok_simple.test.c 
 
 .PHONY: test
 test: 
