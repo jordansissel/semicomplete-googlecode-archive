@@ -3,8 +3,6 @@ include ../Makefile
 # Search these paths for dependency targets
 VPATH=..:.
 
-GROKOBJ=grok.o grokre.o grok_capture.o grok_pattern.o stringhelper.o \
-        predicates.o grok_capture_xdr.o grok_match.o
 LDFLAGS+=-lcunit
 CFLAGS+=-I. -I.. -DNOLOGGING -g
 CLEANOBJ=*.o *.gentest.c *_xdr.[hco]

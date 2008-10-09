@@ -1,16 +1,16 @@
 #CFLAGS+=-pipe -O2
-#CFLAGS+=-g
+CFLAGS+=-g
 CFLAGS+=-Wunused
-LDFLAGS+=-lpcre -ldb
+LDFLAGS+=-lpcre -ldb -ldl -rdynamic
 CLEANOBJ=*.o *_xdr.[ch]
 CLEANBIN=main grokre
 
-GROKRE_DEPS=grokre.c stringhelper.c predicates.c logging.c \
-            grok_pattern.c
+GROKOBJ=grok.o grokre.o grok_capture.o grok_pattern.o stringhelper.o \
+        predicates.o grok_capture_xdr.o grok_match.o logging.o
 
 all: clean grokre
 
-main: main.o $(GROKRE_DEPS:.c=.o)
+main: $(GROKOBJ) main.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
 .PHONY: clean 
@@ -29,11 +29,14 @@ grokre: $(GROKRE_DEPS:.c=.o)
 
 grok_capture_xdr.o: grok_capture_xdr.c grok_capture_xdr.h
 grok_capture_xdr.c: grok_capture.x
+	[ -f $@ ] && rm $@ || true
 	rpcgen -c $< -o $@
 grok_capture_xdr.h: grok_capture.x
+	[ -f $@ ] && rm $@ || true
 	rpcgen -h $< -o $@
 
 grok.h: grok_capture.h
+grok_match.h: grok_capture.h
 grok_capture.h: grok_capture_xdr.h
 grok_capture.o: grok_capture.h
 grok.o: grok.h grok_capture.h
