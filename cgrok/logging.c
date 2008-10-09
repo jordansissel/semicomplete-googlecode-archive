@@ -21,7 +21,7 @@ inline void grok_log(grok_t *grok, int level, const char *format, ...) {
     case LOG_PATTERNS: prefix = "[patterns] "; break;
     default: prefix = "[unknown] ";
   }
-  fprintf(out, prefix);
+  fprintf(out, "% *s%s", grok->logdepth * 3, "", prefix);
   vfprintf(out, format, args);
   fprintf(out, "\n");
   va_end(args);

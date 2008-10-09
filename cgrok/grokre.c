@@ -16,7 +16,7 @@
 #define CAPTURE_FORMAT "%04x"
 
 /* internal functions */
-static char *grok_pattern_expand(grok_t *grok);
+static char *grok_pattern_expand(grok_t *grok); //, int offset, int length);
 static void grok_study_capture_map(grok_t *grok);
 
 static void grok_capture_add_predicate(grok_t *grok, int capture_id,
@@ -43,16 +43,20 @@ void grok_free(grok_t *grok) {
 }
 
 int grok_compile(grok_t *grok, const char *pattern) {
+  return grok_compilen(grok, pattern, strlen(pattern));
+}
+
+int grok_compilen(grok_t *grok, const char *pattern, int length) {
   grok_log(grok, LOG_COMPILE, "Compiling '%s'", pattern);
   grok->pattern = pattern;
-  grok->full_pattern = grok_pattern_expand(grok);
+  grok->full_pattern = grok_pattern_expand(grok); //, 0, strlen(pattern));
 
   grok->re = pcre_compile(grok->full_pattern, 0, 
                           &grok->pcre_errptr, &grok->pcre_erroffset,
                           NULL);
 
   if (grok->re == NULL) {
-    grok->errstr = grok->pcre_errptr;
+    grok->errstr = (char *)grok->pcre_errptr;
     return 1;
   }
 
@@ -72,13 +76,19 @@ const char * const grok_error(grok_t *grok) {
 }
 
 int grok_exec(grok_t *grok, const char *text, grok_match_t *gm) {
+  return grok_execn(grok, text, strlen(text), gm);
+}
+
+int grok_execn(grok_t *grok, const char *text, int textlen, grok_match_t *gm) {
   int ret;
   pcre_extra pce;
   pce.flags = PCRE_EXTRA_CALLOUT_DATA;
   pce.callout_data = grok;
 
-  ret = pcre_exec(grok->re, &pce, text, strlen(text), 0, 0,
+  ret = pcre_exec(grok->re, &pce, text, textlen, 0, 0,
                   grok->pcre_capture_vector, grok->pcre_num_captures * 3);
+  grok_log(grok, LOG_EXEC, "%.*s =~ /%s/ => %d",
+           textlen, text, grok->pattern, ret);
   if (ret < 0) {
     switch (ret) {
       case PCRE_ERROR_NOMATCH:
@@ -129,17 +139,19 @@ char *grok_pattern_expand(grok_t *grok) {
   while (pcre_exec(g_pattern_re, NULL, full_pattern, full_len, offset, 
                    0, capture_vector, g_pattern_num_captures * 3) >= 0) {
     int start, end, matchlen;
-    const char *pattern_regex;
+    char *pattern_regex;
     int patname_len;
 
     start = capture_vector[0];
     end = capture_vector[1];
     matchlen = end - start;
+    grok_log(grok, LOG_REGEXPAND, "Pattern length: %d", matchlen);
 
     pcre_get_substring(full_pattern, capture_vector, g_pattern_num_captures,
                        g_cap_pattern, &patname);
     patname_len = capture_vector[g_cap_pattern * 2 + 1] \
                   - capture_vector[g_cap_pattern * 2];
+    grok_log(grok, LOG_REGEXPAND, "Pattern name: %.*s", patname_len, patname);
 
     pattern_regex = grok_pattern_find(grok, patname, patname_len);
     if (pattern_regex == NULL) {
@@ -168,11 +180,20 @@ char *grok_pattern_expand(grok_t *grok) {
        * so we can test it further */
       if (has_predicate) {
         const char *predicate = NULL;
+        int pstart, pend;
+        pstart = capture_vector[g_cap_predicate * 2];
+        pend = capture_vector[g_cap_predicate * 2 + 1];
         grok_log(grok, LOG_REGEXPAND, "Predicate found in '%.*s'",
                  matchlen, full_pattern + start);
-        pcre_get_substring(full_pattern, capture_vector, g_pattern_num_captures,
+        pcre_get_substring(full_pattern, capture_vector,
+                           g_pattern_num_captures,
                            g_cap_predicate, &predicate);
+        grok_log(grok, LOG_REGEXPAND, "Predicate is: '%s'", predicate);
+        grok_log(grok, LOG_REGEXPAND, "Predicate is2: '%.*s'", 
+                 pend - pstart, full_pattern + pstart);
+
         grok_capture_add_predicate(grok, capture_id, predicate);
+
         substr_replace(&full_pattern, &full_len, &full_size,
                        end, -1, "(?C1)", 5);
         pcre_free_substring(predicate);
@@ -192,6 +213,7 @@ char *grok_pattern_expand(grok_t *grok) {
       substr_replace(&full_pattern, &full_len, &full_size, 
                      start + 3 + CAPTURE_ID_LEN + 1, -1, 
                      pattern_regex, regexp_len);
+      grok_log(grok, LOG_REGEXPAND, ":: STR: %s", full_pattern);
 
 
       /* Invariant, full_pattern actual len must always be full_len */
@@ -208,6 +230,7 @@ char *grok_pattern_expand(grok_t *grok) {
       pcre_free_substring(patname);
       patname = NULL;
     }
+    free(pattern_regex);
   }
   //fprintf(stderr, "Expanded: %s\n", full_pattern);
   free(capture_vector);
@@ -223,7 +246,9 @@ static void grok_capture_add_predicate(grok_t *grok, int capture_id,
   grok_log(grok, LOG_PREDICATE, "Adding predicate '%s' to capture %d",
            predicate, capture_id);
 
-  grok_capture_get_by_id(grok, capture_id, &gct);
+  if (grok_capture_get_by_id(grok, capture_id, &gct) != 0) {
+    grok_log(grok, LOG_PREDICATE, "Failure to find capture id %d", capture_id);
+  }
 
   /* Compile the predicate into something useful */
   /* So far, predicates are just an operation and an argument */
@@ -243,32 +268,6 @@ static void grok_capture_add_predicate(grok_t *grok, int capture_id,
     fprintf(stderr, "unknown pred: %s\n", predicate);
   }
 }
-
-#if 0
-int grok_match_get_named_substring(const grok_match_t *gm, const char *name,
-                                   const char **substr, int *len) {
-  grok_capture gct;
-  int start, end;
-
-  grok_log(gm->grok, LOG_EXEC, "Fetching named capture: %s", name);
-  //grok_match_get_named_capture(gm, name, &gct);
-  if (gct == NULL) {
-    grok_log(gm->grok, LOG_EXEC, "Named capture '%s' not found", name);
-    *substr = NULL;
-    *len = 0;
-    return -1;
-  }
-
-  start = (gm->grok->pcre_capture_vector[gct->pcre_capture_number * 2]);
-  end = (gm->grok->pcre_capture_vector[gct->pcre_capture_number * 2 + 1]);
-  grok_log(gm->grok, LOG_EXEC, "Capture '%s' is %d -> %d of '%s'",
-           name, start, end, gm->subject);
-  *substr = gm->subject + start;
-  *len = (end - start);
-
-  return 0;
-}
-#endif
 
 static void grok_study_capture_map(grok_t *grok) {
   char *nametable;

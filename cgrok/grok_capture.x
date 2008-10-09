@@ -7,4 +7,7 @@ struct grok_capture {
 
   string predicate_lib<>;
   string predicate_func_name<>;
+
+  /* predicate functions store personal data here. */
+  opaque extra<>;
 };

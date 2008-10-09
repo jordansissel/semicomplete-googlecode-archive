@@ -6,7 +6,12 @@
 #include "predicates.h"
 
 static pcre *regexp_predicate_op = NULL;
-#define REGEXP_PREDICATE_RE "(?:\\s*([!=])~\\s*/([^\\/]+|(?:\\/)+)*/)"
+#define REGEXP_PREDICATE_RE \
+  "(?:\\s*([!=])~" \
+  "\\s*" \
+  "(.)" \
+    "([^\\/]+|(?:\\/)+)*)" \
+  "(?:\\g{-2})"
 
 static void grok_predicate_regexp_global_init(void);
 
@@ -31,8 +36,10 @@ int strop(const char * const args);
       case OP_NE: retvar = !(cmpval != 0); break; \
     } 
 
+
 typedef struct grok_predicate_regexp {
-  pcre *re;
+  //pcre *re;
+  grok_t gre;
   char *pattern;
   int negative_match;
 } grok_predicate_regexp_t;
@@ -62,19 +69,28 @@ int grok_predicate_strcompare(grok_t *grok, grok_capture *gct,
 int grok_predicate_regexp(grok_t *grok, grok_capture *gct,
                           const char *subject, int start, int end) {
   grok_predicate_regexp_t *gprt; /* XXX: grok_capture extra */
-  //= (grok_predicate_regexp_t *)gct->extra;
   int ret;
 
-  ret = pcre_exec(gprt->re, NULL, subject, end - start, start, 0, NULL, 0);
+  gprt = *(grok_predicate_regexp_t **)(gct->extra.extra_val);
+  ret = grok_execn(&gprt->gre, subject + start, end - start, NULL);
+  
+  grok_log(grok, LOG_PREDICATE, "RegexCompare: grok_execn returned %d", ret);
 
   /* negate the match if necessary */
-  ret = (ret < 0) ^ (gprt->negative_match);
+  if (ret < 0) {
+    if (ret == PCRE_ERROR_NOMATCH) {
+      ret ^= gprt->negative_match;
+    } else {
+      grok_log(grok, LOG_PREDICATE, "RegexCompare: PCRE error %d", ret);
+    }
+  }
 
-  grok_log(grok, LOG_PREDICATE, "RegexCompare: '%.*s' vs '%s' == %s",
+  grok_log(grok, LOG_PREDICATE, "RegexCompare: '%.*s' =~ /%s/ => %s",
            (end - start), subject + start, gprt->pattern,
-           (ret) ? "false" : "true");
+           (ret < 0) ? "false" : "true");
 
-  return ret;
+  /* grok_execn returns 0 for success. */
+  return ret < 0;
 }
 
 int grok_predicate_regexp_init(grok_t *grok, grok_capture *gct,
@@ -95,23 +111,26 @@ int grok_predicate_regexp_init(grok_t *grok, grok_capture *gct,
   }
 
   int start, end;
-  const char *errptr;
-  int erroffset;
   grok_predicate_regexp_t *gprt;
-  start = capture_vector[4]; /* capture #2 */
-  end = capture_vector[5];
+  start = capture_vector[6]; /* capture #3 */
+  end = capture_vector[7];
 
   gprt = calloc(1, sizeof(grok_predicate_regexp_t));
   gprt->pattern = calloc(1, end - start + 1);
   strncpy(gprt->pattern, args + start, end - start);
-  gprt->re = pcre_compile(gprt->pattern, 0, &errptr, &erroffset, NULL);
+  //gprt->re = pcre_compile(gprt->pattern, 0, &errptr, &erroffset, NULL);
+
+  grok_log(grok, LOG_PREDICATE, "Regexp predicate is '%s'", gprt->pattern);
+  grok_clone(&gprt->gre, grok);
+  ret = grok_compile(&gprt->gre, gprt->pattern);
+
   gprt->negative_match = (args[capture_vector[2]] == '!');
 
-  if (gprt->re == NULL) {
-    fprintf(stderr, 
-            "An error occured while compiling the predicate for %s:\n",
+  if (ret != 0) {
+    fprintf(stderr, "An error occured while compiling the predicate for %s:\n",
             gct->name);
-    fprintf(stderr, "Error at pos %d: %s\n", erroffset, errptr);
+    fprintf(stderr, "Error at pos %d: %s\n",
+            grok->pcre_erroffset, grok->pcre_errptr);
     return;
   }
 
@@ -120,7 +139,10 @@ int grok_predicate_regexp_init(grok_t *grok, grok_capture *gct,
            (gprt->negative_match) ? "negative match " : "",
            gct->name, gprt->pattern);
   gct->predicate_func_name = "grok_predicate_regexp";
-  //gct->extra = gprt;
+  gct->predicate_lib = "";
+
+  grok_capture_set_extra(grok, gct, gprt);
+  grok_capture_add(grok, gct);
 }
 
 static void grok_predicate_regexp_global_init(void) {
@@ -162,13 +184,18 @@ int grok_predicate_numcompare_init(grok_t *grok, grok_capture *gct,
   }
 
   gct->predicate_func_name = "grok_predicate_numcompare";
-  //gct->extra = gpnt;
+  gct->predicate_lib = "";
+
+  grok_capture_set_extra(grok, gct, gpnt);
+  grok_capture_add(grok, gct);
 }
 
 int grok_predicate_numcompare(grok_t *grok, grok_capture *gct,
                               const char *subject, int start, int end) {
-  grok_predicate_numcompare_t *gpnt; // = (grok_predicate_numcompare_t *)gct->extra;
+  grok_predicate_numcompare_t *gpnt;
   int ret;
+
+  gpnt = *(grok_predicate_numcompare_t **)(gct->extra.extra_val);
 
   if (gpnt->type == DOUBLE) {
     double a = strtod(subject + start, NULL);
@@ -209,14 +236,18 @@ int grok_predicate_strcompare_init(grok_t *grok, grok_capture *gct,
   gpst->len = strlen(args + pos);
 
   gct->predicate_func_name = "grok_predicate_strcompare";
-  //gct->extra = gpst;
+  gct->predicate_lib = "";
+  grok_capture_set_extra(grok, gct, gpst);
+  grok_capture_add(grok, gct);
 }
 
 int grok_predicate_strcompare(grok_t *grok, grok_capture *gct,
                               const char *subject, int start, int end) {
-  grok_predicate_strcompare_t *gpst; // = (grok_predicate_strcompare_t *)gct->extra;
+  grok_predicate_strcompare_t *gpst;
   int ret = 0;
    
+  gpst = *(grok_predicate_strcompare_t **)(gct->extra.extra_val);
+
   OP_RUN(gpst->op,
          strncmp(subject + start, gpst->value, (end - start)),
          ret);

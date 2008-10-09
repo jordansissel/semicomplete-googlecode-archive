@@ -14,6 +14,8 @@ void grok_capture_init(grok_t *grok, grok_capture *gct) {
   gct->pattern = NULL;
   gct->predicate_lib = NULL;
   gct->predicate_func_name = NULL;
+  gct->extra.extra_len = 0;
+  gct->extra.extra_val = NULL;
 }
 
 int grok_capture_add(grok_t *grok, grok_capture *gct) {
@@ -21,8 +23,9 @@ int grok_capture_add(grok_t *grok, grok_capture *gct) {
   DBT key, value;
   int ret;
 
-  grok_log(grok, LOG_REGEXPAND, "Adding pattern '%s' as capture %d",
-             pattern_name, capture_id);
+  grok_log(grok, LOG_REGEXPAND, 
+           "Adding pattern '%s' as capture %d (pcrenum %d)",
+           gct->name, gct->id, gct->pcre_capture_number);
 
   /* Primary key is id */
   memset(&key, 0, sizeof(key));
@@ -65,7 +68,7 @@ int grok_capture_get_by_name(grok_t *grok, const char *name,
   DBT key;
   int ret;
   memset(&key, 0, sizeof(DBT));
-  key.data = name;
+  key.data = (char *)name;
   key.size = strlen(name);
   ret = _grok_capture_get_db(grok, grok->captures_by_name, &key, gct);
   return ret;
@@ -81,6 +84,15 @@ int grok_capture_get_by_capture_number(grok_t *grok, int capture_number,
   ret = _grok_capture_get_db(grok, grok->captures_by_capture_number,
                              &key, gct);
   return ret;
+}
+
+
+int grok_capture_set_extra(grok_t *grok, grok_capture *gct, void *extra) {
+  /* Store the pointer to extra.
+   * XXX: This is potentially bad voodoo. */
+  gct->extra.extra_len = sizeof(void *); /* allocate pointer size */
+  gct->extra.extra_val = (char *)&extra;
+  return 0;
 }
 
 void _grok_capture_encode(grok_capture *gct, char **data_ret,

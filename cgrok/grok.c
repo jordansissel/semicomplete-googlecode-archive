@@ -1,4 +1,5 @@
 #include "grok.h"
+#include <dlfcn.h>
 
 static int grok_pcre_callout(pcre_callout_block *pcb);
 
@@ -23,6 +24,7 @@ void grok_init(grok_t *grok) {
   grok->pcre_errptr = NULL;
   grok->pcre_erroffset = 0;
   grok->logmask = 0;
+  grok->logdepth = 0;
 
 #ifndef GROK_TEST_NO_PATTERNS
   db_create(&grok->patterns, NULL, 0);
@@ -73,20 +75,44 @@ void grok_init(grok_t *grok) {
   }
 }
 
+void grok_clone(grok_t *dst, grok_t *src) {
+  grok_init(dst);
+  dst->patterns = src->patterns;
+  dst->logmask = src->logmask;
+  dst->logdepth = src->logdepth + 1;
+}
+
 static int grok_pcre_callout(pcre_callout_block *pcb) {
   grok_t *grok = pcb->callout_data;
   grok_capture gct;
+  grok_capture_init(grok, &gct);
 
   //printf("callout: %d\n", pcb->capture_last);
 
   grok_capture_get_by_capture_number(grok, pcb->capture_last, &gct);
 
   if (gct.predicate_func_name != NULL) {
+    int (*predicate)(grok_t *, grok_capture *, const char *, int, int);
     int start, end;
+    void *handle;
+    char *lib = gct.predicate_lib;
     start = pcb->offset_vector[ pcb->capture_last * 2 ];
     end = pcb->offset_vector[ pcb->capture_last * 2 + 1];
+
     /* XXX: call the predicate func */
-    //return gct->predicate_func(grok, gct, pcb->subject, start, end);
+    if (lib != NULL && lib[0] == '\0') {
+      lib = NULL;
+    }
+
+    handle = dlopen(lib, RTLD_LAZY);
+    predicate = dlsym(handle, gct.predicate_func_name);
+    if (predicate != NULL) {
+      return predicate(grok, &gct, pcb->subject, start, end);
+    } else {
+      grok_log(grok, LOG_EXEC, "No such function '%s' in library '%s'",
+               gct.predicate_func_name, lib);
+      return 0;
+    }
   }
   return 0;
 }

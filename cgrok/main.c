@@ -4,12 +4,16 @@
 
 #include <sys/select.h>
 
+#ifndef LOGMASK
+#define LOGMASK LOG_ALL
+#endif
+
 int main(int argc, char **argv) {
   grok_t grok;
   grok_match_t gm;
   char buf[1024];
   grok_init(&grok);
-  grok.logmask = LOG_ALL;
+  grok.logmask = LOGMASK;
 
   grok_patterns_import_from_file(&grok, "./pcregrok_patterns");
 

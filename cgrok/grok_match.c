@@ -13,7 +13,7 @@ int grok_match_get_named_substring(const grok_match_t *gm, const char *name,
 
   grok_log(gm->grok, LOG_EXEC, "Fetching named capture: %s", name);
   if (grok_match_get_named_capture(gm, name, &gct) != 0) {
-    grok_log(gm.grok, LOG_EXEC, "Named capture '%s' not found", name);
+    grok_log(gm->grok, LOG_EXEC, "Named capture '%s' not found", name);
     *substr = NULL;
     *len = 0;
     return -1;

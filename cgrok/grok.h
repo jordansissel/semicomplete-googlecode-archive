@@ -32,6 +32,7 @@ struct grok {
   int pcre_erroffset;
 
   unsigned int logmask;
+  unsigned int logdepth;
   char *errstr;
 };
 
@@ -45,19 +46,39 @@ extern int g_cap_predicate;
 
 /* pattern to match %{FOO:BAR} */
 /* or %{FOO<=3} */
-#define PATTERN_REGEX "%{" \
+#define _PATTERN_REGEX "%{" \
                         "(?<name>" \
                           "(?<pattern>[A-z0-9._-]+)" \
                           "(?::(?<subname>[A-z0-9._-]+))?" \
                         ")" \
-                        "(?<predicate>\\s*(?:[$]?=[<>=~]|![=~]|[$]?[<>])\\s*[^}]+)?" \
+                        "(?<predicate>\\s*(?:" \
+                          "(?P<curly>\\{(?:(?>[^{}]+)|(?P>curly))*\\})" \
+                          "|(?:[^{}]+)" \
+                        "))" \
                       "}"
+
+#define PATTERN_REGEX \
+  "%{" \
+  "(?<name>" \
+    "(?<pattern>[A-z0-9]+)" \
+    "(?::(?<subname>[A-z0-9]))?" \
+  ")" \
+  "\\s*(?<predicate>" \
+    "(?:" \
+      "(?P<curly>\\{(?:(?>[^{}]+|(?>\\\\[{}])+)|(?P>curly))*\\})" \
+      "|" \
+      "(?:[^{}]+|\\\\[{}])+" \
+    ")+" \
+  ")?" \
+  "}"
+
+// "(?<predicate>\\s*(?:[$]?=[<>=~]|![=~]|[$]?[<>])\\s*[^}]+)?"
+
 #define CAPTURE_ID_LEN 4
 #define CAPTURE_FORMAT "%04x"
 
 
 #include "logging.h"
-#include "grok_match.h"
 
 #ifndef GROK_TEST_NO_PATTERNS
 #include "grok_pattern.h"
@@ -66,6 +87,8 @@ extern int g_cap_predicate;
 #ifndef GROK_TEST_NO_CAPTURE
 #include "grok_capture.h"
 #endif
+
+#include "grok_match.h"
 
 #include "grokre.h"
 

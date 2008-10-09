@@ -21,19 +21,24 @@ void grok_pattern_add(grok_t *grok, const char *name, size_t name_len,
   patterns->put(patterns, NULL, &key, &value, 0);
 }
 
-const char *grok_pattern_find(grok_t *grok, const char *name, size_t name_len) {
+char *grok_pattern_find(grok_t *grok, const char *name, size_t name_len) {
   DB *patterns = grok->patterns;
   DBT key, value;
+  int ret;
+  char *pattern;
   memset(&key, 0, sizeof(DBT));
   memset(&value, 0, sizeof(DBT));
 
-  grok_log(grok, LOG_PATTERNS, "Searching for pattern '%s'", name);
-
   key.data = (void *)name;
   key.size = name_len;
-  patterns->get(patterns, NULL, &key, &value, 0);
+  ret = patterns->get(patterns, NULL, &key, &value, 0);
+  grok_log(grok, LOG_PATTERNS, "Searching for pattern '%s': %s",
+           name, (ret == 0) ? value.data : "no result");
 
-  return (const char *)(value.data);
+  
+  pattern = malloc(value.size);
+  memcpy(pattern, value.data, value.size);
+  return pattern;
 }
 
 void grok_patterns_import_from_file(grok_t *grok, const char *filename) {
