@@ -22,9 +22,6 @@ static void grok_study_capture_map(grok_t *grok);
 static void grok_capture_add_predicate(grok_t *grok, int capture_id,
                                        const char *predicate);
 
-//static grok_capture_t* grok_match_get_named_capture(const grok_match_t *gm, 
-                                                    //const char *name);
-
 void grok_free(grok_t *grok) {
   if (grok->re != NULL)
     pcre_free(grok->re);
@@ -147,6 +144,7 @@ char *grok_pattern_expand(grok_t *grok) {
     int start, end, matchlen;
     char *pattern_regex;
     int patname_len;
+    int regexp_len;
 
     start = capture_vector[0];
     end = capture_vector[1];
@@ -159,11 +157,10 @@ char *grok_pattern_expand(grok_t *grok) {
                   - capture_vector[g_cap_pattern * 2];
     grok_log(grok, LOG_REGEXPAND, "Pattern name: %.*s", patname_len, patname);
 
-    pattern_regex = grok_pattern_find(grok, patname, patname_len);
+    grok_pattern_find(grok, patname, patname_len, &pattern_regex, &regexp_len);
     if (pattern_regex == NULL) {
       offset = end;
     } else {
-      int regexp_len = strlen(pattern_regex);
       int has_predicate = (capture_vector[g_cap_predicate * 2] >= 0);
       grok_capture gct;
       grok_capture_init(grok, &gct);
@@ -238,9 +235,10 @@ char *grok_pattern_expand(grok_t *grok) {
     }
     free(pattern_regex);
   }
-  //fprintf(stderr, "Expanded: %s\n", full_pattern);
-  free(capture_vector);
 
+  grok_log(grok, LOG_REGEXPAND, "Fully expanded: %.*s", full_len, full_pattern);
+
+  free(capture_vector);
   return full_pattern;
 }
 

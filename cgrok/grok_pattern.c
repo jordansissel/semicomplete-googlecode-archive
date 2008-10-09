@@ -22,24 +22,30 @@ void grok_pattern_add(grok_t *grok, const char *name, size_t name_len,
   patterns->put(patterns, NULL, &key, &value, 0);
 }
 
-char *grok_pattern_find(grok_t *grok, const char *name, size_t name_len) {
+int grok_pattern_find(grok_t *grok, const char *name, size_t name_len,
+                      char **regexp, size_t *regexp_len) {
   DB *patterns = grok->patterns;
   DBT key, value;
   int ret;
-  char *pattern;
   memset(&key, 0, sizeof(DBT));
   memset(&value, 0, sizeof(DBT));
 
   key.data = (void *)name;
   key.size = name_len;
   ret = patterns->get(patterns, NULL, &key, &value, 0);
-  grok_log(grok, LOG_PATTERNS, "Searching for pattern '%s': %s",
-           name, (ret == 0) ? value.data : "no result");
+  if (ret == 0) {
+    grok_log(grok, LOG_PATTERNS, "Searching for pattern '%s': %.*s",
+             name, value.size, value.data);
+  } else {
+    grok_log(grok, LOG_PATTERNS, "Searching for pattern '%s': not found", name);
+    *regexp = NULL;
+    *regexp_len = 0;
+  }
 
-  
-  pattern = malloc(value.size);
-  memcpy(pattern, value.data, value.size);
-  return pattern;
+  *regexp = malloc(value.size);
+  memcpy(*regexp, value.data, value.size);
+  *regexp_len = value.size;
+  return 0;
 }
 
 void grok_patterns_import_from_file(grok_t *grok, const char *filename) {
