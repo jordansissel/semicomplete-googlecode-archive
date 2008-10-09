@@ -1,6 +1,6 @@
-#CFLAGS+=-pipe -O2
-CFLAGS+=-g
-CFLAGS+=-Wunused
+CFLAGS+=-pipe -O2
+#CFLAGS+=-g
+#CFLAGS+=-Wunused
 LDFLAGS+=-lpcre -ldb -ldl -rdynamic
 CLEANOBJ=*.o *_xdr.[ch]
 CLEANBIN=main grokre

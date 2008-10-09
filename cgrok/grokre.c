@@ -144,7 +144,7 @@ char *grok_pattern_expand(grok_t *grok) {
     int start, end, matchlen;
     char *pattern_regex;
     int patname_len;
-    int regexp_len;
+    size_t regexp_len;
 
     start = capture_vector[0];
     end = capture_vector[1];
