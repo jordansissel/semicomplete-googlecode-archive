@@ -1,6 +1,6 @@
 CFLAGS+=-pipe
 CFLAGS+=-g
-CFLAGS+=-DNOLOGGING
+#CFLAGS+=-DNOLOGGING
 #CFLAGS+=-O2
 #CFLAGS+=-Wunused
 LDFLAGS+=-lpcre -ldb -ldl -rdynamic

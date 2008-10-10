@@ -215,16 +215,16 @@ int grok_predicate_numcompare(grok_t *grok, grok_capture *gct,
     double a = strtod(subject + start, NULL);
     double b = gpnt->u.dvalue;
     OP_RUN(gpnt->op, a - b, ret);
-    grok_log(grok, LOG_PREDICATE, "NumCompare(double): %f vs %f == %s",
-             a, b, (ret) ? "false" : "true");
+    grok_log(grok, LOG_PREDICATE, "NumCompare(double): %f vs %f == %s (%d)",
+             a, b, (ret) ? "false" : "true", ret);
   } else {
     long a = strtol(subject + start, NULL, 0);
     long b = gpnt->u.lvalue;
-    //printf("%ld vs %ld\n", a, b);
     OP_RUN(gpnt->op, a - b, ret);
-    grok_log(grok, LOG_PREDICATE, "NumCompare(long): %ld vs %ld == %s",
-             a, b, (ret) ? "false" : "true");
+    grok_log(grok, LOG_PREDICATE, "NumCompare(long): %ld vs %ld == %s (%d)",
+             a, b, (ret) ? "false" : "true", ret);
   }
+
 
   return ret;
 }
