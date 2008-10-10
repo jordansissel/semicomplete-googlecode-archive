@@ -91,9 +91,42 @@ void test_grok_with_numcompare_gt_hex(void) {
   CLEANUP;
 }
 
-void test_grok_numcompare_general(void) {
+void test_grok_numcompare_lt(void) {
   INIT;
+  IMPORT_PATTERNS_FILE;
+
+  ASSERT_COMPILEOK("%{NUMBER<57}");
+  ASSERT_MATCHOK("-13");
+  ASSERT_MATCHOK("-3");
+  ASSERT_MATCHOK("0");
+  ASSERT_MATCHOK("3");
+  ASSERT_MATCHOK("13");
+  ASSERT_MATCHOK("56");
+  ASSERT_MATCHFAIL("57");
+  ASSERT_MATCHFAIL("58");
+  ASSERT_MATCHFAIL("70");
+  ASSERT_MATCHFAIL("100");
+  ASSERT_MATCHFAIL("5825");
 
   CLEANUP;
 }
 
+void test_grok_numcompare_le(void) {
+  INIT;
+  IMPORT_PATTERNS_FILE;
+
+  ASSERT_COMPILEOK("%{NUMBER<=57}");
+  ASSERT_MATCHOK("-13");
+  ASSERT_MATCHOK("-3");
+  ASSERT_MATCHOK("0");
+  ASSERT_MATCHOK("3");
+  ASSERT_MATCHOK("13");
+  ASSERT_MATCHOK("56");
+  ASSERT_MATCHOK("57");
+  ASSERT_MATCHFAIL("58");
+  ASSERT_MATCHFAIL("70");
+  ASSERT_MATCHFAIL("100");
+  ASSERT_MATCHFAIL("5825");
+
+  CLEANUP;
+}
