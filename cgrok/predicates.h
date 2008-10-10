@@ -9,11 +9,11 @@
  */
 
 int grok_predicate_regexp_init(grok_t *grok, grok_capture *gct,
-                               const char *args);
+                               const char *args, int args_len);
 int grok_predicate_numcompare_init(grok_t *grok, grok_capture *gct,
-                                   const char *args);
+                                   const char *args, int args_len);
 int grok_predicate_strcompare_init(grok_t *grok, grok_capture *gct,
-                                   const char *args);
+                                   const char *args, int args_len);
 
 
 #endif /* _PREDICATES_H_ */

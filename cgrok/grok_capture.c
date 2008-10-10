@@ -86,12 +86,19 @@ int grok_capture_get_by_capture_number(grok_t *grok, int capture_number,
   return ret;
 }
 
-
 int grok_capture_set_extra(grok_t *grok, grok_capture *gct, void *extra) {
   /* Store the pointer to extra.
    * XXX: This is potentially bad voodoo. */
+  grok_log(grok, LOG_PREDICATE, "Setting extra value of 0x%x", extra);
+
+  /* We could copy it this way, but if you compile with -fomit-frame-pointer,
+   * this data is lost since extra is in the stack. Copy the pointer instead.
+   */
+  //gct->extra.extra_val = (char *)&extra;
+
   gct->extra.extra_len = sizeof(void *); /* allocate pointer size */
-  gct->extra.extra_val = (char *)&extra;
+  gct->extra.extra_val = malloc(gct->extra.extra_len);
+  memcpy(gct->extra.extra_val, &extra, gct->extra.extra_len);
   return 0;
 }
 

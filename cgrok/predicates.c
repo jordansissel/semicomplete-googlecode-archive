@@ -18,7 +18,7 @@ static void grok_predicate_regexp_global_init(void);
 /* Operation things */
 
 typedef enum { OP_LT, OP_GT, OP_GE, OP_LE, OP_EQ, OP_NE } operation;
-int strop(const char * const args);
+int strop(const char * const args, int args_len);
 
 /* Return length of operation in string. ie; "<=" (OP_LE) == 2 */
 #define OP_LEN(op) ((op == OP_GT || op == OP_LT) ? 1 : 2)
@@ -94,19 +94,19 @@ int grok_predicate_regexp(grok_t *grok, grok_capture *gct,
 }
 
 int grok_predicate_regexp_init(grok_t *grok, grok_capture *gct,
-                               const char *args) {
+                               const char *args, int args_len) {
   #define REGEXP_OVEC_SIZE 6
   int capture_vector[REGEXP_OVEC_SIZE * 3];
   int ret; 
 
-  grok_log(grok, LOG_PREDICATE, "Regexp predicate found: '%s'", args);
+  grok_log(grok, LOG_PREDICATE, "Regexp predicate found: '%.*s'", args_len, args);
 
   grok_predicate_regexp_global_init();
-  ret = pcre_exec(regexp_predicate_op, NULL, args, strlen(args), 0, 0,
+  ret = pcre_exec(regexp_predicate_op, NULL, args, args_len, 0, 0,
                   capture_vector, REGEXP_OVEC_SIZE * 3);
   if (ret < 0) {
     fprintf(stderr, "An error occured in grok_predicate_regexp_init.\n");
-    fprintf(stderr, "Args: %s\n", args);
+    fprintf(stderr, "Args: %.*s\n", args_len, args);
     return;
   }
 
@@ -159,29 +159,40 @@ static void grok_predicate_regexp_global_init(void) {
 }
 
 int grok_predicate_numcompare_init(grok_t *grok, grok_capture *gct,
-                                   const char *args) {
+                                   const char *args, int args_len) {
   grok_predicate_numcompare_t *gpnt;
-  int pos;
 
-  grok_log(grok, LOG_PREDICATE, "Number compare predicate found: '%s'", args);
+  /* I know I said that args is a const char, but we need to modify the string
+   * temporarily so that strtol and strtod don't overflow a buffer when they
+   * don't see a terminator. */
+  char *tmp = (char *)args;
+  int pos;
+  char a = args[args_len];
+
+  grok_log(grok, LOG_PREDICATE, "Number compare predicate found: '%.*s'",
+           args_len, args);
 
   gpnt = calloc(1, sizeof(grok_predicate_numcompare_t));
 
-  gpnt->op = strop(args);
+  gpnt->op = strop(args, args_len);
   pos = OP_LEN(gpnt->op);
 
+  tmp[args_len] = 0; /* force null byte so strtol doesn't run wild */
+
   /* Optimize and use long type if the number is not a float (no period) */
-  if (strchr(args, '.') == NULL) {
+  if (strchr(tmp, '.') == NULL) {
     gpnt->type = LONG;
-    gpnt->u.lvalue = strtol(args + pos, NULL, 0);
-    grok_log(grok, LOG_PREDICATE, "Arg '%s' is non-floating, assuming long type",
-             args + pos);
+    gpnt->u.lvalue = strtol(tmp + pos, NULL, 0);
+    grok_log(grok, LOG_PREDICATE, "Arg '%.*s' is non-floating, assuming long type",
+             args_len - pos, tmp + pos);
   } else {
     gpnt->type = DOUBLE;
-    gpnt->u.dvalue = strtod(args + pos, NULL);
-    grok_log(grok, LOG_PREDICATE, "Arg '%s' looks like a double, assuming double",
-             args + pos);
+    gpnt->u.dvalue = strtod(tmp + pos, NULL);
+    grok_log(grok, LOG_PREDICATE, "Arg '%.*s' looks like a double, assuming double",
+             args_len - pos, tmp + pos);
   }
+  /* Restore the original character at the end, which probably wasn't a null byte */
+  tmp[args_len] = a;
 
   gct->predicate_func_name = "grok_predicate_numcompare";
   gct->predicate_lib = "";
@@ -216,24 +227,27 @@ int grok_predicate_numcompare(grok_t *grok, grok_capture *gct,
 }
 
 int grok_predicate_strcompare_init(grok_t *grok, grok_capture *gct,
-                                   const char *args) {
+                                   const char *args, int args_len) {
   grok_predicate_strcompare_t *gpst;
   int pos;
 
-  grok_log(grok, LOG_PREDICATE, "String compare predicate found: '%s'", args);
+  grok_log(grok, LOG_PREDICATE, "String compare predicate found: '%.*s'",
+           args_len, args);
 
   /* XXX: ALLOC */
   gpst = calloc(1, sizeof(grok_predicate_strcompare_t));
 
   /* skip first character, which is '$' */
   args++;
+  args_len--;
 
-  gpst->op = strop(args);
+  gpst->op = strop(args, args_len);
   pos = OP_LEN(gpst->op);
 
   /* XXX: ALLOC */
-  gpst->value = strdup(args + pos);
-  gpst->len = strlen(args + pos);
+  gpst->len = args_len - pos;
+  gpst->value = malloc(gpst->len);
+  memcpy(gpst->value, args + pos, gpst->len);
 
   gct->predicate_func_name = "grok_predicate_strcompare";
   gct->predicate_lib = "";
@@ -261,32 +275,35 @@ int grok_predicate_strcompare(grok_t *grok, grok_capture *gct,
   return ret;
 }
 
-int strop(const char * const args) {
+int strop(const char * const args, int args_len) {
+  if (args_len == 0)
+    return -1;
+  
   switch (args[0]) {
     case '<':
-      if (args[1] == '=') return OP_LE;
+      if (args_len >= 2 && args[1] == '=') return OP_LE;
       else return OP_LT;
       break;
     case '>':
-      if (args[1] == '=') return OP_GE;
+      if (args_len >= 2 && args[1] == '=') return OP_GE;
       else return OP_GT;
       break;
     case '=':
-      if (args[1] == '=') return OP_EQ;
+      if (args_len >= 2 && args[1] == '=') return OP_EQ;
       else {
-        fprintf(stderr, "Invalid predicate: '%s'\n", args);
+        fprintf(stderr, "Invalid predicate: '%.*s'\n", args_len, args);
         return -1;
       }
       break;
     case '!':
-      if (args[1] == '=') return OP_NE;
+      if (args_len >= 2 && args[1] == '=') return OP_NE;
       else {
-        fprintf(stderr, "Invalid predicate: '%s'\n", args);
+        fprintf(stderr, "Invalid predicate: '%.*s'\n", args_len, args);
         return -1;
       }
       break;
     default:
-      fprintf(stderr, "Invalid predicate: '%s'\n", args);
+      fprintf(stderr, "Invalid predicate: '%.*s'\n", args_len, args);
   }
 
   return -1;

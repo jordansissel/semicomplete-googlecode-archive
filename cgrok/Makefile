@@ -1,5 +1,7 @@
-CFLAGS+=-pipe -O2
-#CFLAGS+=-g
+CFLAGS+=-pipe
+CFLAGS+=-g
+CFLAGS+=-DNOLOGGING
+#CFLAGS+=-O2
 #CFLAGS+=-Wunused
 LDFLAGS+=-lpcre -ldb -ldl -rdynamic
 CLEANOBJ=*.o *_xdr.[ch]
@@ -8,7 +10,7 @@ CLEANBIN=main grokre
 GROKOBJ=grok.o grokre.o grok_capture.o grok_pattern.o stringhelper.o \
         predicates.o grok_capture_xdr.o grok_match.o logging.o
 
-all: clean grokre
+all: clean main
 
 main: $(GROKOBJ) main.o
 	$(CC) $(LDFLAGS) -o $@ $^
@@ -23,9 +25,6 @@ cleanobj:
 .PHONY: cleanbin
 cleanbin:
 	rm -f $(CLEANBIN)
-
-grokre: $(GROKRE_DEPS:.c=.o)
-	$(CC) $(LDFLAGS) $^ -o $@
 
 grok_capture_xdr.o: grok_capture_xdr.c grok_capture_xdr.h
 grok_capture_xdr.c: grok_capture.x

@@ -20,7 +20,7 @@ static char *grok_pattern_expand(grok_t *grok); //, int offset, int length);
 static void grok_study_capture_map(grok_t *grok);
 
 static void grok_capture_add_predicate(grok_t *grok, int capture_id,
-                                       const char *predicate);
+                                       const char *predicate, int predicate_len);
 
 void grok_free(grok_t *grok) {
   if (grok->re != NULL)
@@ -182,24 +182,18 @@ char *grok_pattern_expand(grok_t *grok) {
       /* if a predicate was given, add (?C1) to callout when the match is made,
        * so we can test it further */
       if (has_predicate) {
-        const char *predicate = NULL;
         int pstart, pend;
         pstart = capture_vector[g_cap_predicate * 2];
         pend = capture_vector[g_cap_predicate * 2 + 1];
         grok_log(grok, LOG_REGEXPAND, "Predicate found in '%.*s'",
                  matchlen, full_pattern + start);
-        pcre_get_substring(full_pattern, capture_vector,
-                           g_pattern_num_captures,
-                           g_cap_predicate, &predicate);
-        grok_log(grok, LOG_REGEXPAND, "Predicate is: '%s'", predicate);
-        grok_log(grok, LOG_REGEXPAND, "Predicate is2: '%.*s'", 
+        grok_log(grok, LOG_REGEXPAND, "Predicate is: '%.*s'",
                  pend - pstart, full_pattern + pstart);
 
-        grok_capture_add_predicate(grok, capture_id, predicate);
-
+        grok_capture_add_predicate(grok, capture_id, full_pattern + pstart,
+                                   pend - pstart);
         substr_replace(&full_pattern, &full_len, &full_size,
                        end, -1, "(?C1)", 5);
-        pcre_free_substring(predicate);
       }
 
       /* Replace %{FOO} with (?<>). '5' is strlen("(?<>)") */
@@ -243,12 +237,13 @@ char *grok_pattern_expand(grok_t *grok) {
 }
 
 static void grok_capture_add_predicate(grok_t *grok, int capture_id,
-                                       const char *predicate) {
+                                       const char *predicate, int predicate_len) {
   grok_capture gct;
   grok_capture_init(grok, &gct);
+  int offset = 0;
 
-  grok_log(grok, LOG_PREDICATE, "Adding predicate '%s' to capture %d",
-           predicate, capture_id);
+  grok_log(grok, LOG_PREDICATE, "Adding predicate '%.*s' to capture %d",
+           predicate_len, predicate, capture_id);
 
   if (grok_capture_get_by_id(grok, capture_id, &gct) != 0) {
     grok_log(grok, LOG_PREDICATE, "Failure to find capture id %d", capture_id);
@@ -258,18 +253,33 @@ static void grok_capture_add_predicate(grok_t *grok, int capture_id,
   /* So far, predicates are just an operation and an argument */
   /* predicate_func(capture_str, args) ??? */
 
-  /* skip leading whitespace */
-  predicate += strspn(predicate, " \t");
+  /* skip leading whitespace, use a loop since 'strspn' doesn't take a len */
+  while (isspace(predicate[offset]) && offset < predicate_len) {
+    offset++;
+  }
 
-  if (!strncmp(predicate, "=~", 2) || !strncmp(predicate, "!~", 2)) {
-    grok_predicate_regexp_init(grok, &gct, predicate);
-  } else if (strchr("!<>=", predicate[0]) != NULL) {
-    grok_predicate_numcompare_init(grok, &gct, predicate);
-  } else if ((predicate[0] == '$') 
-             && (strchr("!<>=", predicate[1]) != NULL)) {
-    grok_predicate_strcompare_init(grok, &gct, predicate);
+  predicate += offset;
+  predicate_len -= offset;
+
+  if (predicate_len > 2) {
+    if (!strncmp(predicate, "=~", 2) || !strncmp(predicate, "!~", 2)) {
+      grok_predicate_regexp_init(grok, &gct, predicate, predicate_len);
+      return;
+    } else if ((predicate[0] == '$') 
+               && (strchr("!<>=", predicate[1]) != NULL)) {
+      grok_predicate_strcompare_init(grok, &gct, predicate, predicate_len);
+      return;
+    }
+  } 
+  if (predicate_len > 1) {
+    if (strchr("!<>=", predicate[0]) != NULL) {
+      grok_predicate_numcompare_init(grok, &gct, predicate, predicate_len);
+    }  else {
+      fprintf(stderr, "Invalid predicate: '%.*s'\n", predicate_len, predicate);
+    }
   } else {
-    fprintf(stderr, "unknown pred: %s\n", predicate);
+    /* predicate_len == 1, here, and no 1-character predicates exist */
+    fprintf(stderr, "Invalid predicate: '%.*s'\n", predicate_len, predicate);
   }
 }
 
