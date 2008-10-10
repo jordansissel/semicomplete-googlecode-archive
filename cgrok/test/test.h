@@ -3,11 +3,16 @@
 #define ASSERT_COMPILEOK(str) CU_ASSERT(grok_compile(&grok, str) == 0) 
 #define ASSERT_COMPILEFAIL(str) CU_ASSERT(grok_compile(&grok, str) != 0) 
 
+#ifndef LOG_MASK
+#define LOG_MASK 0
+#endif
+
 /* Helpers */
 
 #define INIT \
   grok_t grok; \
-  grok_init(&grok);
+  grok_init(&grok); \
+  grok.logmask = LOG_MASK;
 
 #define CLEANUP \
   grok_free(&grok);
