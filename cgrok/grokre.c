@@ -88,6 +88,12 @@ int grok_execn(grok_t *grok, const char *text, int textlen, grok_match_t *gm) {
   pce.flags = PCRE_EXTRA_CALLOUT_DATA;
   pce.callout_data = grok;
 
+  if (grok->re == NULL) {
+    grok_log(grok, LOG_EXEC, "Error: pcre re is null, meaning you haven't called grok_compile yet");
+    fprintf(stderr, "ERROR: grok_execn called on an object that has not pattern compiled. Did you call grok_compile yet?\n");
+    return -1;
+  }
+
   ret = pcre_exec(grok->re, &pce, text, textlen, 0, 0,
                   grok->pcre_capture_vector, grok->pcre_num_captures * 3);
   grok_log(grok, LOG_EXEC, "%.*s =~ /%s/ => %d",
@@ -100,10 +106,10 @@ int grok_execn(grok_t *grok, const char *text, int textlen, grok_match_t *gm) {
         fprintf(stderr, "Null error, one of the arguments was null?\n");
         break;
       case PCRE_ERROR_BADOPTION:
-        fprintf(stderr, "badoption\n");
+        fprintf(stderr, "pcre badoption\n");
         break;
       case PCRE_ERROR_BADMAGIC:
-        fprintf(stderr, "badmagic\n");
+        fprintf(stderr, "pcre badmagic\n");
         break;
     }
     return ret;
@@ -281,6 +287,8 @@ static void grok_capture_add_predicate(grok_t *grok, int capture_id,
     /* predicate_len == 1, here, and no 1-character predicates exist */
     fprintf(stderr, "Invalid predicate: '%.*s'\n", predicate_len, predicate);
   }
+
+  grok_capture_free(&gct);
 }
 
 static void grok_study_capture_map(grok_t *grok) {
@@ -307,5 +315,6 @@ static void grok_study_capture_map(grok_t *grok) {
     gct.pcre_capture_number = stringnum;
     /* update the database with the new data */
     grok_capture_add(grok, &gct);
+    grok_capture_free(&gct);
   }
 }

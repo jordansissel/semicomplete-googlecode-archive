@@ -146,6 +146,7 @@ void _grok_capture_decode(grok_capture *gct, char *data, int size) {
 
   xdrmem_create(&xdr, data, size, XDR_DECODE);
   xdr_grok_capture(&xdr, gct);
+  printf("nameptr gcf: %x\n", gct->name);
 }
 
 int _db_captures_by_name_key(DB *secondary, const DBT *key,
@@ -178,8 +179,11 @@ int _db_captures_by_capture_number(DB *secondary, const DBT *key,
   grok_capture_init(NULL, &gct);
   _grok_capture_decode(&gct, (char *)data->data, data->size);
 
-  if (gct.pcre_capture_number == CAPTURE_NUMBER_NOT_SET)
-    return DB_DONOTINDEX;
+  //if (gct.pcre_capture_number == CAPTURE_NUMBER_NOT_SET) {
+    //fprintf(stderr, "skipping capnum index\n");
+    //grok_capture_free(&gct);
+    //return DB_DONOTINDEX;
+  //}
 
   result->data = malloc(sizeof(int));
   *((int *)result->data) = gct.pcre_capture_number;
@@ -192,12 +196,15 @@ int _db_captures_by_capture_number(DB *secondary, const DBT *key,
 }
 
 void grok_capture_free(grok_capture *gct) {
-  if (gct->name != NULL)
+  if (gct->name != NULL) {
     free(gct->name);
+  }
   if (gct->pattern != NULL)
     free(gct->pattern);
   if (gct->predicate_lib != NULL)
     free(gct->predicate_lib);
   if (gct->predicate_func_name != NULL)
     free(gct->predicate_func_name);
+  if (gct->extra.extra_val != NULL)
+    free(gct->extra.extra_val);
 }

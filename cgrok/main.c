@@ -11,7 +11,8 @@
 int main(int argc, char **argv) {
   grok_t grok;
   grok_match_t gm;
-  char buf[1024];
+  #define BUFSIZE 4096
+  char buf[BUFSIZE];
   grok_init(&grok);
   grok.logmask = LOGMASK;
 
@@ -24,10 +25,8 @@ int main(int argc, char **argv) {
 
   grok_compile(&grok, argv[1]);
  
-  while (fgets(buf, 4095, stdin)) {
+  while (fgets(buf, BUFSIZE, stdin)) {
     int ret;
-    // Remove trailing newline
-    buf[strlen(buf) - 1] = '\0';
     ret = grok_exec(&grok, buf, &gm);
 
     if (ret >= 0) {

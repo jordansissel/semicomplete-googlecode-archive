@@ -26,5 +26,6 @@ int grok_match_get_named_substring(const grok_match_t *gm, const char *name,
   *substr = gm->subject + start;
   *len = (end - start);
 
+  grok_capture_free(&gct);
   return 0;
 }
