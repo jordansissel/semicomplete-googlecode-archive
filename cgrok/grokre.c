@@ -301,13 +301,13 @@ static void grok_study_capture_map(grok_t *grok) {
   int stringnum;
   int capture_id;
 
-  grok_capture_init(grok, &gct);
 
   pcre_fullinfo(grok->re, NULL, PCRE_INFO_NAMECOUNT, &nametable_size);
   pcre_fullinfo(grok->re, NULL, PCRE_INFO_NAMEENTRYSIZE, &nametable_entrysize);
   pcre_fullinfo(grok->re, NULL, PCRE_INFO_NAMETABLE, &nametable);
 
   for (i = 0; i < nametable_size; i++) {
+    grok_capture_init(grok, &gct);
     offset = i * nametable_entrysize;
     stringnum = (nametable[offset] << 8) + nametable[offset + 1];
     sscanf(nametable + offset + 2, CAPTURE_FORMAT, &capture_id);

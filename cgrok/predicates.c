@@ -138,8 +138,11 @@ int grok_predicate_regexp_init(grok_t *grok, grok_capture *gct,
            "Compiled %sregex for '%s': '%s'", 
            (gprt->negative_match) ? "negative match " : "",
            gct->name, gprt->pattern);
-  gct->predicate_func_name = "grok_predicate_regexp";
-  gct->predicate_lib = "";
+  /* strdup here and be lazy. Otherwise, we'll have to add a new member
+   * to grok_capture which indicates which fields of it are set to 
+   * non-heap pointers. */
+  gct->predicate_func_name = strdup("grok_predicate_regexp");
+  //gct->predicate_lib = "";
 
   grok_capture_set_extra(grok, gct, gprt);
   grok_capture_add(grok, gct);
@@ -194,8 +197,8 @@ int grok_predicate_numcompare_init(grok_t *grok, grok_capture *gct,
   /* Restore the original character at the end, which probably wasn't a null byte */
   tmp[args_len] = a;
 
-  gct->predicate_func_name = "grok_predicate_numcompare";
-  gct->predicate_lib = "";
+  gct->predicate_func_name = strdup("grok_predicate_numcompare");
+  //gct->predicate_lib = "";
 
   grok_capture_set_extra(grok, gct, gpnt);
   grok_capture_add(grok, gct);
@@ -249,8 +252,8 @@ int grok_predicate_strcompare_init(grok_t *grok, grok_capture *gct,
   gpst->value = malloc(gpst->len);
   memcpy(gpst->value, args + pos, gpst->len);
 
-  gct->predicate_func_name = "grok_predicate_strcompare";
-  gct->predicate_lib = "";
+  gct->predicate_func_name = strdup("grok_predicate_strcompare");
+  //gct->predicate_lib = "";
   grok_capture_set_extra(grok, gct, gpst);
   grok_capture_add(grok, gct);
 }
