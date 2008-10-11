@@ -10,10 +10,10 @@ void test_grok_pcre_compile_succeeds(void) {
   ASSERT_COMPILEFAIL("[");
   ASSERT_COMPILEFAIL("[a");
 
-  grok_free(&grok);
+  CLEANUP;
 }
 
-void test_grok_pcre_match(void) {
+void _test_grok_pcre_match(void) {
   INIT;
 
   ASSERT_COMPILEOK("[a-z]+");
@@ -22,10 +22,10 @@ void test_grok_pcre_match(void) {
   ASSERT_MATCHFAIL("...");
   ASSERT_MATCHFAIL("1234");
 
-  grok_free(&grok);
+  CLEANUP;
 }
 
-void test_grok_match_with_patterns(void) {
+void _test_grok_match_with_patterns(void) {
   INIT;
 
   grok_patterns_import_from_string(&grok, "WORD \\b\\w+\\b");
@@ -37,10 +37,10 @@ void test_grok_match_with_patterns(void) {
   ASSERT_MATCHFAIL("---");
   ASSERT_MATCHFAIL("-.");
 
-  grok_free(&grok);
+  CLEANUP;
 }
 
-void test_grok_match_substr(void) {
+void _test_grok_match_substr(void) {
   INIT;
   grok_match_t gm;
   
@@ -56,10 +56,10 @@ void test_grok_match_substr(void) {
   CU_ASSERT(!strncmp("hello world",
                      gm.subject + grok.pcre_capture_vector[0],
                      grok.pcre_capture_vector[1] - grok.pcre_capture_vector[0]));
-  grok_free(&grok);
+  CLEANUP;
 }
 
-void test_grok_match_get_named_substring(void) {
+void _test_grok_match_get_named_substring(void) {
   INIT;
   IMPORT_PATTERNS_FILE;  
   grok_match_t gm;

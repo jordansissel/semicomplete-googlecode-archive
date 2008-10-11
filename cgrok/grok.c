@@ -11,7 +11,6 @@ int g_cap_pattern = 0;
 int g_cap_subname = 0;
 int g_cap_predicate = 0;
 
-
 void grok_init(grok_t *grok) {
   //int ret;
   pcre_callout = grok_pcre_callout;
@@ -35,6 +34,7 @@ void grok_init(grok_t *grok) {
 #ifndef GROK_TEST_NO_CAPTURE
   db_create(&grok->captures_by_id, NULL, 0);
   db_create(&grok->captures_by_name, NULL, 0);
+  db_create(&grok->captures_by_subname, NULL, 0);
   db_create(&grok->captures_by_capture_number, NULL, 0);
 
   /* Allow duplicates in _by_name */
@@ -44,6 +44,8 @@ void grok_init(grok_t *grok) {
                              "captures_by_id", DB_BTREE, DB_CREATE, 0);
   grok->captures_by_name->open(grok->captures_by_name, NULL, NULL,
                                "captures_by_name", DB_BTREE, DB_CREATE, 0);
+  grok->captures_by_subname->open(grok->captures_by_subname, NULL, NULL,
+                               "captures_by_subname", DB_BTREE, DB_CREATE, 0);
   grok->captures_by_capture_number->open(grok->captures_by_capture_number,
                                          NULL, NULL, "captures_by_capture_number",
                                          DB_BTREE, DB_CREATE, 0);
@@ -55,6 +57,9 @@ void grok_init(grok_t *grok) {
   grok->captures_by_id->associate(grok->captures_by_id, NULL,
                                   grok->captures_by_capture_number,
                                   _db_captures_by_capture_number, 0);
+  grok->captures_by_id->associate(grok->captures_by_id, NULL,
+                                  grok->captures_by_subname,
+                                  _db_captures_by_subname, 0);
 #endif /* GROK_TEST_NO_CAPTURE */
 
   if (g_grok_global_initialized == 0) {

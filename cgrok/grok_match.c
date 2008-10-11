@@ -2,8 +2,12 @@
 
 int grok_match_get_named_capture(const grok_match_t *gm,
                                  const char *name, grok_capture *gct) {
+  int ret;
   grok_capture_init(gm->grok, gct);
-  return grok_capture_get_by_name(gm->grok, name, gct);
+  ret = grok_capture_get_by_name(gm->grok, name, gct);
+  if (ret == 0) return ret;
+  ret = grok_capture_get_by_subname(gm->grok, name, gct);
+  return ret;
 }
 
 int grok_match_get_named_substring(const grok_match_t *gm, const char *name,

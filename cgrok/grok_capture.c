@@ -14,6 +14,7 @@ void grok_capture_init(grok_t *grok, grok_capture *gct) {
   gct->pcre_capture_number = CAPTURE_NUMBER_NOT_SET;
 
   gct->name = NULL;
+  gct->subname = NULL;
   gct->pattern = NULL;
   gct->predicate_lib = NULL;
   gct->predicate_func_name = NULL;
@@ -81,6 +82,17 @@ int grok_capture_get_by_name(grok_t *grok, const char *name,
   return ret;
 }
 
+int grok_capture_get_by_subname(grok_t *grok, const char *subname,
+                                grok_capture *gct) {
+  DBT key;
+  int ret;
+  memset(&key, 0, sizeof(DBT));
+  key.data = (char *)subname;
+  key.size = strlen(subname);
+  ret = _grok_capture_get_db(grok, grok->captures_by_subname, &key, gct);
+  return ret;
+}
+
 int grok_capture_get_by_capture_number(grok_t *grok, int capture_number,
                                         grok_capture *gct) {
   DBT key;
@@ -119,16 +131,12 @@ void _grok_capture_encode(grok_capture *gct, char **data_ret,
 
   /* xdr_string doesn't understand NULL, so replace NULL with "" */
   memcpy(&local, gct, sizeof(local));
-  if (local.name == NULL) 
-    local.name = EMPTYSTR;
-  if (local.pattern == NULL)
-    local.pattern = EMPTYSTR;
-  if (local.predicate_lib == NULL)
-    local.predicate_lib = EMPTYSTR;
-  if (local.predicate_func_name == NULL)
-    local.predicate_func_name = EMPTYSTR;
-  if (local.extra.extra_val == NULL)
-    local.extra.extra_val = EMPTYSTR;
+  if (local.name == NULL) local.name = EMPTYSTR;
+  if (local.subname == NULL) local.subname = EMPTYSTR;
+  if (local.pattern == NULL) local.pattern = EMPTYSTR;
+  if (local.predicate_lib == NULL) local.predicate_lib = EMPTYSTR;
+  if (local.predicate_func_name == NULL) local.predicate_func_name = EMPTYSTR;
+  if (local.extra.extra_val == NULL) local.extra.extra_val = EMPTYSTR;
 
   do {
     if (*data_ret == NULL) {
@@ -155,7 +163,6 @@ void _grok_capture_decode(grok_capture *gct, char *data, int size) {
 
   xdrmem_create(&xdr, data, size, XDR_DECODE);
   xdr_grok_capture(&xdr, gct);
-  //printf("nameptr gcf: %x\n", gct->name);
 }
 
 int _db_captures_by_name_key(DB *secondary, const DBT *key,
@@ -193,6 +200,25 @@ int _db_captures_by_capture_number(DB *secondary, const DBT *key,
   result->data = malloc(sizeof(int));
   *((int *)result->data) = gct.pcre_capture_number;
   result->size = sizeof(int);
+
+  result->flags |= DB_DBT_APPMALLOC;
+
+  grok_capture_free(&gct);
+  return 0;
+}
+
+int _db_captures_by_subname(DB *secondary, const DBT *key,
+                            const DBT *data, DBT *result) {
+  grok_capture gct;
+  grok_capture_init(NULL, &gct);
+  _grok_capture_decode(&gct, (char *)data->data, data->size);
+
+  if (gct.subname == NULL || *gct.subname == '\0')
+    return DB_DONOTINDEX;
+
+  result->size = strlen(gct.subname);
+  result->data = malloc(result->size);
+  memcpy(result->data, gct.subname, result->size);
 
   result->flags |= DB_DBT_APPMALLOC;
 

@@ -41,6 +41,9 @@ void grok_free(grok_t *grok) {
   if (grok->captures_by_name != NULL)
     grok->captures_by_name->close(grok->captures_by_name, 0);
 
+  if (grok->captures_by_subname != NULL)
+    grok->captures_by_subname->close(grok->captures_by_subname, 0);
+
   if (grok->captures_by_capture_number != NULL)
     grok->captures_by_capture_number->close(grok->captures_by_capture_number, 0);
 }
@@ -137,7 +140,6 @@ char *grok_pattern_expand(grok_t *grok) {
   char capture_id_str[CAPTURE_ID_LEN + 1];
 
   const char *patname = NULL;
-  const char *longname = NULL;
 
   grok_log(grok, LOG_REGEXPAND, "Expanding pattern '%s'", grok->pattern);
 
@@ -171,17 +173,24 @@ char *grok_pattern_expand(grok_t *grok) {
     } else {
       int has_predicate = (capture_vector[g_cap_predicate * 2] >= 0);
       int ret;
+      const char *longname = NULL;
+      const char *subname = NULL;
       grok_capture gct;
       grok_capture_init(grok, &gct);
 
+      /* XXX: Change this to not use pcre_get_substring so we can skip a
+       * malloc step? */
       pcre_get_substring(full_pattern, capture_vector, g_pattern_num_captures,
                          g_cap_name, &longname);
+      pcre_get_substring(full_pattern, capture_vector, g_pattern_num_captures,
+                         g_cap_subname, &subname);
 
       snprintf(capture_id_str, CAPTURE_ID_LEN + 1, CAPTURE_FORMAT, capture_id);
 
       /* Add this capture to the list of captures */
       gct.id = capture_id;
       gct.name = (char *)longname; /* XXX: CONST PROBLEM */
+      gct.subname = (char *)subname;
       ret = grok_capture_add(grok, &gct);
       if (ret != 0) {
         /* Some error occured while adding this capture, fail. */
@@ -189,6 +198,7 @@ char *grok_pattern_expand(grok_t *grok) {
         return NULL;
       }
       pcre_free_substring(longname);
+      pcre_free_substring(subname);
 
       /* Invariant, full_pattern actual len must always be full_len */
       assert(strlen(full_pattern) == full_len);

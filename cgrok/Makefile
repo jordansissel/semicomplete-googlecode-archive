@@ -1,8 +1,10 @@
 CFLAGS+=-pipe
-#CFLAGS+=-g
+CFLAGS+=-g
 #CFLAGS+=-DNOLOGGING
-CFLAGS+=-O2
+#CFLAGS+=-O2
 #CFLAGS+=-Wunused
+EXTRA_CFLAGS=
+CFLAGS+=$(EXTRA_CFLAGS)
 LDFLAGS+=-lpcre -ldb -ldl -rdynamic
 CLEANOBJ=*.o *_xdr.[ch]
 CLEANBIN=main grokre
