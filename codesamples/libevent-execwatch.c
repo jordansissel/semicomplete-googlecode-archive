@@ -27,8 +27,11 @@ void looptail() {
     pid = fork();
     if (pid == 0) {
       execlp("tail", "tail", "-0f", "/var/log/messages", NULL);
+      /* if execlp failed, exit child anyway */
+      exit(-1)
     }
-    /* tail died, sleep for a second then restart it */
+    /* sleep for a second (in the parent only) before considering 
+     * restarting the child */
     sleep(1);
   } while (waitpid(pid, &status, 0));
 }
