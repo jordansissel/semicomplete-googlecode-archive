@@ -233,6 +233,7 @@ int _db_captures_by_subname(DB *secondary, const DBT *key,
 
 void grok_capture_free(grok_capture *gct) {
   _GCT_STRFREE(gct, name);
+  _GCT_STRFREE(gct, subname);
   _GCT_STRFREE(gct, pattern);
   _GCT_STRFREE(gct, predicate_lib);
   _GCT_STRFREE(gct, predicate_func_name);
