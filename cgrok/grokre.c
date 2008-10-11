@@ -118,6 +118,8 @@ int grok_execn(grok_t *grok, const char *text, int textlen, grok_match_t *gm) {
   if (gm != NULL) {
     gm->grok = grok;
     gm->subject = text;
+    gm->start = grok->pcre_capture_vector[0];
+    gm->end = grok->pcre_capture_vector[1] - grok->pcre_capture_vector[0];
   }
 
   return ret;
@@ -125,8 +127,8 @@ int grok_execn(grok_t *grok, const char *text, int textlen, grok_match_t *gm) {
 
 /* XXX: This method is pretty long; split it up? */
 char *grok_pattern_expand(grok_t *grok) {
-  int capture_id = 0;
-  int offset = 0;
+  int capture_id = 0; /* Starting capture_id, doesn't really matter what this is */
+  int offset = 0; /* string offset; how far we've expanded so far */
   int *capture_vector = NULL;
 
   int full_len = -1;
@@ -168,6 +170,7 @@ char *grok_pattern_expand(grok_t *grok) {
       offset = end;
     } else {
       int has_predicate = (capture_vector[g_cap_predicate * 2] >= 0);
+      int ret;
       grok_capture gct;
       grok_capture_init(grok, &gct);
 
@@ -179,7 +182,12 @@ char *grok_pattern_expand(grok_t *grok) {
       /* Add this capture to the list of captures */
       gct.id = capture_id;
       gct.name = (char *)longname; /* XXX: CONST PROBLEM */
-      grok_capture_add(grok, &gct);
+      ret = grok_capture_add(grok, &gct);
+      if (ret != 0) {
+        /* Some error occured while adding this capture, fail. */
+        free(full_pattern);
+        return NULL;
+      }
       pcre_free_substring(longname);
 
       /* Invariant, full_pattern actual len must always be full_len */
@@ -301,17 +309,19 @@ static void grok_study_capture_map(grok_t *grok) {
   int stringnum;
   int capture_id;
 
-
   pcre_fullinfo(grok->re, NULL, PCRE_INFO_NAMECOUNT, &nametable_size);
   pcre_fullinfo(grok->re, NULL, PCRE_INFO_NAMEENTRYSIZE, &nametable_entrysize);
   pcre_fullinfo(grok->re, NULL, PCRE_INFO_NAMETABLE, &nametable);
 
   for (i = 0; i < nametable_size; i++) {
+    int ret;
     grok_capture_init(grok, &gct);
     offset = i * nametable_entrysize;
     stringnum = (nametable[offset] << 8) + nametable[offset + 1];
     sscanf(nametable + offset + 2, CAPTURE_FORMAT, &capture_id);
-    grok_capture_get_by_id(grok, capture_id, &gct);
+    grok_log(grok, LOG_COMPILE, "Studying capture %d", capture_id);
+    ret = grok_capture_get_by_id(grok, capture_id, &gct);
+    assert(ret == 0);
     gct.pcre_capture_number = stringnum;
     /* update the database with the new data */
     grok_capture_add(grok, &gct);

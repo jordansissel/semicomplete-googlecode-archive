@@ -8,9 +8,10 @@
 #define LOG_EXEC (1 << 2)
 #define LOG_REGEXPAND (1 << 3)
 #define LOG_PATTERNS (1 << 4)
+#define LOG_MATCH (1 << 5)
+#define LOG_CAPTURE (1 << 6)
 
-#define LOG_ALL (LOG_PREDICATE | LOG_COMPILE | LOG_EXEC \
-                 | LOG_REGEXPAND | LOG_PATTERNS)
+#define LOG_ALL (~0)
 
 #ifdef NOLOGGING
 /* this 'args...' requires GNU C */

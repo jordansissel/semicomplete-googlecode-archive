@@ -2,6 +2,7 @@
 #include "grok_capture.h"
 #include "grok_capture_xdr.h"
 
+#include <db.h>
 #include <assert.h>
 
 #define CAPTURE_NUMBER_NOT_SET (-1)
@@ -25,7 +26,7 @@ int grok_capture_add(grok_t *grok, grok_capture *gct) {
   DBT key, value;
   int ret;
 
-  grok_log(grok, LOG_REGEXPAND, 
+  grok_log(grok, LOG_CAPTURE, 
            "Adding pattern '%s' as capture %d (pcrenum %d)",
            gct->name, gct->id, gct->pcre_capture_number);
 
@@ -38,6 +39,10 @@ int grok_capture_add(grok_t *grok, grok_capture *gct) {
   _grok_capture_encode(gct, (char **)&value.data, &value.size);
   ret = db->put(db, NULL, &key, &value, 0);
   free(value.data);
+
+  if (ret != 0) {
+    db->err(db, ret, "grok_capture_add failed");
+  }
   return ret;
 }
 
@@ -91,7 +96,7 @@ int grok_capture_get_by_capture_number(grok_t *grok, int capture_number,
 int grok_capture_set_extra(grok_t *grok, grok_capture *gct, void *extra) {
   /* Store the pointer to extra.
    * XXX: This is potentially bad voodoo. */
-  grok_log(grok, LOG_PREDICATE, "Setting extra value of 0x%x", extra);
+  grok_log(grok, LOG_CAPTURE, "Setting extra value of 0x%x", extra);
 
   /* We could copy it this way, but if you compile with -fomit-frame-pointer,
    * this data is lost since extra is in the stack. Copy the pointer instead.
@@ -122,6 +127,8 @@ void _grok_capture_encode(grok_capture *gct, char **data_ret,
     local.predicate_lib = EMPTYSTR;
   if (local.predicate_func_name == NULL)
     local.predicate_func_name = EMPTYSTR;
+  if (local.extra.extra_val == NULL)
+    local.extra.extra_val = EMPTYSTR;
 
   do {
     if (*data_ret == NULL) {
@@ -168,7 +175,6 @@ int _db_captures_by_name_key(DB *secondary, const DBT *key,
   memcpy(result->data, gct.name, len);
   result->size = len;
 
-  //printf("Added 2key name: '%.*s'\n", len, gct.name);
   result->flags |= DB_DBT_APPMALLOC;
 
   grok_capture_free(&gct);
@@ -181,11 +187,8 @@ int _db_captures_by_capture_number(DB *secondary, const DBT *key,
   grok_capture_init(NULL, &gct);
   _grok_capture_decode(&gct, (char *)data->data, data->size);
 
-  //if (gct.pcre_capture_number == CAPTURE_NUMBER_NOT_SET) {
-    //fprintf(stderr, "skipping capnum index\n");
-    //grok_capture_free(&gct);
-    //return DB_DONOTINDEX;
-  //}
+  if (gct.pcre_capture_number == CAPTURE_NUMBER_NOT_SET)
+    return DB_DONOTINDEX;
 
   result->data = malloc(sizeof(int));
   *((int *)result->data) = gct.pcre_capture_number;
@@ -208,4 +211,48 @@ void grok_capture_free(grok_capture *gct) {
   _GCT_STRFREE(gct, predicate_lib);
   _GCT_STRFREE(gct, predicate_func_name);
   _GCT_STRFREE(gct, extra.extra_val);
+}
+
+void *grok_capture_walk_init(grok_t *grok) {
+  DBC *cursor;
+  DB *db = grok->captures_by_id;
+  db->cursor(db, NULL, &cursor, 0);
+
+  DBT key; DBT value; int ret;
+  memset(&key, 0, sizeof(DBT));
+  memset(&value, 0, sizeof(DBT));
+  while ((ret = cursor->c_get(cursor, &key, &value, DB_NEXT)) == 0) {
+    grok_capture gct;
+    grok_capture_init(grok, &gct);
+    _grok_capture_decode(&gct, (char *)value.data, value.size);
+    grok_capture_free(&gct);
+  }
+
+  cursor->c_close(cursor);
+
+  grok->captures_by_name->cursor(grok->captures_by_name, NULL, &cursor, 0);
+  return cursor;
+}
+
+int grok_capture_walk_next(grok_t *grok, void *handle, grok_capture *gct) {
+  DBT key;
+  DBT value;
+  int ret;
+  DBC *cursor = (DBC *)handle;
+
+  memset(&key, 0, sizeof(DBT));
+  memset(&value, 0, sizeof(DBT));
+  //grok_log(grok, LOG_CAPTURE, "Fetching next from cursor");
+  ret = cursor->c_get(cursor, &key, &value, DB_NEXT);
+
+  if (ret != 0) {
+    //grok->captures_by_id->err(grok->captures_by_id, ret, "cursor get error");
+    return ret;
+  }
+  _grok_capture_decode(gct, (char *)value.data, value.size);
+  return 0;
+}
+
+int grok_capture_walk_end(grok_t *grok, void *handle) {
+  return ((DBC *)handle)->c_close((DBC *)handle);
 }

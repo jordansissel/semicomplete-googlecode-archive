@@ -46,22 +46,12 @@ extern int g_cap_predicate;
 
 /* pattern to match %{FOO:BAR} */
 /* or %{FOO<=3} */
-#define _PATTERN_REGEX "%{" \
-                        "(?<name>" \
-                          "(?<pattern>[A-z0-9._-]+)" \
-                          "(?::(?<subname>[A-z0-9._-]+))?" \
-                        ")" \
-                        "(?<predicate>\\s*(?:" \
-                          "(?P<curly>\\{(?:(?>[^{}]+)|(?P>curly))*\\})" \
-                          "|(?:[^{}]+)" \
-                        "))" \
-                      "}"
 
 #define PATTERN_REGEX \
   "%{" \
   "(?<name>" \
     "(?<pattern>[A-z0-9]+)" \
-    "(?::(?<subname>[A-z0-9]))?" \
+    "(?::(?<subname>[A-z0-9]+))?" \
   ")" \
   "\\s*(?<predicate>" \
     "(?:" \

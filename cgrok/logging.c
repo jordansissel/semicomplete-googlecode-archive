@@ -19,6 +19,8 @@ inline void grok_log(grok_t *grok, int level, const char *format, ...) {
     case LOG_EXEC: prefix = "[exec] "; break;
     case LOG_REGEXPAND: prefix = "[regexpand] "; break;
     case LOG_PATTERNS: prefix = "[patterns] "; break;
+    case LOG_MATCH: prefix = "[match] "; break;
+    case LOG_CAPTURE: prefix = "[capture] "; break;
     default: prefix = "[unknown] ";
   }
   fprintf(out, "% *s%s", grok->logdepth * 3, "", prefix);

@@ -37,6 +37,9 @@ void grok_init(grok_t *grok) {
   db_create(&grok->captures_by_name, NULL, 0);
   db_create(&grok->captures_by_capture_number, NULL, 0);
 
+  /* Allow duplicates in _by_name */
+  grok->captures_by_name->set_flags(grok->captures_by_name, DB_DUP);
+
   grok->captures_by_id->open(grok->captures_by_id, NULL, NULL,
                              "captures_by_id", DB_BTREE, DB_CREATE, 0);
   grok->captures_by_name->open(grok->captures_by_name, NULL, NULL,
@@ -44,6 +47,8 @@ void grok_init(grok_t *grok) {
   grok->captures_by_capture_number->open(grok->captures_by_capture_number,
                                          NULL, NULL, "captures_by_capture_number",
                                          DB_BTREE, DB_CREATE, 0);
+
+  /* Set up secondary index associations */
   grok->captures_by_id->associate(grok->captures_by_id, NULL, 
                                   grok->captures_by_name,
                                   _db_captures_by_name_key, 0);

@@ -18,8 +18,8 @@ int main(int argc, char **argv) {
 
   grok_patterns_import_from_file(&grok, "./pcregrok_patterns");
 
-  if (argc != 3) {
-    printf("Usage: %s <regex> <name>\n", argv[0]);
+  if (argc != 2) {
+    printf("Usage: %s <regex>\n", argv[0]);
     return 1;
   }
 
@@ -30,10 +30,16 @@ int main(int argc, char **argv) {
     ret = grok_exec(&grok, buf, &gm);
 
     if (ret >= 0) {
+      char *name;
       const char *data;
-      int len;
-      grok_match_get_named_substring(&gm, argv[2], &data, &len);
-      printf("%.*s\n", len, data);
+      int namelen, datalen;
+      void *handle;
+      handle = grok_match_walk_init(&gm);
+      while (grok_match_walk_next(&gm, handle, &name, &namelen, &data, &datalen) == 0) {
+        printf("%.*s => %.*s\n", namelen, name, datalen, data);
+        free(name);
+      };
+      grok_match_walk_end(&gm, handle);
     }
   }
 
