@@ -3,16 +3,22 @@
 
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 #include <event.h>
 #include <signal.h>
+#include <fcntl.h>
 
 static void *_event_init = NULL;
+void _program_sigchld(int sig, short what, void *data);
+
 void _program_process_stdout_read(struct bufferevent *bev, void *data);
 void _program_process_start(int fd, short what, void *data);
-void _program_sigchld(int sig, short what, void *data);
+
+void _program_file_read_buffer(struct bufferevent *bev, void *data);
+void _program_file_read_real(int fd, short what, void *data);
 
 void grok_program_add(grok_program_t *gprog) {
   int i = 0;
@@ -34,6 +40,7 @@ void grok_program_add(grok_program_t *gprog) {
 void grok_program_add_input(grok_program_t *gprog, grok_input_t *ginput) {
   switch (ginput->type) {
     case I_FILE:
+      grok_program_add_input_file(gprog, ginput);
       break;
     case I_PROCESS:
       grok_program_add_input_process(gprog, ginput);
@@ -68,20 +75,68 @@ void grok_program_add_input_process(grok_program_t *gprog,
   event_once(0, EV_TIMEOUT, _program_process_start, ginput, &now);
 }
 
+void grok_program_add_input_file(grok_program_t *gprog,
+                                 grok_input_t *ginput) {
+  struct bufferevent *bev;
+  struct stat st;
+  int ret;
+  int pipefd[2];
+  grok_input_file_t *gift = &(ginput->source.file);
+
+  ret = stat(gift->filename, &st);
+  if (ret == -1) {
+    fprintf(stderr, "Failure stat(2)'ing file: %s\n", gift->filename);
+    perror("errno says");
+    return;
+  }
+
+  gift->fd = open(gift->filename, O_RDONLY);
+
+  if (gift->writer < 0) {
+    fprintf(stderr, "Failure open(2)'ing file for read: %s\n", gift->filename);
+    perror("errno says");
+    return;
+  }
+
+  pipe(pipefd);
+  gift->offset = 0;
+  gift->reader = pipefd[0];
+  gift->writer = pipefd[1];
+  //gift->filesize = st.st_blksize * st.st_blocks;
+  gift->filesize = st.st_size;
+  gift->inode = st.st_ino;
+  gift->waittime.tv_sec = 0;
+  gift->waittime.tv_usec = 0;
+
+  /* Tie our open file read fd to the writer of our pipe */
+  // this doesn't work
+  //dup2(gift->fd, gift->writer);
+
+  bev = bufferevent_new(gift->reader, _program_file_read_buffer, NULL, NULL,
+                        ginput);
+  bufferevent_enable(bev, EV_READ);
+
+  event_once(-1, EV_TIMEOUT, _program_file_read_real, ginput,
+             &(gift->waittime));
+}
+
 int main(int argc, char **argv) {
   grok_program_t gprog;
   grok_input_process_t tailf;
 
   event_init();
-  gprog.ninputs = 2;
+  gprog.ninputs = 1;
   gprog.inputs = calloc(gprog.ninputs, sizeof(grok_input_t));
-  gprog.inputs[0].type = I_PROCESS;
-  gprog.inputs[0].source.process.cmd = "tail -0f /var/log/messages";
-  gprog.inputs[0].source.process.restart_on_death = 1;
-  gprog.inputs[1].type = I_PROCESS;
-  gprog.inputs[1].source.process.cmd = "uptime";
-  gprog.inputs[1].source.process.run_interval = 5;
-  gprog.inputs[1].source.process.min_restart_delay = 10;
+  //gprog.inputs[0].type = I_PROCESS;
+  //gprog.inputs[0].source.process.cmd = "tail -0f /var/log/messages";
+  //gprog.inputs[0].source.process.restart_on_death = 1;
+  gprog.inputs[0].type = I_FILE;
+  gprog.inputs[0].source.file.filename = "/tmp/test";
+  gprog.inputs[0].source.file.follow = 1;
+  //gprog.inputs[1].type = I_PROCESS;
+  //gprog.inputs[1].source.process.cmd = "uptime";
+  //gprog.inputs[1].source.process.run_interval = 5;
+  //gprog.inputs[1].source.process.min_restart_delay = 10;
 
   grok_program_add(&gprog);
   grok_program_loop();
@@ -117,6 +172,80 @@ void _program_process_start(int fd, short what, void *data) {
   execlp("sh", "sh", "-c", gipt->cmd, NULL);
   fprintf(stderr, "execlp exited unexpectedly");
   exit(-1); /* in case execlp fails */
+}
+
+void _program_file_read_buffer(struct bufferevent *bev, void *data) {
+  grok_input_t *ginput = (grok_input_t *)data;
+  char *line;
+  while ((line = evbuffer_readline(EVBUFFER_INPUT(bev))) != NULL) {
+    printf("FileLine: '%s'\n", line);
+    free(line);
+  }
+}
+
+void _program_file_read_real(int fd, short what, void *data) {
+  grok_input_t *ginput = (grok_input_t *)data;
+  grok_input_file_t *gift = &(ginput->source.file);
+
+  char buffer[4096];
+  int should_wait = 0;
+
+  //printf("file: off %d vs size %d\n", gift->offset, gift->filesize);
+  if (gift->offset == gift->filesize) {
+    /* if we're at the end of the file, figure out what to do */
+
+    struct stat st;
+    //if (fstat(gift->fd, &st) == 0) {
+    //} else 
+    if (stat(gift->filename, &st) == 0) {
+      //perror("fstat failed\n");
+    } else {
+      perror("stat failed\n");
+    }
+
+    if (gift->inode != st.st_ino) {
+      /* inode changed, reopen file */
+      printf("file inode changed from %d to %d\n", gift->inode, st.st_ino);
+      close(gift->fd);
+      gift->fd = open(gift->filename, O_RDONLY);
+      gift->waittime.tv_sec = 0;
+      gift->offset = 0;
+    } else if (st.st_size < gift->filesize) {
+      /* File truncated */
+      printf("file size shrank from %d to %d\n", gift->filesize, st.st_size);
+      gift->offset = 0;
+      lseek(gift->fd, gift->offset, SEEK_SET);
+      gift->waittime.tv_sec = 0;
+    } else {
+      /* Nothing changed, we should wait */
+      if (gift->waittime.tv_sec == 0) {
+        gift->waittime.tv_sec = 1;
+      } else {
+        gift->waittime.tv_sec *= 2;
+        if (gift->waittime.tv_sec > 60)
+          gift->waittime.tv_sec = 60;
+      }
+    }
+    gift->filesize = st.st_size;
+    gift->inode = st.st_ino;
+  } else {
+    int bytes = 0;
+    bytes = read(gift->fd, buffer, 4096);
+    write(gift->writer, buffer, bytes);
+    gift->offset += bytes;
+
+    /* we can potentially read past our last 'filesize' if the file
+     * has been updated since stat()'ing it. */
+    if (gift->offset > gift->filesize)
+      gift->filesize = gift->offset;
+
+    /* read successful means we should reset the clock */
+    gift->waittime.tv_sec = 0;
+  }
+
+  //printf("Waiting %d seconds\n", gift->waittime.tv_sec);
+  event_once(-1, EV_TIMEOUT, _program_file_read_real, ginput,
+             &(gift->waittime));
 }
 
 void _program_sigchld(int sig, short what, void *data) {
@@ -159,7 +288,7 @@ void _program_sigchld(int sig, short what, void *data) {
 
         fprintf(stderr, "Scheduling process restart in %d.%d seconds: %s\n",
                 restart_delay.tv_sec, restart_delay.tv_usec, gipt->cmd);
-        event_once(0, EV_TIMEOUT, _program_process_start,
+        event_once(-1, EV_TIMEOUT, _program_process_start,
                    ginput, &restart_delay);
 
       }

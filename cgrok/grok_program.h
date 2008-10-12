@@ -37,8 +37,16 @@ struct grok_input_file {
   char *filename;
 
   /* State information */
-  int inode;
-  int filesize;
+  ino_t inode; /* inode of file (unused right now) */
+  off_t filesize; /* bytesize of file */
+  off_t offset; /* what position in the file are we in? */
+  int writer; /* read data from file and write to here */
+  int reader; /* point libevent eventbuffer here */
+  int fd; /* the fd from open(2) */
+  struct timeval waittime;
+
+  /* Specific options */
+  int follow;
 };
 
  
@@ -54,4 +62,5 @@ struct grok_input {
 void grok_program_add(grok_program_t *gprog);
 void grok_program_add_input(grok_program_t *gprog, grok_input_t *ginput);
 void grok_program_add_input_process(grok_program_t *gprog, grok_input_t *ginput);
+void grok_program_add_input_file(grok_program_t *gprog, grok_input_t *ginput);
 void grok_program_loop(void);
