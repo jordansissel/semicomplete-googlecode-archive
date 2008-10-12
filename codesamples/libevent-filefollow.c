@@ -19,28 +19,23 @@ void bufread(struct bufferevent *bev, void *data) {
   }
 }
 
-void fileread(int fd, short what, void *data) {
-  printf("fd %d / %d ready\n", fd, what);
-}
-
-void err(struct bufferevent *bev, short what, void *data) {
-  printf("err: %d\n", what);
-}
-
 int main() {
   struct bufferevent *bev;
+  struct event ev;
   int fd;
 
+  int c[2];
+  pipe(c);
   event_init();
 
   /* have a bufferevent watch our child's stdout */
-  //bev = bufferevent_new(fd, bufread, NULL, err, NULL);
-  //bufferevent_enable(bev, EV_READ);
-  struct event ev;
-  fd = open("/var/log/messages", O_RDONLY);
-  event_set(&ev, fd, EV_READ, fileread, NULL);
-  struct timeval t = {3, 0};
-  event_add(&ev, &t);
+  bev = bufferevent_new(c[0], bufread, NULL, NULL, NULL);
+  bufferevent_enable(bev, EV_READ);
+  //struct event ev;
+
+  //fd = open("/var/log/messages", O_RDONLY);
+  //timeoutk
+  write(c[1], "Hello there\n", 12);
 
   //lseek(fd, 0, SEEK_SET);
   event_dispatch();
