@@ -295,12 +295,12 @@ int main(int argc, char **argv) {
   grok_input_file_t *gift;
 
   event_init();
-  gprog.ninputs = 2;
+  gprog.ninputs = 1;
   gprog.inputs = calloc(gprog.ninputs, sizeof(grok_input_t));
   gprog.inputs[0].type = I_PROCESS;
   gipt = calloc(1, sizeof(grok_input_process_t));
   //gipt->cmd = "tail -0f /var/log/messages";
-  gipt->cmd = "uptime";
+  gipt->cmd = "while true; do uptime; sleep 1; done";
   gipt->restart_on_death = 1;
   gprog.inputs[0].source.process = gipt;
 
@@ -311,11 +311,11 @@ int main(int argc, char **argv) {
   //gipt->min_restart_delay = 5;
   //gprog.inputs[1].source.process = gipt;
 
-  gprog.inputs[1].type = I_FILE;
-  gift = calloc(1, sizeof(grok_input_file_t));
-  gift->filename = "/tmp/test";
-  gift->follow = 1;
-  gprog.inputs[1].source.file = gift;
+  //gprog.inputs[1].type = I_FILE;
+  //gift = calloc(1, sizeof(grok_input_file_t));
+  //gift->filename = "/tmp/test";
+  //gift->follow = 1;
+  //gprog.inputs[1].source.file = gift;
   //gprog.inputs[1].type = I_FILE;
   //gprog.inputs[1].source.file.filename = "/var/log/messages";
   //gprog.inputs[1].source.file.follow = 1;
