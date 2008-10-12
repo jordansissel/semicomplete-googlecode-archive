@@ -53,8 +53,8 @@ struct grok_input_file {
 struct grok_input {
   enum { I_FILE, I_PROCESS } type;
   union {
-    grok_input_file_t file;
-    grok_input_process_t process;
+    grok_input_file_t *file;
+    grok_input_process_t *process;
   } source;
   grok_program_t *gprog; /* pointer back to our program */
 };

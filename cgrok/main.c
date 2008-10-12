@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
   #define BUFSIZE 4096
   char buf[BUFSIZE];
   grok_init(&grok);
-  grok.logmask = LOG_ALL;
+  grok.logmask = 0;
 
   grok_patterns_import_from_file(&grok, "./pcregrok_patterns");
 
