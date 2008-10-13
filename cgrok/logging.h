@@ -10,14 +10,21 @@
 #define LOG_PATTERNS (1 << 4)
 #define LOG_MATCH (1 << 5)
 #define LOG_CAPTURE (1 << 6)
+#define LOG_PROGRAM (1 << 7)
 
 #define LOG_ALL (~0)
 
 #ifdef NOLOGGING
 /* this 'args...' requires GNU C */
-#  define grok_log(grok, level, format, args...) { }
+#  define grok_log(obj, level, format, args...) { }
 #else
-void grok_log(grok_t *grok, int level, const char *format, ...);
+
+void _grok_log(int level, int indent, const char *format, ...);
+
+/* let us log anything that has both a 'logmask' and 'logdepth' member */
+#  define grok_log(obj, level, format, args...) \
+  if (obj->logmask & level) _grok_log(level, obj->logdepth, format, ## args)
+
 #endif
 
 #endif /* _LOGGING_H_ */
