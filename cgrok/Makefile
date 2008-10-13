@@ -67,5 +67,14 @@ grok_capture.h: grok_capture_xdr.h
 grok_input.o: grok_capture.h
 grok.o: grok.h grok_capture.h
 
+grok_config.tab.c grok_config.tab.h: grok_config.y
+	bison -v -d $<
+
+grok_config.yy.c: grok_config.lex grok_config.tab.h
+	flex -o $@ $<
+
+conftest: bmain.o grok_config.tab.o grok_config.yy.o
+	gcc -g $^ -o $@
+
 .c.o:
 	$(CC) -c $(CFLAGS) $< -o $@
