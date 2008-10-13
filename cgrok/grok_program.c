@@ -116,10 +116,10 @@ void grok_program_add_input_file(grok_program_t *gprog,
   gift->offset = 0;
   gift->reader = pipefd[0];
   gift->writer = pipefd[1];
-  gift->filesize = st.st_size;
-  gift->inode = st.st_ino;
+  memcpy(&(gift->st), &st, sizeof(st));
   gift->waittime.tv_sec = 0;
   gift->waittime.tv_usec = 0;
+  gift->readbuffer = malloc(st.st_blksize);
 
   grok_log(gprog, LOG_PROGRAM, "dup2(%d, %d)", gift->fd, gift->writer);
 
@@ -213,23 +213,21 @@ void _program_file_read_real(int fd, short what, void *data) {
   grok_input_file_t *gift = &(ginput->source.file);
   grok_program_t *gprog = ginput->gprog;
 
-  char buffer[4096];
-
   int bytes = 0;
-  bytes = read(gift->fd, buffer, 4096);
-  write(gift->writer, buffer, bytes);
+  bytes = read(gift->fd, gift->readbuffer, gift->st.st_blksize);
+  write(gift->writer, gift->readbuffer, bytes);
   gift->offset += bytes;
 
   /* we can potentially read past our last 'filesize' if the file
    * has been updated since stat()'ing it. */
-  if (gift->offset > gift->filesize)
-    gift->filesize = gift->offset;
+  if (gift->offset > gift->st.st_size)
+    gift->st.st_size = gift->offset;
 
   grok_log(gprog, LOG_PROGRAM, "%s: read %d bytes", gift->filename, bytes);
 
   if (bytes == 0) { /* nothing read, at EOF */
     /* if we're at the end of the file, figure out what to do */
-    //printf("%d == %d\n", gift->offset, gift->filesize);
+    //printf("%d == %d\n", gift->offset, gift->st.st_size);
 
     struct stat st;
     if (stat(gift->filename, &st) == 0) {
@@ -238,18 +236,16 @@ void _program_file_read_real(int fd, short what, void *data) {
       perror("stat failed\n");
     }
 
-    if (gift->inode != st.st_ino) {
+    if (gift->st.st_ino != st.st_ino) {
       /* inode changed, reopen file */
-      printf("file inode changed from %d to %d\n", gift->inode, st.st_ino);
+      printf("file inode changed from %d to %d\n", gift->st.st_ino, st.st_ino);
       close(gift->fd);
       gift->fd = open(gift->filename, O_RDONLY);
       gift->waittime.tv_sec = 0;
       gift->offset = 0;
-      gift->inode = st.st_ino;
-    } else if (st.st_size < gift->filesize) {
+    } else if (st.st_size < gift->st.st_size) {
       /* File size shrank */
       gift->offset = 0;
-      gift->filesize = st.st_size;
       lseek(gift->fd, gift->offset, SEEK_SET);
       gift->waittime.tv_sec = 0;
     } else {
@@ -263,6 +259,8 @@ void _program_file_read_real(int fd, short what, void *data) {
         }
       }
     }
+
+    memcpy(&(gift->st), &st, sizeof(st));
   } else if (bytes < 0) { 
     printf("ERROR: Bytes read < 0: %d\n", bytes);
   } else {
@@ -347,7 +345,7 @@ int main(int argc, char **argv) {
 
   gprog->inputs[i].type = I_FILE;
   //gprog->inputs[i].source.file.filename = "/var/log/messages";
-  gprog->inputs[i].source.file.filename = "/tmp/test";
+  gprog->inputs[i].source.file.filename = "/c/test";
 
   gprog->inputs[++i].type = I_PROCESS;
   gprog->inputs[i].source.process.cmd = "uptime";

@@ -1,3 +1,6 @@
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include <event.h>
 
 typedef struct grok_program grok_program_t;
@@ -42,8 +45,8 @@ struct grok_input_file {
   char *filename;
 
   /* State information */
-  ino_t inode; /* inode of file (unused right now) */
-  off_t filesize; /* bytesize of file */
+  struct stat st;
+  char *readbuffer; /* will be initialized to the blocksize reported by stat(2) */
   off_t offset; /* what position in the file are we in? */
   int writer; /* read data from file and write to here */
   int reader; /* point libevent eventbuffer here */
