@@ -22,7 +22,7 @@ main: $(GROKOBJ) main.o
 grok_program: LDFLAGS+=-levent
 #grok_program: LDFLAGS+=-L/usr/local/libevent/lib
 #grok_program: CFLAGS+=-I/usr/local/libevent/include
-grok_program: $(GROKOBJ) grok_program.o 
+grok_program: $(GROKOBJ) grok_input.o grok_program.o 
 	$(CC) $(LDFLAGS) -o $@ $^
 
 .PHONY: clean 
