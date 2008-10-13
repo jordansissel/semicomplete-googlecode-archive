@@ -18,6 +18,8 @@ void _program_process_stdout_read(struct bufferevent *bev, void *data);
 void _program_process_start(int fd, short what, void *data);
 void _program_process_buferror(struct bufferevent *bev, short what,
                                void *data);
+void _program_file_repair_event(int fd, short what, void *data);
+
 
 void _program_file_read_buffer(struct bufferevent *bev, void *data);
 void _program_file_read_real(int fd, short what, void *data);
@@ -48,6 +50,7 @@ void grok_program_add(grok_program_t *gprog) {
 void grok_program_add_input(grok_program_t *gprog, grok_input_t *ginput) {
   printf("Adding input of type %s\n",
          (ginput->type == I_FILE) ? "file" : "process");
+
   switch (ginput->type) {
     case I_FILE:
       grok_program_add_input_file(gprog, ginput);
@@ -77,10 +80,8 @@ void grok_program_add_input_process(grok_program_t *gprog,
   gipt->c_stdout = childout[1];
   gipt->c_stderr = childerr[1];
 
-  bev = bufferevent_new(gipt->p_stdout,
-                        _program_process_stdout_read,
+  bev = bufferevent_new(gipt->p_stdout, _program_process_stdout_read,
                         NULL, _program_process_buferror, ginput);
-
   bufferevent_enable(bev, EV_READ);
 
   grok_log(gprog, LOG_PROGRAM, "Scheduling start of: %s", gipt->cmd);
@@ -120,13 +121,14 @@ void grok_program_add_input_file(grok_program_t *gprog,
   gift->waittime.tv_sec = 0;
   gift->waittime.tv_usec = 0;
 
+  grok_log(gprog, LOG_PROGRAM, "dup2(%d, %d)", gift->fd, gift->writer);
+
   /* Tie our open file read fd to the writer of our pipe */
   // this doesn't work
-  dup2(gift->fd, gift->writer);
 
-  bev = bufferevent_new(gift->reader, _program_file_read_buffer, NULL,
-                        _program_file_buferror, ginput);
-  bufferevent_enable(bev, EV_READ | EV_PERSIST);
+  bev = bufferevent_new(gift->reader, _program_file_read_buffer,
+                        NULL, _program_file_buferror, ginput);
+  bufferevent_enable(bev, EV_READ);
   event_once(-1, EV_TIMEOUT, _program_file_read_real, ginput,
              &(gift->waittime));
 }
@@ -136,7 +138,7 @@ void _program_process_stdout_read(struct bufferevent *bev, void *data) {
   grok_input_t *ginput = (grok_input_t *)data;
   char *line;
   while ((line = evbuffer_readline(EVBUFFER_INPUT(bev))) != NULL) {
-    printf("Line: '%s'", line);
+    printf("(%s): '%s'\n", ginput->source.process.cmd, line);
     free(line);
   }
 }
@@ -178,7 +180,7 @@ void _program_file_read_buffer(struct bufferevent *bev, void *data) {
   grok_input_t *ginput = (grok_input_t *)data;
   char *line;
   while ((line = evbuffer_readline(EVBUFFER_INPUT(bev))) != NULL) {
-    printf("FileLine: '%s'\n", line);
+    printf("(%s): '%s'\n", ginput->source.file.filename, line);
     free(line);
   }
 }
@@ -190,12 +192,26 @@ void _program_file_buferror(struct bufferevent *bev, short what,
   grok_program_t *gprog = ginput->gprog;
   grok_log(gprog, LOG_PROGRAM, "Buffer error %d on file %d: %s",
            what, gift->fd, gift->filename);
-  perror("errno says");
+
+  if (what & EVBUFFER_EOF) {
+    /* EOF erro on a file, which means libevent forgets about it.
+     * let's re-add it */
+    event_once(0, EV_TIMEOUT, _program_file_repair_event, bev,
+               &(gift->waittime));
+
+  }
+}
+
+void _program_file_repair_event(int fd, short what, void *data) {
+  struct bufferevent *bev = (struct bufferevent *)data;
+  printf("Repairing event with fd %d\n", bev->ev_read.ev_fd);
+  event_add(&bev->ev_read, NULL);
 }
 
 void _program_file_read_real(int fd, short what, void *data) {
   grok_input_t *ginput = (grok_input_t *)data;
   grok_input_file_t *gift = &(ginput->source.file);
+  grok_program_t *gprog = ginput->gprog;
 
   char buffer[4096];
 
@@ -208,6 +224,8 @@ void _program_file_read_real(int fd, short what, void *data) {
    * has been updated since stat()'ing it. */
   if (gift->offset > gift->filesize)
     gift->filesize = gift->offset;
+
+  grok_log(gprog, LOG_PROGRAM, "%s: read %d bytes", gift->filename, bytes);
 
   if (bytes == 0) { /* nothing read, at EOF */
     /* if we're at the end of the file, figure out what to do */
@@ -230,8 +248,8 @@ void _program_file_read_real(int fd, short what, void *data) {
       gift->inode = st.st_ino;
     } else if (st.st_size < gift->filesize) {
       /* File size shrank */
-      //printf("file size shrank from %d to %d\n", gift->filesize, st.st_size);
       gift->offset = 0;
+      gift->filesize = st.st_size;
       lseek(gift->fd, gift->offset, SEEK_SET);
       gift->waittime.tv_sec = 0;
     } else {
@@ -240,8 +258,9 @@ void _program_file_read_real(int fd, short what, void *data) {
         gift->waittime.tv_sec = 1;
       } else {
         gift->waittime.tv_sec *= 2;
-        if (gift->waittime.tv_sec > 60)
+        if (gift->waittime.tv_sec > 60) {
           gift->waittime.tv_sec = 60;
+        }
       }
     }
   } else if (bytes < 0) { 
@@ -252,8 +271,9 @@ void _program_file_read_real(int fd, short what, void *data) {
   }
 
 
-  printf("Waiting %d seconds on %d:%s\n", gift->waittime.tv_sec, gift->fd,
-         gift->filename);
+  grok_log(gprog, LOG_PROGRAM, 
+           "Waiting %d seconds on %d:%s", gift->waittime.tv_sec, gift->fd,
+           gift->filename);
   event_once(0, EV_TIMEOUT, _program_file_read_real, ginput,
              &(gift->waittime));
 }
@@ -326,10 +346,10 @@ int main(int argc, char **argv) {
   //gprog->inputs[i].source.process.restart_on_death = 1;
 
   gprog->inputs[i].type = I_FILE;
-  gprog->inputs[i].source.file.filename = "/var/log/messages";
-  i++;
+  //gprog->inputs[i].source.file.filename = "/var/log/messages";
+  gprog->inputs[i].source.file.filename = "/tmp/test";
 
-  gprog->inputs[i].type = I_PROCESS;
+  gprog->inputs[++i].type = I_PROCESS;
   gprog->inputs[i].source.process.cmd = "uptime";
   gprog->inputs[i].source.process.run_interval = 5;
   gprog->inputs[i].source.process.min_restart_delay = 10;
