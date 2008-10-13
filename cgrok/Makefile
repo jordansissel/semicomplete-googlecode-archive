@@ -9,15 +9,15 @@ LDFLAGS+=-lpcre -rdynamic
 #LDFLAGS+=-L/usr/local/pcre/lib/
 
 # For Linux
-#DBLIB=db
-#DBINC=/usr/include
-#LDFLAGS+=-ldl
+DBLIB=db
+DBINC=/usr/include
+LDFLAGS+=-ldl
 
 # For FreeBSD
-DBLIB=db-4.5
-DBINC=/usr/local/include/db45
-LDFLAGS+=-L/usr/local/lib
-CFLAGS+=-I/usr/local/include
+#DBLIB=db-4.5
+#DBINC=/usr/local/include/db45
+#LDFLAGS+=-L/usr/local/lib
+#CFLAGS+=-I/usr/local/include
 
 
 
