@@ -1,5 +1,7 @@
 #include "grok.h"
 #include "grok_program.h"
+#include "grok_input.h"
+#include "grok_matchconf.h"
 
 #include <sys/time.h>
 #include <sys/types.h>
@@ -115,15 +117,22 @@ int main(int argc, char **argv) {
   //gprog->inputs[i].source.process.restart_on_death = 1;
 
   gprog->inputs[i].type = I_FILE;
-  //gprog->inputs[i].source.file.filename = "/var/log/messages";
-  gprog->inputs[i].source.file.filename = "/c/test";
+  gprog->inputs[i].source.file.filename = "/var/log/messages";
 
   gprog->inputs[++i].type = I_PROCESS;
-  gprog->inputs[i].source.process.cmd = "uptime";
+  gprog->inputs[i].source.process.cmd = "ifconfig";
   gprog->inputs[i].source.process.run_interval = 5;
   gprog->inputs[i].source.process.min_restart_delay = 10;
 
   gprog->ninputs = i+1;
+
+  i = 0;
+  gprog->matchconfigs = calloc(10, sizeof(grok_matchconf_t));
+  grok_t *grok = &(gprog->matchconfigs[i].grok);
+  grok_init(grok);
+  grok_patterns_import_from_file(grok, "./pcregrok_patterns");
+  grok_compile(grok, "%{IP}");
+  gprog->nmatchconfigs = i + 1;
 
   ebase = event_init();
   grok_program_add(gprog);

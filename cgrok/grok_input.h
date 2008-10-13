@@ -1,3 +1,6 @@
+#ifndef _GROK_INPUT_H_
+#define _GROK_INPUT_H_
+
 struct grok_program;
 typedef struct grok_input grok_input_t;
 typedef struct grok_input_process grok_input_process_t;
@@ -55,3 +58,4 @@ void grok_program_add_input(struct grok_program *gprog, grok_input_t *ginput);
 void grok_program_add_input_process(struct grok_program *gprog, grok_input_t *ginput);
 void grok_program_add_input_file(struct grok_program *gprog, grok_input_t *ginput);
 
+#endif /* _GROK_INPUT_H_ */

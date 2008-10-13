@@ -10,6 +10,8 @@
 
 #include "grok.h"
 #include "grok_program.h"
+#include "grok_input.h"
+#include "grok_matchconf.h"
 
 void _program_process_stdout_read(struct bufferevent *bev, void *data);
 void _program_process_start(int fd, short what, void *data);
@@ -111,9 +113,16 @@ void grok_program_add_input_file(grok_program_t *gprog,
 
 void _program_process_stdout_read(struct bufferevent *bev, void *data) {
   grok_input_t *ginput = (grok_input_t *)data;
+  grok_program_t *gprog = ginput->gprog;
   char *line;
+  int ret;
+
   while ((line = evbuffer_readline(EVBUFFER_INPUT(bev))) != NULL) {
-    printf("(%s): '%s'\n", ginput->source.process.cmd, line);
+    int i = 0;
+    //printf("(%s): '%s'\n", ginput->source.process.cmd, line);
+    for (i = 0; i < gprog->nmatchconfigs; i++) {
+      grok_matchconfig_exec(gprog, gprog->matchconfigs + i, line);
+    }
     free(line);
   }
 }
@@ -153,9 +162,15 @@ void _program_process_start(int fd, short what, void *data) {
 
 void _program_file_read_buffer(struct bufferevent *bev, void *data) {
   grok_input_t *ginput = (grok_input_t *)data;
+  grok_program_t *gprog = ginput->gprog;
   char *line;
+  int i;
+
   while ((line = evbuffer_readline(EVBUFFER_INPUT(bev))) != NULL) {
-    printf("(%s): '%s'\n", ginput->source.file.filename, line);
+    //printf("(%s): '%s'\n", ginput->source.file.filename, line);
+    for (i = 0; i < gprog->nmatchconfigs; i++) {
+      grok_matchconfig_exec(gprog, gprog->matchconfigs + i, line);
+    }
     free(line);
   }
 }

@@ -13,6 +13,7 @@ CLEANBIN=main grokre
 
 GROKOBJ=grok.o grokre.o grok_capture.o grok_pattern.o stringhelper.o \
         predicates.o grok_capture_xdr.o grok_match.o logging.o
+GROKPROGOBJ=grok_input.o grok_program.o grok_matchconf.o $(GROKOBJ)
 
 all: main
 
@@ -22,7 +23,7 @@ main: $(GROKOBJ) main.o
 grok_program: LDFLAGS+=-levent
 #grok_program: LDFLAGS+=-L/usr/local/libevent/lib
 #grok_program: CFLAGS+=-I/usr/local/libevent/include
-grok_program: $(GROKOBJ) grok_input.o grok_program.o 
+grok_program: $(GROKPROGOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^
 
 .PHONY: clean 
@@ -47,7 +48,7 @@ grok_capture_xdr.h: grok_capture.x
 grok.h: grok_capture.h
 grok_match.h: grok_capture.h
 grok_capture.h: grok_capture_xdr.h
-grok_capture.o: grok_capture.h
+grok_input.o: grok_capture.h
 grok.o: grok.h grok_capture.h
 
 .c.o:
