@@ -31,13 +31,8 @@ void _program_file_buferror(struct bufferevent *bev, short what, void *data);
 void grok_program_add(grok_program_t *gprog) {
   int i = 0;
 
-  //if (_event_init == NULL) {
-    //grok_log(gprog, LOG_PROGRAM, "Calling event_init()");
-    ////_event_init = event_init(); 
-  //}
-
   for (i = 0; i < gprog->ninputs; i++) {
-    printf("%d\n", i);
+    grok_log(gprog, LOG_PROGRAM, "Adding input %d", i);
     gprog->inputs[i].gprog = gprog;
     grok_program_add_input(gprog, gprog->inputs + i);
   }
@@ -104,18 +99,15 @@ void grok_program_loop(void) {
 }
 
 int main(int argc, char **argv) {
-  grok_program_t *gprog;
+  grok_program_t *gprog, *gprog2;
   struct event_base *ebase;
   int i = 0;
 
-  gprog = calloc(1, sizeof(grok_input_t));
+  ebase = event_init();
+
+  gprog = calloc(1, sizeof(grok_program_t));
   gprog->logmask = ~0;
   gprog->inputs = calloc(10, sizeof(grok_input_t));
-
-  //gprog->inputs[i].type = I_PROCESS;
-  //gprog->inputs[i].source.process.cmd = "tail -0f /var/log/messages";
-  //gprog->inputs[i].source.process.restart_on_death = 1;
-
   gprog->inputs[i].type = I_FILE;
   gprog->inputs[i].source.file.filename = "/var/log/messages";
 
@@ -123,8 +115,7 @@ int main(int argc, char **argv) {
   gprog->inputs[i].source.process.cmd = "ifconfig";
   gprog->inputs[i].source.process.run_interval = 5;
   gprog->inputs[i].source.process.min_restart_delay = 10;
-
-  gprog->ninputs = i+1;
+  gprog->ninputs = i + 1;
 
   i = 0;
   gprog->matchconfigs = calloc(10, sizeof(grok_matchconf_t));
@@ -134,8 +125,27 @@ int main(int argc, char **argv) {
   grok_compile(grok, "%{IP}");
   gprog->nmatchconfigs = i + 1;
 
-  ebase = event_init();
   grok_program_add(gprog);
+
+  gprog2 = calloc(1, sizeof(grok_program_t));
+  gprog2->logmask = ~0;
+  gprog2->inputs = calloc(10, sizeof(grok_input_t));
+  i = 0;
+
+  gprog2->inputs[i].type = I_FILE;
+  gprog2->inputs[i].source.file.filename = "/tmp/a";
+  gprog2->ninputs = i + 1;
+
+  i = 0;
+  gprog2->matchconfigs = calloc(10, sizeof(grok_matchconf_t));
+  grok = &(gprog2->matchconfigs[i].grok);
+  grok_init(grok);
+  grok_patterns_import_from_file(grok, "./pcregrok_patterns");
+  grok_compile(grok, "%{COMBINEDAPACHELOG}");
+  gprog2->nmatchconfigs = i + 1;
+
+  grok_program_add(gprog2);
+
   grok_program_loop();
   free(gprog->inputs);
   free(gprog);
