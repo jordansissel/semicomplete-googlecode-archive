@@ -64,8 +64,9 @@ grok_capture_xdr.h: grok_capture.x
 grok.h: grok_capture.h
 grok_match.h: grok_capture.h
 grok_capture.h: grok_capture_xdr.h
-grok_input.o: grok_capture.h
-grok.o: grok.h grok_capture.h
+bmain.c: grok_capture.h
+grok_input.c: grok_capture.h
+grok.c: grok.h grok_capture.h
 
 grok_config.tab.c grok_config.tab.h: grok_config.y
 	bison -v -d $<

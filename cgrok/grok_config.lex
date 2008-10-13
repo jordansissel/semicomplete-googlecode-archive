@@ -1,16 +1,16 @@
 %{
 #include "grok_config.tab.h"
-//qstring ["][^\n\"]*["]
+#include "grok_config.h"
 %}
 %option noyywrap debug bison-bridge 
 
 qstring \"((\\.)|[^\\\"])*\"
-digit [0-9]
+program "program"
 
 %%
 
 {qstring} { yylval->str = yytext; return QUOTEDSTRING; }
-{digit} { printf("Digit: %c\n", *yytext); return DIGIT; }
+{program} { return PROGRAM; }
 
 [ \t] { /* ignore whitespace */ }
 [\n] { yylineno++; }
