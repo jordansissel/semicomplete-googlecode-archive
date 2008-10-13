@@ -14,6 +14,7 @@ struct grok_matchconfig;
 
 struct grok_program {
   struct grok_input *inputs;
+  char *name; /* optional program name */
   int ninputs;
   int logmask;
   int logdepth;

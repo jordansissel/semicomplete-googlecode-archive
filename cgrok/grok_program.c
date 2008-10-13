@@ -132,9 +132,15 @@ int main(int argc, char **argv) {
   gprog2->inputs = calloc(10, sizeof(grok_input_t));
   i = 0;
 
-  gprog2->inputs[i].type = I_FILE;
-  gprog2->inputs[i].source.file.filename = "/tmp/a";
-  gprog2->ninputs = i + 1;
+  //gprog2->inputs[i].type = I_FILE;
+  //gprog2->inputs[i].source.file.filename = "/tmp/a";
+  gprog2->inputs[i].type = I_PROCESS;
+  gprog2->inputs[i].source.process.cmd = "ssh psionic@tonka.csh.rit.edu tail -0f /web/logs/semicomplete/access";
+  gprog2->inputs[i].source.process.restart_on_death = 1;
+  
+  //gprog2->inputs[++i].type = I_FILE;
+  //gprog2->inputs[i].source.file.filename = "../access";
+  //gprog2->ninputs = i + 1;
 
   i = 0;
   gprog2->matchconfigs = calloc(10, sizeof(grok_matchconf_t));
