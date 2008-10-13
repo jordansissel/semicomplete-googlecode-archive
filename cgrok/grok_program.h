@@ -1,3 +1,5 @@
+#include <event.h>
+
 typedef struct grok_program grok_program_t;
 typedef struct grok_input grok_input_t;
 typedef struct grok_input_process grok_input_process_t;
@@ -7,8 +9,11 @@ typedef struct grok_matchconf grok_matchconf_t;
 struct grok_program {
   grok_input_t *inputs;
   int ninputs;
+  int logmask;
+  int logdepth;
   grok_matchconf_t *matchconfigs;
   int nmatchconfigs;
+  struct event *ev_sigchld;
 };
 
 struct grok_input_process {
@@ -45,7 +50,7 @@ struct grok_input_file {
   int fd; /* the fd from open(2) */
   struct timeval waittime;
 
-  /* Specific options */
+  /* Options */
   int follow;
 };
 

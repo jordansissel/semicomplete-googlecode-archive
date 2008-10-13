@@ -1,12 +1,13 @@
 CFLAGS+=-pipe
-#CFLAGS+=-g
-CFLAGS+=-DNOLOGGING
-CFLAGS+=-O3
+CFLAGS+=-g
+#CFLAGS+=-DNOLOGGING
+#CFLAGS+=-O3
 #CFLAGS+=-Wunused
 EXTRA_CFLAGS=
 CFLAGS+=$(EXTRA_CFLAGS)
 LDFLAGS+=-lpcre -ldb -ldl -rdynamic
 #LDFLAGS+=-L/usr/local/pcre/lib/
+
 CLEANOBJ=*.o *_xdr.[ch]
 CLEANBIN=main grokre
 
@@ -19,7 +20,9 @@ main: $(GROKOBJ) main.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
 grok_program: LDFLAGS+=-levent
-grok_program: $(GROKOBJ) grok_program.o
+#grok_program: LDFLAGS+=-L/usr/local/libevent/lib
+#grok_program: CFLAGS+=-I/usr/local/libevent/include
+grok_program: $(GROKOBJ) grok_program.o 
 	$(CC) $(LDFLAGS) -o $@ $^
 
 .PHONY: clean 

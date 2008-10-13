@@ -21,7 +21,7 @@ inline void _grok_log(int level, int indent, const char *format, ...) {
     case LOG_CAPTURE: prefix = "[capture] "; break;
     default: prefix = "[unknown] ";
   }
-  fprintf(out, "% *s%s", indent * 3, "", prefix);
+  fprintf(out, "[%d] % *s%s", getpid(), indent * 3, "", prefix);
   vfprintf(out, format, args);
   fprintf(out, "\n");
   va_end(args);
