@@ -30,6 +30,7 @@ void _program_file_buferror(struct bufferevent *bev, short what, void *data);
 
 void grok_program_add(grok_program_t *gprog) {
   int i = 0;
+  grok_log(gprog, LOG_PROGRAM, "Adding %d inputs", i);
 
   for (i = 0; i < gprog->ninputs; i++) {
     grok_log(gprog, LOG_PROGRAM, "Adding input %d", i);
@@ -54,11 +55,12 @@ void _program_sigchld(int sig, short what, void *data) {
     /* we found a dead child. Look for an input_process it belongs to,
      * then see if we should restart it
      */
+    grok_log(gprog, LOG_PROGRAM, "Reaped child pid %d", pid);
     for (i = 0; i < gprog->ninputs; i++) {
       grok_input_t *ginput = (gprog->inputs + i);
       if (ginput->type != I_PROCESS)
         continue;
-        
+
       grok_input_process_t *gipt = &(ginput->source.process);
       if (gipt->pid != pid)
         continue;
@@ -108,8 +110,9 @@ int main(int argc, char **argv) {
   gprog = calloc(1, sizeof(grok_program_t));
   gprog->logmask = ~0;
   gprog->inputs = calloc(10, sizeof(grok_input_t));
-  gprog->inputs[i].type = I_FILE;
-  gprog->inputs[i].source.file.filename = "/var/log/messages";
+  i = -1;
+  //gprog->inputs[++i].type = I_FILE;
+  //gprog->inputs[i].source.file.filename = "/var/log/messages";
 
   gprog->inputs[++i].type = I_PROCESS;
   gprog->inputs[i].source.process.cmd = "ifconfig";
@@ -117,9 +120,9 @@ int main(int argc, char **argv) {
   gprog->inputs[i].source.process.min_restart_delay = 10;
   gprog->ninputs = i + 1;
 
-  i = 0;
+  i = -1;
   gprog->matchconfigs = calloc(10, sizeof(grok_matchconf_t));
-  grok_t *grok = &(gprog->matchconfigs[i].grok);
+  grok_t *grok = &(gprog->matchconfigs[++i].grok);
   grok_init(grok);
   grok_patterns_import_from_file(grok, "./pcregrok_patterns");
   grok_compile(grok, "%{IP}");
@@ -130,21 +133,21 @@ int main(int argc, char **argv) {
   gprog2 = calloc(1, sizeof(grok_program_t));
   gprog2->logmask = ~0;
   gprog2->inputs = calloc(10, sizeof(grok_input_t));
-  i = 0;
+  i = -1;
 
-  //gprog2->inputs[i].type = I_FILE;
+  //gprog2->inputs[++i].type = I_FILE;
   //gprog2->inputs[i].source.file.filename = "/tmp/a";
-  gprog2->inputs[i].type = I_PROCESS;
+  gprog2->inputs[++i].type = I_PROCESS;
   gprog2->inputs[i].source.process.cmd = "ssh psionic@tonka.csh.rit.edu tail -0f /web/logs/semicomplete/access";
   gprog2->inputs[i].source.process.restart_on_death = 1;
-  
+
   //gprog2->inputs[++i].type = I_FILE;
   //gprog2->inputs[i].source.file.filename = "../access";
-  //gprog2->ninputs = i + 1;
+  gprog2->ninputs = i + 1;
 
-  i = 0;
+  i = -1;
   gprog2->matchconfigs = calloc(10, sizeof(grok_matchconf_t));
-  grok = &(gprog2->matchconfigs[i].grok);
+  grok = &(gprog2->matchconfigs[++i].grok);
   grok_init(grok);
   grok_patterns_import_from_file(grok, "./pcregrok_patterns");
   grok_compile(grok, "%{COMBINEDAPACHELOG}");

@@ -7,6 +7,7 @@
 #include <event.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <stdio.h>
 
 #include "grok.h"
 #include "grok_program.h"

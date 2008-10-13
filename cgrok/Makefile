@@ -5,8 +5,24 @@ CFLAGS+=-O2
 #CFLAGS+=-Wunused
 EXTRA_CFLAGS=
 CFLAGS+=$(EXTRA_CFLAGS)
-LDFLAGS+=-lpcre -ldb -ldl -rdynamic
+LDFLAGS+=-lpcre -rdynamic
 #LDFLAGS+=-L/usr/local/pcre/lib/
+
+# For Linux
+#DBLIB=db
+#DBINC=/usr/include
+#LDFLAGS+=-ldl
+
+# For FreeBSD
+DBLIB=db-4.5
+DBINC=/usr/local/include/db45
+LDFLAGS+=-L/usr/local/lib
+CFLAGS+=-I/usr/local/include
+
+
+
+CFLAGS+=-I$(DBINC)
+LDFLAGS+=-l$(DBLIB)
 
 CLEANOBJ=*.o *_xdr.[ch]
 CLEANBIN=main grokre
