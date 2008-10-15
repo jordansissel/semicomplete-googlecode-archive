@@ -1,30 +1,47 @@
 %{ 
 #include <stdio.h>
+#include "grok_config.tab.h"
 #include "grok_config.h"
 
-void yyerror (struct config *conf, char const *s) {
-  fprintf (stderr, "%s\n", s);
+int yylineno;
+void yyerror (YYLTYPE *loc, struct config *conf, char const *s) {
+  fprintf (stderr, "some error: %s\n", s);
+  fprintf (stderr, "Line: %d\n", yylineno);
 }
 %}
 
 %union{
   char *str;
+  int num;
 }
 
 %token <str> QUOTEDSTRING
-%token PROGRAM
+%token PROGRAM "program"
+%token PROG_FILE "file"
+%token PROG_EXEC "exec"
+%token PROG_MATCH "match"
+%token FOLLOW "follow"
+%token <num> BOOLEAN
+%token '{' '}' ';' ':' '\n'
 
 %pure-parser
 %parse-param {struct config *conf}
-%lex-param {struct config *conf}
+%locations
+
 %start config
 
 %%
 
-config: qstring | programblock;
+config: config statement 
+      | statement 
+      | error { printf("Error: %d\n", yylloc.first_line); }
 
-qstring: QUOTEDSTRING { printf("Read string: '%s'\n", $1); }
-  ;
+statement: PROGRAM '{' program_block '}' { conf->nprograms++; } 
+       
+program_block: program_block program_statement 
+             | program_statement
+program_statement: program_file 
 
-programblock: PROGRAM { conf->nprograms++; }
-  ;
+program_file: "file" QUOTEDSTRING '{' file_block '}'
+file_block: /*empty*/ 
+          | "follow" ':' BOOLEAN { printf("Follow: %d\n", $3); }

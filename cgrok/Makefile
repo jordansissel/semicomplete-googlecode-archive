@@ -24,7 +24,7 @@ LDFLAGS+=-ldl
 CFLAGS+=-I$(DBINC)
 LDFLAGS+=-l$(DBLIB)
 
-CLEANOBJ=*.o *_xdr.[ch]
+CLEANOBJ=*.o *_xdr.[ch] *.yy.c *.tab.c *.tab.h
 CLEANBIN=main grokre
 
 GROKOBJ=grok.o grokre.o grok_capture.o grok_pattern.o stringhelper.o \
@@ -74,7 +74,7 @@ grok_config.tab.c grok_config.tab.h: grok_config.y
 grok_config.yy.c: grok_config.lex grok_config.tab.h
 	flex -o $@ $<
 
-conftest: bmain.o grok_config.tab.o grok_config.yy.o
+conftest: grok_config.tab.o grok_config.yy.o bmain.o
 	gcc -g $^ -o $@
 
 .c.o:
