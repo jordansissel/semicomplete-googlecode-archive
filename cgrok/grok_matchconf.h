@@ -1,6 +1,7 @@
 #ifndef _GROK_MATCHCONF_H_
 #define _GROK_MATCHCONF_H_
 
+#include "grok.h"
 #include "grok_program.h"
 #include "grok_matchconf.h"
 

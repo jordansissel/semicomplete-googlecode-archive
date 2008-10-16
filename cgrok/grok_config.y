@@ -8,6 +8,7 @@ void yyerror (YYLTYPE *loc, struct config *conf, char const *s) {
   fprintf (stderr, "some error: %s\n", s);
   fprintf (stderr, "Line: %d\n", yylineno);
 }
+
 %}
 
 %union{
@@ -36,12 +37,18 @@ config: config statement
       | statement 
       | error { printf("Error: %d\n", yylloc.first_line); }
 
-statement: PROGRAM '{' program_block '}' { conf->nprograms++; } 
+statement: PROGRAM '{' { conf_new_program(conf); }
+           program_block 
+         '}'
        
 program_block: program_block program_statement 
              | program_statement
 program_statement: program_file 
 
-program_file: "file" QUOTEDSTRING '{' file_block '}'
-file_block: /*empty*/ 
-          | "follow" ':' BOOLEAN { printf("Follow: %d\n", $3); }
+program_file: "file" QUOTEDSTRING '{' 
+              { /* create new file input */ }
+              file_block 
+              '}' 
+
+file_block: /*empty*/
+          | "follow" ':' BOOLEAN

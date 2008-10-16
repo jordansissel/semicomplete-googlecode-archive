@@ -19,8 +19,6 @@ LDFLAGS+=-ldl
 #LDFLAGS+=-L/usr/local/lib
 #CFLAGS+=-I/usr/local/include
 
-
-
 CFLAGS+=-I$(DBINC)
 LDFLAGS+=-l$(DBLIB)
 
@@ -68,13 +66,13 @@ bmain.c: grok_capture.h
 grok_input.c: grok_capture.h
 grok.c: grok.h grok_capture.h
 
-grok_config.tab.c grok_config.tab.h: grok_config.y
+grok_config.tab.c grok_config.tab.h: grok_config.grammar.y
 	bison -v -d $<
 
-grok_config.yy.c: grok_config.lex grok_config.tab.h
+grok_config.yy.c: grok_config.grammar.lex grok_config.tab.h
 	flex -o $@ $<
 
-conftest: grok_config.tab.o grok_config.yy.o bmain.o
+conftest:  grok_config.tab.o grok_config.yy.o bmain.o grok_config.o
 	gcc -g $^ -o $@
 
 .c.o:

@@ -13,13 +13,18 @@ struct grok_input;
 struct grok_matchconfig;
 
 struct grok_program {
-  struct grok_input *inputs;
   char *name; /* optional program name */
+
+  struct grok_input *inputs;
   int ninputs;
-  int logmask;
-  int logdepth;
+  int input_size;
+
   struct grok_matchconf *matchconfigs;
   int nmatchconfigs;
+  int matchconfig_size;
+
+  int logmask;
+  int logdepth;
   struct event *ev_sigchld;
 };
 
