@@ -68,7 +68,8 @@ grok_input.c: grok_capture.h
 grok.c: grok.h grok_capture.h
 
 conf.tab.c conf.tab.h: conf.y
-	bison -d $<
+	#bison -d $<
+	yacc -d -b "conf" $<
 
 conf.yy.c: conf.lex conf.tab.h
 	flex -o $@ $<

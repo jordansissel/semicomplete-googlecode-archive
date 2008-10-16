@@ -123,9 +123,9 @@ exec_block: exec_block exec_block_statement
           
 exec_block_statement: /* empty */
           | "restart-on-failure" ':'  INTEGER 
-             { CURINPUT.source.process.restart_on_death = $3 }
+             { CURINPUT.source.process.restart_on_death = $3; }
           | "minimum-restart-delay" ':' INTEGER
-             { CURINPUT.source.process.min_restart_delay = $3 }
+             { CURINPUT.source.process.min_restart_delay = $3; }
           | "run-interval" ':' INTEGER
-             { CURINPUT.source.process.run_interval = $3 }
+             { CURINPUT.source.process.run_interval = $3; }
           | "debug" ':' INTEGER { CURINPUT.logmask = DEBUGMASK($3); }
