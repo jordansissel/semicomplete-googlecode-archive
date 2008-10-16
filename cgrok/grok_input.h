@@ -52,6 +52,9 @@ struct grok_input {
     grok_input_process_t process;
   } source;
   struct grok_program *gprog; /* pointer back to our program */
+
+  int logmask;
+  int logdepth;
 };
 
 void grok_program_add_input(struct grok_program *gprog, grok_input_t *ginput);

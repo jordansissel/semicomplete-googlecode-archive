@@ -22,6 +22,7 @@ void yyerror (YYLTYPE *loc, struct config *conf, char const *s) {
 
 %token <str> QUOTEDSTRING
 %token <num> INTEGER
+%token CONF_DEBUG "debug"
 
 %token PROGRAM "program"
 %token PROG_FILE "file"
@@ -48,28 +49,35 @@ void yyerror (YYLTYPE *loc, struct config *conf, char const *s) {
 
 %%
 
-config: config statement 
-      | statement 
+config: config root 
+      | root 
       | error { printf("Error: %d\n", yylloc.first_line); }
 
-statement: PROGRAM '{' { conf_new_program(conf); }
-           program_block 
-         '}'
-       
-program_block: /*empty*/
-             | program_block program_statement 
-             | program_statement
+root: root_program
+    | "debug" ':' INTEGER { conf->logmask = ~0; }
 
-program_statement: program_file 
+root_program: PROGRAM '{' 
+            { conf_new_program(conf);
+              SETLOGMASK(*conf, CURINPUT); 
+            }
+                program_block 
+              '}' 
+       
+program_block: program_block program_block_statement 
+             | program_block_statement
+
+program_block_statement: program_file 
                  | program_exec
                  | program_match
                  | program_load_patterns
+                 | "debug" ':' INTEGER { CURPROGRAM.logmask = ~0; }
 
 program_load_patterns: "load-patterns" ':' QUOTEDSTRING 
                      { conf_new_patternfile(conf); CURPATTERNFILE = $3; }
 
 program_file: "file" QUOTEDSTRING '{' 
               { conf_new_input(conf);
+                SETLOGMASK(CURPROGRAM, CURINPUT);
                 CURINPUT.type = I_FILE;
                 CURINPUT.source.file.filename = $2;
                 printf("curinput: %x\n", &CURINPUT);
@@ -81,26 +89,42 @@ program_exec: "exec" QUOTEDSTRING '{'
               { conf_new_input(conf);
                 CURINPUT.type = I_PROCESS;
                 CURINPUT.source.process.cmd = $2;
+                SETLOGMASK(CURPROGRAM, CURINPUT);
               }
               exec_block
-              '}'
+              '}' 
 
-program_match: "match" '{' { conf_new_matchconf(conf); }
+program_match: "match" '{' 
+             { conf_new_matchconf(conf);
+               SETLOGMASK(CURPROGRAM, CURMATCH.grok);
+             }
                match_block
-               '}'
-                
+               '}' 
 
-file_block: /* empty */
-          | "follow" ':' INTEGER 
+file_block: file_block file_block_statement
+          | file_block_statement
 
-match_block: /* empty */
+file_block_statement: /*empty*/
+          | "follow" ':' INTEGER { CURINPUT.source.file.follow = $3; }
+          | "debug" ':' INTEGER { CURINPUT.logmask = ~0; }
+
+match_block: match_block match_block_statement
+           | match_block_statement
+
+           
+match_block_statement: /* empty */
            | "pattern" ':' QUOTEDSTRING { grok_compile(&CURMATCH.grok, $3); }
            | "reaction" ':' QUOTEDSTRING { CURMATCH.reaction.cmd = $3; }
+           | "debug" ':' INTEGER { CURMATCH.grok.logmask = ~0; }
 
-exec_block: /* empty */
+exec_block: exec_block exec_block_statement
+          | exec_block_statement
+          
+exec_block_statement: /* empty */
           | "restart-on-failure" ':'  INTEGER 
              { CURINPUT.source.process.restart_on_death = $3 }
           | "minimum-restart-delay" ':' INTEGER
              { CURINPUT.source.process.min_restart_delay = $3 }
           | "run-interval" ':' INTEGER
              { CURINPUT.source.process.run_interval = $3 }
+          | "debug" ':' INTEGER { CURINPUT.logmask = ~0; }

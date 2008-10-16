@@ -34,7 +34,7 @@ void conf_new_program(struct config *conf) {
   CURPROGRAM.patternfile_size = 10;
   CURPROGRAM.patternfiles = calloc(CURPROGRAM.patternfile_size, sizeof(char *));
 
-  CURPROGRAM.logmask = ~0;
+  //CURPROGRAM.logmask = ~0;
 }
 
 void conf_new_patternfile(struct config *conf) {
@@ -69,7 +69,7 @@ void conf_new_matchconf(struct config *conf) {
   }
 
   grok_init(&CURMATCH.grok);
-  CURMATCH.grok.logmask = ~0;
+  //CURMATCH.grok.logmask = ~0;
 
   int i = 0;
   for (i = 0; i < CURPROGRAM.npatternfiles; i++) {

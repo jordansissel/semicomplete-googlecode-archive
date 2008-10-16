@@ -5,10 +5,16 @@
 #define CURMATCH (CURPROGRAM.matchconfigs [CURPROGRAM.nmatchconfigs - 1])
 #define CURPATTERNFILE (CURPROGRAM.patternfiles [CURPROGRAM.npatternfiles - 1])
 
+#define SETLOGMASK(parent, mine) \
+  (mine).logmask = ((mine).logmask == 0) ? (parent).logmask : (mine).logmask
+
 struct config {
   grok_program_t *programs;
   int nprograms;
   int program_size;
+
+  int logmask;
+  int logdepth;
 };
 
 void conf_new_program(struct config *conf);

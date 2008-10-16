@@ -33,6 +33,8 @@ match { return PROG_MATCH; }
 pattern { return MATCH_PATTERN; }
 reaction { return MATCH_REACTION; }
 
+debug { return CONF_DEBUG; }
+
 {true} { yylval->num = 1; return INTEGER; }
 {false} { yylval->num = 0; return INTEGER; }
 {number} { yylval->num = atoi(yytext); return INTEGER; }
