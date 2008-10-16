@@ -14,7 +14,7 @@
 #include <fcntl.h>
 
 static void *_event_init = NULL;
-void _program_sigchld(int sig, short what, void *data);
+void _collection_sigchld(int sig, short what, void *data);
 
 void _program_process_stdout_read(struct bufferevent *bev, void *data);
 void _program_process_start(int fd, short what, void *data);
@@ -28,9 +28,25 @@ void _program_file_read_real(int fd, short what, void *data);
 //void _program_file_buferror(int fd, short what, void *data);
 void _program_file_buferror(struct bufferevent *bev, short what, void *data);
 
-void grok_program_add(grok_program_t *gprog) {
+
+grok_collection_t *grok_collection_init() {
+  grok_collection_t *gcol;
+  gcol = calloc(1, sizeof(grok_collection_t*));
+  gcol->nprograms = 0;
+  gcol->program_size = 10;
+  gcol->programs = calloc(gcol->program_size, sizeof(grok_program_t));
+  gcol->ebase = event_init();
+
+  gcol->ev_sigchld = malloc(sizeof(struct event));
+  signal_set(gcol->ev_sigchld, SIGCHLD, _collection_sigchld, gcol);
+  signal_add(gcol->ev_sigchld, NULL);
+
+  return gcol;
+}
+
+void grok_collection_add(grok_collection_t *gcol, grok_program_t *gprog) {
   int i = 0;
-  grok_log(gprog, LOG_PROGRAM, "Adding %d inputs", i);
+  grok_log(gprog, LOG_PROGRAM, "Adding %d inputs", gprog->ninputs);
 
   for (i = 0; i < gprog->ninputs; i++) {
     grok_log(gprog, LOG_PROGRAM, "Adding input %d", i);
@@ -38,126 +54,76 @@ void grok_program_add(grok_program_t *gprog) {
     grok_program_add_input(gprog, gprog->inputs + i);
   }
 
-  grok_log(gprog, LOG_PROGRAM, "Setting up SIGCHLD: %x", gprog);
-  gprog->ev_sigchld = malloc(sizeof(struct event));
-  signal_set(gprog->ev_sigchld, SIGCHLD, _program_sigchld, gprog);
-  signal_add(gprog->ev_sigchld, NULL);
+  gcol->nprograms++;
+  if (gcol->nprograms == gcol->program_size) {
+    gcol->program_size *= 2;
+    gcol->programs = realloc(gcol->programs,
+                             gcol->program_size * sizeof(grok_collection_t *));
+  }
 
+  gcol->programs[gcol->nprograms - 1] = gprog;
 }
 
-void _program_sigchld(int sig, short what, void *data) {
-  grok_program_t *gprog = (grok_program_t*)data;
+void _collection_sigchld(int sig, short what, void *data) {
+  grok_collection_t *gcol = (grok_collection_t*)data;
+
   int i = 0;
+  int prognum;
   int pid, status;
-  grok_log(gprog, LOG_PROGRAM, "sigchld handler");
 
   while ( (pid = waitpid(-1, &status, WNOHANG)) > 0) {
-    /* we found a dead child. Look for an input_process it belongs to,
-     * then see if we should restart it
-     */
-    grok_log(gprog, LOG_PROGRAM, "Reaped child pid %d", pid);
-    for (i = 0; i < gprog->ninputs; i++) {
-      grok_input_t *ginput = (gprog->inputs + i);
-      if (ginput->type != I_PROCESS)
-        continue;
+    for (prognum = 0; prognum < gcol->nprograms; prognum++) {
+      grok_program_t *gprog = gcol->programs[prognum];
 
-      grok_input_process_t *gipt = &(ginput->source.process);
-      if (gipt->pid != pid)
-        continue;
+      /* we found a dead child. Look for an input_process it belongs to,
+       * then see if we should restart it
+       */
+      for (i = 0; i < gprog->ninputs; i++) {
+        grok_input_t *ginput = (gprog->inputs + i);
+        if (ginput->type != I_PROCESS)
+          continue;
 
-      if (PROCESS_SHOULD_RESTART(gipt)) {
-        struct timeval restart_delay = { 0, 0 };
-        if (gipt->run_interval > 0) {
-          struct timeval interval = { gipt->run_interval, 0 };
-          struct timeval duration;
-          struct timeval now;
-          gettimeofday(&now, NULL);
-          timersub(&now, &(gipt->start_time), &duration);
-          timersub(&interval, &duration, &restart_delay);
-        }
+        grok_input_process_t *gipt = &(ginput->source.process);
+        if (gipt->pid != pid)
+          continue;
 
-        if (gipt->min_restart_delay > 0) {
-          struct timeval fixed_delay = { gipt->min_restart_delay, 0 };
+        grok_log(gprog, LOG_PROGRAM, "Reaped child pid %d. Was process '%s'",
+                 pid, gipt->cmd);
 
-          if (timercmp(&restart_delay, &fixed_delay, <)) {
-            restart_delay.tv_sec = fixed_delay.tv_sec;
-            restart_delay.tv_usec = fixed_delay.tv_usec;
+        if (PROCESS_SHOULD_RESTART(gipt)) {
+          struct timeval restart_delay = { 0, 0 };
+          if (gipt->run_interval > 0) {
+            struct timeval interval = { gipt->run_interval, 0 };
+            struct timeval duration;
+            struct timeval now;
+            gettimeofday(&now, NULL);
+            timersub(&now, &(gipt->start_time), &duration);
+            timersub(&interval, &duration, &restart_delay);
           }
+
+          if (gipt->min_restart_delay > 0) {
+            struct timeval fixed_delay = { gipt->min_restart_delay, 0 };
+
+            if (timercmp(&restart_delay, &fixed_delay, <)) {
+              restart_delay.tv_sec = fixed_delay.tv_sec;
+              restart_delay.tv_usec = fixed_delay.tv_usec;
+            }
+          }
+
+          grok_log(gprog, LOG_PROGRAM, 
+                   "Scheduling process restart in %d.%d seconds: %s",
+                   restart_delay.tv_sec, restart_delay.tv_usec, gipt->cmd);
+          event_once(-1, EV_TIMEOUT, _program_process_start,
+                     ginput, &restart_delay);
+
+        } else {
+          grok_log(gprog, LOG_PROGRAM, "Not restarting process '%s'", gipt->cmd);
         }
-
-        grok_log(gprog, LOG_PROGRAM, 
-                 "Scheduling process restart in %d.%d seconds: %s\n",
-                 restart_delay.tv_sec, restart_delay.tv_usec, gipt->cmd);
-        event_once(-1, EV_TIMEOUT, _program_process_start,
-                   ginput, &restart_delay);
-
-      }
-    } /* end for */
-  } /* end while */
+      } /* end for looping over gprog's inputs */
+    } /* end for looping over gcol's programs */
+  } /* end while waitpid */
 }
 
-void grok_program_loop(void) {
-  event_dispatch();
-}
-
-int main(int argc, char **argv) {
-  grok_program_t *gprog, *gprog2;
-  struct event_base *ebase;
-  int i = 0;
-
-  ebase = event_init();
-
-  gprog = calloc(1, sizeof(grok_program_t));
-  gprog->logmask = ~0;
-  gprog->inputs = calloc(10, sizeof(grok_input_t));
-  i = -1;
-  //gprog->inputs[++i].type = I_FILE;
-  //gprog->inputs[i].source.file.filename = "/var/log/messages";
-
-  gprog->inputs[++i].type = I_PROCESS;
-  gprog->inputs[i].source.process.cmd = "ifconfig";
-  gprog->inputs[i].source.process.run_interval = 5;
-  gprog->inputs[i].source.process.min_restart_delay = 10;
-  gprog->ninputs = i + 1;
-
-  i = -1;
-  gprog->matchconfigs = calloc(10, sizeof(grok_matchconf_t));
-  grok_t *grok = &(gprog->matchconfigs[++i].grok);
-  grok_init(grok);
-  grok_patterns_import_from_file(grok, "./pcregrok_patterns");
-  grok_compile(grok, "%{IP}");
-  gprog->nmatchconfigs = i + 1;
-
-  grok_program_add(gprog);
-
-  gprog2 = calloc(1, sizeof(grok_program_t));
-  gprog2->logmask = ~0;
-  gprog2->inputs = calloc(10, sizeof(grok_input_t));
-  i = -1;
-
-  //gprog2->inputs[++i].type = I_FILE;
-  //gprog2->inputs[i].source.file.filename = "/tmp/a";
-  gprog2->inputs[++i].type = I_PROCESS;
-  gprog2->inputs[i].source.process.cmd = "ssh psionic@tonka.csh.rit.edu tail -0f /web/logs/semicomplete/access";
-  gprog2->inputs[i].source.process.restart_on_death = 1;
-
-  //gprog2->inputs[++i].type = I_FILE;
-  //gprog2->inputs[i].source.file.filename = "../access";
-  gprog2->ninputs = i + 1;
-
-  i = -1;
-  gprog2->matchconfigs = calloc(10, sizeof(grok_matchconf_t));
-  grok = &(gprog2->matchconfigs[++i].grok);
-  grok_init(grok);
-  grok_patterns_import_from_file(grok, "./pcregrok_patterns");
-  grok_compile(grok, "%{COMBINEDAPACHELOG}");
-  gprog2->nmatchconfigs = i + 1;
-
-  grok_program_add(gprog2);
-
-  grok_program_loop();
-  free(gprog->inputs);
-  free(gprog);
-  event_base_free(ebase);
-  return 0;
+void grok_collection_loop(grok_collection_t *gcol) {
+  event_base_dispatch(gcol->ebase);
 }

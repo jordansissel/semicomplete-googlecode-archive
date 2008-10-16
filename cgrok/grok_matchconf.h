@@ -8,12 +8,13 @@
 typedef struct grok_matchconf grok_matchconf_t;
 typedef struct grok_reaction grok_reaction_t;
 
-struct grok_matchconf {
-  grok_t grok; /* The grok pattern to match */
-};
-
 struct grok_reaction {
   char *cmd;
+};
+
+struct grok_matchconf {
+  grok_t grok; /* The grok pattern to match */
+  grok_reaction_t reaction;
 };
 
 void grok_matchconfig_exec(grok_program_t *gprog, grok_matchconf_t *gmc, const char *text);

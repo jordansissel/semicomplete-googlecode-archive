@@ -1,7 +1,7 @@
 CFLAGS+=-pipe
-#CFLAGS+=-g
+CFLAGS+=-g
 #CFLAGS+=-DNOLOGGING
-CFLAGS+=-O2
+#CFLAGS+=-O2
 #CFLAGS+=-Wunused
 EXTRA_CFLAGS=
 CFLAGS+=$(EXTRA_CFLAGS)
@@ -26,7 +26,8 @@ CLEANOBJ=*.o *_xdr.[ch] *.yy.c *.tab.c *.tab.h
 CLEANBIN=main grokre
 
 GROKOBJ=grok.o grokre.o grok_capture.o grok_pattern.o stringhelper.o \
-        predicates.o grok_capture_xdr.o grok_match.o logging.o
+        predicates.o grok_capture_xdr.o grok_match.o logging.o \
+        grok_program.o grok_input.o grok_matchconf.o
 GROKPROGOBJ=grok_input.o grok_program.o grok_matchconf.o $(GROKOBJ)
 
 all: main
@@ -67,13 +68,15 @@ grok_input.c: grok_capture.h
 grok.c: grok.h grok_capture.h
 
 conf.tab.c conf.tab.h: conf.y
-	bison -v -d $<
+	bison -d $<
 
 conf.yy.c: conf.lex conf.tab.h
 	flex -o $@ $<
 
-conftest:  conf.tab.o conf.yy.o bmain.o grok_config.o
-	gcc -g $^ -o $@
+
+conftest: LDFLAGS+=-levent
+conftest: $(GROKOBJ) conf.tab.o conf.yy.o bmain.o grok_config.o
+	gcc $(LDFLAGS) -g $^ -o $@
 
 .c.o:
 	$(CC) -c $(CFLAGS) $< -o $@

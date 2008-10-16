@@ -9,6 +9,7 @@
 //include "grok_matchconf.h"
 
 typedef struct grok_program grok_program_t;
+typedef struct grok_collection grok_collection_t;
 struct grok_input;
 struct grok_matchconfig;
 
@@ -23,12 +24,29 @@ struct grok_program {
   int nmatchconfigs;
   int matchconfig_size;
 
+  char **patternfiles;
+  int npatternfiles;
+  int patternfile_size;
+
   int logmask;
   int logdepth;
-  struct event *ev_sigchld;
 };
 
-void grok_program_add(grok_program_t *gprog);
-void grok_program_loop(void);
+struct grok_collection {
+  grok_program_t **programs; /* array of pointers to grok_program_t */
+  int nprograms;
+  int program_size;
+
+  struct event_base *ebase;
+  struct event *ev_sigchld;
+
+  int logmask;
+  int logdepth;
+};
+
+
+grok_collection_t *grok_collection_init();
+void grok_collection_add(grok_collection_t *gcol, grok_program_t *gprog);
+void grok_collection_loop(grok_collection_t *gcol);
 
 #endif /* _GROK_PROGRAM_H_ */
