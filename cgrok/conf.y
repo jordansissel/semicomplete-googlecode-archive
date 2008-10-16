@@ -59,7 +59,7 @@ root: root_program
 
 root_program: PROGRAM '{' 
             { conf_new_program(conf);
-              SETLOGMASK(*conf, CURPROGRAM); 
+              SETLOG(*conf, CURPROGRAM); 
             }
                 program_block 
               '}' 
@@ -78,7 +78,7 @@ program_load_patterns: "load-patterns" ':' QUOTEDSTRING
 
 program_file: "file" QUOTEDSTRING '{' 
               { conf_new_input(conf);
-                SETLOGMASK(CURPROGRAM, CURINPUT);
+                SETLOG(CURPROGRAM, CURINPUT);
                 CURINPUT.type = I_FILE;
                 CURINPUT.source.file.filename = $2;
                 printf("curinput: %x\n", &CURINPUT);
@@ -88,7 +88,7 @@ program_file: "file" QUOTEDSTRING '{'
 
 program_exec: "exec" QUOTEDSTRING '{'
               { conf_new_input(conf);
-                SETLOGMASK(CURPROGRAM, CURINPUT);
+                SETLOG(CURPROGRAM, CURINPUT);
                 CURINPUT.type = I_PROCESS;
                 CURINPUT.source.process.cmd = $2;
               }
@@ -97,7 +97,7 @@ program_exec: "exec" QUOTEDSTRING '{'
 
 program_match: "match" '{' 
              { conf_new_matchconf(conf);
-               SETLOGMASK(CURPROGRAM, CURMATCH.grok);
+               SETLOG(CURPROGRAM, CURMATCH.grok);
              }
                match_block
                '}' 

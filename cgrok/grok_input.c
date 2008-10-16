@@ -62,7 +62,7 @@ void grok_program_add_input_process(grok_program_t *gprog,
                         NULL, _program_process_buferror, ginput);
   bufferevent_enable(bev, EV_READ);
 
-  grok_log(gprog, LOG_PROGRAM, "Scheduling start of: %s", gipt->cmd);
+  grok_log(ginput, LOG_PROGRAMINPUT, "Scheduling start of: %s", gipt->cmd);
   event_once(-1, EV_TIMEOUT, _program_process_start, ginput, &now);
 }
 
@@ -73,7 +73,7 @@ void grok_program_add_input_file(grok_program_t *gprog,
   int ret;
   int pipefd[2];
   grok_input_file_t *gift = &(ginput->source.file);
-  grok_log(gprog, LOG_PROGRAM, "Adding file input: %s\n", gift->filename);
+  grok_log(ginput, LOG_PROGRAMINPUT, "Adding file input: %s\n", gift->filename);
 
   ret = stat(gift->filename, &st);
   if (ret == -1) {
@@ -99,7 +99,7 @@ void grok_program_add_input_file(grok_program_t *gprog,
   gift->waittime.tv_usec = 0;
   gift->readbuffer = malloc(st.st_blksize);
 
-  grok_log(gprog, LOG_PROGRAM, "dup2(%d, %d)", gift->fd, gift->writer);
+  grok_log(ginput, LOG_PROGRAMINPUT, "dup2(%d, %d)", gift->fd, gift->writer);
 
   /* Tie our open file read fd to the writer of our pipe */
   // this doesn't work
@@ -133,7 +133,7 @@ void _program_process_buferror(struct bufferevent *bev, short what,
   grok_input_t *ginput = (grok_input_t *)data;
   grok_input_process_t *gipt = &(ginput->source.process);
   grok_program_t *gprog = ginput->gprog;
-  grok_log(gprog, LOG_PROGRAM, "Buffer error %d on process %d: %s",
+  grok_log(ginput, LOG_PROGRAMINPUT, "Buffer error %d on process %d: %s",
            what, gipt->pid, gipt->cmd);
 }
 
@@ -149,7 +149,7 @@ void _program_process_start(int fd, short what, void *data) {
     gipt->pid = pid;
     gipt->pgid = getpgid(pid);
     gettimeofday(&(gipt->start_time), NULL);
-    grok_log(gprog, LOG_PROGRAM,
+    grok_log(ginput, LOG_PROGRAMINPUT,
              "Starting process: '%s' (%d)", gipt->cmd, getpid());
     return;
   }
@@ -181,7 +181,7 @@ void _program_file_buferror(struct bufferevent *bev, short what,
   grok_input_t *ginput = (grok_input_t *)data;
   grok_input_file_t *gift = &(ginput->source.file);
   grok_program_t *gprog = ginput->gprog;
-  grok_log(gprog, LOG_PROGRAM, "Buffer error %d on file %d: %s",
+  grok_log(ginput, LOG_PROGRAMINPUT, "Buffer error %d on file %d: %s",
            what, gift->fd, gift->filename);
 
   if (what & EVBUFFER_EOF) {
@@ -214,7 +214,7 @@ void _program_file_read_real(int fd, short what, void *data) {
   if (gift->offset > gift->st.st_size)
     gift->st.st_size = gift->offset;
 
-  grok_log(gprog, LOG_PROGRAM, "%s: read %d bytes", gift->filename, bytes);
+  grok_log(ginput, LOG_PROGRAMINPUT, "%s: read %d bytes", gift->filename, bytes);
 
   if (bytes == 0) { /* nothing read, at EOF */
     /* if we're at the end of the file, figure out what to do */
@@ -260,7 +260,7 @@ void _program_file_read_real(int fd, short what, void *data) {
   }
 
 
-  grok_log(gprog, LOG_PROGRAM,
+  grok_log(ginput, LOG_PROGRAMINPUT,
            "Waiting %d seconds on %d:%s", gift->waittime.tv_sec, gift->fd,
            gift->filename);
   event_once(0, EV_TIMEOUT, _program_file_read_real, ginput,

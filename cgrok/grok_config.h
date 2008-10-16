@@ -5,8 +5,8 @@
 #define CURMATCH (CURPROGRAM.matchconfigs [CURPROGRAM.nmatchconfigs - 1])
 #define CURPATTERNFILE (CURPROGRAM.patternfiles [CURPROGRAM.npatternfiles - 1])
 
-#define SETLOGMASK(parent, mine) \
-  (mine).logmask = (parent).logmask
+#define SETLOG(parent, mine) \
+  (mine).logmask = (parent).logmask;
 
   //(mine).logmask = ((mine).logmask == 0) ? (parent).logmask : (mine).logmask
 

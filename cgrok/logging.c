@@ -19,6 +19,8 @@ inline void _grok_log(int level, int indent, const char *format, ...) {
     case LOG_PATTERNS: prefix = "[patterns] "; break;
     case LOG_MATCH: prefix = "[match] "; break;
     case LOG_CAPTURE: prefix = "[capture] "; break;
+    case LOG_PROGRAM: prefix = "[program] "; break;
+    case LOG_PROGRAMINPUT: prefix = "[programinput] "; break;
     default: prefix = "[unknown] ";
   }
   fprintf(out, "[%d] % *s%s", getpid(), indent * 3, "", prefix);

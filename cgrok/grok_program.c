@@ -46,7 +46,7 @@ grok_collection_t *grok_collection_init() {
 
 void grok_collection_add(grok_collection_t *gcol, grok_program_t *gprog) {
   int i = 0;
-  grok_log(gprog, LOG_PROGRAM, "Adding %d inputs", gprog->ninputs);
+  grok_log(gcol, LOG_PROGRAM, "Adding %d inputs", gprog->ninputs);
 
   for (i = 0; i < gprog->ninputs; i++) {
     grok_log(gprog, LOG_PROGRAM, "Adding input %d", i);
@@ -87,7 +87,8 @@ void _collection_sigchld(int sig, short what, void *data) {
         if (gipt->pid != pid)
           continue;
 
-        grok_log(gprog, LOG_PROGRAM, "Reaped child pid %d. Was process '%s'",
+        /* use ginput's log values */
+        grok_log(ginput, LOG_PROGRAM, "Reaped child pid %d. Was process '%s'",
                  pid, gipt->cmd);
 
         if (PROCESS_SHOULD_RESTART(gipt)) {
@@ -110,7 +111,7 @@ void _collection_sigchld(int sig, short what, void *data) {
             }
           }
 
-          grok_log(gprog, LOG_PROGRAM, 
+          grok_log(ginput, LOG_PROGRAM, 
                    "Scheduling process restart in %d.%d seconds: %s",
                    restart_delay.tv_sec, restart_delay.tv_usec, gipt->cmd);
           event_once(-1, EV_TIMEOUT, _program_process_start,

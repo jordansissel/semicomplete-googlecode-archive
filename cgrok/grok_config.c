@@ -11,6 +11,8 @@ void conf_init(struct config *conf) {
   conf->nprograms = 0;
   conf->program_size = 10;
   conf->programs = calloc(conf->program_size, sizeof(grok_pattern_t));
+  conf->logmask = 0;
+  conf->logdepth = 0;
 }
 
 void conf_new_program(struct config *conf) {
