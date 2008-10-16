@@ -66,13 +66,13 @@ bmain.c: grok_capture.h
 grok_input.c: grok_capture.h
 grok.c: grok.h grok_capture.h
 
-grok_config.tab.c grok_config.tab.h: grok_config.grammar.y
+conf.tab.c conf.tab.h: conf.y
 	bison -v -d $<
 
-grok_config.yy.c: grok_config.grammar.lex grok_config.tab.h
+conf.yy.c: conf.lex conf.tab.h
 	flex -o $@ $<
 
-conftest:  grok_config.tab.o grok_config.yy.o bmain.o grok_config.o
+conftest:  conf.tab.o conf.yy.o bmain.o grok_config.o
 	gcc -g $^ -o $@
 
 .c.o:
