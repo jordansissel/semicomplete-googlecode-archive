@@ -6,7 +6,9 @@
 #define CURPATTERNFILE (CURPROGRAM.patternfiles [CURPROGRAM.npatternfiles - 1])
 
 #define SETLOGMASK(parent, mine) \
-  (mine).logmask = ((mine).logmask == 0) ? (parent).logmask : (mine).logmask
+  (mine).logmask = (parent).logmask
+
+  //(mine).logmask = ((mine).logmask == 0) ? (parent).logmask : (mine).logmask
 
 struct config {
   grok_program_t *programs;

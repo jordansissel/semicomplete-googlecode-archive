@@ -13,6 +13,7 @@ void yyerror (YYLTYPE *loc, struct config *conf, char const *s) {
   fprintf (stderr, "Line: %d\n", yylineno);
 }
 
+#define DEBUGMASK(val) (printf("VAL: %d\n", val), (val > 0) ? ~0 : 0)
 %}
 
 %union{
@@ -54,11 +55,11 @@ config: config root
       | error { printf("Error: %d\n", yylloc.first_line); }
 
 root: root_program
-    | "debug" ':' INTEGER { conf->logmask = ~0; }
+    | "debug" ':' INTEGER { conf->logmask = DEBUGMASK($3); }
 
 root_program: PROGRAM '{' 
             { conf_new_program(conf);
-              SETLOGMASK(*conf, CURINPUT); 
+              SETLOGMASK(*conf, CURPROGRAM); 
             }
                 program_block 
               '}' 
@@ -70,7 +71,7 @@ program_block_statement: program_file
                  | program_exec
                  | program_match
                  | program_load_patterns
-                 | "debug" ':' INTEGER { CURPROGRAM.logmask = ~0; }
+                 | "debug" ':' INTEGER { CURPROGRAM.logmask = DEBUGMASK($3); }
 
 program_load_patterns: "load-patterns" ':' QUOTEDSTRING 
                      { conf_new_patternfile(conf); CURPATTERNFILE = $3; }
@@ -87,9 +88,9 @@ program_file: "file" QUOTEDSTRING '{'
 
 program_exec: "exec" QUOTEDSTRING '{'
               { conf_new_input(conf);
+                SETLOGMASK(CURPROGRAM, CURINPUT);
                 CURINPUT.type = I_PROCESS;
                 CURINPUT.source.process.cmd = $2;
-                SETLOGMASK(CURPROGRAM, CURINPUT);
               }
               exec_block
               '}' 
@@ -106,7 +107,7 @@ file_block: file_block file_block_statement
 
 file_block_statement: /*empty*/
           | "follow" ':' INTEGER { CURINPUT.source.file.follow = $3; }
-          | "debug" ':' INTEGER { CURINPUT.logmask = ~0; }
+          | "debug" ':' INTEGER { CURINPUT.logmask = DEBUGMASK($3); }
 
 match_block: match_block match_block_statement
            | match_block_statement
@@ -115,7 +116,7 @@ match_block: match_block match_block_statement
 match_block_statement: /* empty */
            | "pattern" ':' QUOTEDSTRING { grok_compile(&CURMATCH.grok, $3); }
            | "reaction" ':' QUOTEDSTRING { CURMATCH.reaction.cmd = $3; }
-           | "debug" ':' INTEGER { CURMATCH.grok.logmask = ~0; }
+           | "debug" ':' INTEGER { CURMATCH.grok.logmask = DEBUGMASK($3); }
 
 exec_block: exec_block exec_block_statement
           | exec_block_statement
@@ -127,4 +128,4 @@ exec_block_statement: /* empty */
              { CURINPUT.source.process.min_restart_delay = $3 }
           | "run-interval" ':' INTEGER
              { CURINPUT.source.process.run_interval = $3 }
-          | "debug" ':' INTEGER { CURINPUT.logmask = ~0; }
+          | "debug" ':' INTEGER { CURINPUT.logmask = DEBUGMASK($3); }
