@@ -122,7 +122,8 @@ int grok_execn(grok_t *grok, const char *text, int textlen, grok_match_t *gm) {
     gm->grok = grok;
     gm->subject = text;
     gm->start = grok->pcre_capture_vector[0];
-    gm->end = grok->pcre_capture_vector[1] - grok->pcre_capture_vector[0];
+    //gm->end = grok->pcre_capture_vector[1] - grok->pcre_capture_vector[0];
+    gm->end = grok->pcre_capture_vector[1];
   }
 
   return ret;
@@ -252,6 +253,16 @@ char *grok_pattern_expand(grok_t *grok) {
       patname = NULL;
     }
     free(pattern_regex);
+  }
+
+  /* Unescape any "\%" strings found */
+  offset = 0;
+  while (offset < full_len) { /* loop to '< full_len' because we access offset+1 */
+    if (full_pattern[offset] == '\\' && full_pattern[offset + 1] == '%') {
+      substr_replace(&full_pattern, &full_len, &full_size,
+                     offset, offset + 1, "", 0);
+    }
+    offset++;
   }
 
   grok_log(grok, LOG_REGEXPAND, "Fully expanded: %.*s", full_len, full_pattern);

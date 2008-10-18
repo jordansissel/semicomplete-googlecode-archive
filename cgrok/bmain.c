@@ -17,7 +17,6 @@ int main() {
 
   gcol = grok_collection_init();
   for (i = 0; i <= c.nprograms; i++) {
-    printf("Adding program %d\n", i);
     grok_collection_add(gcol, &(c.programs[i]));
   }
   grok_collection_loop(gcol);

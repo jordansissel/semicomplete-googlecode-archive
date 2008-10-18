@@ -39,6 +39,8 @@ void yyerror (YYLTYPE *loc, struct config *conf, char const *s) {
 
 %token MATCH_PATTERN "pattern"
 %token MATCH_REACTION "reaction"
+%token MATCH_SHELL "shell"
+%token MATCH_FLUSH "flush"
 
 %token '{' '}' ';' ':' '\n'
 
@@ -57,10 +59,7 @@ config: config root
 root: root_program
     | "debug" ':' INTEGER { conf->logmask = DEBUGMASK($3); }
 
-root_program: PROGRAM '{' 
-            { conf_new_program(conf);
-              SETLOG(*conf, CURPROGRAM); 
-            }
+root_program: PROGRAM '{' { conf_new_program(conf); }
                 program_block 
               '}' 
        
@@ -76,29 +75,17 @@ program_block_statement: program_file
 program_load_patterns: "load-patterns" ':' QUOTEDSTRING 
                      { conf_new_patternfile(conf); CURPATTERNFILE = $3; }
 
-program_file: "file" QUOTEDSTRING '{' 
-              { conf_new_input(conf);
-                SETLOG(CURPROGRAM, CURINPUT);
-                CURINPUT.type = I_FILE;
-                CURINPUT.source.file.filename = $2;
-                printf("curinput: %x\n", &CURINPUT);
-              }
-              file_block 
-              '}' 
+program_file: "file" QUOTEDSTRING { conf_new_input_file(conf, $2); }
+            program_file_optional_block
 
-program_exec: "exec" QUOTEDSTRING '{'
-              { conf_new_input(conf);
-                SETLOG(CURPROGRAM, CURINPUT);
-                CURINPUT.type = I_PROCESS;
-                CURINPUT.source.process.cmd = $2;
-              }
-              exec_block
-              '}' 
+program_file_optional_block: /*empty*/ | '{' file_block '}' 
 
-program_match: "match" '{' 
-             { conf_new_matchconf(conf);
-               SETLOG(CURPROGRAM, CURMATCH.grok);
-             }
+program_exec: "exec" QUOTEDSTRING { conf_new_input_process(conf, $2); } 
+            program_exec_optional_block
+
+program_exec_optional_block: /* empty */ | '{' exec_block '}' 
+
+program_match: "match" '{' { conf_new_matchconf(conf); }
                match_block
                '}' 
 
@@ -108,15 +95,6 @@ file_block: file_block file_block_statement
 file_block_statement: /*empty*/
           | "follow" ':' INTEGER { CURINPUT.source.file.follow = $3; }
           | "debug" ':' INTEGER { CURINPUT.logmask = DEBUGMASK($3); }
-
-match_block: match_block match_block_statement
-           | match_block_statement
-
-           
-match_block_statement: /* empty */
-           | "pattern" ':' QUOTEDSTRING { grok_compile(&CURMATCH.grok, $3); }
-           | "reaction" ':' QUOTEDSTRING { CURMATCH.reaction.cmd = $3; }
-           | "debug" ':' INTEGER { CURMATCH.grok.logmask = DEBUGMASK($3); }
 
 exec_block: exec_block exec_block_statement
           | exec_block_statement
@@ -129,3 +107,15 @@ exec_block_statement: /* empty */
           | "run-interval" ':' INTEGER
              { CURINPUT.source.process.run_interval = $3; }
           | "debug" ':' INTEGER { CURINPUT.logmask = DEBUGMASK($3); }
+
+match_block: match_block match_block_statement
+           | match_block_statement
+
+match_block_statement: /* empty */
+           | "pattern" ':' QUOTEDSTRING { grok_compile(&CURMATCH.grok, $3); }
+           | "reaction" ':' QUOTEDSTRING { CURMATCH.reaction = $3; }
+           | "shell" ':' QUOTEDSTRING { CURMATCH.shell = $3; }
+           | "flush" ':' INTEGER { CURMATCH.flush = $3; }
+           | "debug" ':' INTEGER { CURMATCH.grok.logmask = DEBUGMASK($3); }
+
+

@@ -26,7 +26,7 @@ void _program_file_read_real(int fd, short what, void *data);
 void _program_file_buferror(struct bufferevent *bev, short what, void *data);
 
 void grok_program_add_input(grok_program_t *gprog, grok_input_t *ginput) {
-  printf("Adding input of type %s\n",
+  grok_log(gprog, LOG_PROGRAM, "Adding input of type %s\n",
          (ginput->type == I_FILE) ? "file" : "process");
 
   switch (ginput->type) {
@@ -195,7 +195,7 @@ void _program_file_buferror(struct bufferevent *bev, short what,
 
 void _program_file_repair_event(int fd, short what, void *data) {
   struct bufferevent *bev = (struct bufferevent *)data;
-  printf("Repairing event with fd %d\n", bev->ev_read.ev_fd);
+  //printf("Repairing event with fd %d\n", bev->ev_read.ev_fd);
   event_add(&bev->ev_read, NULL);
 }
 
@@ -229,7 +229,7 @@ void _program_file_read_real(int fd, short what, void *data) {
 
     if (gift->st.st_ino != st.st_ino) {
       /* inode changed, reopen file */
-      printf("file inode changed from %d to %d\n", gift->st.st_ino, st.st_ino);
+      //printf("file inode changed from %d to %d\n", gift->st.st_ino, st.st_ino);
       close(gift->fd);
       gift->fd = open(gift->filename, O_RDONLY);
       gift->waittime.tv_sec = 0;
@@ -253,7 +253,7 @@ void _program_file_read_real(int fd, short what, void *data) {
 
     memcpy(&(gift->st), &st, sizeof(st));
   } else if (bytes < 0) {
-    printf("ERROR: Bytes read < 0: %d\n", bytes);
+    fprintf(stderr, "ERROR: Bytes read < 0: %d\n", bytes);
   } else {
     /* default wait time of 0 seconds if bytes > 0 */
     gift->waittime.tv_sec = 0;

@@ -6,6 +6,7 @@ CFLAGS+=-g
 EXTRA_CFLAGS=
 CFLAGS+=$(EXTRA_CFLAGS)
 LDFLAGS+=-lpcre -rdynamic
+LDFLAGS+=-levent
 #LDFLAGS+=-L/usr/local/pcre/lib/
 
 # For Linux
@@ -35,7 +36,6 @@ all: main
 main: $(GROKOBJ) main.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
-grok_program: LDFLAGS+=-levent
 #grok_program: LDFLAGS+=-L/usr/local/libevent/lib
 #grok_program: CFLAGS+=-I/usr/local/libevent/include
 grok_program: $(GROKPROGOBJ)

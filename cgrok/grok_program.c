@@ -62,6 +62,7 @@ void grok_collection_add(grok_collection_t *gcol, grok_program_t *gprog) {
   }
 
   gcol->programs[gcol->nprograms - 1] = gprog;
+  gprog->gcol = gcol;
 }
 
 void _collection_sigchld(int sig, short what, void *data) {

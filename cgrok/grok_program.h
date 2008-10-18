@@ -30,6 +30,8 @@ struct grok_program {
 
   int logmask;
   int logdepth;
+
+  grok_collection_t *gcol; /* if we are using this program in a collection */
 };
 
 struct grok_collection {

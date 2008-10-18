@@ -4,7 +4,7 @@
 #include "grok_config.h"
 
 %}
-%option noyywrap bison-bridge  debug
+%option noyywrap bison-bridge
 
 true true|yes|on|1
 false false|no|off|0
@@ -32,6 +32,8 @@ run-interval { return EXEC_RUNINTERVAL; }
 match { return PROG_MATCH; }
 pattern { return MATCH_PATTERN; }
 reaction { return MATCH_REACTION; }
+shell { return MATCH_SHELL; }
+flush { return MATCH_FLUSH; }
 
 debug { return CONF_DEBUG; }
 
@@ -40,4 +42,5 @@ debug { return CONF_DEBUG; }
 {number} { yylval->num = atoi(yytext); return INTEGER; }
 
 [ \t] { /* ignore whitespace */ }
+[\n] { yylineno++; }
 %%

@@ -24,7 +24,7 @@ void _grok_log(int level, int indent, const char *format, ...);
 
 /* let us log anything that has both a 'logmask' and 'logdepth' member */
 #  define grok_log(obj, level, format, args...) \
-  if (obj->logmask & level) _grok_log(level, obj->logdepth, format, ## args)
+  if ((obj)->logmask & level) _grok_log(level, (obj)->logdepth, format, ## args)
 
 #endif
 

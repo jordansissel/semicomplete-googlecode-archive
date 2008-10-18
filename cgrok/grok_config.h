@@ -21,3 +21,6 @@ struct config {
 
 void conf_new_program(struct config *conf);
 void conf_new_input(struct config *conf);
+void conf_new_input_process(struct config *conf, char *cmd);
+void conf_new_input_file(struct config *conf, char *filename);
+

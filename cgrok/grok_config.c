@@ -37,6 +37,8 @@ void conf_new_program(struct config *conf) {
   CURPROGRAM.patternfiles = calloc(CURPROGRAM.patternfile_size, sizeof(char *));
 
   //CURPROGRAM.logmask = ~0;
+
+  SETLOG(*conf, CURPROGRAM);
 }
 
 void conf_new_patternfile(struct config *conf) {
@@ -59,6 +61,19 @@ void conf_new_input(struct config *conf) {
 
   /* initialize the new input */
   memset(&CURINPUT, 0, sizeof(grok_input_t));
+  SETLOG(CURPROGRAM, CURINPUT);
+}
+
+void conf_new_input_process(struct config *conf, char *cmd) {
+  conf_new_input(conf);
+  CURINPUT.type = I_PROCESS;
+  CURINPUT.source.process.cmd = cmd;
+}
+
+void conf_new_input_file(struct config *conf, char *filename) {
+  conf_new_input(conf);
+  CURINPUT.type = I_FILE;
+  CURINPUT.source.file.filename = filename;
 }
 
 void conf_new_matchconf(struct config *conf) {
@@ -70,11 +85,11 @@ void conf_new_matchconf(struct config *conf) {
                                       * sizeof(grok_matchconf_t));
   }
 
-  grok_init(&CURMATCH.grok);
-  //CURMATCH.grok.logmask = ~0;
+  grok_matchconfig_init(&CURPROGRAM, &CURMATCH);
 
   int i = 0;
   for (i = 0; i < CURPROGRAM.npatternfiles; i++) {
     grok_patterns_import_from_file(&CURMATCH.grok, CURPROGRAM.patternfiles[i]);
   }
+  SETLOG(CURPROGRAM, CURMATCH.grok);
 }
