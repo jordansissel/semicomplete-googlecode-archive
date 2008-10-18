@@ -13,7 +13,7 @@ void test_grok_pcre_compile_succeeds(void) {
   CLEANUP;
 }
 
-void _test_grok_pcre_match(void) {
+void test_grok_pcre_match(void) {
   INIT;
 
   ASSERT_COMPILEOK("[a-z]+");
@@ -25,7 +25,7 @@ void _test_grok_pcre_match(void) {
   CLEANUP;
 }
 
-void _test_grok_match_with_patterns(void) {
+void test_grok_match_with_patterns(void) {
   INIT;
 
   grok_patterns_import_from_string(&grok, "WORD \\b\\w+\\b");
@@ -40,7 +40,25 @@ void _test_grok_match_with_patterns(void) {
   CLEANUP;
 }
 
-void _test_grok_match_substr(void) {
+void test_grok_match_with_escaped_pattern(void) {
+  INIT;
+
+  grok_patterns_import_from_string(&grok, "WORD \\b\\w+\\b");
+
+  ASSERT_COMPILEOK("\\%\\{WORD\\}");
+
+  ASSERT_MATCHOK("%{WORD}");
+  ASSERT_MATCHFAIL("testing");
+  ASSERT_MATCHFAIL("another test");
+
+  ASSERT_COMPILEOK("\\%\\{%{WORD}\\}");
+  ASSERT_MATCHOK("%{WORD}");
+  ASSERT_MATCHOK("%{TESTING}");
+  ASSERT_MATCHOK("%{FIZZ}");
+  CLEANUP;
+}
+
+void test_grok_match_substr(void) {
   INIT;
   grok_match_t gm;
   
@@ -59,7 +77,7 @@ void _test_grok_match_substr(void) {
   CLEANUP;
 }
 
-void _test_grok_match_get_named_substring(void) {
+void test_grok_match_get_named_substring(void) {
   INIT;
   IMPORT_PATTERNS_FILE;  
   grok_match_t gm;
