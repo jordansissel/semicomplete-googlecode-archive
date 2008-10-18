@@ -29,6 +29,8 @@ void grok_program_add_input(grok_program_t *gprog, grok_input_t *ginput) {
   grok_log(gprog, LOG_PROGRAM, "Adding input of type %s\n",
          (ginput->type == I_FILE) ? "file" : "process");
 
+  ginput->instance_match_count = 0;
+  ginput->done = 0;
   switch (ginput->type) {
     case I_FILE:
       grok_program_add_input_file(gprog, ginput);
@@ -61,6 +63,7 @@ void grok_program_add_input_process(grok_program_t *gprog,
   bev = bufferevent_new(gipt->p_stdout, _program_process_stdout_read,
                         NULL, _program_process_buferror, ginput);
   bufferevent_enable(bev, EV_READ);
+  ginput->bev = bev;
 
   grok_log(ginput, LOG_PROGRAMINPUT, "Scheduling start of: %s", gipt->cmd);
   event_once(-1, EV_TIMEOUT, _program_process_start, ginput, &now);
@@ -107,6 +110,7 @@ void grok_program_add_input_file(grok_program_t *gprog,
   bev = bufferevent_new(gift->reader, _program_file_read_buffer,
                         NULL, _program_file_buferror, ginput);
   bufferevent_enable(bev, EV_READ);
+  ginput->bev = bev;
   event_once(-1, EV_TIMEOUT, _program_file_read_real, ginput,
              &(gift->waittime));
 }
@@ -119,11 +123,7 @@ void _program_process_stdout_read(struct bufferevent *bev, void *data) {
   int ret;
 
   while ((line = evbuffer_readline(EVBUFFER_INPUT(bev))) != NULL) {
-    int i = 0;
-    //printf("(%s): '%s'\n", ginput->source.process.cmd, line);
-    for (i = 0; i < gprog->nmatchconfigs; i++) {
-      grok_matchconfig_exec(gprog, gprog->matchconfigs + i, line);
-    }
+    grok_matchconfig_exec(gprog, ginput, line);
     free(line);
   }
 }
@@ -143,9 +143,13 @@ void _program_process_start(int fd, short what, void *data) {
   grok_program_t *gprog = ginput->gprog;
   int pid = 0;
 
+  /* reset the 'instance match count' since we're starting the process */
+  ginput->instance_match_count = 0;
+
   /* start the process */
   pid = fork();
   if (pid != 0) {
+    printf("Pid %d => %s\n", pid, gipt->cmd);
     gipt->pid = pid;
     gipt->pgid = getpgid(pid);
     gettimeofday(&(gipt->start_time), NULL);
@@ -157,7 +161,6 @@ void _program_process_start(int fd, short what, void *data) {
   dup2(gipt->c_stdout, 1);
   execlp("sh", "sh", "-c", gipt->cmd, NULL);
   fprintf(stderr, "execlp exited unexpectedly");
-  sleep(3);
   exit(-1); /* in case execlp fails */
 }
 
@@ -168,10 +171,7 @@ void _program_file_read_buffer(struct bufferevent *bev, void *data) {
   int i;
 
   while ((line = evbuffer_readline(EVBUFFER_INPUT(bev))) != NULL) {
-    //printf("(%s): '%s'\n", ginput->source.file.filename, line);
-    for (i = 0; i < gprog->nmatchconfigs; i++) {
-      grok_matchconfig_exec(gprog, gprog->matchconfigs + i, line);
-    }
+    grok_matchconfig_exec(gprog, ginput, line);
     free(line);
   }
 }
@@ -181,15 +181,16 @@ void _program_file_buferror(struct bufferevent *bev, short what,
   grok_input_t *ginput = (grok_input_t *)data;
   grok_input_file_t *gift = &(ginput->source.file);
   grok_program_t *gprog = ginput->gprog;
+  struct timeval nodelay = { 0, 0 };
   grok_log(ginput, LOG_PROGRAMINPUT, "Buffer error %d on file %d: %s",
            what, gift->fd, gift->filename);
 
   if (what & EVBUFFER_EOF) {
     /* EOF erro on a file, which means libevent forgets about it.
      * let's re-add it */
-    event_once(0, EV_TIMEOUT, _program_file_repair_event, bev,
-               &(gift->waittime));
-
+    ginput->restart_delay.tv_sec = gift->waittime.tv_sec;
+    ginput->restart_delay.tv_usec = gift->waittime.tv_usec;
+    event_once(0, EV_TIMEOUT, grok_input_eof_handler, ginput, &nodelay);
   }
 }
 
@@ -265,5 +266,41 @@ void _program_file_read_real(int fd, short what, void *data) {
            gift->filename);
   event_once(0, EV_TIMEOUT, _program_file_read_real, ginput,
              &(gift->waittime));
+}
+
+void grok_input_eof_handler(int fd, short what, void *data) {
+  grok_input_t *ginput = (grok_input_t *)data;
+  grok_program_t *gprog = ginput->gprog;
+
+  if (ginput->instance_match_count == 0) {
+    /* execute nomatch if there is one on this program */
+    grok_matchconfig_exec_nomatch(gprog, ginput);
+  }
+
+  ginput->instance_match_count = 0;
+  switch (ginput->type) {
+    case I_PROCESS:
+      if (PROCESS_SHOULD_RESTART(&(ginput->source.process))) {
+        event_once(-1, EV_TIMEOUT, _program_process_start, ginput,
+                   &ginput->restart_delay);
+      } else {
+        bufferevent_disable(ginput->bev, EV_READ);
+        printf("Skipping restart of %s\n", ginput->source.process.cmd);
+        ginput->done = 1;
+        close(ginput->source.process.p_stdin);
+        close(ginput->source.process.p_stdout);
+        close(ginput->source.process.p_stderr);
+      }
+      break;
+    case I_FILE:
+      if (ginput->source.file.follow) {
+        event_once(-1, EV_TIMEOUT, _program_file_repair_event, ginput,
+                   &ginput->restart_delay);
+      } else {
+        bufferevent_disable(ginput->bev, EV_READ);
+        ginput->done = 1;
+      }
+      break;
+  }
 }
 

@@ -1,8 +1,8 @@
-%{
-#include <string.h>
+%{ #include <string.h>
 #include "conf.tab.h"
 #include "grok_config.h"
 
+#define _GNU_SOURCE /* for strndup */
 %}
 %option noyywrap bison-bridge
 
@@ -30,6 +30,7 @@ minimum-restart-delay { return EXEC_MINRESTARTDELAY; }
 run-interval { return EXEC_RUNINTERVAL; }
 
 match { return PROG_MATCH; }
+no-match { return PROG_NOMATCH; }
 pattern { return MATCH_PATTERN; }
 reaction { return MATCH_REACTION; }
 shell { return MATCH_SHELL; }

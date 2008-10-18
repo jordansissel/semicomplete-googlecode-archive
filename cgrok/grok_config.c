@@ -86,6 +86,8 @@ void conf_new_matchconf(struct config *conf) {
   }
 
   grok_matchconfig_init(&CURPROGRAM, &CURMATCH);
+  grok_init(&CURMATCH.grok);
+  grok_compile(&CURMATCH.grok, "^");
 
   int i = 0;
   for (i = 0; i < CURPROGRAM.npatternfiles; i++) {

@@ -16,19 +16,6 @@
 static void *_event_init = NULL;
 void _collection_sigchld(int sig, short what, void *data);
 
-void _program_process_stdout_read(struct bufferevent *bev, void *data);
-void _program_process_start(int fd, short what, void *data);
-void _program_process_buferror(struct bufferevent *bev, short what,
-                               void *data);
-void _program_file_repair_event(int fd, short what, void *data);
-
-
-void _program_file_read_buffer(struct bufferevent *bev, void *data);
-void _program_file_read_real(int fd, short what, void *data);
-//void _program_file_buferror(int fd, short what, void *data);
-void _program_file_buferror(struct bufferevent *bev, short what, void *data);
-
-
 grok_collection_t *grok_collection_init() {
   grok_collection_t *gcol;
   gcol = calloc(1, sizeof(grok_collection_t*));
@@ -67,18 +54,31 @@ void grok_collection_add(grok_collection_t *gcol, grok_program_t *gprog) {
 
 void _collection_sigchld(int sig, short what, void *data) {
   grok_collection_t *gcol = (grok_collection_t*)data;
+  struct timeval nodelay = { 0, 0 };
 
   int i = 0;
   int prognum;
   int pid, status;
 
-  while ( (pid = waitpid(-1, &status, WNOHANG)) > 0) {
+  printf("sigchld\n");
+  while ((pid = waitpid(-1, &status, WNOHANG)) >= 0) {
+    printf("Pid: %d\n", pid);
     for (prognum = 0; prognum < gcol->nprograms; prognum++) {
       grok_program_t *gprog = gcol->programs[prognum];
+      int pid;
 
       /* we found a dead child. Look for an input_process it belongs to,
        * then see if we should restart it
        */
+      for (i = 0; i < gprog->nmatchconfigs; i++) {
+        grok_matchconf_t *gmc = (gprog->matchconfigs + i);
+        if (gmc->pid != pid)
+          continue;
+
+        printf("Found matchconf pid: %d\n", pid);
+        gmc->pid = 0;
+      } 
+
       for (i = 0; i < gprog->ninputs; i++) {
         grok_input_t *ginput = (gprog->inputs + i);
         if (ginput->type != I_PROCESS)
@@ -115,17 +115,44 @@ void _collection_sigchld(int sig, short what, void *data) {
           grok_log(ginput, LOG_PROGRAM, 
                    "Scheduling process restart in %d.%d seconds: %s",
                    restart_delay.tv_sec, restart_delay.tv_usec, gipt->cmd);
-          event_once(-1, EV_TIMEOUT, _program_process_start,
-                     ginput, &restart_delay);
-
+          ginput->restart_delay.tv_sec = restart_delay.tv_sec;
+          ginput->restart_delay.tv_usec = restart_delay.tv_usec;
         } else {
           grok_log(gprog, LOG_PROGRAM, "Not restarting process '%s'", gipt->cmd);
         }
+
+        event_once(-1, EV_TIMEOUT, grok_input_eof_handler, ginput, &nodelay);
       } /* end for looping over gprog's inputs */
     } /* end for looping over gcol's programs */
-  } /* end while waitpid */
+  } /* while waitpid */
 }
 
 void grok_collection_loop(grok_collection_t *gcol) {
-  event_base_dispatch(gcol->ebase);
+  int done = 0;
+  while (!done) {
+    int ret;
+    ret = event_base_loop(gcol->ebase, EVLOOP_ONCE);
+
+    int p = 0;
+    done = 1;
+    for (p = 0; p < gcol->nprograms; p++) {
+      grok_program_t *gprog = gcol->programs[p];
+      int i = 0;
+      for (i = 0; i < gprog->nmatchconfigs; i++) {
+        grok_matchconf_t *gmc = &gprog->matchconfigs[i];
+        if (gmc->pid) {
+          grok_log(gcol, LOG_PROGRAM, "Reaping process %d\n", gmc->pid);
+          waitpid(gmc->pid, NULL, 0);
+          grok_log(gcol, LOG_PROGRAM, "Done reaping %d\n", gmc->pid);
+          gmc->pid = 0;
+        } else {
+          done = 0;
+        }
+      } /* for loop over inputs */
+    } /* for loop over programs */
+  }
+
+  
+
 }
+

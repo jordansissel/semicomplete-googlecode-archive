@@ -13,7 +13,7 @@ void yyerror (YYLTYPE *loc, struct config *conf, char const *s) {
   fprintf (stderr, "Line: %d\n", yylineno);
 }
 
-#define DEBUGMASK(val) (printf("VAL: %d\n", val), (val > 0) ? ~0 : 0)
+#define DEBUGMASK(val) ((val > 0) ? ~0 : 0)
 %}
 
 %union{
@@ -29,6 +29,7 @@ void yyerror (YYLTYPE *loc, struct config *conf, char const *s) {
 %token PROG_FILE "file"
 %token PROG_EXEC "exec"
 %token PROG_MATCH "match"
+%token PROG_NOMATCH "no-match"
 %token PROG_LOADPATTERNS "load-patterns"
 
 %token FILE_FOLLOW "follow"
@@ -69,6 +70,7 @@ program_block: program_block program_block_statement
 program_block_statement: program_file 
                  | program_exec
                  | program_match
+                 | program_nomatch
                  | program_load_patterns
                  | "debug" ':' INTEGER { CURPROGRAM.logmask = DEBUGMASK($3); }
 
@@ -86,8 +88,13 @@ program_exec: "exec" QUOTEDSTRING { conf_new_input_process(conf, $2); }
 program_exec_optional_block: /* empty */ | '{' exec_block '}' 
 
 program_match: "match" '{' { conf_new_matchconf(conf); }
-               match_block
+                 match_block
                '}' 
+
+program_nomatch: "no-match" '{' 
+               { conf_new_matchconf(conf); CURMATCH.is_nomatch = 1;  }
+                   match_block
+                 '}' 
 
 file_block: file_block file_block_statement
           | file_block_statement
