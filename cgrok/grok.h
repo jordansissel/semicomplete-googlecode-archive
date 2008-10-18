@@ -49,7 +49,7 @@ extern int g_cap_predicate;
 /* or %{FOO<=3} */
 
 #define PATTERN_REGEX \
-  "(?!<\\)%{" \
+  "(?!<\\\\)%{" \
   "(?<name>" \
     "(?<pattern>[A-z0-9]+)" \
     "(?::(?<subname>[A-z0-9]+))?" \
