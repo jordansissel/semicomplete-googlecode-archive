@@ -28,6 +28,7 @@ exec { return PROG_EXEC; }
 restart-on-failure { return EXEC_RESTARTONFAIL; }
 minimum-restart-delay { return EXEC_MINRESTARTDELAY; }
 run-interval { return EXEC_RUNINTERVAL; }
+read-stderr { return EXEC_READSTDERR; }
 
 match { return PROG_MATCH; }
 no-match { return PROG_NOMATCH; }

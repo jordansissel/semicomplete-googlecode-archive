@@ -37,6 +37,7 @@ void yyerror (YYLTYPE *loc, struct config *conf, char const *s) {
 %token EXEC_RESTARTONFAIL "restart-on-failure"
 %token EXEC_MINRESTARTDELAY "minimum-restart-delay"
 %token EXEC_RUNINTERVAL "run-interval"
+%token EXEC_READSTDERR "read-stderr"
 
 %token MATCH_PATTERN "pattern"
 %token MATCH_REACTION "reaction"
@@ -113,6 +114,8 @@ exec_block_statement: /* empty */
              { CURINPUT.source.process.min_restart_delay = $3; }
           | "run-interval" ':' INTEGER
              { CURINPUT.source.process.run_interval = $3; }
+          | "read-stderr" ':' INTEGER
+             { CURINPUT.source.process.read_stderr = $3; }
           | "debug" ':' INTEGER { CURINPUT.logmask = DEBUGMASK($3); }
 
 match_block: match_block match_block_statement

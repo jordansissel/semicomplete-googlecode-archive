@@ -65,6 +65,13 @@ void grok_program_add_input_process(grok_program_t *gprog,
   bufferevent_enable(bev, EV_READ);
   ginput->bev = bev;
 
+  if (gipt->read_stderr) {
+    /* store this somewhere */
+    bev = bufferevent_new(gipt->p_stderr, _program_process_stdout_read,
+                          NULL, _program_process_buferror, ginput);
+    bufferevent_enable(bev, EV_READ);
+  }
+
   grok_log(ginput, LOG_PROGRAMINPUT, "Scheduling start of: %s", gipt->cmd);
   event_once(-1, EV_TIMEOUT, _program_process_start, ginput, &now);
 }
@@ -158,6 +165,9 @@ void _program_process_start(int fd, short what, void *data) {
   }
   dup2(gipt->c_stdin, 0);
   dup2(gipt->c_stdout, 1);
+  if (gipt->read_stderr) {
+    dup2(gipt->c_stderr, 2);
+  }
   execlp("sh", "sh", "-c", gipt->cmd, NULL);
   fprintf(stderr, "execlp exited unexpectedly");
   exit(-1); /* in case execlp fails */

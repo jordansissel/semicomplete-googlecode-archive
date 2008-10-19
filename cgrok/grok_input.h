@@ -35,6 +35,7 @@ struct grok_input_process {
   int restart_on_death;
   int min_restart_delay;
   int run_interval;
+  int read_stderr;
 };
 
 struct grok_input_file {
