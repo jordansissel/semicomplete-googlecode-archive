@@ -50,5 +50,8 @@ struct grok_collection {
 grok_collection_t *grok_collection_init();
 void grok_collection_add(grok_collection_t *gcol, grok_program_t *gprog);
 void grok_collection_loop(grok_collection_t *gcol);
+void grok_collection_check_end_state(grok_collection_t *gcol);
+
+
 
 #endif /* _GROK_PROGRAM_H_ */

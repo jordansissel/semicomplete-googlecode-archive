@@ -149,7 +149,6 @@ void _program_process_start(int fd, short what, void *data) {
   /* start the process */
   pid = fork();
   if (pid != 0) {
-    printf("Pid %d => %s\n", pid, gipt->cmd);
     gipt->pid = pid;
     gipt->pgid = getpgid(pid);
     gettimeofday(&(gipt->start_time), NULL);
@@ -285,7 +284,8 @@ void grok_input_eof_handler(int fd, short what, void *data) {
                    &ginput->restart_delay);
       } else {
         bufferevent_disable(ginput->bev, EV_READ);
-        printf("Skipping restart of %s\n", ginput->source.process.cmd);
+        grok_log(ginput->gprog, LOG_PROGRAM, "Not restarting process: %s",
+                 ginput->source.process.cmd);
         ginput->done = 1;
         close(ginput->source.process.p_stdin);
         close(ginput->source.process.p_stdout);
@@ -301,6 +301,20 @@ void grok_input_eof_handler(int fd, short what, void *data) {
         ginput->done = 1;
       }
       break;
+  }
+
+  /* If all inputs are now done, close the shell */
+
+  int still_open = 0;
+  int i = 0;
+  for (i = 0; i < gprog->ninputs; i++) {
+    still_open += !gprog->inputs[i].done;
+  }
+
+  if (still_open == 0) {
+    for (i = 0; i < gprog->nmatchconfigs; i++) {
+      grok_matchconfig_close(gprog, &gprog->matchconfigs[i]);
+    }
   }
 }
 

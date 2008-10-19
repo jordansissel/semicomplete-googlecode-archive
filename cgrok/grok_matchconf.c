@@ -12,6 +12,14 @@ void grok_matchconfig_init(grok_program_t *gprog, grok_matchconf_t *gmc) {
   gmc->shellinput = NULL;
 }
 
+void grok_matchconfig_close(grok_program_t *gprog, grok_matchconf_t  *gmc) {
+  int ret = 0;
+  if (gmc->shellinput != NULL) {
+    ret = fclose(gmc->shellinput);
+    grok_log(gprog, LOG_PROGRAM, "Closing matchconf shell. fclose() = %d", ret);
+  }
+  
+}
 void grok_matchconfig_exec(grok_program_t *gprog, grok_input_t *ginput,
                            const char *text) {
   grok_t *grok;
@@ -135,6 +143,7 @@ void grok_matchconfig_start_shell(grok_program_t *gprog,
            (gmc->shell == NULL) ? "/bin/sh" : gmc->shell);
   gmc->pid = fork();
   if (gmc->pid == 0) {
+    close(pipefd[1]); /* close the stdin input from the parent */
     /* child */
     dup2(pipefd[0], 0);
     if (gmc->shell == NULL) { 

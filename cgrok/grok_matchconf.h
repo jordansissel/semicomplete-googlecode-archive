@@ -24,6 +24,9 @@ struct grok_matchconf {
   int pid; /* pid of shell */
 };
 
+void grok_matchconfig_init(grok_program_t *gprog, grok_matchconf_t  *gmc);
+void grok_matchconfig_close(grok_program_t *gprog, grok_matchconf_t  *gmc);
+
 void grok_matchconfig_exec(grok_program_t *gprog, grok_input_t *ginput,
                            const char *text);
 void grok_matchconfig_exec_nomatch(grok_program_t *gprog, grok_input_t *ginput);

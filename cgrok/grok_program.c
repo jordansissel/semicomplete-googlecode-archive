@@ -31,6 +31,29 @@ grok_collection_t *grok_collection_init() {
   return gcol;
 }
 
+void grok_collection_check_end_state(grok_collection_t *gcol) {
+  int still_alive = 0;
+  int p, i, m;
+  for (p = 0; p < gcol->nprograms; p++) {
+    grok_program_t *gprog = gcol->programs[p];
+    for (i = 0; i < gprog->ninputs; i++) {
+      grok_input_t *ginput = &gprog->inputs[i];
+      still_alive += (ginput->done == 0);
+    }
+    for (m = 0; m < gprog->nmatchconfigs; m++) {
+      grok_matchconf_t *gmc = &gprog->matchconfigs[m];
+      still_alive += (gmc->pid != 0);
+    }
+  }
+
+  if (still_alive == 0) {
+    struct timeval nodelay = { 0, 0 };
+    grok_log(gcol, LOG_PROGRAM, 
+             "No more subprocesses are running. Breaking event loop now.");
+    event_base_loopexit(gcol->ebase, &nodelay);
+  }
+}
+
 void grok_collection_add(grok_collection_t *gcol, grok_program_t *gprog) {
   int i = 0;
   grok_log(gcol, LOG_PROGRAM, "Adding %d inputs", gprog->ninputs);
@@ -60,12 +83,11 @@ void _collection_sigchld(int sig, short what, void *data) {
   int prognum;
   int pid, status;
 
-  printf("sigchld\n");
-  while ((pid = waitpid(-1, &status, WNOHANG)) >= 0) {
-    printf("Pid: %d\n", pid);
+  grok_log(gcol, LOG_PROGRAM, "SIGCHLD received");
+  while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+    grok_log(gcol, LOG_PROGRAM, "Found dead child pid %d", pid);
     for (prognum = 0; prognum < gcol->nprograms; prognum++) {
       grok_program_t *gprog = gcol->programs[prognum];
-      int pid;
 
       /* we found a dead child. Look for an input_process it belongs to,
        * then see if we should restart it
@@ -75,7 +97,7 @@ void _collection_sigchld(int sig, short what, void *data) {
         if (gmc->pid != pid)
           continue;
 
-        printf("Found matchconf pid: %d\n", pid);
+        grok_log(gcol, LOG_PROGRAM, "Pid %d is a matchconf shell", pid);
         gmc->pid = 0;
       } 
 
@@ -87,6 +109,8 @@ void _collection_sigchld(int sig, short what, void *data) {
         grok_input_process_t *gipt = &(ginput->source.process);
         if (gipt->pid != pid)
           continue;
+
+        grok_log(gcol, LOG_PROGRAM, "Pid %d is an exec process", pid);
 
         /* use ginput's log values */
         grok_log(ginput, LOG_PROGRAM, "Reaped child pid %d. Was process '%s'",
@@ -125,9 +149,15 @@ void _collection_sigchld(int sig, short what, void *data) {
       } /* end for looping over gprog's inputs */
     } /* end for looping over gcol's programs */
   } /* while waitpid */
+
+  grok_collection_check_end_state(gcol);
 }
 
 void grok_collection_loop(grok_collection_t *gcol) {
+  event_base_dispatch(gcol->ebase);
+}
+
+void _grok_collection_loop(grok_collection_t *gcol) {
   int done = 0;
   while (!done) {
     int ret;
@@ -151,8 +181,5 @@ void grok_collection_loop(grok_collection_t *gcol) {
       } /* for loop over inputs */
     } /* for loop over programs */
   }
-
-  
-
 }
 
