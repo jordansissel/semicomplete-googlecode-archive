@@ -16,7 +16,12 @@ number [0-9]+
 \} { return '}'; }
 : { return ':'; }
 
-{qstring} { yylval->str = strndup(yytext + 1, yyleng - 2); return QUOTEDSTRING; }
+{qstring} { 
+  yylval->str = malloc(yyleng - 1);
+  memcpy(yylval->str, yytext + 1, yyleng - 2);
+  yylval->str[yyleng - 2] = '\0';
+  return QUOTEDSTRING;
+}
 
 program { return PROGRAM; }
 load-patterns { return PROG_LOADPATTERNS; }

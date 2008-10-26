@@ -72,4 +72,4 @@ QS %{QUOTEDSTRING}
 
 # Log formats
 SYSLOGBASE %{SYSLOGDATE} %{HOSTNAME} %{SYSLOGPROG}:
-COMBINEDAPACHELOG %{IPORHOST} %{USER:IDENT} %{USER:AUTH} \[%{HTTPDATE}\] "%{WORD} %{URIPATHPARAM} HTTP/%{NUMBER:HTTPVERSION}" %{NUMBER:RESPONSE} (?:%{NUMBER:BYTES}|-) "(?:%{URI:REFERRER}|-)" %{QS:AGENT}
+COMBINEDAPACHELOG %{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "%{WORD:verb} %{URIPATHPARAM:request} HTTP/%{NUMBER:httpversion}" %{NUMBER:response} (?:%{NUMBER:bytes}|-) "(?:%{URI:referrer}|-)" %{QS:agent}

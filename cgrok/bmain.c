@@ -16,7 +16,7 @@ int main() {
   yyparse(&c);
 
   gcol = grok_collection_init();
-  for (i = 0; i <= c.nprograms; i++) {
+  for (i = 0; i < c.nprograms; i++) {
     grok_collection_add(gcol, &(c.programs[i]));
   }
   grok_collection_loop(gcol);

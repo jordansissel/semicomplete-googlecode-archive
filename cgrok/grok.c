@@ -13,6 +13,7 @@ int g_cap_predicate = 0;
 
 void grok_init(grok_t *grok) {
   //int ret;
+  /* set global pcre_callout for libpcre */
   pcre_callout = grok_pcre_callout;
 
   grok->re = NULL;

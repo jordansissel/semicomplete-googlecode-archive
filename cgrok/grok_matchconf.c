@@ -5,11 +5,28 @@
 /* for strndup(3) */
 #define _GNU_SOURCE
 
+static int mcgrok_init = 0;
+static grok_t matchconfig_grok;
+
 void grok_matchconfig_init(grok_program_t *gprog, grok_matchconf_t *gmc) {
   grok_init(&gmc->grok);
   gmc->shell = NULL;
   gmc->reaction = NULL;
   gmc->shellinput = NULL;
+
+  if (mcgrok_init == 0) {
+    grok_init(&matchconfig_grok);
+    grok_patterns_import_from_string(&matchconfig_grok, "PATTERN \\%\\{%{NAME}\\}");
+    grok_patterns_import_from_string(&matchconfig_grok, "NAME \\w+(?::\\w+)?");
+    grok_compile(&matchconfig_grok, "%{PATTERN}");
+    mcgrok_init = 1;
+  }
+}
+
+void grok_matchconfig_global_cleanup(void) {
+  if (mcgrok_init) {
+    grok_free(&matchconfig_grok);
+  }
 }
 
 void grok_matchconfig_close(grok_program_t *gprog, grok_matchconf_t  *gmc) {
@@ -17,8 +34,9 @@ void grok_matchconfig_close(grok_program_t *gprog, grok_matchconf_t  *gmc) {
   if (gmc->shellinput != NULL) {
     ret = fclose(gmc->shellinput);
     grok_log(gprog, LOG_PROGRAM, "Closing matchconf shell. fclose() = %d", ret);
+    gmc->shellinput = NULL;
   }
-  
+  grok_free(&gmc->grok);
 }
 void grok_matchconfig_exec(grok_program_t *gprog, grok_input_t *ginput,
                            const char *text) {
@@ -85,7 +103,6 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
   char *output;
   int len;
   int size;
-  grok_t grok;
   grok_match_t tmp_gm;
   int offset = 0;
 
@@ -98,34 +115,38 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
   output = malloc(size);
   memcpy(output, str, size);
 
-  grok_init(&grok);
-  grok.logmask = gm->grok->logmask;
-  grok.logdepth  = gm->grok->logdepth + 1;
-  grok_patterns_import_from_string(&grok, "PATTERN \\%\\{%{NAME}\\}");
-  grok_patterns_import_from_string(&grok, "NAME \\w+");
-  grok_compile(&grok, "%{PATTERN}");
-
-  grok_log(gm->grok, LOG_PROGRAM, "Checking '%.*s'", len, output);
-  while (grok_exec(&grok, output + offset, &tmp_gm) >= 0) {
-    char *name = NULL, *value = NULL;
+  grok_log(gm->grok, LOG_PROGRAM, "Checking '%.*s'", len - offset, output + offset);
+  matchconfig_grok.logmask = gm->grok->logmask;
+  matchconfig_grok.logdepth  = gm->grok->logdepth + 1;
+  while (grok_execn(&matchconfig_grok, output + offset,
+                    len - offset, &tmp_gm) >= 0) {
+    grok_log(gm->grok, LOG_PROGRAM, "Checking '%.*s'",
+             len - offset, output + offset);
+    char *name = NULL, *value = NULL, *name_copy;
     int name_len, value_len;
     int ret;
-    grok_log(&grok, LOG_PROGRAM, "Matched something");
-    grok_match_get_named_substring(&tmp_gm, "NAME", (const char **)&name, &name_len);
-    name = strndup(name, name_len);
-    ret = grok_match_get_named_substring(gm, name, (const char **)&value, &value_len);
-    free(name);
+    grok_match_get_named_substring(&tmp_gm, "NAME", 
+                                   (const char **)&name, &name_len);
+    grok_log(gm->grok, LOG_PROGRAM, "Matched something: %.*s", name_len, name);
+
+    /* XXX: Should just have get_named_substring take a 'name, name_len' instead */
+    name_copy = malloc(name_len + 1);
+    memcpy(name_copy, name, name_len);
+    name_copy[name_len] = '\0';
+    ret = grok_match_get_named_substring(gm, name_copy, (const char **)&value,
+                                         &value_len);
+    free(name_copy);
     if (ret != 0) {
       offset += tmp_gm.end;
     } else {
       /* replace %{FOO} with the value of foo */
-      grok_log(tmp_gm.grok, LOG_PROGRAM, "Start/end: %d %d", tmp_gm.start, tmp_gm.end + offset);
+      grok_log(tmp_gm.grok, LOG_PROGRAM, "Start/end: %d %d", tmp_gm.start, tmp_gm.end);
       grok_log(tmp_gm.grok, LOG_PROGRAM, "Replacing %.*s with %.*s",
-               (tmp_gm.end - tmp_gm.start), output + tmp_gm.start + offset,
-               value_len, value);
-      substr_replace(&output, &len, &size, offset + tmp_gm.start, tmp_gm.end,
-                     value, value_len);
-      offset += (tmp_gm.end - tmp_gm.start) - value_len;
+               (tmp_gm.end - tmp_gm.start),
+               output + tmp_gm.start + offset, value_len, value);
+      substr_replace(&output, &len, &size, offset + tmp_gm.start,
+                     offset + tmp_gm.end, value, value_len);
+      offset += value_len;
     }
   }
 

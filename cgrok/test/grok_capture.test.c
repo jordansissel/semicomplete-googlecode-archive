@@ -142,7 +142,7 @@ void test_grok_capture_get_by_name(void) {
   CLEANUP;
 } 
 
-void _test_grok_capture_get_by_capture_number(void) {
+void test_grok_capture_get_by_capture_number(void) {
   INIT;
 
   grok_capture src, dst;

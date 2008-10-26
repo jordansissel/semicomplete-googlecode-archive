@@ -31,7 +31,7 @@ void print_name(grok_match_t *gm, char *name) {
   }
 }
 
-int main(int argc, char **argv) {
+int grok_main(int argc, char **argv) {
   grok_t grok;
   grok_match_t gm;
   #define BUFSIZE 4096
@@ -63,5 +63,24 @@ int main(int argc, char **argv) {
   }
 
   grok_free(&grok);
+  return 0;
+}
+
+int grokd_main(int argc, char **argv) {
+  struct config c;
+  extern FILE *yyin; /* from conf.lex (flex provided) */
+  grok_collection_t *gcol;
+  int i;
+
+  yyin = fopen("grok.conf.test", "r");
+  conf_init(&c);
+  yyparse(&c);
+
+  gcol = grok_collection_init();
+  for (i = 0; i < c.nprograms; i++) {
+    grok_collection_add(gcol, &(c.programs[i]));
+  }
+  grok_collection_loop(gcol);
+
   return 0;
 }

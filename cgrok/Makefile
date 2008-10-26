@@ -1,13 +1,14 @@
 CFLAGS+=-pipe
-CFLAGS+=-g
+#CFLAGS+=-g
 #CFLAGS+=-DNOLOGGING
-#CFLAGS+=-O2
-#CFLAGS+=-Wunused
+CFLAGS+=-O2
 EXTRA_CFLAGS=
 CFLAGS+=$(EXTRA_CFLAGS)
 LDFLAGS+=-lpcre -rdynamic
 LDFLAGS+=-levent
 #LDFLAGS+=-L/usr/local/pcre/lib/
+#LDFLAGS+=-L/usr/local/libevent/lib/ -L/usr/lib/debug/lib
+#CFLAGS+=-I/usr/local/libevent/include/
 
 # For Linux
 DBLIB=db

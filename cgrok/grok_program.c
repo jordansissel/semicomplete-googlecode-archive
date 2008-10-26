@@ -18,7 +18,7 @@ void _collection_sigchld(int sig, short what, void *data);
 
 grok_collection_t *grok_collection_init() {
   grok_collection_t *gcol;
-  gcol = calloc(1, sizeof(grok_collection_t*));
+  gcol = calloc(1, sizeof(grok_collection_t));
   gcol->nprograms = 0;
   gcol->program_size = 10;
   gcol->programs = calloc(gcol->program_size, sizeof(grok_program_t));
@@ -50,6 +50,9 @@ void grok_collection_check_end_state(grok_collection_t *gcol) {
     struct timeval nodelay = { 0, 0 };
     grok_log(gcol, LOG_PROGRAM, 
              "No more subprocesses are running. Breaking event loop now.");
+
+    /* Cleanup */
+    grok_matchconfig_global_cleanup();
     event_base_loopexit(gcol->ebase, &nodelay);
   }
 }
@@ -156,30 +159,3 @@ void _collection_sigchld(int sig, short what, void *data) {
 void grok_collection_loop(grok_collection_t *gcol) {
   event_base_dispatch(gcol->ebase);
 }
-
-void _grok_collection_loop(grok_collection_t *gcol) {
-  int done = 0;
-  while (!done) {
-    int ret;
-    ret = event_base_loop(gcol->ebase, EVLOOP_ONCE);
-
-    int p = 0;
-    done = 1;
-    for (p = 0; p < gcol->nprograms; p++) {
-      grok_program_t *gprog = gcol->programs[p];
-      int i = 0;
-      for (i = 0; i < gprog->nmatchconfigs; i++) {
-        grok_matchconf_t *gmc = &gprog->matchconfigs[i];
-        if (gmc->pid) {
-          grok_log(gcol, LOG_PROGRAM, "Reaping process %d\n", gmc->pid);
-          waitpid(gmc->pid, NULL, 0);
-          grok_log(gcol, LOG_PROGRAM, "Done reaping %d\n", gmc->pid);
-          gmc->pid = 0;
-        } else {
-          done = 0;
-        }
-      } /* for loop over inputs */
-    } /* for loop over programs */
-  }
-}
-
