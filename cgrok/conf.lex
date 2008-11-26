@@ -10,11 +10,13 @@ true true|yes|on|1
 false false|no|off|0
 qstring \"((\\.)|[^\\\"])*\"
 number [0-9]+
+comment #.*$
 %%
 
 \{ { return '{'; }
 \} { return '}'; }
 : { return ':'; }
+
 
 {qstring} { 
   yylval->str = malloc(yyleng - 1);
@@ -43,6 +45,8 @@ shell { return MATCH_SHELL; }
 flush { return MATCH_FLUSH; }
 
 debug { return CONF_DEBUG; }
+
+{comment} ;
 
 {true} { yylval->num = 1; return INTEGER; }
 {false} { yylval->num = 0; return INTEGER; }
