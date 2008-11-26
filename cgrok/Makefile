@@ -1,7 +1,7 @@
 CFLAGS+=-pipe
-#CFLAGS+=-g
+CFLAGS+=-g
 #CFLAGS+=-DNOLOGGING
-CFLAGS+=-O2
+#CFLAGS+=-O2
 EXTRA_CFLAGS=
 CFLAGS+=$(EXTRA_CFLAGS)
 LDFLAGS+=-lpcre -rdynamic
@@ -25,7 +25,7 @@ CFLAGS+=-I$(DBINC)
 LDFLAGS+=-l$(DBLIB)
 
 CLEANOBJ=*.o *_xdr.[ch] *.yy.c *.tab.c *.tab.h
-CLEANBIN=main grokre grok conftest grokprogram
+CLEANBIN=main grokre grok conftest grok_program
 
 GROKOBJ=grok.o grokre.o grok_capture.o grok_pattern.o stringhelper.o \
         predicates.o grok_capture_xdr.o grok_match.o logging.o \
