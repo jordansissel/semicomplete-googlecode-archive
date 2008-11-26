@@ -125,18 +125,33 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
              len - offset, output + offset);
     char *name = NULL, *value = NULL, *name_copy;
     int name_len, value_len;
-    int ret;
+    int ret = -1;
+
     grok_match_get_named_substring(&tmp_gm, "NAME", 
                                    (const char **)&name, &name_len);
     grok_log(gm->grok, LOG_PROGRAM, "Matched something: %.*s", name_len, name);
 
-    /* XXX: Should just have get_named_substring take a 'name, name_len' instead */
-    name_copy = malloc(name_len + 1);
-    memcpy(name_copy, name, name_len);
-    name_copy[name_len] = '\0';
-    ret = grok_match_get_named_substring(gm, name_copy, (const char **)&value,
-                                         &value_len);
-    free(name_copy);
+    /* XXX: If this list of names gets any larger, we should use gperf to avoid
+     * extra string comparisons */
+    if (!strncmp(name, "_LINE", name_len)) {
+      value = gm->subject;
+      value_len = strlen(value);
+      ret = 0;
+    } else if (!strncmp(name, "_MATCH", name_len)) {
+      value = gm->subject + gm->start;
+      value_len = gm->end - gm->start;
+      ret = 0;
+    } else {
+      /* XXX: Should just have get_named_substring take a 
+       * 'name, name_len' instead */
+      name_copy = malloc(name_len + 1);
+      memcpy(name_copy, name, name_len);
+      name_copy[name_len] = '\0';
+      ret = grok_match_get_named_substring(gm, name_copy, (const char **)&value,
+                                           &value_len);
+      free(name_copy);
+    }
+
     if (ret != 0) {
       offset += tmp_gm.end;
     } else {
