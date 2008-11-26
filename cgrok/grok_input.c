@@ -209,6 +209,7 @@ void _program_file_buferror(struct bufferevent *bev, short what,
 void _program_file_repair_event(int fd, short what, void *data) {
   struct bufferevent *bev = (struct bufferevent *)data;
   //printf("Repairing event with fd %d\n", bev->ev_read.ev_fd);
+
   event_add(&bev->ev_read, NULL);
 }
 
@@ -241,7 +242,7 @@ void _program_file_read_real(int fd, short what, void *data) {
 
   if (bytes == 0) { /* nothing read, at EOF */
     /* if we're at the end of the file, figure out what to do */
-    //printf("%d == %d\n", gift->offset, gift->st.st_size);
+    /* This stanza should go in _program_file_repair_event */
 
     struct stat st;
     if (stat(gift->filename, &st) == 0) {
@@ -283,11 +284,15 @@ void _program_file_read_real(int fd, short what, void *data) {
   }
 
 
-  grok_log(ginput, LOG_PROGRAMINPUT,
-           "Waiting %d seconds on %d:%s", gift->waittime.tv_sec, gift->fd,
-           gift->filename);
-  event_once(0, EV_TIMEOUT, _program_file_read_real, ginput,
-             &(gift->waittime));
+  if (bytes == 0) {
+    grok_input_eof_handler(0, 0, ginput);
+  } else {
+    grok_log(ginput, LOG_PROGRAMINPUT,
+             "Waiting %d seconds on %d:%s", gift->waittime.tv_sec, gift->fd,
+             gift->filename);
+    event_once(0, EV_TIMEOUT, _program_file_read_real, ginput,
+               &(gift->waittime));
+  }
 }
 
 void grok_input_eof_handler(int fd, short what, void *data) {
@@ -320,7 +325,12 @@ void grok_input_eof_handler(int fd, short what, void *data) {
         event_once(-1, EV_TIMEOUT, _program_file_repair_event, ginput,
                    &ginput->restart_delay);
       } else {
+        grok_log(ginput->gprog, LOG_PROGRAM, "Not restarting file: %s",
+                 ginput->source.file.filename);
         bufferevent_disable(ginput->bev, EV_READ);
+        close(ginput->source.file.reader);
+        close(ginput->source.file.writer);
+        close(ginput->source.file.fd);
         ginput->done = 1;
       }
       break;
