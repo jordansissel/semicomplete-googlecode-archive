@@ -1,6 +1,7 @@
 #include "grok.h"
 #include "grok_matchconf.h"
 #include "logging.h"
+#include "libc_helper.h"
 
 /* for strndup(3) */
 #define _GNU_SOURCE
@@ -159,7 +160,7 @@ void grok_matchconfig_start_shell(grok_program_t *gprog,
   int pipefd[2];
   int pid;
 
-  pipe(pipefd);
+  safe_pipe(pipefd);
   grok_log(gprog, LOG_PROGRAM, "Starting matchconfig subshell: %s\n",
            (gmc->shell == NULL) ? "/bin/sh" : gmc->shell);
   gmc->pid = fork();
@@ -184,21 +185,3 @@ void grok_matchconfig_start_shell(grok_program_t *gprog,
     exit(1); /* XXX: Don't exit, it's mean */
   }
 }
-
-#if 0
-  if (ret >= 0) { 
-    char *name;
-    const char *data;
-    int namelen, datalen;
-    void *handle;
-    handle = grok_match_walk_init(&gm);
-    printf("Line matched: %s\n", text);
-    while (grok_match_walk_next(&gm, handle, &name, &namelen, &data, &datalen)
-           == 0) { 
-      printf("value: %.*s => %.*s\n", namelen, name, datalen, data);
-      free(name);
-    };
-    grok_match_walk_end(&gm, handle);
-
-  } 
-#endif

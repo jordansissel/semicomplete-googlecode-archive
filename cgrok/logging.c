@@ -23,7 +23,7 @@ inline void _grok_log(int level, int indent, const char *format, ...) {
     case LOG_PROGRAMINPUT: prefix = "[programinput] "; break;
     default: prefix = "[unknown] ";
   }
-  fprintf(out, "[%d] % *s%s", getpid(), indent * 2, "", prefix);
+  fprintf(out, "[%d] %*s%s", getpid(), indent * 2, "", prefix);
   vfprintf(out, format, args);
   fprintf(out, "\n");
   va_end(args);

@@ -8,11 +8,14 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include "grok.h"
 #include "grok_program.h"
 #include "grok_input.h"
 #include "grok_matchconf.h"
+
+#include "libc_helper.h"
 
 void _program_process_stdout_read(struct bufferevent *bev, void *data);
 void _program_process_start(int fd, short what, void *data);
@@ -49,9 +52,9 @@ void grok_program_add_input_process(grok_program_t *gprog,
   int pid;
   struct timeval now = { 0, 0 };
 
-  pipe(childin);
-  pipe(childout);
-  pipe(childerr);
+  safe_pipe(childin);
+  safe_pipe(childout);
+  safe_pipe(childerr);
 
   gipt->p_stdin = childin[1];
   gipt->p_stdout = childout[0];
@@ -100,7 +103,7 @@ void grok_program_add_input_file(grok_program_t *gprog,
     return;
   }
 
-  pipe(pipefd);
+  safe_pipe(pipefd);
   gift->offset = 0;
   gift->reader = pipefd[0];
   gift->writer = pipefd[1];
@@ -214,9 +217,19 @@ void _program_file_read_real(int fd, short what, void *data) {
   grok_input_file_t *gift = &(ginput->source.file);
   grok_program_t *gprog = ginput->gprog;
 
+  int write_ret;
   int bytes = 0;
   bytes = read(gift->fd, gift->readbuffer, gift->st.st_blksize);
-  write(gift->writer, gift->readbuffer, bytes);
+  write_ret = write(gift->writer, gift->readbuffer, bytes);
+
+  if (write_ret == -1) {
+    grok_log(ginput, LOG_PROGRAMINPUT,
+             "fatal write() to pipe fd %d of %d bytes: %s",
+             gift->writer, bytes, strerror(errno));
+    /* XXX: Maybe just shutdown this particular process/file instead
+     * of exiting */
+    exit(1);
+  }
   gift->offset += bytes;
 
   /* we can potentially read past our last 'filesize' if the file

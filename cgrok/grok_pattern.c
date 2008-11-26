@@ -67,8 +67,8 @@ void grok_patterns_import_from_file(grok_t *grok, const char *filename) {
   fseek(patfile, 0, SEEK_SET);
   buffer = calloc(1, filesize + 1);
   if (buffer == NULL) {
-    fprintf(stderr, "Fatal: calloc(1, %d) failed while trying to read '%s'",
-            filesize, patfile);
+    fprintf(stderr, "Fatal: calloc(1, %zd) failed while trying to read '%s'",
+            filesize, filename);
     abort();
   }
   memset(buffer, 0, filesize);

@@ -25,14 +25,14 @@ CFLAGS+=-I$(DBINC)
 LDFLAGS+=-l$(DBLIB)
 
 CLEANOBJ=*.o *_xdr.[ch] *.yy.c *.tab.c *.tab.h
-CLEANBIN=main grokre
+CLEANBIN=main grokre grok conftest grokprogram
 
 GROKOBJ=grok.o grokre.o grok_capture.o grok_pattern.o stringhelper.o \
         predicates.o grok_capture_xdr.o grok_match.o logging.o \
-        grok_program.o grok_input.o grok_matchconf.o
+        grok_program.o grok_input.o grok_matchconf.o libc_helper.o
 GROKPROGOBJ=grok_input.o grok_program.o grok_matchconf.o $(GROKOBJ)
 
-all: main
+all: grok
 
 main: $(GROKOBJ) main.o
 	$(CC) $(LDFLAGS) -o $@ $^
@@ -64,8 +64,8 @@ grok_capture_xdr.h: grok_capture.x
 grok.h: grok_capture.h
 grok_match.h: grok_capture.h
 grok_capture.h: grok_capture_xdr.h
-bmain.c: grok_capture.h
-grok_input.c: grok_capture.h
+main.c: grok_capture.h
+grok_input.c: grok_capture.h libc_helper.h
 grok.c: grok.h grok_capture.h
 
 conf.tab.c conf.tab.h: conf.y
@@ -76,8 +76,8 @@ conf.yy.c: conf.lex conf.tab.h
 	flex -o $@ $<
 
 
-conftest: LDFLAGS+=-levent
-conftest: $(GROKOBJ) conf.tab.o conf.yy.o bmain.o grok_config.o
+grok: LDFLAGS+=-levent
+grok: $(GROKOBJ) conf.tab.o conf.yy.o main.o grok_config.o
 	gcc $(LDFLAGS) -g $^ -o $@
 
 .c.o:
