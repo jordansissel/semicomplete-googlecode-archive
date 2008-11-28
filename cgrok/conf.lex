@@ -1,29 +1,22 @@
-%{ #include <string.h>
+%{
+#include <string.h>
 #include "conf.tab.h"
 #include "grok_config.h"
+#include "stringhelper.h"
 
 #define _GNU_SOURCE /* for strndup */
 %}
+
 %option noyywrap bison-bridge
 
 true true|yes|on|1
 false false|no|off|0
-qstring \"((\\.)|[^\\\"])*\"
 number [0-9]+
-comment #.*$
+
+%x LEX_COMMENT
+%x LEX_STRING
+
 %%
-
-\{ { return '{'; }
-\} { return '}'; }
-: { return ':'; }
-
-
-{qstring} { 
-  yylval->str = malloc(yyleng - 1);
-  memcpy(yylval->str, yytext + 1, yyleng - 2);
-  yylval->str[yyleng - 2] = '\0';
-  return QUOTEDSTRING;
-}
 
 program { return PROGRAM; }
 load-patterns { return PROG_LOADPATTERNS; }
@@ -46,11 +39,29 @@ flush { return MATCH_FLUSH; }
 
 debug { return CONF_DEBUG; }
 
-{comment} ;
-
 {true} { yylval->num = 1; return INTEGER; }
 {false} { yylval->num = 0; return INTEGER; }
 {number} { yylval->num = atoi(yytext); return INTEGER; }
+
+"#" BEGIN(LEX_COMMENT);
+<LEX_COMMENT>[^\n]* /* ignore comments */ //{ printf("Comment: %s\n", yytext); }
+<LEX_COMMENT>\n   { yylineno++; BEGIN(INITIAL); } /* end comment */
+
+\" { BEGIN(LEX_STRING); }
+<LEX_STRING>((\\.)+|[^\\\"]+)* { 
+ yylval->str = malloc(yyleng + 1);
+ strcpy(yylval->str, yytext);
+ yylval->str[yyleng] = '\0';
+ //printf("String: '%s'\n", yylval->str);
+ return QUOTEDSTRING;
+}
+<LEX_STRING>\" { BEGIN(INITIAL); }
+
+
+\{ { return '{'; }
+\} { return '}'; }
+: { return ':'; }
+
 
 [ \t] { /* ignore whitespace */ }
 [\n] { yylineno++; }
