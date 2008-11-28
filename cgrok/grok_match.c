@@ -59,8 +59,8 @@ int grok_match_walk_next(const grok_match_t *gm, void *handle,
 
   start = (gm->grok->pcre_capture_vector[gct.pcre_capture_number * 2]);
   end = (gm->grok->pcre_capture_vector[gct.pcre_capture_number * 2 + 1]);
-  grok_log(gm->grok, LOG_MATCH, "CaptureWalk '%s' is %d -> %d of string '%s'",
-           *name, start, end, gm->subject);
+  grok_log(gm->grok, LOG_MATCH, "CaptureWalk '%.*s' is %d -> %d of string '%s'",
+           *namelen, *name, start, end, gm->subject);
   *substr = gm->subject + start;
   *substrlen = (end - start);
   grok_capture_free(&gct);
