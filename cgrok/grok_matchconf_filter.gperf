@@ -1,0 +1,23 @@
+%{
+#define _GPERF_
+#include "grok_matchconf_filter.h"
+%}
+%define hash-function-name _unused_patname_hash
+%define lookup-function-name patname2enum
+%define slot-name str
+%readonly-tables
+%language=ANSI-C
+%compare-strncmp
+%switch=1
+%struct-type
+struct strfilter {
+  const char *str;
+  int code;
+}; 
+%%
+@LINE,VALUE_LINE
+@MATCH,VALUE_MATCH
+@JSON,VALUE_JSON
+@START,VALUE_START
+@END,VALUE_END
+@LENGTH,VALUE_LENGTH
