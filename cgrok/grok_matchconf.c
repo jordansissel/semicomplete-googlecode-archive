@@ -1,5 +1,6 @@
 #include "grok.h"
 #include "grok_matchconf.h"
+#include "grok_matchconf_filter.h"
 #include "logging.h"
 #include "libc_helper.h"
 
@@ -18,7 +19,7 @@ void grok_matchconfig_init(grok_program_t *gprog, grok_matchconf_t *gmc) {
   if (mcgrok_init == 0) {
     grok_init(&matchconfig_grok);
     grok_patterns_import_from_string(&matchconfig_grok, "PATTERN \\%\\{%{NAME}\\}");
-    grok_patterns_import_from_string(&matchconfig_grok, "NAME \\w+(?::\\w+)?");
+    grok_patterns_import_from_string(&matchconfig_grok, "NAME @?\\w+(?::\\w+)?");
     grok_compile(&matchconfig_grok, "%{PATTERN}");
     mcgrok_init = 1;
   }
@@ -126,21 +127,89 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
     char *name = NULL, *value = NULL, *name_copy;
     int name_len, value_len;
     int ret = -1;
+    const struct strfilter *filter;
 
     grok_match_get_named_substring(&tmp_gm, "NAME", 
                                    (const char **)&name, &name_len);
     grok_log(gm->grok, LOG_PROGRAM, "Matched something: %.*s", name_len, name);
 
-    /* XXX: If this list of names gets any larger, we should use gperf to avoid
-     * extra string comparisons */
-    if (!strncmp(name, "_LINE", name_len)) {
-      value = gm->subject;
-      value_len = strlen(value);
-      ret = 0;
-    } else if (!strncmp(name, "_MATCH", name_len)) {
-      value = gm->subject + gm->start;
-      value_len = gm->end - gm->start;
-      ret = 0;
+    /* XXX: We should really make a dispatch table out of this... */
+    /* _filter_dispatch_func(char **value, int *value_len) ... */
+    /* Let gperf do the hard work for us. */
+  
+    filter = patname2enum(name, name_len);
+    grok_log(gm->grok, LOG_PROGRAM, "Checking lookup table for '%.*s': %x",
+             name_len, name, filter);
+    if (filter != NULL) {
+      switch (filter->code) {
+        case VALUE_LINE:
+          value = gm->subject;
+          value_len = strlen(value);
+          ret = 0;
+          break;
+        case VALUE_START:
+          value_len = asprintf(&value, "%d", gm->start);
+          ret = 0;
+          break;
+        case VALUE_END:
+          value_len = asprintf(&value, "%d", gm->end);
+          ret = 0;
+          break;
+        case VALUE_LENGTH:
+          value_len = asprintf(&value, "%d", gm->end - gm->start);
+          ret = 0;
+          break;
+        case VALUE_MATCH:
+          value = gm->subject + gm->start;
+          value_len = gm->end - gm->start;
+          ret = 0;
+          break;
+        case VALUE_JSON:
+          { 
+            void *handle;
+            int value_offset = 0;
+            int value_size = 0;
+            char *pname;
+            const char *pdata;
+            int pname_len, pdata_len;
+
+            value = NULL;
+            value_len = 0;
+
+            /* XXX: We should escape \ and " in pname and pdata */
+            handle = grok_match_walk_init(gm);
+            while (grok_match_walk_next(gm, handle, &pname, &pname_len,
+                                        &pdata, &pdata_len) == 0) {
+              substr_replace(&value, &value_len, &value_size,
+                             value_offset, -1,
+                             "\"\": \"\", ", 8);
+              substr_replace(&value, &value_len, &value_size,
+                             value_offset + 1, -1,
+                             pname, pname_len);
+              value_offset += pname_len;
+
+              substr_replace(&value, &value_len, &value_size,
+                             value_offset + 5, -1,
+                             pdata, pdata_len);
+              value_offset += pdata_len;
+              value_offset += 8;
+            }
+            grok_match_walk_end(gm, handle);
+
+            /* Insert the { at the beginning */
+            substr_replace(&value, &value_len, &value_size, 0, 0, "{ ", 2);
+
+            /* Replace trailing ", " with " }" */
+            substr_replace(&value, &value_len, &value_size, value_offset,
+                           value_offset + 1, " }", 2);
+
+            ret = 0;
+          }
+          break;
+        default:
+          grok_log(gm->grok, LOG_PROGRAM, "Unhandled filter code: '%.*s' (%d)",
+                   name_len, name, filter->code);
+      }
     } else {
       /* XXX: Should just have get_named_substring take a 
        * 'name, name_len' instead */
@@ -148,7 +217,7 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
       memcpy(name_copy, name, name_len);
       name_copy[name_len] = '\0';
       ret = grok_match_get_named_substring(gm, name_copy, (const char **)&value,
-                                           &value_len);
+                                         &value_len);
       free(name_copy);
     }
 
