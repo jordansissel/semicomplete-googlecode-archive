@@ -1,3 +1,5 @@
+#include <errno.h>
+#include <string.h>
 #include "grok.h"
 #include "grok_matchconf.h"
 #include "grok_matchconf_filter.h"
@@ -84,6 +86,8 @@ void grok_matchconfig_react(grok_program_t *gprog, grok_input_t *ginput,
     fflush(gmc->shellinput);
   }
 
+  /* This clause will occur if grok_matchconfig_filter_reaction had to do
+   * any meaningful work replacing %{FOO} and such */
   if (reaction != gmc->reaction) {
     free(reaction);
   }
@@ -124,7 +128,9 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
                     len - offset, &tmp_gm) >= 0) {
     grok_log(gm->grok, LOG_PROGRAM, "Checking '%.*s'",
              len - offset, output + offset);
-    char *name = NULL, *value = NULL, *name_copy;
+    const char *name = NULL, *value = NULL;
+    char *name_copy;
+
     int name_len, value_len;
     int ret = -1;
     const struct strfilter *filter;
@@ -136,7 +142,6 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
     /* XXX: We should really make a dispatch table out of this... */
     /* _filter_dispatch_func(char **value, int *value_len) ... */
     /* Let gperf do the hard work for us. */
-  
     filter = patname2enum(name, name_len);
     grok_log(gm->grok, LOG_PROGRAM, "Checking lookup table for '%.*s': %x",
              name_len, name, filter);
@@ -176,23 +181,41 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
             value = NULL;
             value_len = 0;
 
+            /* Push @FOO values first */
+            substr_replace(&value, &value_len, &value_size, 0, 0,
+                           "\"@LINE\": \"%{@LINE}\", ", 21);
+            substr_replace(&value, &value_len, &value_size, 0, 0,
+                           "\"@MATCH\": \"%{@MATCH}\", ", 23);
+
+            /* Don't quote the values here since they're numbers */
+            substr_replace(&value, &value_len, &value_size, 0, 0,
+                           "\"@START\": %{@START}, ", 21);
+            substr_replace(&value, &value_len, &value_size, 0, 0,
+                           "\"@END\": %{@END}, ", 17);
+            value_offset += value_len;
+
             /* XXX: We should escape \ and " in pname and pdata */
             handle = grok_match_walk_init(gm);
             while (grok_match_walk_next(gm, handle, &pname, &pname_len,
                                         &pdata, &pdata_len) == 0) {
               substr_replace(&value, &value_len, &value_size,
                              value_offset, -1,
-                             "\"\": \"\", ", 8);
+                             "\"\": \"%{}\", ", 11);
               substr_replace(&value, &value_len, &value_size,
                              value_offset + 1, -1,
                              pname, pname_len);
               value_offset += pname_len;
 
+
               substr_replace(&value, &value_len, &value_size,
-                             value_offset + 5, -1,
-                             pdata, pdata_len);
-              value_offset += pdata_len;
-              value_offset += 8;
+                             value_offset + 7, -1,
+                             pname, pname_len);
+              value_offset += pname_len;
+              //substr_replace(&value, &value_len, &value_size,
+                             //value_offset + 5, -1,
+                             //pdata, pdata_len);
+              //value_offset += pdata_len;
+              value_offset += 11;
             }
             grok_match_walk_end(gm, handle);
 
@@ -202,6 +225,11 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
             /* Replace trailing ", " with " }" */
             substr_replace(&value, &value_len, &value_size, value_offset,
                            value_offset + 1, " }", 2);
+
+
+            char *old = value;
+            value = grok_matchconfig_filter_reaction(old, gm);
+            free(old);
 
             ret = 0;
           }
@@ -245,7 +273,7 @@ void grok_matchconfig_start_shell(grok_program_t *gprog,
   int pid;
 
   safe_pipe(pipefd);
-  grok_log(gprog, LOG_PROGRAM, "Starting matchconfig subshell: %s\n",
+  grok_log(gprog, LOG_PROGRAM, "Starting matchconfig subshell: %s",
            (gmc->shell == NULL) ? "/bin/sh" : gmc->shell);
   gmc->pid = fork();
   if (gmc->pid == 0) {
@@ -264,8 +292,8 @@ void grok_matchconfig_start_shell(grok_program_t *gprog,
   }
   gmc->shellinput = fdopen(pipefd[1], "w");
   if (gmc->shellinput == NULL) {
-    fprintf(stderr, "FATAL: Unable to fdopen(%d)\n", pipefd[1]);
-    perror("errno says");
-    exit(1); /* XXX: Don't exit, it's mean */
+    grok_log(gprog, LOG_PROGRAM, "Fatal: Unable to fdopen(%d) subshell pipe: %s",
+             pipefd[1], strerror(errno));
+    exit(1); /* XXX: We shouldn't exit here, but what else should we do? */
   }
 }
