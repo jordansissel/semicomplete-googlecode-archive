@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <string.h>
+#include <errno.h>
 
 #include "grok.h"
 #include "grok_pattern.h"
@@ -57,8 +58,8 @@ void grok_patterns_import_from_file(grok_t *grok, const char *filename) {
   grok_log(grok, LOG_PATTERNS, "Importing pattern file: '%s'", filename);
   patfile = fopen(filename, "r");
   if (patfile == NULL) {
-    fprintf(stderr, "Unable to open '%s' for reading\n", filename);
-    perror("Error: ");
+    grok_log(grok, LOG_PATTERNS, "Unable to open '%s' for reading: %s",
+             filename, strerror(errno));
     return;
   }
   
