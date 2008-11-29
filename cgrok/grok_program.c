@@ -120,6 +120,8 @@ void _collection_sigchld(int sig, short what, void *data) {
                  pid, gipt->cmd);
 
         if (PROCESS_SHOULD_RESTART(gipt)) {
+          /* Calculate the restart delay */
+          /* XXX: This code should go in the eof handler */
           struct timeval restart_delay = { 0, 0 };
           if (gipt->run_interval > 0) {
             struct timeval interval = { gipt->run_interval, 0 };
