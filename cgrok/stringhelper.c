@@ -178,3 +178,35 @@ void string_escape_unicode(char c, char *replstr, int *replstr_len, int *op) {
     printf("Unicode: %.*s\n", *replstr_len, replstr);
   }
 }
+
+void string_unescape(char **strp, int *strp_len, int *strp_size) {
+  int i;
+  char *repl;
+  int repl_len;
+  int orig_len;
+
+  for (i = 0; i < *strp_len; i++) {
+    repl_len = 0;
+    orig_len = 0;
+    if ((*strp)[i] == '\\') {
+      switch ((*strp)[i + 1]) {
+        case 't': repl = "\t"; repl_len = 1; orig_len = 2; break;
+        case 'n': repl = "\n"; repl_len = 1; orig_len = 2; break;
+        case 'b': repl = "\b"; repl_len = 1; orig_len = 2; break;
+        case 'r': repl = "\r"; repl_len = 1; orig_len = 2; break;
+        case 'a': repl = "\a"; repl_len = 1; orig_len = 2; break;
+        case 'f': repl = "\f"; repl_len = 1; orig_len = 2; break;
+        case 'v': repl = "\v"; repl_len = 1; orig_len = 2; break;
+        case '"': repl = "\""; repl_len = 1; orig_len = 2; break;
+        /* XXX: Handle octal? \0888 */
+        /* XXX: Handle hex? \xFFFF */
+        /* XXX: Handle unicode? \uFFFF */ 
+      }
+
+      if (repl_len > 0) {
+        substr_replace(strp, strp_len, strp_size, i, i + orig_len,
+                       repl, repl_len);
+      }
+    }
+  }
+}
