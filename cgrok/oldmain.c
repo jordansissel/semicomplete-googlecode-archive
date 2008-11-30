@@ -39,7 +39,7 @@ int grok_main(int argc, char **argv) {
   grok_init(&grok);
   grok.logmask = 0;
 
-  grok_patterns_import_from_file(&grok, "./pcregrok_patterns");
+  grok_patterns_import_from_file(&grok, "./grok-patterns");
 
   if (argc < 2 || argc > 3) {
     printf("Usage: %s <regex> [name]\n", argv[0]);
