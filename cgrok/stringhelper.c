@@ -131,7 +131,7 @@ void string_escape(char **strp, int *strp_len, int *strp_alloc_size,
                            replstr, replstr_len);
             break;
           case ESCAPE_REPLACE:
-            substr_replace(strp, strp_len, strp_alloc_size, j, j,
+            substr_replace(strp, strp_len, strp_alloc_size, j, j + replstr_len - 1,
                            replstr, replstr_len);
             break;
         }
@@ -169,13 +169,19 @@ void string_escape_like_c(char c, char *replstr, int *replstr_len, int *op) {
   memcpy(replstr, r, *replstr_len);
 }
 
-void string_escape_hex(char c, char *replstr, int *replstr_len, int *op) { }
+void string_escape_hex(char c, char *replstr, int *replstr_len, int *op) { 
+  *op = ESCAPE_REPLACE;
+  *replstr_len = sprintf(replstr, "\\x%x", (unsigned char) c);
+  //printf("Unicode: %.*s\n", *replstr_len, replstr);
+}
 
 void string_escape_unicode(char c, char *replstr, int *replstr_len, int *op) { 
+  /* XXX: We should check the options to see if we should only convert
+   * nonprintables */
   if (!isprint(c)) {
     *op = ESCAPE_REPLACE;
-    *replstr_len = sprintf(replstr, "\\u00%02d", c);
-    printf("Unicode: %.*s\n", *replstr_len, replstr);
+    *replstr_len = sprintf(replstr, "\\u00%02d",(unsigned char) c);
+    //printf("Unicode: %.*s\n", *replstr_len, replstr);
   }
 }
 
