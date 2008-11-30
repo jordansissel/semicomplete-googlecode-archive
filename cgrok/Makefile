@@ -24,6 +24,7 @@ LDFLAGS+=-ldl
 CFLAGS+=-I$(DBINC)
 LDFLAGS+=-l$(DBLIB)
 
+CLEANGEN=filters.c grok_matchconf_macro.c
 CLEANOBJ=*.o *_xdr.[ch] *.yy.c *.tab.c *.tab.h
 CLEANBIN=main grokre grok conftest grok_program
 
@@ -44,7 +45,7 @@ grok_program: $(GROKPROGOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^
 
 .PHONY: clean 
-clean: cleanobj cleanbin
+clean: cleanobj cleanbin cleangen
 
 .PHONY: cleanobj
 cleanobj:
@@ -53,6 +54,10 @@ cleanobj:
 .PHONY: cleanbin
 cleanbin:
 	rm -f $(CLEANBIN)
+
+.PHONY: cleangen
+cleangen:
+	rm -f $(CLEANGEN)
 
 grok_capture_xdr.o: grok_capture_xdr.c grok_capture_xdr.h
 grok_capture_xdr.c: grok_capture.x
