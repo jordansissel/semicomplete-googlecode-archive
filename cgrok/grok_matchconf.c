@@ -225,6 +225,7 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
                              pname, pname_len);
               value_offset += pname_len;
               value_offset += 22; /* strlen: '"": "%{|jsonencode}", ' */
+              free(pname); /* alloc'd by grok_match_walk_next */
             }
             grok_match_walk_end(gm, handle);
 
@@ -272,8 +273,11 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
       old = value;
       grok_match_reaction_apply_filter(gm, &value, &value_len,
                                        filter, filter_len);
-      if (free_value && old != value) {
-        free(old); /* Free the old value */
+      if (old != value) {
+        if (free_value) {
+          free(old); /* Free the old value */
+        }
+        free_value = 1;
       }
       grok_log(gm->grok, LOG_REACTION, "Filter: %.*s", filter_len, filter);
 
@@ -338,7 +342,7 @@ char *grok_match_reaction_apply_filter(grok_match_t *gm,
 
   *value = strndup(*value, *value_len);
   /* we'll use the value_len from the function arguments */
-  value_size = *value_len;
+  value_size = *value_len + 1;
 
   /* skip first char which must be a '|' */
   offset = 1;
