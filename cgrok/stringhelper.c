@@ -180,7 +180,7 @@ void string_escape_unicode(char c, char *replstr, int *replstr_len, int *op) {
    * nonprintables */
   if (!isprint(c)) {
     *op = ESCAPE_REPLACE;
-    *replstr_len = sprintf(replstr, "\\u00%02d",(unsigned char) c);
+    *replstr_len = sprintf(replstr, "\\u00%02x",(unsigned char) c);
     //printf("Unicode: %.*s\n", *replstr_len, replstr);
   }
 }
