@@ -1,13 +1,18 @@
+/* for strndup(3) */
+#define _GNU_SOURCE
+
 #include <errno.h>
 #include <string.h>
 #include "grok.h"
 #include "grok_matchconf.h"
-#include "grok_matchconf_filter.h"
+#include "grok_matchconf_macro.h"
 #include "logging.h"
 #include "libc_helper.h"
+#include "filters.h"
 
-/* for strndup(3) */
-#define _GNU_SOURCE
+char *grok_match_reaction_apply_filter(grok_match_t *gm,
+                                       char **value, int *value_len,
+                                       const char *filter, int filter_len);
 
 static int mcgrok_init = 0;
 static grok_t matchconfig_grok;
@@ -20,8 +25,10 @@ void grok_matchconfig_init(grok_program_t *gprog, grok_matchconf_t *gmc) {
 
   if (mcgrok_init == 0) {
     grok_init(&matchconfig_grok);
-    grok_patterns_import_from_string(&matchconfig_grok, "PATTERN \\%\\{%{NAME}\\}");
-    grok_patterns_import_from_string(&matchconfig_grok, "NAME @?\\w+(?::\\w+)?");
+    grok_patterns_import_from_string(&matchconfig_grok, 
+                                     "PATTERN \\%\\{%{NAME}(?:%{FILTER})?}");
+    grok_patterns_import_from_string(&matchconfig_grok, "NAME @?\\w+(?::\\w+)?(?:|\\w+)*");
+    grok_patterns_import_from_string(&matchconfig_grok, "FILTER (?:\\|\\w+)+");
     grok_compile(&matchconfig_grok, "%{PATTERN}");
     mcgrok_init = 1;
   }
@@ -121,34 +128,39 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
   output = malloc(size);
   memcpy(output, str, size);
 
-  grok_log(gm->grok, LOG_PROGRAM, "Checking '%.*s'", len - offset, output + offset);
+  grok_log(gm->grok, LOG_REACTION,
+           "Checking '%.*s'", len - offset, output + offset);
   matchconfig_grok.logmask = gm->grok->logmask;
   matchconfig_grok.logdepth  = gm->grok->logdepth + 1;
   while (grok_execn(&matchconfig_grok, output + offset,
                     len - offset, &tmp_gm) >= 0) {
-    grok_log(gm->grok, LOG_PROGRAM, "Checking '%.*s'",
+    grok_log(gm->grok, LOG_REACTION, "Checking '%.*s'",
              len - offset, output + offset);
-    const char *name = NULL, *value = NULL;
+    const char *name = NULL;
+    const char *filter = NULL;
+    char *value = NULL;
     char *name_copy;
 
-    int name_len, value_len;
+    int name_len, value_len, filter_len;
     int ret = -1;
-    const struct strfilter *filter;
+    int free_value = 0;
+    const struct strmacro *patmacro;
 
-    grok_match_get_named_substring(&tmp_gm, "NAME", 
-                                   (const char **)&name, &name_len);
-    grok_log(gm->grok, LOG_PROGRAM, "Matched something: %.*s", name_len, name);
+    grok_match_get_named_substring(&tmp_gm, "NAME", &name, &name_len);
+    grok_match_get_named_substring(&tmp_gm, "FILTER", &filter, &filter_len);
+    grok_log(gm->grok, LOG_REACTION, "Matched something: %.*s", name_len, name);
 
     /* XXX: We should really make a dispatch table out of this... */
-    /* _filter_dispatch_func(char **value, int *value_len) ... */
+    /* _macro_dispatch_func(char **value, int *value_len) ... */
     /* Let gperf do the hard work for us. */
-    filter = patname2enum(name, name_len);
-    grok_log(gm->grok, LOG_PROGRAM, "Checking lookup table for '%.*s': %x",
-             name_len, name, filter);
-    if (filter != NULL) {
-      switch (filter->code) {
+    patmacro = patname2macro(name, name_len);
+    grok_log(gm->grok, LOG_REACTION, "Checking lookup table for '%.*s': %x",
+             name_len, name, patmacro);
+    if (patmacro != NULL) {
+      free_value = 1; /* We malloc stuff to 'value' here */
+      switch (patmacro->code) {
         case VALUE_LINE:
-          value = gm->subject;
+          value = strdup(gm->subject);
           value_len = strlen(value);
           ret = 0;
           break;
@@ -165,8 +177,8 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
           ret = 0;
           break;
         case VALUE_MATCH:
-          value = gm->subject + gm->start;
           value_len = gm->end - gm->start;
+          value = strndup(gm->subject + gm->start, value_len);
           ret = 0;
           break;
         case VALUE_JSON:
@@ -182,40 +194,37 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
             value_len = 0;
 
             /* Push @FOO values first */
-            substr_replace(&value, &value_len, &value_size, 0, 0,
-                           "\"@LINE\": \"%{@LINE}\", ", 21);
-            substr_replace(&value, &value_len, &value_size, 0, 0,
-                           "\"@MATCH\": \"%{@MATCH}\", ", 23);
+            substr_replace(&value, &value_len, &value_size, value_len, value_len,
+                           "\"@LINE\": \"%{@LINE|jsonencode}\", ", 32);
+            substr_replace(&value, &value_len, &value_size, value_len, value_len,
+                           "\"@MATCH\": \"%{@MATCH|jsonencode}\", ", 34);
 
             /* Don't quote the values here since they're numbers */
-            substr_replace(&value, &value_len, &value_size, 0, 0,
+            substr_replace(&value, &value_len, &value_size, value_len, value_len,
                            "\"@START\": %{@START}, ", 21);
-            substr_replace(&value, &value_len, &value_size, 0, 0,
+            substr_replace(&value, &value_len, &value_size, value_len, value_len,
                            "\"@END\": %{@END}, ", 17);
             value_offset += value_len;
 
-            /* XXX: We should escape \ and " in pname and pdata */
+            /* For every named capture, put this in our result string:
+             * "NAME": "%{NAME|jsonencode}"
+             */
             handle = grok_match_walk_init(gm);
             while (grok_match_walk_next(gm, handle, &pname, &pname_len,
                                         &pdata, &pdata_len) == 0) {
               substr_replace(&value, &value_len, &value_size,
                              value_offset, -1,
-                             "\"\": \"%{}\", ", 11);
+                             "\"\": \"%{|jsonencode}\", ", 22);
               substr_replace(&value, &value_len, &value_size,
                              value_offset + 1, -1,
                              pname, pname_len);
               value_offset += pname_len;
 
-
               substr_replace(&value, &value_len, &value_size,
                              value_offset + 7, -1,
                              pname, pname_len);
               value_offset += pname_len;
-              //substr_replace(&value, &value_len, &value_size,
-                             //value_offset + 5, -1,
-                             //pdata, pdata_len);
-              //value_offset += pdata_len;
-              value_offset += 11;
+              value_offset += 22; /* strlen: '"": "%{|jsonencode}", ' */
             }
             grok_match_walk_end(gm, handle);
 
@@ -226,17 +235,18 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
             substr_replace(&value, &value_len, &value_size, value_offset,
                            value_offset + 1, " }", 2);
 
-
             char *old = value;
-            value = grok_matchconfig_filter_reaction(old, gm);
+            grok_log(gm->grok, LOG_REACTION, "JSON intermediate: %.*s",
+                     value_len, value);
+            value = grok_matchconfig_filter_reaction(value, gm);
             free(old);
 
             ret = 0;
           }
           break;
         default:
-          grok_log(gm->grok, LOG_PROGRAM, "Unhandled filter code: '%.*s' (%d)",
-                   name_len, name, filter->code);
+          grok_log(gm->grok, LOG_REACTION, "Unhandled macro code: '%.*s' (%d)",
+                   name_len, name, patmacro->code);
       }
     } else {
       /* XXX: Should just have get_named_substring take a 
@@ -245,7 +255,7 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
       memcpy(name_copy, name, name_len);
       name_copy[name_len] = '\0';
       ret = grok_match_get_named_substring(gm, name_copy, (const char **)&value,
-                                         &value_len);
+                                           &value_len);
       free(name_copy);
     }
 
@@ -253,13 +263,29 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
       offset += tmp_gm.end;
     } else {
       /* replace %{FOO} with the value of foo */
-      grok_log(tmp_gm.grok, LOG_PROGRAM, "Start/end: %d %d", tmp_gm.start, tmp_gm.end);
-      grok_log(tmp_gm.grok, LOG_PROGRAM, "Replacing %.*s with %.*s",
+      char *old;
+      grok_log(tmp_gm.grok, LOG_REACTION, "Start/end: %d %d", tmp_gm.start, tmp_gm.end);
+      grok_log(tmp_gm.grok, LOG_REACTION, "Replacing %.*s",
+               (tmp_gm.end - tmp_gm.start), output + tmp_gm.start + offset);
+
+      /* apply the any filters from %{FOO|filter1|filter2...} */
+      old = value;
+      grok_match_reaction_apply_filter(gm, &value, &value_len,
+                                       filter, filter_len);
+      if (free_value && old != value) {
+        free(old); /* Free the old value */
+      }
+      grok_log(gm->grok, LOG_REACTION, "Filter: %.*s", filter_len, filter);
+
+      grok_log(tmp_gm.grok, LOG_REACTION, "Replacing %.*s with %.*s",
                (tmp_gm.end - tmp_gm.start),
                output + tmp_gm.start + offset, value_len, value);
       substr_replace(&output, &len, &size, offset + tmp_gm.start,
                      offset + tmp_gm.end, value, value_len);
       offset += value_len;
+      if (free_value) {
+        free(value);
+      }
     }
   }
 
@@ -296,4 +322,68 @@ void grok_matchconfig_start_shell(grok_program_t *gprog,
              pipefd[1], strerror(errno));
     exit(1); /* XXX: We shouldn't exit here, but what else should we do? */
   }
+}
+
+char *grok_match_reaction_apply_filter(grok_match_t *gm,
+                                       char **value, int *value_len,
+                                       const char *filter, int filter_len) {
+  int offset = 0, len = 0;
+  int value_size;
+  int ret;
+  struct filter *filterobj;
+
+  if (filter_len == 0) {
+    return *value;
+  }
+
+  *value = strndup(*value, *value_len);
+  /* we'll use the value_len from the function arguments */
+  value_size = *value_len;
+
+  /* skip first char which must be a '|' */
+  offset = 1;
+
+  while (offset + len < filter_len) {
+    if (filter[offset + len] == '|') {
+      /* Apply the filter */
+      grok_log(gm->grok, LOG_REACTION, "ApplyFilter code: %.*s",
+               len, filter + offset);
+      filterobj = string_filter_lookup(filter + offset, len);
+      if (filterobj == NULL) {
+        grok_log(gm->grok, LOG_REACTION, 
+                 "Can't apply filter '%.*s'; it's unknown.",
+                 len, filter + offset);
+      } else {
+        ret = filterobj->func(gm, value, value_len, &value_size);
+        if (ret != 0) {
+          grok_log(gm->grok, LOG_REACTION,
+                   "Applying filter '%.*s' returned error %d for string '%.*s'.",
+                   len, filter + offset, *value_len, *value);
+        }
+      }
+      offset += len + 1;
+      len = 0;
+    }
+
+    len++;
+  }
+
+  /* We'll always have one filter left over */
+  grok_log(gm->grok, LOG_REACTION, "Filter code: %.*s", len, filter + offset);
+  filterobj = string_filter_lookup(filter + offset, len);
+  if (filterobj == NULL) {
+    grok_log(gm->grok, LOG_REACTION, 
+             "Can't apply filter '%.*s'; it's unknown.",
+             len, filter + offset);
+  } else {
+    ret = filterobj->func(gm, value, value_len, &value_size);
+    if (ret != 0) {
+      grok_log(gm->grok, LOG_REACTION,
+               "Applying filter '%.*s' returned error %d for string '%.*s'.",
+               len, filter + offset, *value_len, *value);
+    }
+  }
+
+  return *value;
+
 }
