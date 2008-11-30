@@ -302,6 +302,14 @@ void grok_matchconfig_start_shell(grok_program_t *gprog,
   int pipefd[2];
   int pid;
 
+  if (!strcmp(gmc->shell, "stdout")) {
+    /* Special case: Use the stdout FILE */
+    grok_log(gprog, LOG_PROGRAM, 
+             "matchconfig subshell set to 'stdout', directing reaction " \
+             "output to stdout instead of a process.");
+    gmc->shellinput = stdout;
+    return;
+  } 
   safe_pipe(pipefd);
   grok_log(gprog, LOG_PROGRAM, "Starting matchconfig subshell: %s",
            (gmc->shell == NULL) ? "/bin/sh" : gmc->shell);
