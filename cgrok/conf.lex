@@ -1,10 +1,10 @@
 %{
+#define _GNU_SOURCE /* for strndup */
+
 #include <string.h>
 #include "conf.tab.h"
 #include "grok_config.h"
 #include "stringhelper.h"
-
-#define _GNU_SOURCE /* for strndup */
 %}
 
 %option noyywrap bison-bridge
@@ -49,11 +49,15 @@ debug { return CONF_DEBUG; }
 
 \" { BEGIN(LEX_STRING); }
 <LEX_STRING>((\\.)+|[^\\\"]+)* { 
- yylval->str = malloc(yyleng + 1);
- strcpy(yylval->str, yytext);
- yylval->str[yyleng] = '\0';
- //printf("String: '%s'\n", yylval->str);
- return QUOTEDSTRING;
+  int len, size;
+  len = yyleng;
+  size = len + 1;
+  yylval->str = malloc(size);
+  strncpy(yylval->str, yytext, len);
+  yylval->str[len] = '\0';
+  string_unescape(&yylval->str, &len, &size);
+  yylval->str[len] = '\0';
+  return QUOTEDSTRING;
 }
 <LEX_STRING>\" { BEGIN(INITIAL); }
 
