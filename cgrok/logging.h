@@ -12,6 +12,7 @@
 #define LOG_CAPTURE (1 << 6)
 #define LOG_PROGRAM (1 << 7)
 #define LOG_PROGRAMINPUT (1 << 8)
+#define LOG_REACTION (1 << 9)
 
 #define LOG_ALL (~0)
 
