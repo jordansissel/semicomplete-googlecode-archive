@@ -24,7 +24,6 @@ define command {
 
 %# Generate host definitions with ERB:
 % @host_labels.each do |host, labels|
-% puts @host_labels
 define host {
   host_name <%= host %>
   address <%= host %>
