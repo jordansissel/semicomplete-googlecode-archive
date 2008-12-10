@@ -1,5 +1,3 @@
-host2.prod.yourdomainfrontendhost1.prod.yourdomainmysql-debug
-host2.prod.yourdomainfrontendhost1.prod.yourdomainmysql-debug
 # Does fetching / over http worK?
 define command {
   command_name check-http-getroot
