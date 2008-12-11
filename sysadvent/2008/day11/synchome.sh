@@ -1,4 +1,11 @@
 #!/bin/sh
+# This script uses some Linux or GNU-specific tools:
+# su(1) at the bottom of the script use the standard gnu one
+# You could swap it out with your own setuid tool (such as daemontools'
+# setuidgid) or another su invocation
+#
+# 'sed -r' is GNU specific, if you're on FreeBSD (or familiy) you'll want
+# to use 'sed -E'
 
 prog="$(basename $0)"
 
