@@ -1,4 +1,7 @@
 #!/bin/sh
+# Sync homedirs from someserver::homedirs  to /home
+#
+# Platform notes:
 # This script uses some Linux or GNU-specific tools:
 # su(1) at the bottom of the script use the standard gnu one
 # You could swap it out with your own setuid tool (such as daemontools'
