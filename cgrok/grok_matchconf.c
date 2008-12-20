@@ -43,8 +43,11 @@ void grok_matchconfig_global_cleanup(void) {
 void grok_matchconfig_close(grok_program_t *gprog, grok_matchconf_t  *gmc) {
   int ret = 0;
   if (gmc->shellinput != NULL) {
-    ret = fclose(gmc->shellinput);
-    grok_log(gprog, LOG_PROGRAM, "Closing matchconf shell. fclose() = %d", ret);
+    /* Don't close stdout */
+    if (gmc->shellinput != stdout) {
+      ret = fclose(gmc->shellinput);
+      grok_log(gprog, LOG_PROGRAM, "Closing matchconf shell. fclose() = %d", ret);
+    }
     gmc->shellinput = NULL;
   }
   grok_free(&gmc->grok);
@@ -271,6 +274,9 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
 
       /* apply the any filters from %{FOO|filter1|filter2...} */
       old = value;
+
+      grok_log(tmp_gm.grok, LOG_REACTION, "Prefilter string: %.*s",
+               value_len, value);
       grok_match_reaction_apply_filter(gm, &value, &value_len,
                                        filter, filter_len);
       if (old != value) {
