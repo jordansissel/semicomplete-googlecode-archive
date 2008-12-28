@@ -44,7 +44,7 @@ all: grok
 
 .PHONY: package
 package:
-	sh package.sh
+	PACKAGE=grok-beta sh package.sh
 
 .PHONY: clean 
 clean: cleanobj cleanbin cleangen
