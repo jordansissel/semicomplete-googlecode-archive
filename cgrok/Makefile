@@ -42,6 +42,10 @@ GROKPROGOBJ=grok_input.o grok_program.o grok_matchconf.o $(GROKOBJ)
 .PHONY: all
 all: grok
 
+.PHONY: package
+package:
+	sh package.sh
+
 .PHONY: clean 
 clean: cleanobj cleanbin cleangen
 
