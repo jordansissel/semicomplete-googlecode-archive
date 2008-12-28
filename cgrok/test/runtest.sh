@@ -6,7 +6,10 @@ if [ -z "$TEST" ] ; then
 fi
 
 echo "=> Building $TEST"
-cout=`make clean $TEST 2>&1`
+MAKE=make
+which gmake > /dev/null 2>&1 && MAKE=gmake
+build="$MAKE EXTRA_CFLAGS="$EXTRA_CFLAGS" EXTRA_LDFLAGS="$EXTRA_LDFLAGS" clean $TEST"
+cout=`$build 2>&1`
 if [ $? -ne 0 ]; then
   echo "$cout"
   echo "Compile for $TEST failed."

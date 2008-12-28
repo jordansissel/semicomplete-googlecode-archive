@@ -4,7 +4,6 @@ include ../Makefile
 VPATH=..:.
 
 LDFLAGS+=-lcunit
-EXTRA_CFLAGS=
 CFLAGS+=-I. -I.. -g $(EXTRA_CFLAGS)
 CLEANOBJ=*.o *.gentest.c *_xdr.[hco]
 CLEANBIN=*.test
