@@ -49,11 +49,11 @@ debug { return CONF_DEBUG; }
 <LEX_STRING>((\\.)+|[^\\\"]+)* { 
   int len, size;
   len = yyleng;
+  yylval->str = string_ndup(yytext, len);
   size = len + 1;
-  //yylval->str = string_ndup(yytext, yyleng);
-  yylval->str = malloc(size);
-  strncpy(yylval->str, yytext, len);
-  yylval->str[len] = '\0';
+  //yylval->str = malloc(size);
+  //strncpy(yylval->str, yytext, len);
+  //yylval->str[len] = '\0';
   string_unescape(&yylval->str, &len, &size);
   yylval->str[len] = '\0';
   return QUOTEDSTRING;

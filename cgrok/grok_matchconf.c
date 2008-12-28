@@ -1,5 +1,3 @@
-/* for strndup(3) */
-#define _GNU_SOURCE
 
 #include <errno.h>
 #include <string.h>
@@ -181,7 +179,7 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
           break;
         case VALUE_MATCH:
           value_len = gm->end - gm->start;
-          value = strndup(gm->subject + gm->start, value_len);
+          value = string_ndup(gm->subject + gm->start, value_len);
           ret = 0;
           break;
         case VALUE_JSON:
@@ -354,7 +352,7 @@ char *grok_match_reaction_apply_filter(grok_match_t *gm,
     return *value;
   }
 
-  *value = strndup(*value, *value_len);
+  *value = string_ndup(*value, *value_len);
   /* we'll use the value_len from the function arguments */
   value_size = *value_len + 1;
 

@@ -15,15 +15,14 @@ EXTRA_LDFLAGS?=
 CFLAGS+=$(EXTRA_CFLAGS)
 LDFLAGS+=$(EXTRA_LDFLAGS)
 
-## BDB
 # For Linux
-#DBLIB=db
-#DBINC=/usr/include
-#LDFLAGS+=-ldl
+DBLIB=db
+DBINC=/usr/include
+LDFLAGS+=-ldl
 
 # For FreeBSD
-DBLIB=db-4.5
-DBINC=/usr/local/include/db45
+#DBLIB=db-4.5
+#DBINC=/usr/local/include/db45
 
 CFLAGS+=-I$(DBINC)
 LDFLAGS+=-l$(DBLIB)

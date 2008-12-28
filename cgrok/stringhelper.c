@@ -227,6 +227,7 @@ char *string_ndup(const char *src, size_t size) {
 
   dup = malloc(len + 1);
   if (dup) {
+    /* XXX: Should we use strncpy here, instead of memcpy? */
     memcpy(dup, src, len);
     dup[len] = '\0';
   }
