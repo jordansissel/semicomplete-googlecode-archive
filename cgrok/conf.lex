@@ -13,6 +13,7 @@ number [0-9]+
 
 %x LEX_COMMENT
 %x LEX_STRING
+%x LEX_ERROR
 
 %%
 
@@ -51,10 +52,8 @@ debug { return CONF_DEBUG; }
   len = yyleng;
   yylval->str = string_ndup(yytext, len);
   size = len + 1;
-  //yylval->str = malloc(size);
-  //strncpy(yylval->str, yytext, len);
-  //yylval->str[len] = '\0';
   string_unescape(&yylval->str, &len, &size);
+  /* XXX: putting a null at the end shouldn't be necessary */
   yylval->str[len] = '\0';
   return QUOTEDSTRING;
 }
@@ -68,4 +67,12 @@ debug { return CONF_DEBUG; }
 
 [ \t] { /* ignore whitespace */ }
 [\n] { yylineno++; }
+
+. { BEGIN(LEX_ERROR); unput(yytext[0]); }
+<LEX_ERROR>[^\n]* {
+  fprintf(stderr, "Unexpected input on line %d: '%.*s'\n",
+          yylineno, yyleng, yytext); 
+  BEGIN(INITIAL);
+  return 256; /* 256 == lexer error */
+}
 %%

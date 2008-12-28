@@ -9,8 +9,7 @@
 
 int yylineno;
 void yyerror (YYLTYPE *loc, struct config *conf, char const *s) {
-  fprintf (stderr, "some error: %s\n", s);
-  fprintf (stderr, "Line: %d\n", yylineno);
+  fprintf (stderr, "Syntax error: %s\n", s);
 }
 
 #define DEBUGMASK(val) ((val > 0) ? ~0 : 0)
@@ -48,6 +47,7 @@ void yyerror (YYLTYPE *loc, struct config *conf, char const *s) {
 
 %pure-parser
 %parse-param {struct config *conf}
+%error-verbose
 %locations
 
 %start config
@@ -56,7 +56,10 @@ void yyerror (YYLTYPE *loc, struct config *conf, char const *s) {
 
 config: config root 
       | root 
-      | error { printf("Error: %d\n", yylloc.first_line); }
+      | error { 
+        /* Errors are unrecoverable, so let's return nonzero from the parser */
+        return 1;
+      }
 
 root: root_program
     | "debug" ':' INTEGER { conf->logmask = DEBUGMASK($3); }

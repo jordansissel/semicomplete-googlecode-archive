@@ -13,7 +13,11 @@ int main() {
 
   yyin = fopen("grok.conf", "r");
   conf_init(&c);
-  yyparse(&c);
+  i = yyparse(&c);
+  if (i != 0) {
+    fprintf(stderr, "Parsing error in config file\n");
+    return 1;
+  }
 
   gcol = grok_collection_init();
   for (i = 0; i < c.nprograms; i++) {
