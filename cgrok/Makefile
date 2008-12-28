@@ -1,15 +1,21 @@
 CFLAGS+=-pipe
-CFLAGS+=-g
-#CFLAGS+=-DNOLOGGING
-#CFLAGS+=-O2
-EXTRA_CFLAGS=
-CFLAGS+=$(EXTRA_CFLAGS)
-LDFLAGS+=-lpcre -rdynamic
-LDFLAGS+=-levent
-#LDFLAGS+=-L/usr/local/pcre/lib/
-#LDFLAGS+=-L/usr/local/libevent/lib/ -L/usr/lib/debug/lib
-#CFLAGS+=-I/usr/local/libevent/include/
+#CFLAGS+=-g
+CFLAGS+=-O2
+LDFLAGS+= -lpcre -levent -rdynamic
 
+# Sane includes
+CFLAGS+=-I/usr/local/include
+LDFLAGS+=-L/usr/local/lib
+
+# Uncomment to totally disable logging features
+#CFLAGS+=-DNOLOGGING
+
+EXTRA_CFLAGS?=
+EXTRA_LDFLAGS?=
+CFLAGS+=$(EXTRA_CFLAGS)
+LDFLAGS+=$(EXTRA_LDFLAGS)
+
+## BDB
 # For Linux
 DBLIB=db
 DBINC=/usr/include
@@ -18,11 +24,11 @@ LDFLAGS+=-ldl
 # For FreeBSD
 #DBLIB=db-4.5
 #DBINC=/usr/local/include/db45
-#LDFLAGS+=-L/usr/local/lib
-#CFLAGS+=-I/usr/local/include
 
 CFLAGS+=-I$(DBINC)
 LDFLAGS+=-l$(DBLIB)
+
+### End of user-servicable configuration
 
 CLEANGEN=filters.c grok_matchconf_macro.c
 CLEANOBJ=*.o *_xdr.[ch] *.yy.c *.tab.c *.tab.h
@@ -34,6 +40,7 @@ GROKOBJ=grok.o grokre.o grok_capture.o grok_pattern.o stringhelper.o \
         grok_matchconf_macro.o filters.o
 GROKPROGOBJ=grok_input.o grok_program.o grok_matchconf.o $(GROKOBJ)
 
+.PHONY: all
 all: grok
 
 main: $(GROKOBJ) main.o
