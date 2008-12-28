@@ -40,6 +40,7 @@
 + predicates.h
 + stringhelper.c
 + stringhelper.h
++ test/
 + test/Makefile
 + test/gentest.sh
 + test/grok_capture.test.c
@@ -49,3 +50,5 @@
 + test/runtest.sh
 + test/stringhelper.test.c
 + test/test.h
+- *
+- *.o
