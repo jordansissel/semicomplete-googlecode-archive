@@ -1,6 +1,4 @@
 %{
-#define _GNU_SOURCE /* for strndup */
-
 #include <string.h>
 #include "conf.tab.h"
 #include "grok_config.h"
@@ -52,6 +50,7 @@ debug { return CONF_DEBUG; }
   int len, size;
   len = yyleng;
   size = len + 1;
+  //yylval->str = string_ndup(yytext, yyleng);
   yylval->str = malloc(size);
   strncpy(yylval->str, yytext, len);
   yylval->str[len] = '\0';

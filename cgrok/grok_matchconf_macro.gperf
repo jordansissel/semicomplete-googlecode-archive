@@ -13,7 +13,7 @@
 struct strmacro {
   const char *str;
   int code;
-}; 
+};
 %%
 @LINE,VALUE_LINE
 @MATCH,VALUE_MATCH
@@ -21,3 +21,4 @@ struct strmacro {
 @START,VALUE_START
 @END,VALUE_END
 @LENGTH,VALUE_LENGTH
+%%

@@ -216,3 +216,20 @@ void string_unescape(char **strp, int *strp_len, int *strp_size) {
     }
   }
 }
+
+/* Some platforms don't have strndup, so let's provide our own */
+char *string_ndup(const char *src, size_t size) {
+  size_t len = 0;
+  char *dup;
+
+  while (src[len] != '\0' && len < size)
+    len++;
+
+  dup = malloc(len + 1);
+  if (dup) {
+    memcpy(dup, src, len);
+    dup[len] = '\0';
+  }
+
+  return dup;
+}

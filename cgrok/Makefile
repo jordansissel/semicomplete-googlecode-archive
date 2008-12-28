@@ -17,13 +17,13 @@ LDFLAGS+=$(EXTRA_LDFLAGS)
 
 ## BDB
 # For Linux
-DBLIB=db
-DBINC=/usr/include
-LDFLAGS+=-ldl
+#DBLIB=db
+#DBINC=/usr/include
+#LDFLAGS+=-ldl
 
 # For FreeBSD
-#DBLIB=db-4.5
-#DBINC=/usr/local/include/db45
+DBLIB=db-4.5
+DBINC=/usr/local/include/db45
 
 CFLAGS+=-I$(DBINC)
 LDFLAGS+=-l$(DBLIB)
@@ -85,8 +85,8 @@ grok_input.c: grok_capture.h libc_helper.h
 grok.c: grok.h grok_capture.h
 
 conf.tab.c conf.tab.h: conf.y
-	#bison -d $<
-	yacc -d -b "conf" $<
+	bison -d $<
+	#yacc -d -b "conf" $<
 
 conf.yy.c: conf.lex conf.tab.h
 	flex -o $@ $<

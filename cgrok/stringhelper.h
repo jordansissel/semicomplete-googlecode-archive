@@ -11,3 +11,7 @@ void substr_replace(char **strp, int *strp_len, int *strp_alloc_size,
 void string_escape(char **strp, int *strp_len, int *strp_alloc_size,
                    const char *chars, int chars_len, int options);
 void string_unescape(char **strp, int *strp_len, int *strp_size);
+
+/* libc doesn't often have strndup, so let's make our own */
+char *string_ndup(const char *src, size_t size);
+

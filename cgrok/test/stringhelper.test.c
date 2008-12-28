@@ -91,9 +91,15 @@ void test_string_escape_c(void) {
       printf("\n");
     }
     CU_ASSERT(!strcmp(s, data[i].output));
-    
+
     free(s);
   }
+}
 
+void test_string_ndup(void) {
+  char data[] = "hello there";
+  char *p;
 
+  p = string_ndup(data, 5);
+  CU_ASSERT(!strcmp(p, "hello"));
 }
