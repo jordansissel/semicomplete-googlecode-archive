@@ -191,37 +191,42 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
             const char *pdata;
             int pname_len, pdata_len;
 
+            char *entry = NULL, *tmp = NULL;
+            int entry_len = 0, tmp_len = 0, tmp_size = 0;
+
             value = NULL;
             value_len = 0;
-
-            char *entry;
-            int entry_len;
 
             /* TODO(sissel): use a json generator library? */
 
             /* Push @FOO values first */
-            //substr_replace(&value, &value_len, &value_size, value_len, value_len,
+            substr_replace(&tmp, &tmp_len, &tmp_size, 0, 0,
+                           gm->subject, strlen(gm->subject));
+            filter_jsonencode(gm, &tmp, &tmp_len, &tmp_size);
             entry_len = asprintf(&entry, 
-                                 "{ \"@LINE\": \"%{@LINE|jsonencode}\" }, ");
-            substr_replace(&value, &value_len, &value_size, value_len, value_len,
-                           entry, entry_len);
-            free(entry);
-            entry_len = asprintf(&entry, 
-                                 "{ \"@MATCH\": \"%{@MATCH|jsonencode}\" }, ");
+                                 "{ \"@LINE\": { "
+                                   "\"start\": 0, "
+                                   "\"end\": %d, "
+                                   "\"value\": \"%.*s\" } }, ",
+                                   tmp_len, tmp_len, tmp);
             substr_replace(&value, &value_len, &value_size, value_len, value_len,
                            entry, entry_len);
             free(entry);
 
-            /* Don't quote the values here since they're numbers */
-            entry_len = asprintf(&entry, "{ \"@START\": %{@START} }, ");
+            substr_replace(&tmp, &tmp_len, &tmp_size, 0, tmp_len,
+                           gm->subject + gm->start, gm->end - gm->start);
+            filter_jsonencode(gm, &tmp, &tmp_len, &tmp_size);
+            //printf("> %.*s\n", tmp_len, tmp);
+            entry_len = asprintf(&entry, 
+                                 "{ \"@MATCH\": { "
+                                   "\"start\": %d, "
+                                   "\"end\": %d, "
+                                   "\"value\": \"%.*s\" } }, ",
+                                   gm->start, gm->end, tmp_len, tmp);
             substr_replace(&value, &value_len, &value_size, value_len, value_len,
                            entry, entry_len);
             free(entry);
-
-            entry_len = asprintf(&entry, "{ \"@END\": %{@END} }, ");
-            substr_replace(&value, &value_len, &value_size, value_len, value_len,
-                           entry, entry_len);
-            free(entry);
+            //printf("> %.*s\n", value_len, value);
 
             value_offset += value_len;
 
@@ -233,16 +238,20 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
                                         &pdata, &pdata_len) == 0) {
               char *entry;
               int entry_len;
+              //printf("%.*s => %.*s\n", pname_len, pname, pdata_len, pdata);
+              substr_replace(&tmp, &tmp_len, &tmp_size, 0, tmp_len,
+                             pdata, pdata_len);
+              filter_jsonencode(gm, &tmp, &tmp_len, &tmp_size);
               entry_len = asprintf(&entry, 
                                "{ \"%.*s\": { "
                                "\"start\": %d, "
                                "\"end\": %d, "
-                               "\"value\": \"%%{%.*s|jsonencode}\""
+                               "\"value\": \"%.*s\""
                                " } }, ",
                                pname_len, pname, 
                                pdata - gm->subject, /*start*/
                                (pdata - gm->subject) + pdata_len, /*end*/
-                               pname_len, pname);
+                               tmp_len, tmp);
               substr_replace(&value, &value_len, &value_size,
                              value_offset, -1,
                              entry, entry_len);
