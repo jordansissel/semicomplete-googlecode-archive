@@ -68,11 +68,12 @@ SYSLOGDATE %{MONTH} +%{MONTHDAY} %{TIME}
 PROG (?:[A-z][\w-]+(?:\/[\w-]+)?)
 PID %{INT}
 SYSLOGPROG %{PROG}(?:\[%{PID}\])?
+SYSLOGFACILITY <%{INT:facility}.%{INT:priority}>
 HTTPDATE %{MONTHDAY}/%{MONTH}/%{YEAR}:%{TIME} %{INT:ZONE}
 
 # Shortcuts
 QS %{QUOTEDSTRING}
 
 # Log formats
-SYSLOGBASE %{SYSLOGDATE} %{HOSTNAME} %{SYSLOGPROG}:
+SYSLOGBASE %{SYSLOGDATE} (?:%{SYSLOGFACILITY} )?%{IPORHOST:logsource} %{SYSLOGPROG}:
 COMBINEDAPACHELOG %{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "%{WORD:verb} %{URIPATHPARAM:request} HTTP/%{NUMBER:httpversion}" %{NUMBER:response} (?:%{NUMBER:bytes}|-) "(?:%{URI:referrer}|-)" %{QS:agent}
