@@ -67,9 +67,11 @@ void substr_replace(char **strp,
 void string_escape(char **strp, int *strp_len, int *strp_alloc_size,
                    const char *chars, int chars_len, int options) {
   int i = 0, j = 0, op = 0, replstr_len = 0;
-  char c = 0, replstr[8]; /* 7 should be enough (covers \uXXXX + null) */
-  int hits[256]; /* track chars found in the string */
-  memset(hits, 0, 256 * sizeof(int));
+  char replstr[8]; /* 7 should be enough (covers \uXXXX + null) */
+  unsigned char c;
+  //int hits_total = 0;
+  unsigned char hits[256]; /* track chars found in the string */
+  memset(hits, 0, 256);
 
   //printf("string_escape(\"%.*s\", %d, %d, \"%.*s\", %d, %d)\n",
          //*strp_len, *strp, *strp_len, *strp_alloc_size, chars_len, chars, 
@@ -86,25 +88,26 @@ void string_escape(char **strp, int *strp_len, int *strp_alloc_size,
 
   /* Make a map of characters found in the string */
   for (i = 0; i < *strp_len; i++) {
-    hits[(*strp)[i]]++;
-    //printf("Found: %d => %d\n", (*strp)[i], hits[(*strp)[i]]);
+    c = (*strp)[i];
+    hits[c] = 1;
   }
 
-  for (j = 0; j < *strp_len; j++) {
-    for (i = 0; i < chars_len; i++) {
-      c = chars[i];
+
+  for (i = 0; i < chars_len; i++) {
+    c = chars[i];
+    if (hits[c] == 0) {
+      /* If this char is not in the string, skip it */
+      continue;
+    }
+
+    if (options & ESCAPE_NONPRINTABLE && isprint(c)) {
+      continue;
+    }
+    
+    for (j = 0; j < *strp_len; j++) {
       //printf("%d / %c: %d\n", c, c, hits[(unsigned char)c]);
       /* chars are signed, so > 127 == -128 and such, which is an
        * invalid array offset in this case; cast to unsigned.  */
-      if (hits[(unsigned char)c] == 0) {
-        /* If this char is not in the string, skip it */
-        continue;
-      }
-
-      if (options & ESCAPE_NONPRINTABLE && isprint(c)) {
-        continue;
-      }
-    
       if ((*strp)[j] != c) {
         continue;
       }
