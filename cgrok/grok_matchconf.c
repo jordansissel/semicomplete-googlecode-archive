@@ -183,7 +183,7 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
           ret = 0;
           break;
         case VALUE_JSON:
-          { 
+          {
             void *handle;
             int value_offset = 0;
             int value_size = 0;
@@ -238,6 +238,20 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
                                         &pdata, &pdata_len) == 0) {
               char *entry;
               int entry_len;
+
+              /* Don't json-ize patterns named FOO:bar */
+              //int i = 0, skip = 0;
+              //while (i < pname_len) {
+                //if (pname[i] == ':') {
+                  //skip = 1;
+                  //break;
+                //}
+                //i++;
+              //}
+
+              //if (skip == 1)
+                //continue;
+
               //printf("%.*s => %.*s\n", pname_len, pname, pdata_len, pdata);
               substr_replace(&tmp, &tmp_len, &tmp_size, 0, tmp_len,
                              pdata, pdata_len);
@@ -253,8 +267,7 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
                                (pdata - gm->subject) + pdata_len, /*end*/
                                tmp_len, tmp);
               substr_replace(&value, &value_len, &value_size,
-                             value_offset, -1,
-                             entry, entry_len);
+                             value_offset, value_offset, entry, entry_len);
               value_offset += entry_len;
               free(entry);
               free(pname); /* alloc'd by grok_match_walk_next */
@@ -275,6 +288,7 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
             free(old);
 
             ret = 0;
+            free(tmp);
           }
           break;
         default:
@@ -326,7 +340,7 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
         free(value);
       }
     }
-  }
+  } /* while grok_execn ... */
 
   return output;
 }
