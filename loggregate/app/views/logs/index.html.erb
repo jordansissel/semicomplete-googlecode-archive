@@ -1,0 +1,36 @@
+<form action="/logs/show" method="GET">
+  <label for="field"> Field type </label>
+  <select name="field">
+    <% @fields.each do |f| %>
+      <option value="<%=h f %>"><%=h f %></option>
+    <% end %>
+  </select>
+  <label for="value">Match exactly:</label>
+
+  <input type="text" name="value" size="40">
+  <input type="submit">
+</form>
+
+<hr>
+
+<div style="font-family: courier">
+<% @recent.each do |log| %>
+  &nbsp;<b><%= log.value %></b>
+  <% value = log.value 
+     offset = 0;
+     log.field_values.each do |fv|
+       next if !fv.startpos || !fv.endpos
+       next if fv.startpos < 0 && fv.endpos < 0
+       next if fv.endpos < fv.startpos
+       url = "/logs/show?field=#{fv.field}&value=#{fv.value}"
+       value.insert(fv.startpos + offset, "(")
+       value.insert(fv.endpos + offset, ")")
+       offset += 2;
+       %> 
+       <br>
+       <%= ("&nbsp;" * fv.startpos) + "(" + fv.value + ")" %> <%= fv.field %>
+    <% end %>
+  <br>
+
+<% end %>
+</div>

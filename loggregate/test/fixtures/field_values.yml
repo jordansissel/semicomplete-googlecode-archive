@@ -1,0 +1,13 @@
+# Read about fixtures at http://ar.rubyonrails.org/classes/Fixtures.html
+
+one:
+  field: MyString
+  value: MyString
+  startpos: 
+  endpos: 
+
+two:
+  field: MyString
+  value: MyString
+  startpos: 
+  endpos: 

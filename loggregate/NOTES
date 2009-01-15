@@ -1,0 +1,37 @@
+
+
+Record log data with tags.
+
+
+Input methods:
+- http(s) rpc protocol
+- syslog server
+
+Storage
+  Log
+    value=
+    has many fieldvalues
+
+  FieldValue
+    belongs_to Log     indexed
+    field= ???         indexed
+    value= ???         indexed
+    field_start= text position of field start
+    field_end= text position of field end
+
+Protocol:
+  Record()
+    value="log message itself"
+    fields = {
+      timestamp: ...
+      host: ...
+      service: ...
+      process: ...
+      ...
+    }
+
+  Query()
+    N-Triples:
+      field, comparator, value
+      
+
