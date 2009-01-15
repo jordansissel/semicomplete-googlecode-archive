@@ -194,17 +194,35 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
             value = NULL;
             value_len = 0;
 
+            char *entry;
+            int entry_len;
+
+            /* TODO(sissel): use a json generator library? */
+
             /* Push @FOO values first */
+            //substr_replace(&value, &value_len, &value_size, value_len, value_len,
+            entry_len = asprintf(&entry, 
+                                 "{ \"@LINE\": \"%{@LINE|jsonencode}\" }, ");
             substr_replace(&value, &value_len, &value_size, value_len, value_len,
-                           "\"@LINE\": \"%{@LINE|jsonencode}\", ", 32);
+                           entry, entry_len);
+            free(entry);
+            entry_len = asprintf(&entry, 
+                                 "{ \"@MATCH\": \"%{@MATCH|jsonencode}\" }, ");
             substr_replace(&value, &value_len, &value_size, value_len, value_len,
-                           "\"@MATCH\": \"%{@MATCH|jsonencode}\", ", 34);
+                           entry, entry_len);
+            free(entry);
 
             /* Don't quote the values here since they're numbers */
+            entry_len = asprintf(&entry, "{ \"@START\": %{@START} }, ");
             substr_replace(&value, &value_len, &value_size, value_len, value_len,
-                           "\"@START\": %{@START}, ", 21);
+                           entry, entry_len);
+            free(entry);
+
+            entry_len = asprintf(&entry, "{ \"@END\": %{@END} }, ");
             substr_replace(&value, &value_len, &value_size, value_len, value_len,
-                           "\"@END\": %{@END}, ", 17);
+                           entry, entry_len);
+            free(entry);
+
             value_offset += value_len;
 
             /* For every named capture, put this in our result string:
@@ -213,29 +231,33 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
             handle = grok_match_walk_init(gm);
             while (grok_match_walk_next(gm, handle, &pname, &pname_len,
                                         &pdata, &pdata_len) == 0) {
+              char *entry;
+              int entry_len;
+              entry_len = asprintf(&entry, 
+                               "{ \"%.*s\": { "
+                               "\"start\": %d, "
+                               "\"end\": %d, "
+                               "\"value\": \"%%{%.*s|jsonencode}\""
+                               " } }, ",
+                               pname_len, pname, 
+                               pdata - gm->subject, /*start*/
+                               (pdata - gm->subject) + pdata_len, /*end*/
+                               pname_len, pname);
               substr_replace(&value, &value_len, &value_size,
                              value_offset, -1,
-                             "\"\": \"%{|jsonencode}\", ", 22);
-              substr_replace(&value, &value_len, &value_size,
-                             value_offset + 1, -1,
-                             pname, pname_len);
-              value_offset += pname_len;
-
-              substr_replace(&value, &value_len, &value_size,
-                             value_offset + 7, -1,
-                             pname, pname_len);
-              value_offset += pname_len;
-              value_offset += 22; /* strlen: '"": "%{|jsonencode}", ' */
+                             entry, entry_len);
+              value_offset += entry_len;
+              free(entry);
               free(pname); /* alloc'd by grok_match_walk_next */
             }
             grok_match_walk_end(gm, handle);
 
             /* Insert the { at the beginning */
-            substr_replace(&value, &value_len, &value_size, 0, 0, "{ ", 2);
+            substr_replace(&value, &value_len, &value_size, 0, 0, "[ ", 2);
 
             /* Replace trailing ", " with " }" */
             substr_replace(&value, &value_len, &value_size, value_offset,
-                           value_offset + 1, " }", 2);
+                           value_offset + 1, " ]", 2);
 
             char *old = value;
             grok_log(gm->grok, LOG_REACTION, "JSON intermediate: %.*s",
