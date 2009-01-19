@@ -275,7 +275,8 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
             grok_match_walk_end(gm, handle);
 
             /* Insert the { at the beginning */
-            substr_replace(&value, &value_len, &value_size, 0, 0, "[ ", 2);
+            substr_replace(&value, &value_len, &value_size, 0, 0, 
+                           "{ \"data\": [ ", 12);
 
             /* Replace trailing ", " with " }" */
             substr_replace(&value, &value_len, &value_size, value_offset,

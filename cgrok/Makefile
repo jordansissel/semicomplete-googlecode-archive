@@ -2,8 +2,10 @@ PACKAGE=grok-beta
 
 CFLAGS+=-pipe
 #CFLAGS+=-g
-CFLAGS+=-O2
-LDFLAGS+= -lpcre -levent -rdynamic
+#CFLAGS+=-pg -g
+CFLAGS+=-O3
+LDFLAGS+=-lpcre -levent -rdynamic
+#LDFLAGS+=-pg -g
 
 # Sane includes
 CFLAGS+=-I/usr/local/include
