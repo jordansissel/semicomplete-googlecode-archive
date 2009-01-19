@@ -276,11 +276,11 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
 
             /* Insert the { at the beginning */
             substr_replace(&value, &value_len, &value_size, 0, 0, 
-                           "{ \"data\": [ ", 12);
+                           "{ \"grok\": [ ", 12);
 
             /* Replace trailing ", " with " }" */
-            substr_replace(&value, &value_len, &value_size, value_offset,
-                           value_offset + 1, " ] }", 4);
+            substr_replace(&value, &value_len, &value_size,
+                           value_len - 2, value_len, " ] }", 4);
 
             char *old = value;
             grok_log(gm->grok, LOG_REACTION, "JSON intermediate: %.*s",
