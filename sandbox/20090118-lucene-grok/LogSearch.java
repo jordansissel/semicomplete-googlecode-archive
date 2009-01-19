@@ -53,8 +53,8 @@ public class LogSearch {
       ScoreDoc sd = results.scoreDocs[i];
 
       /* maxscore == best match, let's only show 'best match' results */
-      if (sd.score < maxscore)
-        break;
+      //if (sd.score < maxscore)
+        //break;
 
       Document doc = s.doc(sd.doc);
       //System.out.println(doc);
