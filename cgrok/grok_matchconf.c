@@ -280,7 +280,7 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
 
             /* Replace trailing ", " with " }" */
             substr_replace(&value, &value_len, &value_size, value_offset,
-                           value_offset + 1, " ]", 2);
+                           value_offset + 1, " ] }", 4);
 
             char *old = value;
             grok_log(gm->grok, LOG_REACTION, "JSON intermediate: %.*s",
