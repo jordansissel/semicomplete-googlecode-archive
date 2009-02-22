@@ -1,6 +1,7 @@
 #define _LARGEFILE64_SOURCE
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <assert.h>
 
 #include <pthread.h>
 #include <stdio.h>
@@ -24,10 +25,15 @@ static int fd;
 void *Reader(void *data) {
   char buf[BUFSIZE];
   int bytes = 1;
+  off64_t loff;
 
   while (bytes > 0) {
+    loff = lseek64(fd, 0, SEEK_CUR);
+    if (loff != offset) {
+      printf("lseek64 vs offset => %ld\n", loff - offset);
+    }
+    bytes = read(fd, buf, BUFSIZE);
     LOCKWRAP( 
-      bytes = read(fd, buf, BUFSIZE);
       if (bytes > 0)
         offset += bytes ;
     );
@@ -45,7 +51,7 @@ void *Statter(void *data) {
     LOCKWRAP( curoffset = offset );
 
     if (seekpos != curoffset) {
-      printf("%ld != %ld\n", seekpos, curoffset);
+      //printf("%ld != %ld\n", seekpos, curoffset);
     }
   }
 
