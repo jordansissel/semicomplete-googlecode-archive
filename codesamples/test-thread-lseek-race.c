@@ -1,6 +1,10 @@
 
 
+/* for lseek64 */
 #define _LARGEFILE64_SOURCE
+
+/* for O_DIRECT */
+#define _GNU_SOURCE
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -74,7 +78,11 @@ int main(int argc, char **argv) {
   if (argc > 1)
     file = argv[1];
 
-  fd = open(file, O_RDONLY);
+  /* Open the file with O_DIRECT will also fix the lseek64 weird behavior
+   */
+  fd = open(file, O_RDONLY 
+    /* | O_DIRECT */
+  );
   pthread_create(&reader, NULL, Reader, NULL);
   pthread_create(&statter, NULL, Statter, NULL);
 
