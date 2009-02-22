@@ -1,4 +1,7 @@
+
+
 #define _LARGEFILE64_SOURCE
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <assert.h>
@@ -28,15 +31,16 @@ void *Reader(void *data) {
   off64_t loff;
 
   while (bytes > 0) {
-    loff = lseek64(fd, 0, SEEK_CUR);
-    if (loff != offset) {
-      printf("lseek64 vs offset => %ld\n", loff - offset);
-    }
     bytes = read(fd, buf, BUFSIZE);
     LOCKWRAP( 
       if (bytes > 0)
-        offset += bytes ;
+        offset += bytes;
+      loff = lseek64(fd, 0, SEEK_CUR);
+      if (loff != offset) {
+        printf("lseek64(%ld) vs offset(%ld) => %ld\n", loff, offset, loff - offset);
+      }
     );
+
   }
 
   pthread_exit(NULL);
@@ -47,11 +51,16 @@ void *Statter(void *data) {
   off64_t seekpos;
   off64_t curoffset;
   for (;;) {
+    /* If you comment out this line, the Reader thread will stop
+     * complaining that lseek64's result is not the same as our computed
+     * offset. This is freaking weird. */
     seekpos = lseek64(fd, 0, SEEK_CUR);
-    LOCKWRAP( curoffset = offset );
+    if (0) {
+      LOCKWRAP( curoffset = offset );
 
-    if (seekpos != curoffset) {
-      //printf("%ld != %ld\n", seekpos, curoffset);
+      //if (seekpos != curoffset) {
+        //printf("%ld != %ld\n", seekpos, curoffset);
+      //}
     }
   }
 
