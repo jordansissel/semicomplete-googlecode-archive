@@ -26,8 +26,11 @@ void *Reader(void *data) {
   int bytes = 1;
 
   while (bytes > 0) {
-    bytes = read(fd, buf, BUFSIZE);
-    LOCKWRAP( offset += bytes );
+    LOCKWRAP( 
+      bytes = read(fd, buf, BUFSIZE);
+      if (bytes > 0)
+        offset += bytes ;
+    );
   }
 
   pthread_exit(NULL);
