@@ -1,0 +1,11 @@
+
+Input: JSON objects (one per line)
+Config: 
+  key (ordered set of json fields)
+  action (hit count, sum value)
+  condition (time or count threshold)
+  reaction (command to run)
+  timestamp_key (default is now)
+  timestamp_format
+
+

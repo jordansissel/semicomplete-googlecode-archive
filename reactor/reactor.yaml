@@ -1,0 +1,7 @@
+
+key: IPORHOST:client
+action:
+  threshold: 5
+  interval: 60s
+  timestamp-key: SYSLOGDATE
+  timestamp-format: %b %d %H:%M:%S
