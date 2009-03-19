@@ -1,7 +1,14 @@
-
+-
+# A single IP is seen more than 100 times in 60 seconds
 key: IPORHOST:client
-action:
-  threshold: 5
-  interval: 60s
-  timestamp-key: SYSLOGDATE
-  timestamp-format: %b %d %H:%M:%S
+threshold: 100 
+interval: 60s
+timestamp-key: SYSLOGDATE
+timestamp-format: %b %d %H:%M:%S
+-
+# A single IP is fetching the same path 10 times in 10 seconds
+key: URIPATH,IPORHOST:client
+threshold: 10
+interval: 10s
+timestamp-key: HTTPDATE:timestamp
+timestamp-format: %d/%b/%Y:%H:%M:%S %z
