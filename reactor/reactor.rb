@@ -7,7 +7,19 @@
 # Or something...
 
 require "yaml"
+require "json"
 require "time"
+require "date"
+
+# Backport Ruby 1.9 feature
+class Time
+  def self.strptime(datestr, format)
+    d = Date._strptime(datestr, format)
+    raise ArgumentError, "invalid strptime format - `#{format}'" unless d
+    make_time(d[:year], d[:mon], d[:mday], d[:hour], d[:min], d[:sec],
+              d[:sec_fraction], d[:zone], now)
+  end
+end
 
 class ReactorData
   attr_accessor :timestamp
@@ -29,8 +41,9 @@ class TimeParser
     if !input.has_key?(@key)
       raise TimeParserError, "Input has no timestamp key '#{@key}'"
     end
-
-    return Time.parse(input[@key], @format)
+    #puts "Parsing #{input[@key]} with '#{@format}'"
+    t = Time.strptime(input[@key], @format)
+    return t
   end
 end
 
@@ -55,40 +68,45 @@ class Reactor
     end
 
     #@history = HistoryTracker.new
-    @history = []
+    @history = Hash.new { |h,k| h[k] = [] }
     @value = Hash.new { |h,k| h[k] = 0 }
   end
 
   def feed(input)
     return unless @keys.collect { |k| input.has_key?(k) }.reduce { |a,b| a & b }
-    input = process(input)
-    key = keygen(input)
+    filtered_input = process(input)
+    key = keygen(filtered_input)
     @value[key] += 1
 
-    rh = ReactorData.new
-    rh.input = input
-    rh.timestamp = @timeparser ? @timeparser.parse(input) : Time.now
-    @history << rh
-    # If the first history entry older than the age range starting at 
-    # rh.timestamp (ending in rh.timestmap - @interval), delete it.
-    oldrh = @history[0]
+    rd = ReactorData.new
+    rd.input = input
+    rd.timestamp = @timeparser ? @timeparser.parse(input) : Time.now
+    @history[key] << rd
 
-    # Special case. If we have no threshold but have an interval,
     # If we hit interval, react on this key exactly as if we had hit the
     # threshold.
-    if oldrh.timestamp < (rh.timestamp - @interval)
-      oldkey = keygen(oldrh.input)
-      @value[oldkey] -= 1
-      @history.shift
+    trimtime = rd.timestamp - @interval
+    @history.each do |histkey,histdata|
+      while histdata.length > 0 && histdata[0].timestamp < trimtime
+        @value[histdata[0]] -= 1
+        histdata.shift
+      end
     end
 
-    react(key) if @value[key] >= @threshold
+    threshold_exceeded = ((@threshold > 0) and (@value[key] >= @threshold))
+    #puts [threshold_exceeded, @threshold, @value[key]].join(" / ")
+    if (threshold_exceeded)
+      react(key, rd.timestamp)
+    end
   end
 
-  def react(key)
-    puts "Threshold exceeded: #{@value[key]} > #{@threshold}"
-    puts key.inspect
+  def react(key, timestamp=nil)
+    timestamp = Time.now unless timestamp
+    #puts "Threshold exceeded: #{@value[key]} > #{@threshold}"
+    puts "#{@value[key]}: #{key.inspect} / #{timestamp}"
+    #puts @action
     @value[key] = 0
+    @history[key].clear
   end
 
   def process(input)
@@ -114,7 +132,7 @@ config.each do |c|
 end
 
 $stdin.each do |line|
-  obj = YAML::load(line)
+  obj = JSON.parse(line)
   # Skip unless this object has all keys present
   reactors.each { |r| r.feed(obj) }
 end
