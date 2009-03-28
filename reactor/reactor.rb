@@ -12,12 +12,14 @@ require "time"
 require "date"
 
 # Backport Ruby 1.9 feature
-class Time
-  def self.strptime(datestr, format)
-    d = Date._strptime(datestr, format)
-    raise ArgumentError, "invalid strptime format - `#{format}'" unless d
-    make_time(d[:year], d[:mon], d[:mday], d[:hour], d[:min], d[:sec],
-              d[:sec_fraction], d[:zone], now)
+if (!Time.respond_to?("strptime"))
+  class Time
+    def self.strptime(datestr, format)
+      d = Date._strptime(datestr, format)
+      raise ArgumentError, "invalid strptime format - `#{format}'" unless d
+      make_time(d[:year], d[:mon], d[:mday], d[:hour], d[:min], d[:sec],
+                d[:sec_fraction], d[:zone], now)
+    end
   end
 end
 
@@ -104,6 +106,8 @@ class Reactor
     timestamp = Time.now unless timestamp
     #puts "Threshold exceeded: #{@value[key]} > #{@threshold}"
     puts "#{@value[key]}: #{key.inspect} / #{timestamp}"
+    puts "Start: #{@history[key][0].timestamp}"
+    puts "End: #{@history[key][-1].timestamp}"
     #puts @action
     @value[key] = 0
     @history[key].clear
@@ -133,6 +137,5 @@ end
 
 $stdin.each do |line|
   obj = JSON.parse(line)
-  # Skip unless this object has all keys present
   reactors.each { |r| r.feed(obj) }
 end
