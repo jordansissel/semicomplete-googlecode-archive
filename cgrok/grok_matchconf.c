@@ -182,7 +182,8 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
           value = string_ndup(gm->subject + gm->start, value_len);
           ret = 0;
           break;
-        case VALUE_JSON:
+        case VALUE_JSON_SIMPLE:
+        case VALUE_JSON_COMPLEX:
           {
             void *handle;
             int value_offset = 0;
@@ -203,12 +204,18 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
             substr_replace(&tmp, &tmp_len, &tmp_size, 0, 0,
                            gm->subject, strlen(gm->subject));
             filter_jsonencode(gm, &tmp, &tmp_len, &tmp_size);
-            entry_len = asprintf(&entry, 
-                                 "{ \"@LINE\": { "
+
+            if (patmacro->code == VALUE_JSON_SIMPLE) {
+              entry_len = asprintf(&entry, 
+                                   "\"@LINE\": \"%.*s\", ", tmp_len, tmp);
+            } else { /* VALUE_JSON_COMPLEX */
+              entry_len = asprintf(&entry, 
+                                   "{ \"@LINE\": { "
                                    "\"start\": 0, "
                                    "\"end\": %d, "
                                    "\"value\": \"%.*s\" } }, ",
                                    tmp_len, tmp_len, tmp);
+            }
             substr_replace(&value, &value_len, &value_size, value_len, value_len,
                            entry, entry_len);
             free(entry);
@@ -216,13 +223,16 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
             substr_replace(&tmp, &tmp_len, &tmp_size, 0, tmp_len,
                            gm->subject + gm->start, gm->end - gm->start);
             filter_jsonencode(gm, &tmp, &tmp_len, &tmp_size);
-            //printf("> %.*s\n", tmp_len, tmp);
-            entry_len = asprintf(&entry, 
-                                 "{ \"@MATCH\": { "
+            if (patmacro->code == VALUE_JSON_SIMPLE) {
+              entry_len = asprintf(&entry, "\"@MATCH\": \"%.*s\", ", tmp_len, tmp);
+            } else { /* VALUE_JSON_COMPLEX */
+              entry_len = asprintf(&entry, 
+                                   "{ \"@MATCH\": { "
                                    "\"start\": %d, "
                                    "\"end\": %d, "
                                    "\"value\": \"%.*s\" } }, ",
                                    gm->start, gm->end, tmp_len, tmp);
+            }
             substr_replace(&value, &value_len, &value_size, value_len, value_len,
                            entry, entry_len);
             free(entry);
@@ -256,16 +266,22 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
               substr_replace(&tmp, &tmp_len, &tmp_size, 0, tmp_len,
                              pdata, pdata_len);
               filter_jsonencode(gm, &tmp, &tmp_len, &tmp_size);
-              entry_len = asprintf(&entry, 
-                               "{ \"%.*s\": { "
-                               "\"start\": %d, "
-                               "\"end\": %d, "
-                               "\"value\": \"%.*s\""
-                               " } }, ",
-                               pname_len, pname, 
-                               pdata - gm->subject, /*start*/
-                               (pdata - gm->subject) + pdata_len, /*end*/
-                               tmp_len, tmp);
+
+              if (patmacro->code == VALUE_JSON_SIMPLE) {
+                entry_len = asprintf(&entry, "\"%.*s\": \"%.*s\", ",
+                                     pname_len, pname, tmp_len, tmp);
+              } else { /* VALUE_JSON_COMPLEX */ 
+                entry_len = asprintf(&entry, 
+                                     "{ \"%.*s\": { "
+                                     "\"start\": %d, "
+                                     "\"end\": %d, "
+                                     "\"value\": \"%.*s\""
+                                     " } }, ",
+                                     pname_len, pname, 
+                                     pdata - gm->subject, /*start*/
+                                     (pdata - gm->subject) + pdata_len, /*end*/
+                                     tmp_len, tmp);
+              }
               substr_replace(&value, &value_len, &value_size,
                              value_offset, value_offset, entry, entry_len);
               value_offset += entry_len;
@@ -275,12 +291,18 @@ char *grok_matchconfig_filter_reaction(const char *str, grok_match_t *gm) {
             grok_match_walk_end(gm, handle);
 
             /* Insert the { at the beginning */
-            substr_replace(&value, &value_len, &value_size, 0, 0, 
-                           "{ \"grok\": [ ", 12);
-
-            /* Replace trailing ", " with " }" */
-            substr_replace(&value, &value_len, &value_size,
-                           value_len - 2, value_len, " ] }", 4);
+            /* And Replace trailing ", " with " }" */
+            if (patmacro->code == VALUE_JSON_SIMPLE) {
+              substr_replace(&value, &value_len, &value_size, 0, 0,
+                             "{ ", 2); 
+              substr_replace(&value, &value_len, &value_size,
+                             value_len - 2, value_len, " }", 2);
+            } else { /* VALUE_JSON_COMPLEX */
+              substr_replace(&value, &value_len, &value_size, 0, 0, 
+                             "{ \"grok\": [ ", 12);
+              substr_replace(&value, &value_len, &value_size,
+                             value_len - 2, value_len, " ] }", 4);
+            }
 
             char *old = value;
             grok_log(gm->grok, LOG_REACTION, "JSON intermediate: %.*s",
