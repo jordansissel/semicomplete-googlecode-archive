@@ -15,13 +15,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
+#include <errno.h>
 
 #define BUFSIZE 4096
 
 #define LOCKWRAP(code) { \
-  pthread_mutex_lock(&offsetlock); \
   code; \
-  pthread_mutex_unlock(&offsetlock); \
 }
 
 
@@ -35,7 +35,8 @@ void *Reader(void *data) {
   off64_t loff;
 
   while (bytes > 0) {
-    bytes = read(fd, buf, BUFSIZE);
+    //bytes = read(fd, buf, BUFSIZE);
+    bytes = write(fd, buf, BUFSIZE);
     LOCKWRAP( 
       if (bytes > 0)
         offset += bytes;
@@ -46,6 +47,9 @@ void *Reader(void *data) {
     );
 
   }
+
+  printf("%d\n", bytes);
+  perror("OK");
 
   pthread_exit(NULL);
 }
@@ -80,14 +84,14 @@ int main(int argc, char **argv) {
 
   /* Open the file with O_DIRECT will also fix the lseek64 weird behavior
    */
-  fd = open(file, O_RDONLY 
-    /* | O_DIRECT */
-  );
+  fd = open(file, O_WRONLY | O_CREAT);
+
+  perror("OK");
   pthread_create(&reader, NULL, Reader, NULL);
-  pthread_create(&statter, NULL, Statter, NULL);
+  //pthread_create(&statter, NULL, Statter, NULL);
 
   pthread_join(reader, NULL);
-  pthread_join(statter, NULL);
+  //pthread_join(statter, NULL);
 
   pthread_exit(NULL);
   return 0;

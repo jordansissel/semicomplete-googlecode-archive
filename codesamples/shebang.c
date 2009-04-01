@@ -1,3 +1,22 @@
+/* shebang helper.
+ *
+ * This tool lets you sanely execute things from the shebang line
+ * at the top of a script.
+ * 
+ * Problem solved by this program:
+ * This line won't work like you might expect:
+ *   #!/usr/bin/env scriptname arg1 arg2 ...
+ *
+ * When executed, this will run this:
+ *   /usr/bin/env "scriptname arg1 arg2 ..."
+ *
+ * This is likely not what you wanted, you wanted:
+ *   /usr/bin/env "scriptname" "arg1" "arg2" ...
+ *
+ * If you use this program, it'll work as expected:
+ *   #!/usr/bin/shebang scriptname arg1 arg2
+ */
+
 #include <stdio.h>
 #include <unistd.h>
 
