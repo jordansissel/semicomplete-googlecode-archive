@@ -1,0 +1,7 @@
+#include <stdio.h>
+
+override(`socket', `
+  {
+    printf("socket called\n");
+  }
+')

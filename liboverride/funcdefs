@@ -29,9 +29,11 @@ define(`override_header', `
 
 
 # Function prototypes
+define(`main_proto',`int main(int argc, char **argv)')
 define(`malloc_proto',`void *malloc(size_t size)')
 define(`bind_proto',`int bind(int s, const struct sockaddr *addr, socklen_t addrlen)')
 define(`connect_proto',`int connect(int s, const struct sockaddr *name, socklen_t namelen)')
+define(`socket_proto',`int socket(int domain, int type, int protocol)')
 define(`listen_proto', `int listen(int s, int backlog)')
 define(`open_proto',`int open(const char *path, int flags, ...)')
 define(`getpwnam_proto', `struct passwd *getpwnam(const char *name)')
@@ -55,6 +57,7 @@ define(`getpwnam_includes', `
 ')
 define(`bind_includes', `network_includes')
 define(`connect_includes', `network_includes')
+define(`socket_includes', `network_includes')
 define(`listen_includes', `network_includes')
 define(`network_includes', `
 #include <sys/types.h>
@@ -88,6 +91,7 @@ define(`libc_library', `/lib/libc.so.6')
 define(`malloc_library', `libc_library')
 define(`open_library', `libc_library')
 define(`connect_library', `libc_library')
+define(`socket_library', `libc_library')
 define(`listen_library', `libc_library')
 define(`bind_library', `libc_library')
 define(`getpwnam_library', `libc_library')
