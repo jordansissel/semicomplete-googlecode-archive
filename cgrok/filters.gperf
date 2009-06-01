@@ -41,7 +41,7 @@ int filter_jsonencode(grok_match_t *gm, char **value, int *value_len,
    *
    * Some validators will pass non-escaped forward slashes (solidus) but
    * we'll escape it anyway. */
-  string_escape(value, value_len, value_size, "\"\\/", 3, ESCAPE_LIKE_C);
+  string_escape(value, value_len, value_size, "\\\"/", 3, ESCAPE_LIKE_C);
   string_escape(value, value_len, value_size, "", 0,
                 ESCAPE_NONPRINTABLE | ESCAPE_UNICODE);
   return 0;
