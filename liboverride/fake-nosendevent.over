@@ -1,8 +1,21 @@
 #include <stdio.h>
+#include <X11/Xlib.h>
+
+void hack_send_event(XEvent *ev) {
+  switch (ev->type) {
+    case KeyPress:
+    case KeyRelease:
+    case ButtonPress:
+    case ButtonRelease:
+      ev->xany.send_event = False;
+      break;
+  }
+}
+
 override(`XNextEvent', `
   {
     real_func(display, event_return);
-    event_return->xany.send_event = False;
+    hack_send_event(event_return);
     return;
   }
 ')
@@ -10,7 +23,7 @@ override(`XNextEvent', `
 override(`XPeekEvent', `
   {
     real_func(display, event_return);
-    event_return->xany.send_event = False;
+    hack_send_event(event_return);
     return;
   }
 ')
