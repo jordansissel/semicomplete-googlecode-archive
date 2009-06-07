@@ -49,6 +49,8 @@ define(`XGrabKey_proto', `int XGrabKey(Display* display, int keycode, unsigned i
 define(`XGrabKeyboard_proto', `int XGrabKeyboard(Display* display, Window grab_window, Bool owner_events, int pointer_mode, int keyboard_mode, Time time)')
 define(`XUngrabKey_proto', `int XUngrabKey(Display* display, int keycode, unsigned int modifiers, Window grab_window)')
 define(`XUngrabKeyboard_proto', `int XUngrabKeyboard(Display* display, Time time)')
+define(`XNextEvent_proto', `int XNextEvent(Display *display, XEvent *event_return)')
+define(`XPeekEvent_proto', `int XPeekEvent(Display *display, XEvent *event_return)')
 
 # Function includes
 define(`getpwnam_includes', `
@@ -82,6 +84,8 @@ define(`XGrabKey_includes', `Xlib_includes')
 define(`XGrabKeyboard_includes', `Xlib_includes')
 define(`XUngrabKey_includes', `Xlib_includes')
 define(`XUngrabKeyboard_includes', `Xlib_includes')
+define(`XNextEvent_includes', `Xlib_includes')
+define(`XPeekEvent_includes', `Xlib_includes')
 define(`Xlib_includes', `
 #include <X11/Xlib.h>
 ')
@@ -99,6 +103,8 @@ define(`XTestFakeButtonEvent_library', `/usr/lib/libXtst.so')
 define(`XGrabKey_library', `/usr/lib/libX11.so')
 define(`XGrabKeyboard_library', `/usr/lib/libX11.so')
 define(`XUngrabKey_library', `/usr/lib/libX11.so')
+define(`XNextEvent_library', `/usr/lib/libX11.so')
+define(`XPeekEvent_library', `/usr/lib/libX11.so')
 define(`XUngrabKeyboard_library', `/usr/lib/libX11.so')
 define(`XGrabServer_library', `/usr/local/lib/libX11.so')
 define(`XUngrabServer_library', `/usr/local/lib/libX11.so')

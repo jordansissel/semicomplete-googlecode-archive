@@ -1,0 +1,16 @@
+#include <stdio.h>
+override(`XNextEvent', `
+  {
+    real_func(display, event_return);
+    event_return->xany.send_event = False;
+    return;
+  }
+')
+
+override(`XPeekEvent', `
+  {
+    real_func(display, event_return);
+    event_return->xany.send_event = False;
+    return;
+  }
+')
